@@ -19,6 +19,8 @@ type OverviewNode struct {
 	Status    string     `json:"status"`
 	LatencyMS *int64     `json:"latency_ms"`
 	Country   string     `json:"country,omitempty"`
+	CountrySource string `json:"country_source,omitempty"`
+	LocationApproximate bool `json:"location_approximate,omitempty"`
 	Lat       *float64   `json:"lat,omitempty"`
 	Lon       *float64   `json:"lon,omitempty"`
 	LastSeen  *time.Time `json:"last_seen,omitempty"`
@@ -181,6 +183,8 @@ func (s *Server) Overview(now time.Time, window time.Duration) Overview {
 	for _, n := range s.store.ListNodes() {
 		m := monitor[n.ID]
 		on := OverviewNode{ID: n.ID, Alias: n.Alias, Role: n.Role, Status: m.Status, Country: n.Country, Revoked: n.Revoked, Spark: []int64{}}
+		on.CountrySource=n.CountrySource
+		if on.CountrySource==""&&n.Country!=""{on.CountrySource="manual"}
 		if on.Status == "" || n.Revoked {
 			on.Status = "unknown"
 			if n.Revoked {
@@ -190,6 +194,7 @@ func (s *Server) Overview(now time.Time, window time.Duration) Overview {
 		if p, ok := countryPoints[n.Country]; ok {
 			lat, lon := p.Lat, p.Lon
 			on.Lat, on.Lon = &lat, &lon
+			on.LocationApproximate=true
 		}
 		if !m.LastSeen.IsZero() {
 			t := m.LastSeen

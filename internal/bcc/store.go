@@ -823,8 +823,11 @@ func (s *Store) MonitoringSnapshot(now time.Time,staleAfter time.Duration) []Mon
 	out:=make([]MonitoringNode,0,len(s.st.Nodes))
 	for id,n:=range s.st.Nodes{
 		cur,hasTelemetry:=s.st.Telemetry[id]
+		// The TCP health probe alone is enough to call a node up or down:
+		// a node whose agent has not sent telemetry yet is still online.
 		status:="unknown"
 		if n.Health=="down"{status="down"}
+		if n.Health=="up"{status="up"}
 		if hasTelemetry {
 			if now.Sub(cur.LastTelemetry)>=staleAfter { status="down" } else if n.Health!="down" { status="up" }
 		}

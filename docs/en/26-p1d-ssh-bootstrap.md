@@ -33,7 +33,7 @@ BCC then creates the node, generates a fresh agent token, connects with the pinn
 
 | Rule | How |
 |---|---|
-| No trust on first use | Bootstrap refuses without a `SHA256:` fingerprint, and aborts before authentication if the server presents another key. |
+| Pinned host key | The API refuses without a `SHA256:` fingerprint, and aborts before authentication if the server presents another key. The dashboard form (Connect and install) reads the key, pins it for the install request and shows it in the result: this is trust on first use, chosen so an ordinary operator only enters SSH details. Operators who want to compare the fingerprint first can call the two API steps above. |
 | Credentials only in memory | Password / key / passphrase exist only for the request. They are not written to state, audit log, backups or logs, and they are redacted from any error or output. |
 | Nothing secret on the command line | The remote command is `bash -s`; the agent token and BCC job key travel on the script's stdin as exported variables. |
 | No clear-text credentials | The request is refused unless it arrives over TLS or from a loopback peer (reverse proxy / tunnel). |
@@ -49,4 +49,4 @@ The install script that runs on the server is the file given by `--install-scrip
 
 ## Not yet
 
-Traffic-level checks beyond "the agent runs a signed job". The dashboard has the form (Add a server over SSH); the real-sshd run is `tests/e2e/ssh_bootstrap.sh`.
+Traffic-level checks beyond "the agent runs a signed job". The dashboard has the one-step form (Add a server over SSH → Connect and install); the real-sshd run is `tests/e2e/ssh_bootstrap.sh`.

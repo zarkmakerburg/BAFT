@@ -106,8 +106,234 @@ cleanup(){
 }
 trap cleanup EXIT
 
-log(){ printf '[baft-install] %s\n' "$*" >&2; }
-die(){ log "ERROR: $*"; exit 1; }
+# ---------------------------------------------------------------------------
+# Terminal output.
+#
+# On a colour, UTF-8 terminal the installer draws the BAFT mark, numbered
+# phases, tables and status marks. Anywhere else (a pipe, a log file, the
+# EX reading an IR install over SSH, NO_COLOR, TERM=dumb, a non-UTF-8 locale)
+# it prints the plain "[baft-install] ..." lines that logs and tests read.
+# The words are the same in both; only the decoration differs.
+# ---------------------------------------------------------------------------
+ui_capable() { # FD
+  [[ -z "${NO_COLOR:-}" && "${TERM:-dumb}" != "dumb" && -t "$1" ]] || return 1
+  case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in *[Uu][Tt][Ff]-8* | *[Uu][Tt][Ff]8*) return 0 ;; esac
+  [[ "$(locale charmap 2>/dev/null || true)" == "UTF-8" ]]
+}
+UI=0; UI_OUT=0
+ui_capable 2 && UI=1
+ui_capable 1 && UI_OUT=1
+S_R="" S_B="" S_U="" S_GOLD="" S_OK="" S_WARN="" S_ERR="" S_INFO="" S_MUTE=""
+if [[ "$UI" == 1 || "$UI_OUT" == 1 ]]; then
+  S_R=$'\e[0m' S_B=$'\e[1m' S_U=$'\e[4m'
+  S_GOLD=$'\e[38;5;179m' S_OK=$'\e[38;5;78m' S_WARN=$'\e[38;5;214m' S_ERR=$'\e[38;5;203m'
+  S_INFO=$'\e[38;5;110m' S_MUTE=$'\e[38;5;245m'
+fi
+
+log()  { if [[ "$UI" == 1 ]]; then printf '  %s•%s %s\n' "$S_MUTE" "$S_R" "$*" >&2; else printf '[baft-install] %s\n' "$*" >&2; fi; }
+ok()   { if [[ "$UI" == 1 ]]; then printf '  %s✔%s %s\n' "$S_OK$S_B" "$S_R" "$*" >&2; else log "$*"; fi; }
+warn() { if [[ "$UI" == 1 ]]; then printf '  %s▲ %s%s\n' "$S_WARN$S_B" "$*" "$S_R" >&2; else log "$*"; fi; }
+die() {
+  if [[ "$UI" == 1 ]]; then printf '\n  %s✖ ERROR%s  %s%s%s\n\n' "$S_ERR$S_B" "$S_R" "$S_B" "$*" "$S_R" >&2
+  else log "ERROR: $*"; fi
+  exit 1
+}
+
+# phase TITLE [NOTE]: a numbered, underlined heading for each stage of a run.
+UI_PHASE=0
+phase() {
+  [[ "$UI" == 1 ]] || return 0
+  UI_PHASE=$((UI_PHASE + 1))
+  printf '\n  %s%02d%s  %s%s%s' "$S_GOLD$S_B" "$UI_PHASE" "$S_R" "$S_B$S_U" "$1" "$S_R" >&2
+  [[ -z "${2:-}" ]] || printf '   %s%s%s' "$S_MUTE" "$2" "$S_R" >&2
+  printf '\n\n' >&2
+}
+
+# kv KEY VALUE: one aligned fact line under a phase (terminal only).
+kv() { [[ "$UI" == 1 ]] || return 0; printf '     %s%-13s%s %s\n' "$S_MUTE" "$1" "$S_R" "$2" >&2; }
+
+# ui_ask_prompt TEXT [HINT]: the prompt string for ask, styled on a terminal.
+ui_ask_prompt() {
+  if [[ "$UI" == 1 ]]; then printf '  %s?%s %s%s ' "$S_GOLD$S_B" "$S_R" "$1" "${2:+ $S_MUTE$2$S_R}"
+  else printf '%s%s ' "$1" "${2:+ $2}"; fi
+}
+
+# ui_choice N LABEL DETAIL: one numbered option of a question.
+ui_choice() {
+  if [[ "$UI" == 1 ]]; then printf '    %s%s%s  %s%-14s%s %s%s%s\n' "$S_GOLD$S_B" "$1" "$S_R" "$S_B" "$2" "$S_R" "$S_MUTE" "$3" "$S_R" >&2
+  else printf '  %s) %s - %s\n' "$1" "$2" "$3" >&2; fi
+}
+
+ui_cols() {
+  local c="${COLUMNS:-}"
+  [[ "$c" =~ ^[0-9]+$ ]] || c="$(stty size 2>/dev/null <&2 | awk '{print $2}' || true)"
+  [[ "$c" =~ ^[0-9]+$ && "$c" -gt 0 ]] || c=100
+  ((c > 132)) && c=132
+  ((c < 64)) && c=64
+  printf '%s' "$c"
+}
+
+# ui_rule LEFT MID RIGHT WIDTH...: one horizontal line of a box table.
+ui_rule() {
+  local l="$1" m="$2" r="$3" out="" w i
+  shift 3
+  for ((i = 1; i <= $#; i++)); do
+    w="${!i}"
+    out+="$(printf '%*s' "$((w + 2))" '' | sed 's/ /─/g')"
+    ((i < $#)) && out+="$m"
+  done
+  printf '  %s%s%s%s%s\n' "$S_MUTE" "$l" "$out" "$r" "$S_R" >&2
+}
+
+# ui_table "H1|H2|H3" "a|b|c"...: a box table on stderr. The last column wraps
+# to the terminal width; a cell may start with @ok/@warn/@err/@mute/@info to
+# colour it.
+ui_table() {
+  local header="$1" row cell n i j w style text pad lines max
+  shift
+  local -a heads widths cells
+  IFS='|' read -r -a heads <<<"$header"
+  n=${#heads[@]}
+  for ((i = 0; i < n; i++)); do widths[i]=${#heads[i]}; done
+  for row in "$@"; do
+    IFS='|' read -r -a cells <<<"$row"
+    for ((i = 0; i < n - 1; i++)); do
+      text="${cells[i]:-}"; text="${text#@*:}"
+      ((${#text} > widths[i])) && widths[i]=${#text}
+    done
+  done
+  local used=0
+  for ((i = 0; i < n - 1; i++)); do used=$((used + widths[i] + 3)); done
+  max=$(($(ui_cols) - used - 6))
+  ((max < 20)) && max=20
+  widths[n - 1]=$max
+  local longest=${#heads[n - 1]}
+  for row in "$@"; do
+    IFS='|' read -r -a cells <<<"$row"
+    text="${cells[n - 1]:-}"; text="${text#@*:}"
+    ((${#text} > longest)) && longest=${#text}
+  done
+  ((longest < max)) && widths[n - 1]=$longest
+  ui_rule '┌' '┬' '┐' "${widths[@]}"
+  local line="" v="$S_MUTE│$S_R"
+  for ((i = 0; i < n; i++)); do line+="$v $S_B$(printf '%-*s' "${widths[i]}" "${heads[i]}")$S_R "; done
+  printf '  %s%s\n' "$line" "$v" >&2
+  ui_rule '├' '┼' '┤' "${widths[@]}"
+  for row in "$@"; do
+    IFS='|' read -r -a cells <<<"$row"
+    local -a wrapped=()
+    text="${cells[n - 1]:-}"
+    mapfile -t wrapped < <(printf '%s\n' "$text" | fold -s -w "${widths[n - 1]}" | sed 's/ *$//')
+    lines=${#wrapped[@]}
+    ((lines < 1)) && lines=1
+    for ((j = 0; j < lines; j++)); do
+      line=""
+      for ((i = 0; i < n; i++)); do
+        if ((i == n - 1)); then text="${wrapped[j]:-}"; elif ((j == 0)); then text="${cells[i]:-}"; else text=""; fi
+        style=""
+        case "$text" in
+          @ok:*) style="$S_OK"; text="${text#@ok:}" ;;
+          @warn:*) style="$S_WARN"; text="${text#@warn:}" ;;
+          @err:*) style="$S_ERR$S_B"; text="${text#@err:}" ;;
+          @mute:*) style="$S_MUTE"; text="${text#@mute:}" ;;
+          @info:*) style="$S_INFO"; text="${text#@info:}" ;;
+        esac
+        pad="$(printf '%-*s' "${widths[i]}" "$text")"
+        line+="$v $style$pad$S_R "
+      done
+      printf '  %s%s\n' "$line" "$v" >&2
+    done
+  done
+  ui_rule '└' '┴' '┘' "${widths[@]}"
+}
+
+# The BAFT mark as a palette and a pixel grid ('.' shows the terminal
+# background). Two pixel rows share one character cell (▀ / ▄).
+# >>> logo (generated by scripts/install-logo.py; do not edit by hand)
+LOGO_RGB=('247;217;117' '218;170;78' '200;144;57' '182;115;47' '132;88;47' '74;50;46' '44;44;45' '44;44;44')
+LOGO_256=(222 179 173 130 94 237 236 236)
+LOGO_ROWS=(
+  '...................'
+  '....dc.............'
+  '....dd.............'
+  '...................'
+  '...................'
+  '.ehfffhhhgff.......'
+  'dcfhhfhhhggfeb.....'
+  'ecbchhhhhhgggeb....'
+  'deebbfhhhhhggheb...'
+  'cbdcba....hhhhhc...'
+  '.dedbba....hhhhdb..'
+  '.dcdceecc...hhhbb..'
+  '...cdbdcd...hhfcb..'
+  '....dededd..hhbda..'
+  '.d....ddeee.fcadc..'
+  '.......hfffcaadec..'
+  '........hecaddeb...'
+  '.......babaeedcd...'
+  '..dd.abacdeebe.....'
+  '...dabcdfdeef..d...'
+  '..bbcedecehhhg.e...'
+  '.cbdedcehhhhgffc...'
+  '.beddcdhhhhhhhgfb..'
+  'bdecd.....hhhhhhfb.'
+  'ddcd.......hhhhhhb.'
+  'dcef........hhhhhbb'
+  'cdhf.c.......hhhead'
+  'cfhffe.......hhfbbd'
+  'cfhfh........hfaddb'
+  '.ehfgh.......badecd'
+  '.dhhhgh..bbbcceece.'
+  '..eehhgheecdeeede..'
+  '...chhhhhhhhffffe..'
+  '....fhhhhhhhhhhe...'
+  '......fhhhhhfe.....'
+  '...................'
+)
+# <<< logo
+
+show_logo() {
+  if [[ "$UI" != 1 ]]; then
+    printf 'BAFT transport installer\n' >&2
+    return 0
+  fi
+  local y x t b k row i
+  local -A fg=() bg=()
+  local keys="abcdefgh"
+  for ((i = 0; i < ${#LOGO_RGB[@]}; i++)); do
+    k="${keys:i:1}"
+    case "${COLORTERM:-}" in
+      truecolor | 24bit) fg[$k]="38;2;${LOGO_RGB[i]}" bg[$k]="48;2;${LOGO_RGB[i]}" ;;
+      *) fg[$k]="38;5;${LOGO_256[i]}" bg[$k]="48;5;${LOGO_256[i]}" ;;
+    esac
+  done
+  local -a side=(
+    "" "" "" "" "" ""
+    "$S_GOLD${S_B}B   A   F   T$S_R"
+    "${S_MUTE}resilient multi-path transport$S_R"
+    ""
+    "${S_B}${S_U}installer$S_R"
+    "${S_MUTE}inspect  ›  plan  ›  apply  ›  verify$S_R"
+    "${S_MUTE}every change is listed first and undone on failure$S_R"
+  )
+  printf '\n' >&2
+  for ((y = 0; y < ${#LOGO_ROWS[@]}; y += 2)); do
+    t="${LOGO_ROWS[y]}" b="${LOGO_ROWS[y + 1]:-}"
+    row="  "
+    for ((x = 0; x < ${#t}; x++)); do
+      local up="${t:x:1}" down="${b:x:1}"
+      [[ -n "$down" ]] || down="."
+      if [[ "$up" == "." && "$down" == "." ]]; then row+=" "
+      elif [[ "$down" == "." ]]; then row+=$'\e['"${fg[$up]}m▀"$'\e[0m'
+      elif [[ "$up" == "." ]]; then row+=$'\e['"${fg[$down]}m▄"$'\e[0m'
+      else row+=$'\e['"${fg[$up]};${bg[$down]}m▀"$'\e[0m'
+      fi
+    done
+    printf '%s     %s\n' "$row" "${side[y / 2]:-}" >&2
+  done
+  printf '\n' >&2
+}
+
 need_root(){ [[ "${EUID}" -eq 0 ]] || die "run as root"; }
 
 # P0-FIELD-A: fail before APPLY if the service identity cannot traverse the
@@ -198,41 +424,6 @@ preflight_service_paths() {
       preflight_user_access x "$BAFT_BIN" 2>/dev/null ||
         preflight_fail "$BAFT_BIN" "execute"
     fi
-  fi
-}
-
-# show_logo prints the BAFT mark in 256-colour block art on a colour
-# terminal, and a plain title otherwise (pipes, logs, NO_COLOR, TERM=dumb).
-show_logo() {
-  if [[ -t 2 && -z "${NO_COLOR:-}" && "${TERM:-dumb}" != "dumb" ]]; then
-    local line
-    while IFS= read -r line; do printf '  %b\n' "$line" >&2; done <<'LOGO'
-\033[0m           \033[0;38;5;130m▀\033[0;38;5;136m▀\033[0m                   \033[0m
-\033[0m                                \033[0m
-\033[0m      \033[0;38;5;173m▄\033[38;5;94;48;5;94m▀\033[38;5;58;48;5;240m▀▀▀\033[38;5;58;48;5;58m▀\033[38;5;240;48;5;240m▀\033[38;5;238;48;5;238m▀\033[38;5;240;48;5;240m▀▀▀▀\033[38;5;59;48;5;59m▀\033[0;38;5;59m▄▄\033[0m           \033[0m
-\033[0m      \033[38;5;172;48;5;136m▀\033[38;5;173;48;5;172m▀\033[38;5;95;48;5;179m▀\033[38;5;240;48;5;180m▀\033[38;5;238;48;5;238m▀\033[38;5;58;48;5;240m▀\033[38;5;240;48;5;240m▀\033[38;5;238;48;5;238m▀\033[38;5;240;48;5;238m▀▀▀\033[38;5;240;48;5;240m▀▀\033[38;5;59;48;5;240m▀▀\033[38;5;59;48;5;59m▀\033[38;5;101;48;5;59m▀\033[0;38;5;137m▄\033[0m        \033[0m
-\033[0m     \033[0;38;5;130m▀\033[38;5;94;48;5;215m▀\033[38;5;94;48;5;137m▀\033[38;5;130;48;5;94m▀\033[38;5;180;48;5;130m▀\033[38;5;188;48;5;137m▀\033[38;5;95;48;5;222m▀\033[38;5;238;48;5;179m▀\033[0;38;5;238m▀▀▀\033[38;5;238;48;5;238m▀▀▀\033[38;5;240;48;5;238m▀\033[38;5;240;48;5;240m▀▀▀▀\033[38;5;137;48;5;240m▀\033[0;38;5;179m▄\033[0m      \033[0m
-\033[0m      \033[0;38;5;136m▀\033[38;5;215;48;5;130m▀\033[38;5;172;48;5;94m▀\033[38;5;179;48;5;94m▀\033[38;5;180;48;5;173m▀\033[38;5;179;48;5;173m▀\033[38;5;222;48;5;173m▀\033[38;5;179;48;5;229m▀\033[0;38;5;215m▄\033[0m   \033[0;38;5;238m▀▀\033[38;5;238;48;5;238m▀\033[38;5;240;48;5;238m▀▀▀\033[38;5;238;48;5;238m▀\033[38;5;137;48;5;136m▀\033[38;5;221;48;5;215m▀\033[0m     \033[0m
-\033[0m       \033[0;38;5;172m▀\033[38;5;179;48;5;179m▀\033[38;5;94;48;5;179m▀\033[38;5;94;48;5;136m▀\033[38;5;137;48;5;179m▀\033[38;5;58;48;5;223m▀\033[38;5;94;48;5;136m▀\033[38;5;136;48;5;137m▀\033[38;5;173;48;5;137m▀\033[0;38;5;130m▄\033[0m   \033[0;38;5;238m▀\033[38;5;238;48;5;238m▀▀▀▀\033[38;5;180;48;5;179m▀\033[38;5;179;48;5;179m▀\033[38;5;172;48;5;173m▀\033[0m    \033[0m
-\033[0m          \033[0;38;5;130m▀\033[38;5;130;48;5;172m▀\033[38;5;130;48;5;130m▀\033[38;5;130;48;5;136m▀\033[38;5;94;48;5;94m▀\033[38;5;179;48;5;58m▀\033[38;5;130;48;5;130m▀\033[38;5;94;48;5;136m▀\033[0;38;5;130m▄\033[0m  \033[38;5;238;48;5;238m▀▀\033[38;5;238;48;5;101m▀\033[38;5;143;48;5;222m▀\033[38;5;136;48;5;94m▀\033[38;5;179;48;5;222m▀\033[38;5;179;48;5;179m▀\033[0m    \033[0m
-\033[0m      \033[38;5;172;48;5;130m▀\033[38;5;136;48;5;94m▀\033[0m     \033[0;38;5;136m▀\033[38;5;172;48;5;240m▀\033[38;5;130;48;5;58m▀\033[38;5;94;48;5;94m▀▀\033[38;5;94;48;5;240m▀\033[0;38;5;240m▄\033[0m \033[38;5;240;48;5;186m▀\033[38;5;94;48;5;173m▀\033[38;5;222;48;5;223m▀\033[38;5;180;48;5;137m▀\033[38;5;137;48;5;94m▀\033[38;5;179;48;5;136m▀\033[0;38;5;130m▀\033[0m    \033[0m
-\033[0m               \033[0;38;5;238m▀\033[38;5;238;48;5;240m▀\033[38;5;238;48;5;137m▀\033[38;5;58;48;5;173m▀\033[38;5;94;48;5;229m▀\033[38;5;229;48;5;180m▀\033[38;5;173;48;5;94m▀\033[38;5;179;48;5;130m▀\033[38;5;137;48;5;94m▀\033[38;5;240;48;5;137m▀\033[38;5;179;48;5;179m▀\033[0;38;5;172m▀\033[0m     \033[0m
-\033[0m       \033[0;38;5;136m▄\033[0;38;5;172m▄\033[0;38;5;136m▄\033[0m   \033[0;38;5;185m▄\033[0;38;5;179m▄\033[38;5;179;48;5;229m▀\033[38;5;223;48;5;137m▀\033[38;5;173;48;5;130m▀\033[38;5;179;48;5;172m▀\033[38;5;179;48;5;58m▀\033[38;5;58;48;5;94m▀\033[38;5;94;48;5;215m▀\033[38;5;179;48;5;130m▀\033[38;5;130;48;5;130m▀\033[0;38;5;172m▀\033[0;38;5;130m▀\033[0m      \033[0m
-\033[0m        \033[0;38;5;94m▀\033[0;38;5;179m▄▄\033[38;5;215;48;5;222m▀\033[38;5;222;48;5;130m▀\033[38;5;173;48;5;130m▀\033[38;5;221;48;5;130m▀\033[38;5;137;48;5;240m▀\033[38;5;240;48;5;130m▀\033[38;5;136;48;5;172m▀\033[38;5;94;48;5;94m▀▀\033[38;5;172;48;5;238m▀\033[38;5;94;48;5;238m▀\033[0;38;5;94m▀\033[0m  \033[38;5;179;48;5;94m▀\033[0m      \033[0m
-\033[0m       \033[0;38;5;172m▄\033[38;5;179;48;5;179m▀\033[38;5;179;48;5;136m▀\033[38;5;179;48;5;130m▀\033[38;5;94;48;5;52m▀\033[38;5;240;48;5;130m▀\033[38;5;136;48;5;172m▀\033[38;5;94;48;5;130m▀\033[38;5;130;48;5;94m▀\033[38;5;172;48;5;238m▀\033[38;5;240;48;5;238m▀\033[38;5;238;48;5;238m▀\033[38;5;238;48;5;240m▀▀\033[38;5;240;48;5;240m▀\033[38;5;240;48;5;59m▀\033[38;5;59;48;5;59m▀\033[38;5;143;48;5;59m▀\033[0;38;5;137m▄\033[0m      \033[0m
-\033[0m      \033[0;38;5;179m▄\033[38;5;215;48;5;136m▀\033[38;5;94;48;5;240m▀\033[38;5;94;48;5;173m▀\033[38;5;137;48;5;130m▀\033[38;5;130;48;5;172m▀\033[38;5;215;48;5;172m▀\033[0;38;5;136m▀\033[0;38;5;58m▀\033[0;38;5;238m▀▀\033[38;5;238;48;5;238m▀▀▀\033[38;5;240;48;5;238m▀\033[38;5;240;48;5;240m▀\033[38;5;240;48;5;238m▀\033[38;5;240;48;5;240m▀▀▀\033[38;5;179;48;5;58m▀\033[0;38;5;179m▄\033[0m    \033[0m
-\033[0m     \033[0;38;5;173m▄\033[38;5;173;48;5;130m▀\033[38;5;94;48;5;137m▀\033[38;5;136;48;5;172m▀\033[38;5;215;48;5;172m▀\033[38;5;130;48;5;238m▀\033[0;38;5;130m▀\033[0m       \033[0;38;5;238m▀\033[38;5;238;48;5;238m▀▀▀▀▀\033[38;5;240;48;5;238m▀\033[38;5;238;48;5;238m▀\033[38;5;137;48;5;58m▀\033[38;5;215;48;5;222m▀\033[0m   \033[0m
-\033[0m     \033[38;5;130;48;5;136m▀\033[38;5;137;48;5;173m▀\033[38;5;172;48;5;173m▀\033[38;5;94;48;5;238m▀\033[38;5;240;48;5;58m▀\033[0m  \033[0;38;5;179m▄\033[0m        \033[0;38;5;238m▀\033[38;5;238;48;5;238m▀▀▀▀▀\033[38;5;94;48;5;180m▀\033[38;5;222;48;5;179m▀\033[38;5;179;48;5;172m▀\033[0m  \033[0m
-\033[0m     \033[38;5;173;48;5;179m▀\033[38;5;136;48;5;172m▀\033[38;5;94;48;5;238m▀\033[38;5;238;48;5;238m▀\033[38;5;58;48;5;58m▀\033[38;5;59;48;5;58m▀\033[0;38;5;94m▀\033[0;38;5;136m▀\033[0m          \033[38;5;238;48;5;238m▀▀\033[38;5;238;48;5;95m▀\033[38;5;94;48;5;173m▀\033[38;5;215;48;5;179m▀\033[38;5;173;48;5;136m▀\033[38;5;136;48;5;179m▀\033[0m  \033[0m
-\033[0m      \033[38;5;172;48;5;172m▀\033[38;5;240;48;5;240m▀\033[38;5;238;48;5;238m▀\033[38;5;58;48;5;58m▀\033[38;5;58;48;5;59m▀\033[38;5;240;48;5;240m▀\033[0;38;5;59m▄\033[0m         \033[0;38;5;179m▄\033[38;5;238;48;5;137m▀\033[38;5;94;48;5;222m▀\033[38;5;222;48;5;137m▀\033[38;5;137;48;5;94m▀\033[38;5;130;48;5;130m▀\033[38;5;137;48;5;179m▀\033[38;5;179;48;5;130m▀\033[0m  \033[0m
-\033[0m       \033[38;5;130;48;5;130m▀\033[38;5;238;48;5;240m▀\033[38;5;58;48;5;240m▀▀\033[38;5;59;48;5;238m▀\033[38;5;240;48;5;59m▀\033[38;5;59;48;5;240m▀\033[0;38;5;58m▄\033[0;38;5;130m▄\033[0;38;5;172m▄\033[0;38;5;179m▄▄▄\033[38;5;172;48;5;215m▀\033[38;5;221;48;5;94m▀\033[38;5;179;48;5;94m▀\033[38;5;179;48;5;130m▀\033[38;5;137;48;5;240m▀\033[38;5;240;48;5;137m▀\033[38;5;137;48;5;173m▀\033[38;5;137;48;5;130m▀\033[0;38;5;130m▀\033[0m   \033[0m
-\033[0m        \033[0;38;5;94m▀\033[38;5;137;48;5;172m▀\033[38;5;95;48;5;94m▀\033[38;5;238;48;5;238m▀\033[38;5;240;48;5;238m▀\033[38;5;59;48;5;238m▀\033[38;5;240;48;5;240m▀\033[38;5;238;48;5;240m▀\033[38;5;58;48;5;238m▀▀\033[38;5;94;48;5;238m▀\033[38;5;136;48;5;238m▀\033[38;5;58;48;5;240m▀\033[38;5;94;48;5;58m▀\033[38;5;130;48;5;58m▀\033[38;5;94;48;5;240m▀\033[38;5;94;48;5;58m▀\033[38;5;136;48;5;240m▀\033[38;5;58;48;5;94m▀\033[0;38;5;130m▀\033[0m    \033[0m
-\033[0m          \033[0;38;5;94m▀\033[0;38;5;240m▀\033[38;5;238;48;5;58m▀\033[38;5;238;48;5;238m▀▀▀\033[38;5;240;48;5;238m▀▀\033[38;5;238;48;5;238m▀▀▀▀\033[38;5;238;48;5;240m▀\033[38;5;238;48;5;58m▀\033[38;5;238;48;5;136m▀\033[0;38;5;94m▀\033[0m      \033[0m
-\033[0m              \033[0;38;5;58m▀\033[0;38;5;240m▀\033[0;38;5;238m▀▀▀\033[0;38;5;240m▀▀\033[0;38;5;58m▀\033[0m          \033[0m
-LOGO
-    printf '\n  \033[1;38;5;179mB  A  F  T\033[0m  \033[38;5;245mtransport installer\033[0m\n\n' >&2
-  else
-    printf 'BAFT transport installer\n' >&2
   fi
 }
 
@@ -747,6 +938,33 @@ show_plan() {
     return
   fi
   local i
+  if [[ "$UI" == 1 ]]; then
+    local state_style="$S_INFO"
+    case "$STATE" in
+      CURRENT | ALREADY_INSTALLED) state_style="$S_OK" ;;
+      BROKEN_INSTALL | REPAIR_REQUIRED) state_style="$S_ERR" ;;
+      UPGRADE_AVAILABLE | PARTIAL_INSTALL) state_style="$S_WARN" ;;
+    esac
+    kv "install state" "$state_style$S_B$STATE$S_R  $S_MUTE$STATE_WHY$S_R"
+    printf '\n' >&2
+    local -a rows=()
+    local act mark kept=0
+    for i in "${!PLAN_ITEM[@]}"; do
+      act="${PLAN_ACT[$i]}"
+      case "$act" in
+        keep | skip) mark="@mute:= $act"; kept=$((kept + 1)) ;;
+        create | enable | start) mark="@ok:+ $act" ;;
+        update | replace | restart) mark="@warn:~ $act" ;;
+        refuse) mark="@err:x $act" ;;
+        *) mark="@info:> $act" ;;
+      esac
+      rows+=("${PLAN_ITEM[$i]}|$mark|${PLAN_DETAIL[$i]//|//}")
+    done
+    ui_table "Item|Action|Detail" "${rows[@]}"
+    if [[ "$PLAN_CHANGES" == 0 ]]; then printf '\n' >&2; ok "nothing to change"
+    else printf '\n     %s%d to change%s %s· %d kept as they are%s\n' "$S_B" "$PLAN_CHANGES" "$S_R" "$S_MUTE" "$kept" "$S_R" >&2; fi
+    return 0
+  fi
   log "install state: $STATE ($STATE_WHY)"
   log "plan:"
   for i in "${!PLAN_ITEM[@]}"; do
@@ -762,11 +980,12 @@ confirm_plan() {
   [[ "$ASSUME_YES" == "1" ]] && return 0
   if [[ "$ASK_TTY" == 1 ]]; then
     local a=""
-    ask a "[baft-install] Apply this plan? [y/N] " || true
+    if [[ "$UI" == 1 ]]; then ask a "$(printf '\n'; ui_ask_prompt "Apply this plan?" "[y/N]")" || true
+    else ask a "[baft-install] Apply this plan? [y/N] " || true; fi
     [[ "$a" == "y" || "$a" == "Y" || "$a" == "yes" ]] || die "not applied; nothing was changed"
     return 0
   fi
-  log "this plan changes an existing install; re-run with --yes to apply it (or --plan to review it)"
+  warn "this plan changes an existing install; re-run with --yes to apply it (or --plan to review it)"
   exit 4
 }
 
@@ -811,16 +1030,16 @@ fail_point() { # test hook: BAFT_TEST_FAIL_AT=<point> makes the run fail there
 # in an order that works while the unit file still exists.
 rollback_apply() {
   APPLYING=0
-  log "apply failed: rolling back"
+  warn "apply failed: rolling back"
   local f unit was_active rollback_failed=0
   if [[ "$BCC_ONLY" == "1" ]]; then unit="$BAFT_BCC_SERVICE.service"; was_active="$WAS_BCC_ACTIVE"
   elif [[ "$AGENT_ONLY" == "1" ]]; then unit="$BAFT_AGENT_UNIT.service"; was_active="$WAS_AGENT_ACTIVE"
   else unit="$BAFT_SERVICE.service"; was_active="$WAS_ACTIVE"; fi
   if [[ "$TOUCHED_SERVICE" == 1 ]]; then
-    systemctl stop "$unit" || { rollback_failed=1; log "could not stop $unit for rollback"; }
+    systemctl stop "$unit" || { rollback_failed=1; warn "could not stop $unit for rollback"; }
   fi
   if [[ "$ENABLED_BY_RUN" == 1 ]]; then
-    systemctl disable "$unit" || { rollback_failed=1; log "could not disable $unit during rollback"; }
+    systemctl disable "$unit" || { rollback_failed=1; warn "could not disable $unit during rollback"; }
   fi
   # If BCC migrated its database before apply failed, the restored older
   # binary may no longer read it. Keep the verified candidate for explicit
@@ -838,7 +1057,7 @@ rollback_apply() {
           rm -f -- "$bcc_candidate" "$BACKUP_DIR/bcc-candidate.sha256"
           bcc_candidate=""
           rollback_failed=1
-          log "could not retain the BCC recovery candidate"
+          warn "could not retain the BCC recovery candidate"
         fi
         break
       fi
@@ -852,29 +1071,29 @@ rollback_apply() {
     else
       rm -f -- "$tmp"
       rollback_failed=1
-      log "could not restore $f (copy kept in $BACKUP_DIR)"
+      warn "could not restore $f (copy kept in $BACKUP_DIR)"
     fi
   done
   for f in "${CREATED[@]}"; do
-    rm -f -- "$f" || { rollback_failed=1; log "could not remove newly created $f"; }
+    rm -f -- "$f" || { rollback_failed=1; warn "could not remove newly created $f"; }
   done
-  systemctl daemon-reload || { rollback_failed=1; log "could not reload systemd during rollback"; }
+  systemctl daemon-reload || { rollback_failed=1; warn "could not reload systemd during rollback"; }
   # Never restart with a known incomplete file or service rollback.
   if [[ "$TOUCHED_SERVICE" == 1 && "$was_active" == 1 && "$rollback_failed" == 0 ]]; then
     if ! systemctl restart "$unit"; then
       rollback_failed=1
-      log "could not restart $unit after rollback"
+      warn "could not restart $unit after rollback"
     elif [[ "$BCC_ONLY" == "1" ]] && ! wait_active "$unit" 5; then
       rollback_failed=1
       systemctl stop "$unit" || true
-      log "$unit did not stabilize on the restored BCC binary and state"
+      warn "$unit did not stabilize on the restored BCC binary and state"
     fi
   fi
   if [[ "$rollback_failed" != 0 ]]; then
-    log "rollback incomplete; service state is unverified (backup copies: ${BACKUP_DIR:-none})"
+    warn "rollback incomplete; service state is unverified (backup copies: ${BACKUP_DIR:-none})"
     return 1
   fi
-  log "rolled back to the previous binaries, files and service state; the release state was not recorded"
+  ok "rolled back to the previous binaries, files and service state; the release state was not recorded"
 }
 
 # verify_release DIR REVOCATIONS UPDATE(0|1) ARTIFACT... checks a downloaded
@@ -1233,6 +1452,34 @@ PY
   done
 }
 
+# ---- start: the mark, then the checks that need no answers ----
+# Root, OS and architecture are checked before any question is asked, so
+# nobody answers prompts on a host the installer would refuse anyway.
+# --plan skips them: it needs no root and changes nothing.
+[[ "$PLAN_JSON" == 1 ]] || show_logo
+if [[ "$PLAN_ONLY" != "1" ]]; then
+  phase "Preflight" "root, system, architecture and options"
+  [[ "$BAFT_INSTALL_FROM" == "release" || "$BAFT_INSTALL_FROM" == "source" ]] || die "BAFT_INSTALL_FROM must be release or source"
+  if [[ "$BAFT_INSTALL_FROM" == "release" && -z "$BAFT_ROOT_PUB" ]]; then
+    die "no release root key is pinned in this installer yet; until the first signed release, use --from-source"
+  fi
+  need_root
+  if [[ "$STEALTH_PRO" == "1" ]]; then
+    [[ -r "$BAFT_CONFIG_DIR/baft.yaml" ]] || die "Stealth Pro requires an existing pinned Noise baft.yaml; see docs/en/21-stealth-pro.md"
+  fi
+  [[ -r /etc/os-release ]] || die "unsupported OS"
+  . /etc/os-release
+  case "${ID:-}" in
+    ubuntu|debian) ;;
+    *) die "v0.1 supports Debian/Ubuntu only (got ${ID:-unknown})" ;;
+  esac
+  case "$(dpkg --print-architecture)" in
+    amd64) GOARCH="amd64" ;;
+    arm64) GOARCH="arm64" ;;
+    *) die "supported architectures: amd64, arm64" ;;
+  esac
+fi
+
 if [[ "$BCC_ONLY" == "1" ]]; then
   adopt_managed_bcc_bootstrap_settings
   [[ "$AGENT_ONLY" == "0" ]] || die "--bcc-only cannot be combined with --agent-only"
@@ -1249,27 +1496,51 @@ else
   # One install command for both servers: without --role, ask where this
   # server is and continue with that role's steps.
   if [[ -z "$ROLE" && -n "$ASK_FD" ]]; then
-    printf '\nWhere is this server?  /  این سرور کجاست؟\n' >&2
-    printf '  1) Outside Iran (EX, exit server) - install this one first  /  خارج از ایران\n' >&2
-    printf '  2) Inside Iran (IR) - needs the pairing code printed by EX  /  داخل ایران\n' >&2
+    if [[ "$UI" == 1 ]]; then
+      printf '\n  %s?%s %sWhere is this server?%s  %s/  این سرور کجاست؟%s\n\n' "$S_GOLD$S_B" "$S_R" "$S_B$S_U" "$S_R" "$S_MUTE" "$S_R" >&2
+      ui_choice 1 "Outside Iran" "EX, exit server · install this one first  /  خارج از ایران"
+      ui_choice 2 "Inside Iran" "IR · needs the pairing code printed by EX  /  داخل ایران"
+      printf '\n' >&2
+    else
+      printf '\nWhere is this server?  /  این سرور کجاست؟\n' >&2
+      printf '  1) Outside Iran (EX, exit server) - install this one first  /  خارج از ایران\n' >&2
+      printf '  2) Inside Iran (IR) - needs the pairing code printed by EX  /  داخل ایران\n' >&2
+    fi
     while [[ -z "$ROLE" ]]; do
       _choice=""
-      ask _choice "Choose 1 or 2: " || die "no answer; pass --role ex or --role ir"
+      ask _choice "$(ui_ask_prompt "Choose 1 or 2:")" || die "no answer; pass --role ex or --role ir"
       case "$_choice" in
         1|ex|EX) ROLE=ex ;;
         2|ir|IR) ROLE=ir ;;
-        *) printf 'Please type 1 or 2.\n' >&2 ;;
+        *) if [[ "$UI" == 1 ]]; then warn "Please type 1 or 2."; else printf 'Please type 1 or 2.\n' >&2; fi ;;
       esac
     done
     if [[ "$ROLE" == "ex" && -z "$PUBLIC_ADDR" && "$PLAN_ONLY" != "1" ]]; then
       _detected="$(hostname -I 2>/dev/null | awk '{print $1}')"
-      ask PUBLIC_ADDR "Public IP or hostname IR will connect to [${_detected:-none}]: " || true
+      ask PUBLIC_ADDR "$(ui_ask_prompt "Public IP or hostname IR will connect to" "[${_detected:-none}]:")" || true
       PUBLIC_ADDR="${PUBLIC_ADDR:-$_detected}"
     fi
   fi
   [[ -n "$ROLE" ]] || die "--role ex or --role ir is required when there is no terminal to ask"
   [[ "$ROLE" == "ex" || "$ROLE" == "ir" ]] || die "--role must be ex or ir"
   [[ -z "$IR_SSH" || "$ROLE" == "ex" ]] || die "--ir-ssh is for the EX installer"
+fi
+
+# What this run is about to work on (terminal only).
+if [[ "$UI" == 1 && "$PLAN_ONLY" != "1" ]]; then
+  if [[ "$BCC_ONLY" == "1" ]]; then _what="BCC  Command Center"
+  elif [[ "$AGENT_ONLY" == "1" ]]; then _what="agent  enrolled from BCC as ${BAFT_NODE_ID}"
+  elif [[ "$ROLE" == "ex" ]]; then _what="EX  exit server, outside Iran"
+  else _what="IR  entry server, inside Iran"; fi
+  if [[ -n "$BAFT_OFFLINE_DIR" ]]; then _from="signed release, offline from $BAFT_OFFLINE_DIR"
+  elif [[ "$BAFT_INSTALL_FROM" == "release" ]]; then _from="signed release ${BAFT_VERSION:-latest}, verified against the pinned root key"
+  else _from="source $BAFT_REF from $BAFT_REPO_URL"; fi
+  printf '\n' >&2
+  kv "host" "$(hostname 2>/dev/null || echo unknown)"
+  kv "system" "${PRETTY_NAME:-${ID:-unknown}} · $GOARCH"
+  kv "installing" "$S_B$_what$S_R"
+  kv "from" "$_from"
+  unset _what _from
 fi
 
 # ---- EX: install and pair the IR over SSH ----
@@ -1310,10 +1581,15 @@ setup_ir_over_ssh() { # PAIRING_CODE -> prints the BAFTREPLY1 code on stdout
   if [[ -n "$IR_SSH_FINGERPRINT" ]]; then
     [[ "$ok" == 1 ]] || die "the IR host key does not match --ir-ssh-fingerprint; it presented:"$'\n'"$shown"
   else
-    printf '\nThe IR server presented these SSH host keys:\n%s' "$shown" >&2
-    printf 'Compare them with the server (provider console: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub).\n' >&2
+    if [[ "$UI" == 1 ]]; then
+      printf '\n  %sThe IR server presented these SSH host keys%s\n\n%s\n' "$S_B$S_U" "$S_R" "$shown" >&2
+      printf '  %sCompare them with the server (provider console: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub).%s\n\n' "$S_MUTE" "$S_R" >&2
+    else
+      printf '\nThe IR server presented these SSH host keys:\n%s' "$shown" >&2
+      printf 'Compare them with the server (provider console: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub).\n' >&2
+    fi
     local yes=""
-    ask yes "Do they match? [y/N] " || die "the IR host key must be confirmed; pass --ir-ssh-fingerprint SHA256:... when there is no terminal"
+    ask yes "$(ui_ask_prompt "Do they match?" "[y/N]")" || die "the IR host key must be confirmed; pass --ir-ssh-fingerprint SHA256:... when there is no terminal"
     [[ "$yes" == "y" || "$yes" == "Y" || "$yes" == "yes" ]] || die "IR host key not confirmed; nothing was sent to it"
   fi
 
@@ -1326,7 +1602,7 @@ setup_ir_over_ssh() { # PAIRING_CODE -> prints the BAFTREPLY1 code on stdout
   else
     local pass="${BAFT_IR_SSH_PASSWORD:-}"
     if [[ -z "$pass" ]]; then
-      ask pass "SSH password for $user@$host: " -s || die "an IR SSH password or --ir-ssh-key is required"
+      ask pass "$(ui_ask_prompt "SSH password for $user@$host:")" -s || die "an IR SSH password or --ir-ssh-key is required"
       printf '\n' >&2
     fi
     [[ -n "$pass" ]] || die "no IR SSH password entered"
@@ -1374,7 +1650,7 @@ setup_ir_over_ssh() { # PAIRING_CODE -> prints the BAFTREPLY1 code on stdout
   local reply
   reply="$(grep -o 'BAFTREPLY1:[^[:space:]]*' "$dir/ir.out" | tail -n 1 || true)"
   if [[ "$rc" != 0 || -z "$reply" ]]; then
-    log "the IR setup over SSH did not finish (exit $rc)"
+    warn "the IR setup over SSH did not finish (exit $rc)"
     return 1
   fi
   printf '%s\n' "$reply"
@@ -1580,33 +1856,13 @@ refine_state() {
 # --plan: inspect and show what a run would do. No root, no network, no apt,
 # nothing is written, nothing is downloaded.
 if [[ "$PLAN_ONLY" == "1" ]]; then
+  phase "Plan preview" "--plan: nothing is written, downloaded or started"
   plan_everything
   show_plan
   exit 0
 fi
 
-show_logo
-[[ "$BAFT_INSTALL_FROM" == "release" || "$BAFT_INSTALL_FROM" == "source" ]] || die "BAFT_INSTALL_FROM must be release or source"
-if [[ "$BAFT_INSTALL_FROM" == "release" && -z "$BAFT_ROOT_PUB" ]]; then
-  die "no release root key is pinned in this installer yet; until the first signed release, use --from-source"
-fi
-need_root
-if [[ "$STEALTH_PRO" == "1" ]]; then
-  [[ -r "$BAFT_CONFIG_DIR/baft.yaml" ]] || die "Stealth Pro requires an existing pinned Noise baft.yaml; see docs/en/21-stealth-pro.md"
-fi
-[[ -r /etc/os-release ]] || die "unsupported OS"
-. /etc/os-release
-case "${ID:-}" in
-  ubuntu|debian) ;;
-  *) die "v0.1 supports Debian/Ubuntu only (got ${ID:-unknown})" ;;
-esac
-
-case "$(dpkg --print-architecture)" in
-  amd64) GOARCH="amd64" ;;
-  arm64) GOARCH="arm64" ;;
-  *) die "supported architectures: amd64, arm64" ;;
-esac
-
+phase "Inspect" "what is on this host now; nothing is changed"
 # INSPECT: look before touching anything.
 inspect_install
 classify_state
@@ -1616,7 +1872,7 @@ log "inspecting: $STATE ($STATE_WHY)"
 if [[ "$STATE" == "BROKEN_INSTALL" ]]; then
   plan_everything
   show_plan
-  log "refusing to touch a broken install: $STATE_WHY"
+  warn "refusing to touch a broken install: $STATE_WHY"
   log "nothing was changed; repair it by hand (see docs/en/33-rerunnable-installer.md) or restore from a backup"
   exit 3
 fi
@@ -1632,6 +1888,7 @@ reset_plan() {
 # host changes made before the final plan. On an install that already exists
 # they are listed in a preliminary plan and need the same confirmation.
 export DEBIAN_FRONTEND=noninteractive
+phase "Prerequisites" "system packages and toolchain"
 NEED_APT=0; NEED_GO=0
 if [[ -n "$BAFT_OFFLINE_DIR" ]]; then
   [[ "$BAFT_INSTALL_FROM" == "release" ]] || die "--offline installs a signed release; it cannot be combined with --from-source"
@@ -1651,7 +1908,7 @@ else
 fi
 
 install_go() {
-  [[ "$NEED_GO" == 1 ]] || { log "Go $BAFT_GO_VERSION already installed"; return; }
+  [[ "$NEED_GO" == 1 ]] || { ok "Go $BAFT_GO_VERSION already installed"; return; }
   local manifest file sha tmp
   manifest="$(curl -fsSL 'https://go.dev/dl/?mode=json&include=all')" || die "cannot read Go release manifest"
   file="go${BAFT_GO_VERSION}.linux-${GOARCH}.tar.gz"
@@ -1677,20 +1934,19 @@ if [[ "$NEED_APT" == 1 || "$NEED_GO" == 1 ]]; then
     reset_plan
   fi
   if [[ "$NEED_APT" == 1 ]]; then
-    apt-get update
-    if [[ "$BAFT_INSTALL_FROM" == "release" ]]; then
-      apt-get install -y --no-install-recommends ca-certificates curl openssl python3
-    else
-      if [[ "$BCC_ONLY" == "1" ]]; then
-        apt-get install -y --no-install-recommends ca-certificates curl git jq python3 openssl build-essential
-      else
-        apt-get install -y --no-install-recommends ca-certificates curl git jq python3 build-essential
-      fi
-    fi
+    if [[ "$BAFT_INSTALL_FROM" == "release" ]]; then _pkgs=(ca-certificates curl openssl python3)
+    elif [[ "$BCC_ONLY" == "1" ]]; then _pkgs=(ca-certificates curl git jq python3 openssl build-essential)
+    else _pkgs=(ca-certificates curl git jq python3 build-essential); fi
+    # On a terminal apt runs quietly (its errors still show); logs keep the full output.
+    _apt_q=(); [[ "$UI" == 1 ]] && _apt_q=(-qq)
+    log "installing packages: $(printf '%s ' "${_pkgs[@]}")"
+    apt-get "${_apt_q[@]}" update
+    apt-get "${_apt_q[@]}" install -y --no-install-recommends "${_pkgs[@]}"
+    ok "packages installed"
   fi
   if [[ "$NEED_GO" == 1 ]]; then install_go; fi
 else
-  [[ -n "$BAFT_OFFLINE_DIR" ]] || log "the required tools are already installed; apt is not run"
+  [[ -n "$BAFT_OFFLINE_DIR" ]] || ok "the required tools are already installed; apt is not run"
 fi
 
 # Staging only: downloads, verification and builds happen in a private temp
@@ -1734,7 +1990,7 @@ fetch_release() {
   local got
   got="$(verify_release "$REL_DIR" "$REL_REV" 0 "${REL_ARTIFACTS[@]}")" || die "the downloaded release did not verify; nothing was installed"
   TARGET_REL="${got%% *}"
-  log "verified signed release $got"
+  ok "verified signed release $got"
   if [[ "$BCC_ONLY" == "1" ]]; then
     install -m 0755 "$REL_DIR/baft-bcc-linux-$GOARCH" "$STAGE_BCC"
     install -m 0700 "$REL_DIR/baft-install-linux-$GOARCH" "$STAGE_BCC_BOOTSTRAP"
@@ -1776,8 +2032,10 @@ build_from_source() {
 }
 
 if [[ "$BAFT_INSTALL_FROM" == "release" ]]; then
+  phase "Release" "download and verify in a private staging directory"
   fetch_release
 else
+  phase "Build" "clone and build in a private staging directory"
   build_from_source
 fi
 STAGED=1
@@ -1789,7 +2047,7 @@ STAGED=1
 if [[ "$BCC_ONLY" != "1" && "$AGENT_ONLY" != "1" && "$STEALTH_PRO" != "1" && "$F_CFG" == 1 && "$F_CFG_VALID" == 0 ]]; then
   if "$STAGE_BIN" config validate --file "$CONFIG" >/dev/null 2>&1; then
     F_CFG_VALID=1
-    log "the existing config validates with the verified release; it is kept"
+    ok "the existing config validates with the verified release; it is kept"
   else
     CFG_INVALID_WHY="$CONFIG exists but does not validate with the verified release binary"
   fi
@@ -1797,7 +2055,7 @@ fi
 if [[ -n "$CFG_INVALID_WHY" ]]; then
   plan_everything
   show_plan
-  log "refusing to touch a broken install: $STATE_WHY"
+  warn "refusing to touch a broken install: $STATE_WHY"
   log "nothing was changed; repair it by hand (see docs/en/33-rerunnable-installer.md) or restore from a backup"
   exit 3
 fi
@@ -1828,17 +2086,18 @@ if [[ "$STEALTH_PRO" == "1" ]]; then
   chown root:"$BAFT_USER" "$SHAPE_CONFIG_TMP"
   chmod 0640 "$SHAPE_CONFIG_TMP"
   mv "$SHAPE_CONFIG_TMP" "$BAFT_CONFIG_DIR/baft.yaml"
-  log "Stealth Pro configured. Configure BOTH peers, then restart baft on each host."
+  ok "Stealth Pro configured. Configure BOTH peers, then restart baft on each host."
   log "Existing certificates, Noise keys, pairing state and systemd unit retained."
   exit 0
 fi
 
 # BUILD PLAN -> SHOW PLAN -> confirm.
+phase "Plan" "every change this run will make"
 plan_everything
 preflight_service_paths
 show_plan
 if [[ -n "$REFUSED" ]]; then
-  log "refusing to touch a broken install: $REFUSED"
+  warn "refusing to touch a broken install: $REFUSED"
   log "nothing was changed; repair it by hand (see docs/en/33-rerunnable-installer.md) or restore from a backup"
   exit 3
 fi
@@ -1847,6 +2106,7 @@ confirm_plan
 # APPLY. From here a failure rolls back the files and restarts the service
 # that was running before.
 APPLYING=1
+phase "Apply" "a failure from here rolls every change back"
 WAS_ACTIVE="$F_ACTIVE"; WAS_AGENT_ACTIVE="$F_AGENT_ACTIVE"; WAS_BCC_ACTIVE="$F_BCC_ACTIVE"; WAS_ENABLED="$F_ENABLED"; WAS_AGENT_ENABLED="$F_AGENT_ENABLED"; WAS_BCC_ENABLED="$F_BCC_ENABLED"
 
 ensure_base() {
@@ -1972,8 +2232,8 @@ install_agent() {
     wait_active "$BAFT_AGENT_UNIT.service" 20 || die "verify: $BAFT_AGENT_UNIT.service is not running"
   fi
   finalize_apply
-  if [[ "$PLAN_CHANGES" == 0 ]]; then log "baft-agent is already enrolled as $BAFT_NODE_ID; nothing was changed"
-  else log "baft-agent enrolled as $BAFT_NODE_ID with $BAFT_BCC_URL; add tunnels from BCC"; fi
+  if [[ "$PLAN_CHANGES" == 0 ]]; then ok "baft-agent is already enrolled as $BAFT_NODE_ID; nothing was changed"
+  else ok "baft-agent enrolled as $BAFT_NODE_ID with $BAFT_BCC_URL; add tunnels from BCC"; fi
 }
 
 bcc_access_base() {
@@ -2066,6 +2326,25 @@ install_bcc() {
   access_show="$("$BAFT_BCC_BIN" access show --access-file "$BAFT_BCC_ACCESS_FILE")"
   access_path="$(printf '%s\n' "$access_show" | sed -n 's/^[[:space:]]*path:[[:space:]]*//p' | head -n1)"
   base="$(bcc_access_base)"
+  phase "Ready" "how to reach the Command Center"
+  if [[ "$UI_OUT" == 1 ]]; then
+    local L="$S_MUTE" R="$S_R"
+    printf '  %sBAFT Command Center%s\n\n' "$S_GOLD$S_B$S_U" "$R"
+    printf '  %s%-16s%s %s%s%s%s\n' "$L" "URL" "$R" "$S_B" "$base" "$access_path" "$R"
+    if [[ -n "$access_once" ]]; then
+      printf '\n%s\n\n  %s▲ shown once: store these credentials now%s\n' "$access_once" "$S_WARN$S_B" "$R"
+    else
+      printf '%s\n' "$access_show"
+      printf '  %s%-16s%s not stored; rotate locally with: %s access regenerate --access-file %s\n' "$L" "password:" "$R" "$BAFT_BCC_BIN" "$BAFT_BCC_ACCESS_FILE"
+    fi
+    printf '  %s%-16s%s run locally: %s jobkey show --job-key-file %s\n' "$L" "job key:" "$R" "$BAFT_BCC_BIN" "$BAFT_BCC_JOB_KEY_FILE"
+    if [[ -n "$BAFT_BCC_PUBLIC_URL" ]]; then
+      printf '  %s%-16s%s %savailable%s (host-key confirmation required; credentials are request-memory only)\n\n' "$L" "SSH enrollment:" "$R" "$S_OK" "$R"
+    else
+      printf '  %s%-16s%s %sdisabled%s (set --bcc-public-url to enable; the listener is not changed)\n\n' "$L" "SSH enrollment:" "$R" "$S_MUTE" "$R"
+    fi
+    return 0
+  fi
   printf '\nBAFT Command Center\n'
   printf '  URL:      %s%s\n' "$base" "$access_path"
   if [[ -n "$access_once" ]]; then
@@ -2133,6 +2412,7 @@ install_config() {
 }
 
 if [[ "$DO_PAIRING" == 1 ]]; then
+  phase "Pairing" "$([[ "$ROLE" == "ex" ]] && echo "issue the one-time code and accept the IR" || echo "answer the EX pairing code")"
   if [[ "$RE_PAIR" == 1 && -f "$CONFIG" ]]; then
     backup_file "$CONFIG"
     cp -p -- "$CONFIG" "$CONFIG.before-repair-$(date +%Y%m%dT%H%M%S)"
@@ -2163,31 +2443,55 @@ if [[ "$DO_PAIRING" == 1 ]]; then
       --metrics-listen "$BAFT_METRICS_LISTEN" --unix-socket "$BAFT_STATE_DIR/admin.sock"
       --config-out "$CONFIG")
     if [[ -z "$REPLY_CODE" && -z "$IR_SSH" && "$ASK_TTY" == 1 ]]; then
-      printf '\nHow should the Iran (IR) server be set up?\n' >&2
-      printf '  1) From here over SSH: give its address and login, nobody needs to log in to it\n' >&2
-      printf '  2) By hand: run the installer there and paste its reply code here\n' >&2
+      if [[ "$UI" == 1 ]]; then
+        printf '\n  %s?%s %sHow should the Iran (IR) server be set up?%s\n\n' "$S_GOLD$S_B" "$S_R" "$S_B$S_U" "$S_R" >&2
+        ui_choice 1 "Over SSH" "from here: give its address and login; nobody logs in to it  (recommended)"
+        ui_choice 2 "By hand" "run the installer there and paste its reply code here"
+        printf '\n' >&2
+      else
+        printf '\nHow should the Iran (IR) server be set up?\n' >&2
+        printf '  1) From here over SSH: give its address and login, nobody needs to log in to it\n' >&2
+        printf '  2) By hand: run the installer there and paste its reply code here\n' >&2
+      fi
       _how=""
-      ask _how "Choose 1 or 2 [1]: " || true
+      ask _how "$(ui_ask_prompt "Choose 1 or 2" "[1]:")" || true
       if [[ "${_how:-1}" == 1 ]]; then
-        while [[ -z "$IR_SSH" ]]; do ask IR_SSH "IR server SSH (user@host or user@host:port, e.g. root@1.2.3.4): " || break; done
+        while [[ -z "$IR_SSH" ]]; do ask IR_SSH "$(ui_ask_prompt "IR server SSH" "(user@host or user@host:port, e.g. root@1.2.3.4):")" || break; done
         _key=""
-        ask _key "Path to an SSH private key (leave empty to use a password): " || true
+        ask _key "$(ui_ask_prompt "Path to an SSH private key" "(leave empty to use a password):")" || true
         IR_SSH_KEY="${_key:-$IR_SSH_KEY}"
       fi
     fi
     if [[ -z "$REPLY_CODE" && -n "$IR_SSH" ]]; then
       REPLY_CODE="$(setup_ir_over_ssh "$PAIRING")" || REPLY_CODE=""
-      [[ -n "$REPLY_CODE" ]] || log "falling back to manual pairing with the code below"
+      [[ -n "$REPLY_CODE" ]] || warn "falling back to manual pairing with the code below"
     fi
     if [[ -z "$REPLY_CODE" ]]; then
-      printf '\nPAIRING CODE (secret, one-time, 15 minute lifetime):\n%s\n\n' "$PAIRING"
-      ask REPLY_CODE "Run the installer on the IR server with this code, then paste its BAFTREPLY1 code here: " || true
+      # The code stays alone on its line, without colour or borders, so it
+      # copies cleanly from any terminal.
+      if [[ "$UI" == 1 ]]; then
+        printf '\n  %sPAIRING CODE%s  %ssecret · one-time · 15 minute lifetime%s\n\n' "$S_GOLD$S_B$S_U" "$S_R" "$S_MUTE" "$S_R" >&2
+        printf '%s\n\n' "$PAIRING"
+        printf '  %s1.%s run the installer on the IR server and paste this code there\n' "$S_B" "$S_R" >&2
+        printf '  %s2.%s paste the BAFTREPLY1 code it prints below\n\n' "$S_B" "$S_R" >&2
+      else
+        printf '\nPAIRING CODE (secret, one-time, 15 minute lifetime):\n%s\n\n' "$PAIRING"
+      fi
+      ask REPLY_CODE "$(ui_ask_prompt "Run the installer on the IR server with this code, then paste its BAFTREPLY1 code here:")" || true
     fi
     if [[ -z "$REPLY_CODE" ]]; then
-      printf 'When the IR prints its reply code, finish pairing on this host with:\n  sudo %s --reply BAFTREPLY1:...\n  sudo chown root:%s %s && sudo chmod 0640 %s && sudo systemctl restart %s\n\n' \
-        "${ACCEPT[*]}" "$BAFT_USER" "$CONFIG" "$CONFIG" "$BAFT_SERVICE" >&2
+      # IFS is newline/tab in this script, so "${ACCEPT[*]}" would split the
+      # command over lines; quote each word for a single pasteable line.
+      _accept="$(printf '%q ' "${ACCEPT[@]}")"
+      if [[ "$UI" == 1 ]]; then
+        printf '\n  %sWhen the IR prints its reply code, finish pairing on this host with:%s\n\n' "$S_B$S_U" "$S_R" >&2
+      else
+        printf 'When the IR prints its reply code, finish pairing on this host with:\n' >&2
+      fi
+      printf '  sudo %s--reply BAFTREPLY1:...\n  sudo chown root:%s %s && sudo chmod 0640 %s && sudo systemctl restart %s\n\n' \
+        "$_accept" "$BAFT_USER" "$CONFIG" "$CONFIG" "$BAFT_SERVICE" >&2
       finalize_apply
-      log "installed; $BAFT_SERVICE.service starts once pairing is finished"
+      warn "installed; $BAFT_SERVICE.service starts once pairing is finished"
       exit 0
     fi
     "${ACCEPT[@]}" --reply "$REPLY_CODE" >/dev/null
@@ -2195,10 +2499,10 @@ if [[ "$DO_PAIRING" == 1 ]]; then
     TOUCHED_SERVICE=1
     systemctl restart "$BAFT_SERVICE.service"
     finalize_apply
-    log "$BAFT_SERVICE.service started; listening on 0.0.0.0:${BAFT_PORT}, exiting to $BAFT_TARGET"
+    ok "$BAFT_SERVICE.service started; listening on 0.0.0.0:${BAFT_PORT}, exiting to $BAFT_TARGET"
   else
     if [[ -z "$PAIRING_CODE" ]]; then
-      ask PAIRING_CODE "Paste the BAFTPAIR1 pairing code printed by EX: " -s || die "a pairing code is required: pass --pairing-code (or BAFT_PAIRING_CODE) when there is no terminal"
+      ask PAIRING_CODE "$(ui_ask_prompt "Paste the BAFTPAIR1 pairing code printed by EX:")" -s || die "a pairing code is required: pass --pairing-code (or BAFT_PAIRING_CODE) when there is no terminal"
       printf '\n' >&2
       [[ -n "$PAIRING_CODE" ]] || die "no pairing code entered"
     fi
@@ -2207,13 +2511,19 @@ if [[ "$DO_PAIRING" == 1 ]]; then
       --unix-socket "$BAFT_STATE_DIR/admin.sock")"
     chown -R "$BAFT_USER:$BAFT_USER" "$BAFT_STATE_DIR"
     install_config
-    printf '\nREPLY CODE for the EX (secret, expires with the pairing code):\n%s\n\n' "$REPLY"
+    if [[ "$UI" == 1 ]]; then
+      printf '\n  %sREPLY CODE for the EX%s  %ssecret · expires with the pairing code%s\n\n' "$S_GOLD$S_B$S_U" "$S_R" "$S_MUTE" "$S_R" >&2
+      printf '%s\n\n' "$REPLY"
+      printf '  %s→%s paste it into the EX installer that is waiting for it\n\n' "$S_GOLD$S_B" "$S_R" >&2
+    else
+      printf '\nREPLY CODE for the EX (secret, expires with the pairing code):\n%s\n\n' "$REPLY"
+    fi
     # Until the EX accepts this reply the dialer cannot connect and exits;
     # Restart=on-failure retries every 2s, so it connects once the EX is up.
     TOUCHED_SERVICE=1
     systemctl restart "$BAFT_SERVICE.service"
     finalize_apply
-    log "$BAFT_SERVICE.service started; local clients connect to $BAFT_ROUTE_LISTEN"
+    ok "$BAFT_SERVICE.service started; local clients connect to $BAFT_ROUTE_LISTEN"
   fi
 else
   # Already paired: only what the plan listed is done.
@@ -2224,7 +2534,18 @@ else
     wait_active "$BAFT_SERVICE.service" 20 || die "verify: $BAFT_SERVICE.service is not running"
   fi
   finalize_apply
-  if [[ "$PLAN_CHANGES" == 0 ]]; then log "already installed and current; nothing was changed"
-  else log "$BAFT_SERVICE.service is running"; fi
+  if [[ "$PLAN_CHANGES" == 0 ]]; then ok "already installed and current; nothing was changed"
+  else ok "$BAFT_SERVICE.service is running"; fi
 fi
-log "baft is installed: $BAFT_BIN and $BAFT_PAIR_BIN"
+ok "baft is installed: $BAFT_BIN and $BAFT_PAIR_BIN"
+if [[ "$UI" == 1 ]]; then
+  phase "Done" "what is running and where to look"
+  ui_table "What|Where" \
+    "role|$([[ "$ROLE" == "ex" ]] && echo "EX · exit server" || echo "IR · entry server")" \
+    "service|$BAFT_SERVICE.service  ($(systemctl is-active "$BAFT_SERVICE.service" 2>/dev/null || true))" \
+    "binaries|$BAFT_BIN · $BAFT_PAIR_BIN" \
+    "config|$CONFIG" \
+    "logs|journalctl -u $BAFT_SERVICE -f" \
+    "re-run|safe: shows a plan first and changes only what differs"
+  printf '\n' >&2
+fi

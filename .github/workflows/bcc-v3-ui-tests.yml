@@ -1,13 +1,10 @@
-name: BCC V3 UI contract tests
+name: BCC UI tests
 on:
   pull_request:
     paths:
-      - 'web/bcc-*v3.js'
-      - 'web/bcc-*-v3-preview.html'
-      - 'docs/bcc-welcome-login-v3-50-steps.md'
-      - 'docs/bcc-ui-end-to-end-150-step-audit.md'
+      - 'web/**'
       - 'internal/bcc/dashboard.go'
-      - 'web/tests/bcc-v3-*.test.cjs'
+      - 'internal/bcc/countries.go'
       - '.github/workflows/bcc-v3-ui-tests.yml'
   workflow_dispatch:
 permissions:
@@ -23,9 +20,6 @@ jobs:
           node-version: '22'
       - name: Syntax check
         run: |
-          node --check web/bcc-globe-v3.js
-          node --check web/bcc-live-adapter-v3.js
-          node --check web/bcc-topology-snapshot-v3.js
-          for test_file in web/tests/bcc-v3-*.test.cjs; do node --check "$test_file"; done
-      - name: Contract tests
-        run: node --test web/tests/bcc-v3-*.test.cjs
+          for f in web/bcc-*.js web/qa/*.cjs web/tests/*.test.cjs; do node --check "$f"; done
+      - name: UI tests
+        run: node --test web/tests/*.test.cjs

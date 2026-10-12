@@ -1,0 +1,13 @@
+Earth textures bundled with the BAFT Command Center
+
+earth-day.jpg      NASA Blue Marble (Visible Earth, NASA Earth Observatory).
+earth-night.jpg,
+earth-night-2k.jpg NASA Black Marble 2012 (NASA Earth Observatory).
+earth-water.jpg,
+earth-relief.jpg   Ocean mask and topography derived from NASA imagery.
+
+NASA imagery is not protected by copyright in the United States and is used
+here under NASA's media usage guidelines; NASA does not endorse BAFT.
+The day, water and relief files were taken from the example image set of
+three-globe (https://github.com/vasturiano/three-globe, MIT License,
+Copyright (c) 2019 Vasco Asturiano) and resized to 2048x1024 for BAFT.

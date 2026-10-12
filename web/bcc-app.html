@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="fa" dir="rtl" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>BAFT Command Center</title>
+<link rel="icon" href="./assets/baft-brand.png">
+<link rel="stylesheet" href="./bcc-app.css">
+<script>
+/* Apply the saved theme and language before the first paint. */
+(()=>{let t=null,l=null;try{t=localStorage.getItem('baft.theme');l=localStorage.getItem('baft.lang')}catch{}
+const r=document.documentElement;if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';if(l!=='fa'&&l!=='en')l='fa';
+r.dataset.theme=t;r.lang=l;r.dir=l==='fa'?'rtl':'ltr'})();
+</script>
+</head>
+<body>
+<a class="skip" href="#main" data-t="skip">رفتن به محتوای اصلی</a>
+
+<div id="public">
+  <header class="pub-head">
+    <a class="wordmark" href="#home" aria-label="BAFT">BAFT</a>
+    <nav class="pub-links" aria-label="BAFT">
+      <a href="#home" class="active" data-t="home">خانه</a>
+      <a href="https://github.com/zarkmakerburg/baft/tree/main/docs" target="_blank" rel="noopener noreferrer" data-t="docs">مستندات</a>
+      <a href="https://github.com/zarkmakerburg/baft" target="_blank" rel="noopener noreferrer">GitHub</a>
+      <a href="#support" class="pub-support" data-support data-t="support">حمایت از ما</a>
+    </nav>
+    <div class="pub-tools">
+      <div class="seg" role="group" data-lang-switch><button type="button" data-lang="fa">FA</button><button type="button" data-lang="en">EN</button></div>
+      <button type="button" class="icon-btn pub-support-btn" data-support aria-label="Support"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.3-9.2C1.4 8.4 3.6 5 7 5c2 0 3.6 1.1 5 3 1.4-1.9 3-3 5-3 3.4 0 5.6 3.4 4.3 6.8C19.5 16.4 12 21 12 21z"/></svg></button>
+      <button type="button" class="icon-btn" data-theme-toggle></button>
+      <a class="btn gold small" href="login" data-go="signin" data-t="signin">ورود</a>
+    </div>
+  </header>
+
+  <section id="landing" class="landing">
+    <div class="landing-copy">
+      <img class="landing-logo" src="./assets/baft-brand.png" alt="BAFT">
+      <div class="landing-name"><span>BAFT</span><b>بافت</b></div>
+      <h1><em data-t="heroLead">بافت؛</em> <span data-t="hero">زیرساخت تاب‌آور برای مسیرهای چندگانه</span></h1>
+      <p data-t="intro">شبکه‌ای مقاوم با تونل‌سازی هوشمند، بازیابی خودکار مسیرها، اجرای پایدار ECRL و نظارت متمرکز در مرکز فرمان.</p>
+      <div class="landing-actions">
+        <a class="btn gold big" href="login" data-go="signin"><span data-t="start">شروع سریع</span><svg viewBox="0 0 24 24" aria-hidden="true" class="arrow"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        <a class="btn ghost big" href="https://github.com/zarkmakerburg/baft/tree/main/docs" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h6a3 3 0 013 3v12a2 2 0 00-2-2H3zM21 5h-6a3 3 0 00-3 3v12a2 2 0 012-2h7z"/></svg><span data-t="techDocs">مستندات فنی</span></a>
+      </div>
+    </div>
+    <div class="landing-art"><canvas id="welcomeGlobe" aria-hidden="true"></canvas></div>
+    <ul class="landing-strip">
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg><span>ECRL Runtime</span></li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg><span>N-Node Failover</span></li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h10M8 3v2M5 5c1 4 4 7 8 8M11 5c-1 4-4 7-8 9M13 21l4-9 4 9M14.5 18h5"/></svg><span data-t="stripLang">فارسی و انگلیسی</span></li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg><span data-t="stripSecure">دسترسی امن</span></li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg><span data-t="stripMonitor">پایش زنده</span></li>
+    </ul>
+  </section>
+
+  <section id="signin" class="signin" hidden>
+    <form id="loginForm" class="login-card" method="post" action="login" novalidate>
+      <img class="login-logo" src="./assets/baft-brand.png" alt="BAFT">
+      <h1 data-t="loginTitle">ورود به مرکز فرمان</h1>
+      <p class="muted" data-t="loginText">با اطلاعات دسترسی ساخته‌شده هنگام نصب وارد شوید.</p>
+      <label for="loginUsername" data-t="user">نام کاربری</label>
+      <input id="loginUsername" name="username" autocomplete="username" required maxlength="128" dir="ltr">
+      <label for="loginPassword" data-t="password">رمز عبور</label>
+      <div class="password-wrap">
+        <input id="loginPassword" name="password" type="password" autocomplete="current-password" required maxlength="1024" dir="ltr">
+        <button type="button" id="showPassword" class="link-btn" aria-controls="loginPassword" aria-pressed="false" data-t="show">نمایش</button>
+      </div>
+      <div id="loginError" class="form-error" role="alert"></div>
+      <button type="submit" class="btn gold block" data-t="signin">ورود</button>
+      <p class="hint" data-t="secure">دسترسی با مسیر محرمانه و نشست امن</p>
+      <a href="#home" class="back" data-go="home" data-t="back">بازگشت به خانه</a>
+    </form>
+  </section>
+</div>
+
+<div id="app" class="shell" hidden>
+  <aside class="side">
+    <a class="brand" href="#dashboard"><img src="./assets/baft-brand.png" alt=""><span><b>BAFT</b><small>COMMAND CENTER</small></span></a>
+    <nav id="nav" aria-label="Command Center"></nav>
+    <div id="netState" class="net-state"></div>
+    <div id="version" class="version"></div>
+  </aside>
+  <div class="workspace">
+    <header class="top">
+      <button type="button" class="icon-btn menu-btn" id="menuToggle" aria-controls="nav" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <label class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="search" type="search" autocomplete="off"></label>
+      <div class="top-tools">
+        <button type="button" class="theme-switch" data-theme-toggle><span class="sun"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></span><span class="moon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 019.5 4 8 8 0 1020 14.5z"/></svg></span></button>
+        <div class="seg" role="group" data-lang-switch><button type="button" data-lang="fa">FA</button><button type="button" data-lang="en">EN</button></div>
+        <div class="pop-wrap">
+          <button type="button" class="icon-btn bell" id="bell" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0112 0v5l2 2H4zM10 20a2 2 0 004 0"/></svg><i id="bellDot" hidden></i></button>
+          <div class="popover" id="alertsPop" hidden></div>
+        </div>
+        <div class="pop-wrap">
+          <button type="button" class="avatar" id="avatar" aria-haspopup="true" aria-expanded="false">A</button>
+          <div class="popover menu" id="userPop" hidden>
+            <a href="#settings" data-t="settings">تنظیمات</a>
+            <a id="classicLink" href="classic/" data-t="classic">داشبورد کلاسیک</a>
+            <a href="#support" data-support data-t="support">حمایت از ما</a>
+            <button type="button" id="logout" data-t="logout">خروج</button>
+          </div>
+        </div>
+      </div>
+    </header>
+    <main id="main" tabindex="-1"></main>
+  </div>
+</div>
+
+<script src="./assets/world-land.js"></script>
+<script src="./bcc-earth-v3.js"></script>
+<script src="./bcc-welcome-globe-v3.js"></script>
+<script src="./bcc-map.js"></script>
+<script src="./bcc-app.js"></script>
+<script src="./bcc-operations-v3.js"></script>
+</body>
+</html>

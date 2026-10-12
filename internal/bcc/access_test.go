@@ -77,7 +77,7 @@ func (r *accessRig) session() (*http.Cookie, string) {
 	req := httptest.NewRequest(http.MethodGet, r.base(), nil)
 	req.AddCookie(c)
 	page := r.do(req).Body.String()
-	m := regexp.MustCompile(`C="([0-9A-Za-z]{32})"`).FindStringSubmatch(page)
+	m := regexp.MustCompile(`"csrf":"([0-9A-Za-z]{32})"`).FindStringSubmatch(page)
 	if m == nil {
 		r.t.Fatalf("dashboard has no CSRF token:\n%.300s", page)
 	}

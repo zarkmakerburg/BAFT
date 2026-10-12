@@ -49,6 +49,8 @@ type Node struct {
 	AppliedGeneration        int            `json:"applied_generation,omitempty"`
 	AppliedGenerations       map[string]int `json:"applied_generations,omitempty"`
 	Health                   string         `json:"health"`
+	// Country is the ISO 3166-1 alpha-2 code the operator gave for the map.
+	Country                  string         `json:"country,omitempty"`
 	LastChecked    time.Time `json:"last_checked,omitempty"`
 	LatencyMS      int64     `json:"latency_ms"`
 	UpdatedAt      time.Time `json:"updated_at"`
@@ -300,6 +302,7 @@ func (s *Store) UpsertNode(n Node, agentToken string, audits ...AuditEntry) (Nod
 		if n.AgentSeen.IsZero(){n.AgentSeen=old.AgentSeen}
 		if n.PathIPv4==""{n.PathIPv4=old.PathIPv4}
 		if n.PathIPv6==""{n.PathIPv6=old.PathIPv6}
+		if n.Country==""{n.Country=old.Country}
 		n.AppliedGeneration=old.AppliedGeneration
 		if len(old.AppliedGenerations)>0{
 			n.AppliedGenerations=make(map[string]int,len(old.AppliedGenerations))
@@ -469,6 +472,28 @@ func (s *Store) RevokeNode(nodeID,reason string,now time.Time,audits ...AuditEnt
 	if len(audits)==1{
 		a:=audits[0]
 		a.Timestamp,a.Action,a.Target,a.Outcome=now,"node.revoke",nodeID,"success"
+		if a.Actor==""{a.Actor="admin"}
+		if _,err:=s.enqueueSecurityAuditLocked(a);err!=nil{s.st=before;return Node{},err}
+	}
+	if err:=s.saveLocked();err!=nil{s.st=before;return Node{},err}
+	return publicNode(n),nil
+}
+
+// SetNodeCountry records where the map draws a node; "" removes it from the map.
+func (s *Store) SetNodeCountry(nodeID,country string,now time.Time,audits ...AuditEntry)(Node,error){
+	if len(audits)>1{return Node{},errors.New("at most one security audit intent is allowed")}
+	code,ok:=normalizeCountry(country)
+	if !ok{return Node{},errors.New("unknown country code")}
+	now=now.UTC()
+	s.mu.Lock();defer s.mu.Unlock()
+	n,found:=s.st.Nodes[nodeID];if !found{return Node{},errors.New("node not found")}
+	before,err:=cloneState(s.st);if err!=nil{return Node{},err}
+	n.Country=code
+	n.UpdatedAt=now
+	s.st.Nodes[nodeID]=n
+	if len(audits)==1{
+		a:=audits[0]
+		a.Timestamp,a.Action,a.Target,a.Outcome=now,"node.location",nodeID,"success"
 		if a.Actor==""{a.Actor="admin"}
 		if _,err:=s.enqueueSecurityAuditLocked(a);err!=nil{s.st=before;return Node{},err}
 	}

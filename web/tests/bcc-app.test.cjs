@@ -11,6 +11,7 @@ test('Persian and English carry the same strings',()=>{
   const fa=Object.keys(T.fa).sort(),en=Object.keys(T.en).sort();
   assert.deepEqual(fa,en);
   assert.deepEqual(Object.keys(T.fa.nav).sort(),Object.keys(T.en.nav).sort());
+  assert.deepEqual(Object.keys(T.fa.acts).sort(),Object.keys(T.en.acts).sort());
   for(const l of ['fa','en'])for(const [k,v] of Object.entries(T[l]))if(typeof v==='string')assert.ok(v.trim(),l+'.'+k+' is empty');
 });
 

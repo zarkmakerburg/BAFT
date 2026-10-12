@@ -176,3 +176,46 @@ func TestNodeLocationPlacesNodeOnTheMap(t *testing.T) {
 		t.Fatalf("overview without auth: %d", rr.Code)
 	}
 }
+
+func TestUptimeCountsOnlyCoveredTime(t *testing.T) {
+	now := time.Now().UTC()
+	at := func(m int) HistoryPoint { return HistoryPoint{Timestamp: now.Add(time.Duration(m) * time.Minute)} }
+	if uptime(nil, now, 24*time.Hour, 3*time.Minute) != nil {
+		t.Fatal("uptime without reports must be unknown")
+	}
+	// Reports every minute for an hour, then a 30-minute hole, then another 30 minutes.
+	var h []HistoryPoint
+	for m := -120; m <= -60; m++ {
+		h = append(h, at(m))
+	}
+	for m := -30; m <= 0; m++ {
+		h = append(h, at(m))
+	}
+	got := *uptime(h, now, 24*time.Hour, 3*time.Minute)
+	if want := 90.0 / 120 * 100; got < want-0.5 || got > want+0.5 {
+		t.Fatalf("uptime %.1f%%, want %.1f%%", got, want)
+	}
+}
+
+func TestOverviewHealthAndFinanceAreHonest(t *testing.T) {
+	app, store, now := overviewRig(t)
+	report(store, "ex-1", now, 30, 1e6, 2e6, 40)
+	o := app.Overview(now, 24*time.Hour)
+	if o.Health.BackupsConfigured || o.Health.LastBackup != nil {
+		t.Fatal("backups reported without a backup directory")
+	}
+	if o.Health.AgentsStale != 3 {
+		t.Fatalf("agents stale %d, want 3 (no agent has called BCC)", o.Health.AgentsStale)
+	}
+	if len(o.Finance.Rows) != 0 || o.Finance.Month == "" {
+		t.Fatalf("finance %+v, want the month with no rows", o.Finance)
+	}
+	for _, n := range o.Nodes {
+		if n.ID == "ex-1" && (n.InBps == nil || n.UptimePct == nil) {
+			t.Fatal("reporting node lost its rate or uptime")
+		}
+		if n.ID == "ex-2" && (n.InBps != nil || n.UptimePct != nil) {
+			t.Fatal("silent node has a rate or uptime")
+		}
+	}
+}

@@ -3,8 +3,8 @@
    reports is drawn; a node without a country stays off the map. */
 (()=>{'use strict';
 const rad=Math.PI/180,reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
-let earth=null,earthReady=false;
-function loadEarth(base){if(earth)return;earth=new Image();earth.onload=()=>{earthReady=true;window.dispatchEvent(new Event('baft:map-earth'))};earth.src=base+'assets/earth-night.jpg'}
+let earth=null,earthReady=false,day=null,dayReady=false;
+function loadEarth(base){if(earth)return;const done=()=>window.dispatchEvent(new Event('baft:map-earth'));earth=new Image();earth.onload=()=>{earthReady=true;done()};earth.src=base+'assets/earth-night.jpg';day=new Image();day.onload=()=>{dayReady=true;done()};day.src=base+'assets/earth-day.jpg'}
 let landMask=null;
 /* Dots on a fixed geographic grid where the land polygons cover the cell. */
 function landDots(){if(landMask)return landMask;const W=720,H=360,c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');x.fillStyle='#000';for(const ring of window.BAFT_LAND||[]){x.beginPath();ring.forEach(([lon,lat],i)=>{const px=(lon+180)/360*W,py=(90-lat)/180*H;i?x.lineTo(px,py):x.moveTo(px,py)});x.closePath();x.fill()}
@@ -16,21 +16,37 @@ function flagOf(code){return code&&code.length===2?String.fromCodePoint(...[...c
 
 function create(canvas,opts){
   const ctx=canvas.getContext('2d');loadEarth(opts.assetBase||'./');
-  let w=1,h=1,dpr=1,data={nodes:[],links:[]},mode='world',base=null,view=null,placed=[],hover=null,raf=0,last=0;
+  const labelBoxes=[];let w=1,h=1,dpr=1,data={nodes:[],links:[]},mode='world',base=null,view=null,placed=[],hover=null,raf=0,last=0;
   function fit(){const pts=data.nodes.filter(n=>Number.isFinite(n.lat)&&Number.isFinite(n.lon));let lonA=-10,lonB=60,latA=15,latB=55;
     if(pts.length){lonA=Math.min(...pts.map(p=>p.lon));lonB=Math.max(...pts.map(p=>p.lon));latA=Math.min(...pts.map(p=>p.lat));latB=Math.max(...pts.map(p=>p.lat))}
     const narrow=w<700,need=Math.max(narrow?70:110,(lonB-lonA)*(narrow?1.35:1.6)),fill=h/(130*1.08),ppd=Math.min(w/need,Math.max(fill,w/(narrow?150:230)));
     const cLon=(lonA+lonB)/2,half=h/2/(ppd*1.08);let cLat=(latA+latB)/2-half*.12;cLat=Math.min(84-half,Math.max(-62+half,cLat));if(half*2>146)cLat=11;
     view={ppd,cLon,cLat}}
   const X=lon=>w/2+(lon-view.cLon)*view.ppd,Y=lat=>h/2-(lat-view.cLat)*view.ppd*1.08;
+  const landPath=b=>{b.beginPath();for(const ring of window.BAFT_LAND||[])ring.forEach(([lon,lat],i)=>{const px=X(lon),py=Y(lat);i?b.lineTo(px,py):b.moveTo(px,py)})};
+  const graticule=(b,col)=>{b.beginPath();for(let lon=-180;lon<=180;lon+=15){b.moveTo(X(lon),Y(85));b.lineTo(X(lon),Y(-85))}for(let lat=-75;lat<=75;lat+=15){b.moveTo(X(-180),Y(lat));b.lineTo(X(180),Y(lat))}b.strokeStyle=col;b.lineWidth=.6;b.stroke()};
+  /* Ocean, graticule, countries with soft relief and, in the dark theme, city lights. */
+  function worldBase(b,light){
+    const sea=b.createRadialGradient(w*.55,h*.45,0,w*.55,h*.45,Math.max(w,h)*.7);
+    if(light){sea.addColorStop(0,'#eef2f1');sea.addColorStop(.6,'#ecefec');sea.addColorStop(1,'#f3f0ea')}else{sea.addColorStop(0,'#0d1a24');sea.addColorStop(.55,'#08111a');sea.addColorStop(1,'#05070a')}
+    b.fillStyle=sea;b.fillRect(0,0,w,h);graticule(b,light?'rgba(150,120,70,.10)':'rgba(232,181,78,.055)');
+    b.save();landPath(b);b.shadowColor=light?'rgba(110,80,30,.22)':'rgba(0,0,0,.7)';b.shadowBlur=light?10:14;b.shadowOffsetY=light?3:2;
+    const land=b.createLinearGradient(0,Y(75),0,Y(-55));if(light){land.addColorStop(0,'#f1e8d6');land.addColorStop(.5,'#e8dcc3');land.addColorStop(1,'#dfd0b2')}else{land.addColorStop(0,'#17212b');land.addColorStop(1,'#111a22')}
+    b.fillStyle=land;b.fill('evenodd');b.restore();
+    const ww=360*view.ppd,hh=180*view.ppd*1.08,y0=Y(90),tiles=img=>{for(const k of [-1,0,1])b.drawImage(img,X(-180)+k*ww,y0,ww,hh)};
+    // Light theme: NASA Blue Marble terrain, muted to the ivory palette, inside the coastlines only.
+    if(light&&dayReady){b.save();landPath(b);b.clip('evenodd');b.globalAlpha=.9;b.filter='saturate(.55) sepia(.28) brightness(1.32) contrast(.92)';tiles(day);b.restore()}
+    if(!light&&dayReady){b.save();landPath(b);b.clip('evenodd');b.globalAlpha=.32;b.filter='grayscale(.6) sepia(.5) brightness(.55) contrast(1.1)';tiles(day);b.restore()}
+    if(!light&&earthReady){b.save();b.globalCompositeOperation='screen';b.filter='sepia(1) saturate(2.4) hue-rotate(-8deg) brightness(1.15) contrast(1.25)';tiles(earth);b.restore()}
+    landPath(b);b.strokeStyle=light?'rgba(150,112,52,.30)':'rgba(232,181,78,.16)';b.lineWidth=light?.6:.6;b.stroke();
+  }
   function drawBase(){if(!view)return;base=document.createElement('canvas');base.width=Math.round(w*dpr);base.height=Math.round(h*dpr);const b=base.getContext('2d');b.scale(dpr,dpr);
     const light=document.documentElement.dataset.theme==='light';
-    b.fillStyle=light?'#efece6':'#05070a';b.fillRect(0,0,w,h);
-    if(mode==='world'&&!light&&earthReady){const ww=360*view.ppd,hh=180*view.ppd*1.08,y0=Y(90);b.filter='sepia(.55) saturate(1.5) brightness(.92) contrast(1.08)';for(const k of [-1,0,1])b.drawImage(earth,X(-180)+k*ww,y0,ww,hh);b.filter='none'}
-    else if(mode==='world'&&light){b.fillStyle='#e2dccf';b.strokeStyle='#d3cab9';b.lineWidth=.7;for(const ring of window.BAFT_LAND||[]){b.beginPath();ring.forEach(([lon,lat],i)=>{const px=X(lon),py=Y(lat);i?b.lineTo(px,py):b.moveTo(px,py)});b.closePath();b.fill();b.stroke()}}
+    b.fillStyle=light?'#f3f0ea':'#05070a';b.fillRect(0,0,w,h);
+    if(mode==='world')worldBase(b,light);
     else{const dots=landDots(),r=Math.max(.8,view.ppd*.42);b.fillStyle=light?'rgba(120,104,76,.38)':'rgba(232,181,78,.30)';for(const[lon,lat]of dots){const px=X(lon),py=Y(lat);if(px<-4||px>w+4||py<-4||py>h+4)continue;b.beginPath();b.arc(px,py,r,0,Math.PI*2);b.fill()}}
     // Edges fade into the card so the map reads as a curved surface.
-    const g=b.createRadialGradient(w*.5,h*.55,Math.min(w,h)*.3,w*.5,h*.55,Math.max(w,h)*.75);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,light?'rgba(243,240,234,.92)':'rgba(5,7,10,.88)');b.fillStyle=g;b.fillRect(0,0,w,h);
+    const g=b.createRadialGradient(w*.5,h*.55,Math.min(w,h)*.3,w*.5,h*.55,Math.max(w,h)*.75);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,light?'rgba(243,240,234,.78)':'rgba(5,7,10,.88)');b.fillStyle=g;b.fillRect(0,0,w,h);
     const top=b.createLinearGradient(0,0,0,h*.22);top.addColorStop(0,light?'rgba(243,240,234,.95)':'rgba(5,7,10,.9)');top.addColorStop(1,'rgba(0,0,0,0)');b.fillStyle=top;b.fillRect(0,0,w,h*.22);
     const bot=b.createLinearGradient(0,h*.68,0,h);bot.addColorStop(0,'rgba(0,0,0,0)');bot.addColorStop(1,light?'rgba(243,240,234,.96)':'rgba(5,7,10,.94)');b.fillStyle=bot;b.fillRect(0,h*.68,w,h*.32)}
   function resize(){const r=canvas.getBoundingClientRect();dpr=Math.min(devicePixelRatio||1,2);w=Math.max(1,r.width);h=Math.max(1,r.height);canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);fit();drawBase();draw(performance.now())}
@@ -45,19 +61,19 @@ function create(canvas,opts){
       if(building){ctx.setLineDash([5,7]);ctx.strokeStyle=css('--faint');ctx.lineWidth=1.4;ctx.stroke();ctx.setLineDash([]);return}
       ctx.strokeStyle=down?red:gold;ctx.globalAlpha=light?.25:.35;ctx.lineWidth=6;ctx.shadowColor=down?red:gold;ctx.shadowBlur=light?6:18;ctx.stroke();ctx.globalAlpha=1;ctx.lineWidth=1.6;ctx.strokeStyle=down?red:gold2;ctx.shadowBlur=light?2:10;ctx.stroke();ctx.shadowBlur=0;
       if(!reduce&&!down){const t=((time||0)*.00018+i*.17)%1,p=at(a,c,b,t);ctx.beginPath();ctx.arc(p.x,p.y,2.4,0,Math.PI*2);ctx.fillStyle=gold2;ctx.shadowColor=gold;ctx.shadowBlur=12;ctx.fill();ctx.shadowBlur=0}});
-    const boxes=[];
+    const boxes=labelBoxes;boxes.length=0;
     for(const p of placed){const n=p.n,col=n.status==='up'?gold:n.status==='down'?red:css('--faint');
       if(p.hub){ctx.beginPath();ctx.arc(p.x,p.y,26,0,Math.PI*2);const g=ctx.createRadialGradient(p.x,p.y,4,p.x,p.y,34);g.addColorStop(0,light?'rgba(232,181,78,.35)':'rgba(232,181,78,.30)');g.addColorStop(1,'rgba(232,181,78,0)');ctx.fillStyle=g;ctx.fill();
         ctx.beginPath();ctx.arc(p.x,p.y,18,0,Math.PI*2);ctx.fillStyle=light?'#fffaf0':'#0b0d11';ctx.fill();ctx.lineWidth=2;ctx.strokeStyle=col;ctx.shadowColor=col;ctx.shadowBlur=14;ctx.stroke();ctx.shadowBlur=0;
         ctx.fillStyle=light?'#2a2116':'#fff';ctx.font='700 12px Inter,system-ui,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText((n.country||'IR').slice(0,2),p.x,p.y+.5);continue}
       ctx.beginPath();ctx.arc(p.x,p.y,4.5,0,Math.PI*2);ctx.fillStyle=col;ctx.shadowColor=col;ctx.shadowBlur=16;ctx.fill();ctx.shadowBlur=0;ctx.beginPath();ctx.arc(p.x,p.y,9,0,Math.PI*2);ctx.strokeStyle=col;ctx.globalAlpha=.55;ctx.lineWidth=1;ctx.stroke();ctx.globalAlpha=1;
       // Narrow maps get a short tag; the server list underneath carries the details.
-      if(w<520){ctx.font='700 10.5px Inter,system-ui,sans-serif';ctx.direction='ltr';ctx.textBaseline='middle';const tag=n.country||n.alias,tw2=ctx.measureText(tag).width,hb=placed.find(q=>q.hub),lf=hb?p.x<hb.x:false,tx=lf?p.x-12-tw2:p.x+12;if(boxes.some(o=>tx-5<o.x+o.w&&tx+tw2+5>o.x&&p.y-9<o.y+18&&p.y+9>o.y))continue;boxes.push({x:tx-5,y:p.y-9,w:tw2+10});ctx.beginPath();ctx.roundRect(tx-5,p.y-9,tw2+10,18,6);ctx.fillStyle=light?'rgba(255,255,255,.85)':'rgba(12,14,19,.75)';ctx.fill();ctx.fillStyle=light?'#1d2128':'#f3efe6';ctx.textAlign='left';ctx.fillText(tag,tx,p.y+.5);continue}
+      if(w<520){ctx.font='700 10.5px Inter,system-ui,sans-serif';ctx.direction='ltr';ctx.textBaseline='middle';const tag=n.country||n.alias,tw2=ctx.measureText(tag).width,hb=placed.find(q=>q.hub),lf=hb?p.x<hb.x:false,tx=lf?p.x-12-tw2:p.x+12;if(boxes.some(o=>tx-5<o.x+o.w&&tx+tw2+5>o.x&&p.y-9<o.y+18&&p.y+9>o.y))continue;boxes.push({x:tx-5,y:p.y-9,w:tw2+10,n});ctx.beginPath();ctx.roundRect(tx-5,p.y-9,tw2+10,18,6);ctx.fillStyle=light?'rgba(255,255,255,.85)':'rgba(12,14,19,.75)';ctx.fill();ctx.fillStyle=light?'#1d2128':'#f3efe6';ctx.textAlign='left';ctx.fillText(tag,tx,p.y+.5);continue}
       // Label: flag, country, node name and measured latency, on the side away from the hub.
       const rtl=document.documentElement.dir==='rtl',title=opts.countryName(n.country)||n.alias,sub=n.alias,ms=n.latency_ms!=null?n.latency_ms+' ms':opts.unknown();
       ctx.font='700 12.5px '+css('--font');let tw=ctx.measureText(title).width;ctx.font='500 11px '+css('--font');tw=Math.max(tw,ctx.measureText(sub).width);tw+=46;ctx.font='600 11.5px Inter,system-ui,sans-serif';tw=Math.max(tw,ctx.measureText(ms).width+46);
       const hub=placed.find(q=>q.hub),left=hub?p.x<hub.x:false;let bx=left?p.x-16-tw:p.x+16,by=p.y-24;if(bx+tw>w-8)bx=p.x-16-tw;if(bx<8)bx=p.x+16;by=Math.max(70,Math.min(h-150,by));
-      for(let pass=0;pass<4;pass++)for(const o of boxes)if(bx<o.x+o.w&&bx+tw>o.x&&by<o.y+60&&by+60>o.y)by=o.y+62;boxes.push({x:bx,y:by,w:tw});
+      for(let pass=0;pass<4;pass++)for(const o of boxes)if(bx<o.x+o.w&&bx+tw>o.x&&by<o.y+60&&by+60>o.y)by=o.y+62;boxes.push({x:bx,y:by,w:tw,n});
       if(Math.abs(by+16-p.y)>18){ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(left?bx+tw:bx,by+16);ctx.strokeStyle=css('--line2');ctx.lineWidth=1;ctx.stroke()}
       ctx.beginPath();ctx.roundRect(bx-4,by-4,tw+8,56,10);ctx.fillStyle=light?'rgba(255,255,255,.82)':'rgba(12,14,19,.72)';ctx.fill();ctx.strokeStyle=light?'rgba(181,131,42,.25)':'rgba(232,181,78,.18)';ctx.lineWidth=1;ctx.stroke();
       const fx=rtl?bx+tw-16:bx+16,fy=by+24;ctx.beginPath();ctx.arc(fx,fy,14,0,Math.PI*2);ctx.fillStyle=light?'#fff':'#14171d';ctx.fill();ctx.strokeStyle=light?'#ddd5c7':'#2e3442';ctx.stroke();
@@ -73,7 +89,13 @@ function create(canvas,opts){
   document.fonts?.ready.then(()=>draw(performance.now()));
   canvas.addEventListener('mousemove',ev=>{const r=canvas.getBoundingClientRect(),x=ev.clientX-r.left,y=ev.clientY-r.top,hit=placed.find(p=>Math.hypot(p.x-x,p.y-y)<(p.hub?20:12));if(hit!==hover){hover=hit;opts.onHover?.(hit?.n||null,x,y)}});
   canvas.addEventListener('mouseleave',()=>{hover=null;opts.onHover?.(null)});
-  canvas.addEventListener('click',()=>{if(hover)opts.onSelect?.(hover.n)});
+  /* A click picks a server (its dot or label) or, failing that, the nearest tunnel arc. */
+  function pick(x,y){const node=placed.find(p=>Math.hypot(p.x-x,p.y-y)<(p.hub?22:14))||labelBoxes.find(b=>b.n&&x>=b.x-4&&x<=b.x+b.w+4&&y>=b.y-4&&y<=b.y+52);if(node)return{node:node.n};
+    const byId=Object.fromEntries(placed.map(p=>[p.n.id,p]));let best=null,bd=9;
+    for(const l of data.links){const a=byId[l.ir_node],b=byId[l.ex_node];if(!a||!b)continue;const c=curve(a,b);for(let i=0;i<=40;i++){const q=at(a,c,b,i/40),d=Math.hypot(q.x-x,q.y-y);if(d<bd){bd=d;best=l}}}
+    return best?{link:best}:null}
+  canvas.addEventListener('click',ev=>{const r=canvas.getBoundingClientRect(),hit=pick(ev.clientX-r.left,ev.clientY-r.top);if(hit?.node)opts.onSelect?.(hit.node,null);else if(hit?.link)opts.onSelect?.(data.nodes.find(n=>n.id===hit.link.ex_node),hit.link);else opts.onSelect?.(null,null)});
+  canvas.style.cursor='pointer';
   return{set(d){data=d;fit();drawBase();draw(performance.now());kick()},mode(m){mode=m;drawBase();draw(performance.now())},theme(){drawBase();draw(performance.now())},redraw(){draw(performance.now());kick()}};
 }
 window.BAFT_MAP={create,flagOf,flagSupported};

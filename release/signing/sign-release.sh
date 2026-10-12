@@ -43,12 +43,19 @@ cat "$W/cand/CANDIDATE"
 grep -q "$C" "$W/cand/CANDIDATE" && grep -q "$TAG" "$W/cand/CANDIDATE" || { echo "STOP: CANDIDATE mismatch"; exit 1; }
 ROOT="$W/src/release/keys/root.pub"; REV="$W/src/release/keys/revocations.json"
 cmp "$W/cand/root.pub" "$ROOT"; cmp "$W/cand/revocations.json" "$REV"
-gh release download v0.2.0 -R "$R" -p release-key.cert.json -D "$W"
-
-read -rsp "Paste the RELEASE key (not root), then Enter: " K </dev/tty; echo
-BAFT_RELEASE_SIGNING_KEY="$K" "$W/baft-release" sign -dir "$W/cand/dist" -version "$TAG" -commit "$C" \
-  -cert "$W/release-key.cert.json" -root-pub "$ROOT" -build-flag -trimpath -build-flag -buildvcs=false
-K=; unset K
+# BAFT_RELEASE_CERT / BAFT_RELEASE_KEY_FILE: use a local certificate and key
+# file (e.g. from the encrypted keys volume) instead of v0.2.0's certificate
+# and a pasted key.
+if [ -n "${BAFT_RELEASE_CERT:-}" ]; then cp "$BAFT_RELEASE_CERT" "$W/release-key.cert.json"
+else gh release download v0.2.0 -R "$R" -p release-key.cert.json -D "$W"; fi
+SIGN=("$W/baft-release" sign -dir "$W/cand/dist" -version "$TAG" -commit "$C" \
+  -cert "$W/release-key.cert.json" -root-pub "$ROOT" -build-flag -trimpath -build-flag -buildvcs=false)
+if [ -n "${BAFT_RELEASE_KEY_FILE:-}" ]; then "${SIGN[@]}" -key "$BAFT_RELEASE_KEY_FILE"
+else
+  read -rsp "Paste the RELEASE key (not root), then Enter: " K </dev/tty; echo
+  BAFT_RELEASE_SIGNING_KEY="$K" "${SIGN[@]}"
+  K=; unset K
+fi
 "$W/baft-release" verify -dir "$W/cand/dist" -root-pub "$ROOT" -revocations "$REV"
 bash "$W/src/scripts/release/offline_bundle.sh" "$W/cand/dist" "$W/cand/revocations.json" "$W/cand/install.sh" "$W/out" "$W/cand/notices"
 

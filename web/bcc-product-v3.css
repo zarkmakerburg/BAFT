@@ -106,6 +106,12 @@ html[dir=ltr] .hero-message{direction:ltr}
  .dashboard-overview .stage canvas{height:400px!important}
  .dashboard-overview .stage>.details{position:static;width:auto;max-height:none}
  #previewApp main[data-route=dashboard] .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+ /* The desktop sidebar width above is unconditional; on phones the menu is a
+    horizontal strip above the page, not a column beside it. */
+ .layout{grid-template-columns:minmax(0,1fr)}
+ .layout nav{position:static;top:auto;height:auto;flex-direction:row;overflow-x:auto;white-space:nowrap;border-inline-end:0;border-bottom:1px solid var(--line);padding:8px}
+ .layout nav a{padding:10px}
+ .chart-header{flex-wrap:wrap}
 }
 
 .welcome-panel h1 #heroPrefix{color:var(--gold);font-style:normal;text-shadow:0 0 28px #e5ad4c66}

@@ -63,7 +63,8 @@ label{font-size:13px;color:var(--muted);font-weight:600}
 .landing-art{grid-area:art;position:relative;min-height:520px;height:100%}
 .landing-art canvas{position:absolute;inset:-40px -80px -40px -40px;width:calc(100% + 120px);height:calc(100% + 80px)}
 html[dir=rtl] .landing-art canvas{inset:-40px -40px -40px -80px}
-.landing-logo{width:150px;height:auto;display:block;filter:drop-shadow(0 18px 40px rgba(232,181,78,.25));border-radius:18px}
+.landing-logo{width:190px;height:auto;display:block;margin:-14px 0 -10px;margin-inline-start:-44px;filter:drop-shadow(0 0 34px rgba(232,181,78,.22)) drop-shadow(0 14px 22px rgba(0,0,0,.35))}
+[data-theme="light"] .landing-logo{filter:drop-shadow(0 12px 22px rgba(120,84,20,.18))}
 .landing-name{display:flex;flex-direction:column;align-items:flex-start;margin:10px 0 18px;gap:2px}
 .landing-name span{font-family:Inter,"Segoe UI",system-ui,sans-serif;font-weight:800;letter-spacing:.5em;font-size:28px;direction:ltr}
 .landing-name b{color:var(--gold);font-size:24px;font-weight:800}
@@ -77,7 +78,8 @@ html[dir=rtl] .landing-art canvas{inset:-40px -40px -40px -80px}
 .landing-strip svg{color:var(--gold);width:24px;height:24px}
 .signin{flex:1;display:grid;place-items:center;padding:40px 18px}
 .login-card{width:min(420px,100%);display:grid;gap:10px;padding:32px;border-radius:22px;background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow)}
-.login-logo{width:64px;border-radius:14px;margin-bottom:6px}
+.login-logo{width:84px;margin:-8px 0 0;filter:drop-shadow(0 0 18px rgba(232,181,78,.2))}
+[data-theme="light"] .login-logo{filter:drop-shadow(0 6px 12px rgba(120,84,20,.16))}
 .login-card h1{font-size:24px;margin:0}
 .login-card p{margin:0 0 8px}
 .password-wrap{position:relative}
@@ -95,7 +97,8 @@ html[dir=ltr] .shell>*{direction:ltr}
 .side{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:14px;padding:18px 14px;background:var(--bg2);border-inline-end:1px solid var(--line);overflow-y:auto}
 html[dir=rtl] .side{border-inline-end:0;border-inline-start:1px solid var(--line)}
 .brand{display:flex;align-items:center;gap:12px;text-decoration:none;padding:4px 8px 14px;direction:ltr}
-.brand img{width:44px;height:44px;border-radius:11px;object-fit:cover}
+.brand img{width:46px;height:46px;object-fit:contain;filter:drop-shadow(0 0 10px rgba(232,181,78,.18))}
+[data-theme="light"] .brand img{filter:none}
 .brand b{display:block;font:800 22px/1 Inter,"Segoe UI",system-ui,sans-serif;letter-spacing:.08em;color:var(--gold)}
 .brand small{display:block;font:600 10px/1.6 Inter,"Segoe UI",system-ui,sans-serif;letter-spacing:.14em;color:var(--muted)}
 #nav{display:flex;flex-direction:column;gap:4px;flex:1}
@@ -348,7 +351,7 @@ td select{min-height:34px;padding:5px 10px;width:auto;min-width:150px}
  .map-card canvas{position:relative;inset:auto;order:2;height:250px;flex:none}
  .map-note{order:1}
  .kpis{order:3;margin-top:0}
- .landing-logo{width:110px}
+ .landing-logo{width:130px;margin-inline-start:-26px}
  .btn.big{min-width:0;flex:1}
  .landing-strip li{padding:4px 14px;font-size:13px}
  .pub-tools .icon-btn{display:none}

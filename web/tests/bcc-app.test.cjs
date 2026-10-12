@@ -56,3 +56,33 @@ test('theme and language are applied before the first paint',()=>{
   assert.match(head,/localStorage\.getItem\('baft\.theme'\)/);
   assert.match(head,/localStorage\.getItem\('baft\.lang'\)/);
 });
+
+const locationOptions=new Function('t','countryName','esc','COUNTRIES','lang',
+  'return '+app.slice(app.indexOf('function locationOptions('),app.indexOf('function locationChoice('))
+)(key=>T.en[key],code=>({DE:'Germany',NL:'Netherlands'})[code],
+  value=>String(value).replaceAll('&','&amp;').replaceAll('<','&lt;'),['DE','NL'],()=> 'en');
+const locationChoice=new Function('return '+app.slice(app.indexOf('function locationChoice('),app.indexOf('function paintServers(')))();
+
+test('location defaults to IP and shows an inferred country without making it manual',()=>{
+  for(const n of [{},{country:'DE',country_source:'ip'}]){
+    const options=locationOptions(n);
+    assert.equal([...options.matchAll(/ selected/g)].length,1);
+    assert.match(options,/<option value="auto" selected>/);
+  }
+  assert.match(locationOptions({country:'DE',country_source:'ip'}),/Automatic from IP · Germany/);
+});
+
+test('manual, legacy and hidden map locations retain their selection',()=>{
+  for(const n of [{country:'DE',country_source:'manual'},{country:'DE'}]){
+    const options=locationOptions(n);
+    assert.match(options,/<option value="DE" selected>/);
+    assert.doesNotMatch(options,/<option value="auto" selected>/);
+  }
+  assert.match(locationOptions({country_source:'manual'}),/<option value="" selected>/);
+});
+
+test('returning to automatic sends no conflicting manual country',()=>{
+  assert.deepEqual(locationChoice('server','auto'),{node_id:'server',country:'',automatic:true});
+  assert.deepEqual(locationChoice('server','DE'),{node_id:'server',country:'DE',automatic:false});
+  assert.deepEqual(locationChoice('server',''),{node_id:'server',country:'',automatic:false});
+});

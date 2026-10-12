@@ -85,6 +85,7 @@ type Server struct {
 	access                  *accessGate
 	jobKey                  ed25519.PrivateKey
 	boot                    *bootstrapState
+	locationLookup          func(context.Context, string) (string, error)
 	loginLim                *loginLimiter
 	hashing                 hashSlots
 	now                     func() time.Time
@@ -727,14 +728,23 @@ func (s *Server) nodeLocation(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		NodeID  string `json:"node_id"`
 		Country string `json:"country"`
+		Automatic bool `json:"automatic"`
 	}
 	if err := decodeJSON(r, &in); err != nil {
 		http.Error(w, err.Error(), 400)
 		return
 	}
+	if in.Automatic && strings.TrimSpace(in.Country)!=""{
+		http.Error(w,"automatic location cannot include a manual country",400)
+		return
+	}
 	details := map[string]any{"country": strings.ToUpper(strings.TrimSpace(in.Country))}
+	details["automatic"]=in.Automatic
 	now := s.now()
-	n, err := s.store.SetNodeCountry(strings.TrimSpace(in.NodeID), in.Country, now, AuditEntry{Timestamp: now.UTC(), Actor: "admin", RemoteIP: s.clientIP(r), Details: withRequest(r, details)})
+	audit := AuditEntry{Timestamp: now.UTC(), Actor: "admin", RemoteIP: s.clientIP(r), Details: withRequest(r, details)}
+	var n Node
+	var err error
+	if in.Automatic{n,err=s.store.ResetNodeCountry(strings.TrimSpace(in.NodeID),now,audit)}else{n,err=s.store.SetNodeCountry(strings.TrimSpace(in.NodeID), in.Country, now, audit)}
 	if err != nil {
 		s.auditFailure(w, r, "node.location", in.NodeID, details, err, http.StatusBadRequest)
 		return

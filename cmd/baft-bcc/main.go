@@ -85,6 +85,9 @@ func main(){
 	app,err:=bcc.NewServer(store,adminToken)
 	if err!=nil{fmt.Fprintln(os.Stderr,"BCC server:",err);os.Exit(1)}
 	app.SetVersion(version)
+	if err:=app.ConfigureLocationLookup(strings.TrimSpace(os.Getenv("BAFT_BCC_GEOIP_URL")));err!=nil{
+		fmt.Fprintln(os.Stderr,"IP location:",err);os.Exit(2)
+	}
 	trustedProxies:=[]string{}
 	for _,part:=range strings.Split(os.Getenv("BAFT_BCC_TRUSTED_PROXIES"),","){
 		if v:=strings.TrimSpace(part);v!=""{trustedProxies=append(trustedProxies,v)}
@@ -120,6 +123,7 @@ func main(){
 	ctx,stop:=signal.NotifyContext(context.Background(),os.Interrupt,syscall.SIGTERM)
 	defer stop()
 	go app.StartHealthLoop(ctx,*healthInterval)
+	go app.StartLocationLoop(ctx)
 	go app.StartAlertLoop(ctx)
 	app.StartTunnelLoop(ctx,2*time.Second)
 	go app.StartAuditAnchorLoop(ctx)

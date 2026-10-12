@@ -334,6 +334,10 @@ td select{min-height:34px;padding:5px 10px;width:auto;min-width:150px}
 .wallets li{border:1px solid var(--line);border-radius:14px;padding:10px 12px;background:var(--panel2)}
 .w-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px}
 .w-head small{color:var(--muted)}
+.w-coin,.w-net{display:inline-flex;align-items:center;gap:8px}
+.w-coin .coin{width:26px;height:26px}
+.w-net .chain{width:16px;height:16px}
+.wallets svg{stroke:none}
 .w-addr{display:flex;gap:8px;align-items:center}
 .w-addr code{flex:1;min-width:0;overflow-wrap:anywhere;font-size:12.5px;line-height:1.5;user-select:all}
 @media(max-width:1280px){.dash-row{grid-template-columns:repeat(2,minmax(0,1fr))}.dash-row>:first-child{grid-column:1/-1}}
@@ -376,6 +380,7 @@ td select{min-height:34px;padding:5px 10px;width:auto;min-width:150px}
  .btn.big{min-width:0;flex:1}
  .landing-strip li{padding:4px 14px;font-size:13px}
  .pub-tools .icon-btn{display:none}
+ .pub-tools .icon-btn.pub-support-btn{display:inline-flex}
  .server-row{grid-template-columns:34px minmax(0,1fr) auto 50px}
  .server-row .bars{display:none}
  .page-head h1{font-size:21px}

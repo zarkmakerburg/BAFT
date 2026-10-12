@@ -316,6 +316,26 @@ td select{min-height:34px;padding:5px 10px;width:auto;min-width:150px}
 .quick .btn svg{width:16px;height:16px}
 .quick p{flex-basis:100%;margin:2px 0 0;font-size:12px}
 .server-row .ms small{display:block;color:var(--faint);font-size:10.5px;text-align:end}
+/* Support us: a dialog opened from the landing header, the sidebar and the account menu. */
+#nav a.nav-support{margin-top:auto;color:var(--gold);border-color:var(--gold-line);background:var(--gold-soft)}
+#nav a.nav-support svg{fill:var(--gold-soft)}
+.pub-links a.pub-support{color:var(--gold)}
+.pub-support-btn{display:none;color:var(--gold)}
+.support-dlg{border:1px solid var(--line2);border-radius:20px;padding:0;background:var(--panel);color:var(--text);width:min(480px,calc(100vw - 32px));max-height:calc(100vh - 32px);box-shadow:0 30px 80px rgba(0,0,0,.45)}
+.support-dlg::backdrop{background:rgba(5,7,10,.62);backdrop-filter:blur(3px)}
+:root[data-theme=light] .support-dlg::backdrop{background:rgba(40,32,18,.28)}
+.support-card{display:flex;flex-direction:column;gap:12px;padding:26px 24px 22px;position:relative}
+.support-card h2{margin:0;font-size:22px}
+.support-card h3{margin:10px 0 0;font-size:14px;color:var(--muted)}
+.support-card .muted{margin:0 0 6px;line-height:1.9}
+.support-logo{width:72px;margin:-6px 0 -4px;margin-inline-start:-14px;filter:drop-shadow(0 0 18px rgba(232,181,78,.22))}
+.dlg-x{position:absolute;top:14px;inset-inline-end:14px}
+.wallets{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.wallets li{border:1px solid var(--line);border-radius:14px;padding:10px 12px;background:var(--panel2)}
+.w-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px}
+.w-head small{color:var(--muted)}
+.w-addr{display:flex;gap:8px;align-items:center}
+.w-addr code{flex:1;min-width:0;overflow-wrap:anywhere;font-size:12.5px;line-height:1.5;user-select:all}
 @media(max-width:1280px){.dash-row{grid-template-columns:repeat(2,minmax(0,1fr))}.dash-row>:first-child{grid-column:1/-1}}
 @media(max-width:640px){.dash-row{grid-template-columns:minmax(0,1fr)}.map-panel{position:fixed;inset:auto 10px 10px 10px;top:auto;width:auto;max-height:70vh;z-index:30}}
 @media(max-width:1440px){.kpi .spark{display:none}}
@@ -335,6 +355,7 @@ td select{min-height:34px;padding:5px 10px;width:auto;min-width:150px}
  .landing-art{min-height:340px}
  .landing-art canvas,html[dir=rtl] .landing-art canvas{inset:-20px;width:calc(100% + 40px);height:calc(100% + 40px)}
  .pub-links{display:none}
+ .pub-support-btn{display:inline-flex}
  .pub-head{justify-content:space-between}
 }
 @media(max-width:640px){

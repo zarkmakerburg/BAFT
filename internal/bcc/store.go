@@ -49,8 +49,13 @@ type Node struct {
 	AppliedGeneration        int            `json:"applied_generation,omitempty"`
 	AppliedGenerations       map[string]int `json:"applied_generations,omitempty"`
 	Health                   string         `json:"health"`
-	// Country is the ISO 3166-1 alpha-2 code the operator gave for the map.
+	// Country is the ISO 3166-1 alpha-2 code the map draws the node in. BCC
+	// fills it from the node's IP address; CountryManual marks a code the
+	// operator chose (or cleared), which BCC then never changes; CountryAuto
+	// marks a code BCC derived, which follows the address if it changes.
 	Country                  string         `json:"country,omitempty"`
+	CountryManual            bool           `json:"country_manual,omitempty"`
+	CountryAuto              bool           `json:"country_auto,omitempty"`
 	LastChecked    time.Time `json:"last_checked,omitempty"`
 	LatencyMS      int64     `json:"latency_ms"`
 	UpdatedAt      time.Time `json:"updated_at"`
@@ -302,7 +307,7 @@ func (s *Store) UpsertNode(n Node, agentToken string, audits ...AuditEntry) (Nod
 		if n.AgentSeen.IsZero(){n.AgentSeen=old.AgentSeen}
 		if n.PathIPv4==""{n.PathIPv4=old.PathIPv4}
 		if n.PathIPv6==""{n.PathIPv6=old.PathIPv6}
-		if n.Country==""{n.Country=old.Country}
+		if n.Country==""{n.Country=old.Country;n.CountryManual=old.CountryManual;n.CountryAuto=old.CountryAuto}
 		n.AppliedGeneration=old.AppliedGeneration
 		if len(old.AppliedGenerations)>0{
 			n.AppliedGenerations=make(map[string]int,len(old.AppliedGenerations))
@@ -489,6 +494,7 @@ func (s *Store) SetNodeCountry(nodeID,country string,now time.Time,audits ...Aud
 	n,found:=s.st.Nodes[nodeID];if !found{return Node{},errors.New("node not found")}
 	before,err:=cloneState(s.st);if err!=nil{return Node{},err}
 	n.Country=code
+	n.CountryManual,n.CountryAuto=true,false
 	n.UpdatedAt=now
 	s.st.Nodes[nodeID]=n
 	if len(audits)==1{
@@ -499,6 +505,23 @@ func (s *Store) SetNodeCountry(nodeID,country string,now time.Time,audits ...Aud
 	}
 	if err:=s.saveLocked();err!=nil{s.st=before;return Node{},err}
 	return publicNode(n),nil
+}
+
+// SetAutoCountry records the country BCC derived from a node's IP address.
+// It changes nothing once the operator has chosen a location, and reports
+// whether it stored a new value.
+func (s *Store) SetAutoCountry(nodeID,country string)(bool,error){
+	code,ok:=normalizeCountry(country)
+	if !ok||code==""{return false,nil}
+	s.mu.Lock();defer s.mu.Unlock()
+	n,found:=s.st.Nodes[nodeID]
+	// A code set before BCC located nodes itself counts as the operator's.
+	if !found||n.CountryManual||(n.Country!=""&&!n.CountryAuto)||n.Country==code{return false,nil}
+	prev:=n
+	n.Country,n.CountryAuto=code,true
+	s.st.Nodes[nodeID]=n
+	if err:=s.saveLocked();err!=nil{s.st.Nodes[nodeID]=prev;return false,err}
+	return true,nil
 }
 
 // noteAgentSeenLocked records agent contact in memory; it reaches disk with the

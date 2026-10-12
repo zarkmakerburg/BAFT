@@ -11,12 +11,14 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/zarkmakerburg/baft/internal/geoip"
 	"github.com/zarkmakerburg/baft/internal/telemetry"
 )
 
@@ -67,6 +69,8 @@ type Server struct {
 	anchorOutbox            *AuditAnchorOutbox
 	anchorWake              chan struct{}
 	probeTimeout            time.Duration
+	geoMu                   sync.Mutex
+	geoTried                map[string]string
 	alertConfig             AlertConfig
 	alertMu                 sync.Mutex
 	activeAlerts            map[string]Alert
@@ -452,6 +456,7 @@ func (s *Server) agentAck(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) ProbeOnce(ctx context.Context) {
+	s.LocateNodes(ctx)
 	for _, n := range s.store.ListNodes() {
 		d := net.Dialer{Timeout: s.probeTimeout}
 		start := time.Now()
@@ -466,6 +471,70 @@ func (s *Server) ProbeOnce(ctx context.Context) {
 		_ = s.store.SetHealth(n.ID, health, latency, time.Now())
 	}
 	s.EvaluateHealthOnce()
+}
+
+// LocateNodes fills in the map country of each node from its IP address,
+// using the offline table embedded in BCC. A location the operator chose is
+// never changed; an address that was already looked up is not resolved again.
+func (s *Server) LocateNodes(ctx context.Context) {
+	for _, n := range s.store.ListNodes() {
+		if n.Revoked || n.CountryManual || (n.Country != "" && !n.CountryAuto) {
+			continue
+		}
+		key := n.Address + "|" + n.PathIPv4 + "|" + n.PathIPv6
+		s.geoMu.Lock()
+		if s.geoTried == nil {
+			s.geoTried = map[string]string{}
+		}
+		done := s.geoTried[n.ID] == key
+		s.geoMu.Unlock()
+		if done {
+			continue
+		}
+		if cc, ok := nodeCountry(ctx, n); ok {
+			if _, err := s.store.SetAutoCountry(n.ID, cc); err != nil {
+				continue
+			}
+		}
+		s.geoMu.Lock()
+		s.geoTried[n.ID] = key
+		s.geoMu.Unlock()
+	}
+}
+
+// nodeCountry looks up the node's path address, or else its management host.
+func nodeCountry(ctx context.Context, n Node) (string, bool) {
+	var cands []string
+	cands = append(cands, n.PathIPv4, n.PathIPv6)
+	if host, _, err := net.SplitHostPort(n.Address); err == nil {
+		cands = append(cands, host)
+	} else {
+		cands = append(cands, n.Address)
+	}
+	for _, c := range cands {
+		c = strings.Trim(strings.TrimSpace(c), "[]")
+		if c == "" {
+			continue
+		}
+		addrs := []netip.Addr{}
+		if ip, err := netip.ParseAddr(c); err == nil {
+			addrs = append(addrs, ip)
+		} else {
+			lctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+			got, err := net.DefaultResolver.LookupNetIP(lctx, "ip", c)
+			cancel()
+			if err != nil {
+				continue
+			}
+			addrs = got
+		}
+		for _, ip := range addrs {
+			if cc, ok := geoip.Country(ip); ok {
+				return cc, true
+			}
+		}
+	}
+	return "", false
 }
 
 func (s *Server) StartHealthLoop(ctx context.Context, interval time.Duration) {

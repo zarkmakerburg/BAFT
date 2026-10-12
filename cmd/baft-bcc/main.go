@@ -16,6 +16,9 @@ import (
 	"github.com/zarkmakerburg/baft/internal/bcc"
 )
 
+// version is set at release build time (-X main.version).
+var version = "dev"
+
 func main(){
 	if len(os.Args)>1&&os.Args[1]=="access"{os.Exit(runAccess(os.Args[2:]))}
 	if len(os.Args)>1&&os.Args[1]=="jobkey"{os.Exit(runJobKey(os.Args[2:]))}
@@ -81,6 +84,7 @@ func main(){
 	}
 	app,err:=bcc.NewServer(store,adminToken)
 	if err!=nil{fmt.Fprintln(os.Stderr,"BCC server:",err);os.Exit(1)}
+	app.SetVersion(version)
 	trustedProxies:=[]string{}
 	for _,part:=range strings.Split(os.Getenv("BAFT_BCC_TRUSTED_PROXIES"),","){
 		if v:=strings.TrimSpace(part);v!=""{trustedProxies=append(trustedProxies,v)}

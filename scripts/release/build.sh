@@ -31,7 +31,7 @@ for arch in "${arches[@]}"; do
   install -m 0755 install.sh "$out/baft-install-linux-$arch"
   for bin in "${binaries[@]}"; do
     ldflags="-s -w -buildid="
-    if [ "$bin" = baft ]; then
+    if [ "$bin" = baft ] || [ "$bin" = baft-bcc ]; then
       ldflags="$ldflags -X main.version=${version#v}"
     fi
     CGO_ENABLED=0 GOOS=linux GOARCH="$arch" \

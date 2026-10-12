@@ -55,6 +55,7 @@ type Alert struct {
 
 type Server struct {
 	store                   *Store
+	version                 string
 	adminToken              string
 	audit                   *AuditLog
 	guard                   *IPGuard
@@ -151,6 +152,9 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request) bool {
 	s.guard.AuthSuccess(s.clientIP(r))
 	return true
 }
+
+// SetVersion names the BCC build shown in the Command Center.
+func (s *Server) SetVersion(v string) { s.version = v }
 
 func (s *Server) ConfigureSecurity(cfg SecurityConfig) {
 	s.guard = newIPGuard(cfg)
@@ -265,6 +269,8 @@ func (s *Server) Handler() http.Handler {
 	m.HandleFunc("/api/backups/create", s.backupCreateAPI)
 	m.HandleFunc("/api/backups/restore-preview", s.restorePreviewAPI)
 	m.HandleFunc("/api/nodes/revoke", s.revokeNode)
+	m.HandleFunc("/api/nodes/location", s.nodeLocation)
+	m.HandleFunc("/api/overview", s.overviewAPI)
 	m.HandleFunc("/api/nodes/rotate-token", s.rotateNodeToken)
 	api := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") && s.store.PersistenceUncertain() {
@@ -706,6 +712,37 @@ func (s *Server) auditEntries(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, entries)
+}
+
+func (s *Server) nodeLocation(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", 405)
+		return
+	}
+	if !s.admin(w, r) {
+		return
+	}
+	s.mutationMu.Lock()
+	defer s.mutationMu.Unlock()
+	var in struct {
+		NodeID  string `json:"node_id"`
+		Country string `json:"country"`
+	}
+	if err := decodeJSON(r, &in); err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	details := map[string]any{"country": strings.ToUpper(strings.TrimSpace(in.Country))}
+	now := s.now()
+	n, err := s.store.SetNodeCountry(strings.TrimSpace(in.NodeID), in.Country, now, AuditEntry{Timestamp: now.UTC(), Actor: "admin", RemoteIP: s.clientIP(r), Details: withRequest(r, details)})
+	if err != nil {
+		s.auditFailure(w, r, "node.location", in.NodeID, details, err, http.StatusBadRequest)
+		return
+	}
+	if err := s.FlushSecurityAuditIntents(); err != nil {
+		w.Header().Set("X-BAFT-Audit-State", "pending")
+	}
+	writeJSON(w, http.StatusOK, n)
 }
 
 func (s *Server) revokeNode(w http.ResponseWriter, r *http.Request) {

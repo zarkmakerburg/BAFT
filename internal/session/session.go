@@ -114,6 +114,9 @@ type Peer struct {
 	trafficObserver    TrafficObserver
 	latencyObserver    LatencyObserver
 	pingInterval       time.Duration
+	// pingBase anchors PING timestamps to this process's monotonic clock, so
+	// a wall-clock step cannot distort or fake an RTT.
+	pingBase           time.Time
 	recoveryEnabled    bool
 	recoveryRetention  time.Duration
 	recovery           *RecoveryAdapter
@@ -268,7 +271,7 @@ func New(role Role, c Carrier, peerID string, table *routes.Table, opts Options)
 		bootID: bootID, shardID: opts.ShardID, profileID: opts.ProfileID,
 		profileVersion: opts.ProfileVersion, configRevision: opts.ConfigRevision,
 		epoch: "1", readyCh: make(chan struct{}), trafficObserver: opts.TrafficObserver,
-		latencyObserver: opts.LatencyObserver, pingInterval: opts.PingInterval,
+		latencyObserver: opts.LatencyObserver, pingInterval: opts.PingInterval, pingBase: time.Now(),
 		recoveryEnabled: opts.RecoveryEnabled, recoveryRetention: opts.RecoveryRetention,
 		recoveryNeeded: make(chan error,1), carrierSwitchWait: make(chan struct{}), replacementWait: make(chan struct{}), replacementReadyGeneration:1, carrierEpoch:1, carrierGeneration:1, carrierPhysicalInstanceID:physicalCarrierInstanceID(1,1),
 	}
@@ -2120,7 +2123,7 @@ func (p *Peer) pingLoop(ctx context.Context) {
 	if err:=p.waitReady(ctx);err!=nil{return}
 	send:=func() bool {
 		var payload [8]byte
-		binary.BigEndian.PutUint64(payload[:],uint64(time.Now().UnixNano()))
+		binary.BigEndian.PutUint64(payload[:],p.pingStamp())
 		if err:=p.senderNow().sendControl(protocol.Frame{Type:protocol.TypePing,Payload:payload[:]});err!=nil{return false}
 		return true
 	}
@@ -2142,13 +2145,27 @@ func (p *Peer) handlePing(fr protocol.Frame) error {
 	return p.senderNow().sendControl(protocol.Frame{Type:protocol.TypePong,Payload:payload})
 }
 
+// pingStamp is the PING payload: nanoseconds since pingBase, plus one so a
+// valid stamp is never zero. The peer echoes it unread.
+func (p *Peer) pingStamp() uint64 {
+	return uint64(time.Since(p.pingBase)) + 1
+}
+
+// maxPlausiblePongRTT bounds the RTT samples reported to the latency observer.
+const maxPlausiblePongRTT = time.Minute
+
+// handlePong turns an echoed PING stamp into an RTT sample. RTT is a
+// measurement, not a correctness signal: a PONG that is late (it waited behind
+// a stalled carrier), echoes a stamp from before a clock step on an older
+// build, or carries a stamp this Peer never sent is dropped, never a reason to
+// end the session. Only a malformed frame is a protocol error.
 func (p *Peer) handlePong(fr protocol.Frame) error {
 	if len(fr.Payload)!=8{return errors.New("invalid PONG payload")}
-	sent:=int64(binary.BigEndian.Uint64(fr.Payload))
-	now:=time.Now().UnixNano()
-	if sent<=0||sent>now{return errors.New("invalid PONG timestamp")}
+	sent:=binary.BigEndian.Uint64(fr.Payload)
+	now:=p.pingStamp()
+	if sent==0||sent>now{return nil}
 	rtt:=time.Duration(now-sent)
-	if rtt>time.Minute{return errors.New("implausible PONG RTT")}
+	if rtt>maxPlausiblePongRTT{return nil}
 	if p.latencyObserver!=nil{p.latencyObserver(rtt)}
 	return nil
 }

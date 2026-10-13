@@ -68,7 +68,7 @@ type Env struct {
 	System        System
 	Now           func() time.Time
 	// Fault, when set, is asked at named points inside a certificate
-	// rotation; an error stops the operation right there, without any
+	// operation; an error stops the operation right there, without any
 	// cleanup, as if the process died (fault-injection tests only).
 	Fault func(point string) error
 }
@@ -111,6 +111,11 @@ type Txn struct {
 	UnitChanged   bool `json:"unit_changed"`
 	PKIReplaced   bool `json:"pki_replaced"`
 	ConfigWritten bool `json:"config_written"`
+	// Complete PKI tree identities, including modes and owners, protect both the
+	// previous backup and operator edits. They also identify an already
+	// restored tree when rollback must be retried after a later failure.
+	PreviousPKI  map[string]string `json:"previous_pki,omitempty"`
+	InstalledPKI map[string]string `json:"installed_pki,omitempty"`
 
 	// Ownership: what this change installed, so rollback only ever restores or
 	// deletes files that are still exactly the ones BAFT wrote.
@@ -360,9 +365,7 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 		if err := m.ensureNoiseKey(ctx); err != nil {
 			return "", err
 		}
-		replaced, err := m.ensurePKI(ctx, id, p.PublicAddress)
-		t.PKIReplaced = replaced
-		if err != nil {
+		if err := m.ensurePKI(ctx, &t, p.PublicAddress); err != nil {
 			return "", err
 		}
 		identity := "urn:baft:node:ex-" + randomHex(6)
@@ -380,13 +383,13 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 		return strings.TrimSpace(out), nil
 	}()
 	if err != nil {
-		m.abort(ctx, t)
-		return "", err
+		_, rollbackErr := m.rollbackTxn(ctx, t)
+		return "", errors.Join(err, rollbackErr)
 	}
 	// The staged commit arguments are kept so commit needs only the reply.
 	if err := writeJSON(filepath.Join(m.stage(id), "ex-params.json"), p, 0o600); err != nil {
-		m.abort(ctx, t)
-		return "", err
+		_, rollbackErr := m.rollbackTxn(ctx, t)
+		return "", errors.Join(err, rollbackErr)
 	}
 	return code, m.writeTxn(t)
 }
@@ -728,6 +731,14 @@ func (m *Manager) rollbackTxn(ctx context.Context, t Txn) (string, error) {
 			msg := "rollback refused: " + strings.Join(v, "; ") + "; nothing was changed"
 			return msg, errors.New(msg)
 		}
+	}
+	// Verify and restore the complete old certificate set before the old
+	// config is validated or any service operation can load it. Unknown
+	// backups/live material are refused before altering the other artifacts.
+	if err := m.restorePKI(t); err != nil {
+		return "rollback incomplete: " + err.Error(), fmt.Errorf("rollback incomplete: %w", err)
+	}
+	if t.ConfigWritten {
 		note(m.writeGeneration(t.PreviousGeneration))
 		if t.HadConfig {
 			b, err := os.ReadFile(m.backup(t.ID, "baft.yaml"))
@@ -759,8 +770,14 @@ func (m *Manager) rollbackTxn(ctx context.Context, t Txn) (string, error) {
 		} else {
 			note(removeIfExists(m.markerPath()))
 		}
+		if len(errs) > 0 {
+			return "rollback incomplete: " + strings.Join(errs, "; "), errors.New("rollback incomplete: " + strings.Join(errs, "; "))
+		}
 		_, err := m.System.Systemctl(ctx, "daemon-reload")
 		note(err)
+		if err != nil {
+			return "rollback incomplete: " + err.Error(), fmt.Errorf("rollback incomplete: %w", err)
+		}
 		if t.HadConfig && t.WasActive {
 			if _, err := m.System.Systemctl(ctx, "restart", m.Service); err != nil {
 				note(err)
@@ -776,16 +793,10 @@ func (m *Manager) rollbackTxn(ctx context.Context, t Txn) (string, error) {
 			note(err)
 		}
 	}
-	if t.PKIReplaced {
-		before := m.pkiDir() + ".before-" + t.ID
-		if _, err := os.Stat(before); err == nil {
-			note(os.RemoveAll(m.pkiDir()))
-			note(os.Rename(before, m.pkiDir()))
-		}
-	}
 	if len(errs) > 0 {
 		return "rollback incomplete: " + strings.Join(errs, "; "), errors.New("rollback incomplete: " + strings.Join(errs, "; "))
 	}
+	note(m.cleanupPKIBackup(t))
 	for _, f := range []string{"psk", "pending.json", "pairing.pending.json", "ex-params.json", "baft.new.yaml"} {
 		note(removeIfExists(filepath.Join(m.stage(t.ID), f)))
 	}
@@ -886,32 +897,54 @@ func (m *Manager) ensureNoiseKey(ctx context.Context) error {
 
 // ensurePKI creates the EX's outer TLS material for host, replacing (and
 // keeping aside for rollback) material made for another name.
-func (m *Manager) ensurePKI(ctx context.Context, id, host string) (replaced bool, err error) {
+func (m *Manager) ensurePKI(ctx context.Context, t *Txn, host string) (err error) {
+	previous, err := snapshotPKI(m.pkiDir())
+	if err != nil {
+		return fmt.Errorf("cannot verify previous PKI: %w", err)
+	}
 	marker := filepath.Join(m.pkiDir(), "host")
 	if b, err := os.ReadFile(marker); err == nil && strings.TrimSpace(string(b)) == host {
-		return false, nil
+		return nil
 	}
-	if _, err := os.Stat(m.pkiDir()); err == nil {
-		if err := renameDurable(m.pkiDir(), m.pkiDir()+".before-"+id); err != nil {
-			return false, err
+	if len(previous) > 0 {
+		before := m.pkiDir() + ".before-" + t.ID
+		if _, err := os.Lstat(before); !errors.Is(err, os.ErrNotExist) {
+			return errors.New("PKI backup path is already occupied or unreadable")
 		}
-		replaced = true
+		t.PKIReplaced, t.PreviousPKI = true, previous
+		// Persist the old identity before moving its directory. A failed
+		// replacement can then be refused or retried using durable evidence.
+		if err := m.writeTxn(*t); err != nil {
+			return err
+		}
+		defer func() {
+			current, snapshotErr := snapshotPKI(m.pkiDir())
+			if snapshotErr != nil {
+				err = errors.Join(err, fmt.Errorf("cannot record installed PKI: %w", snapshotErr))
+				return
+			}
+			t.InstalledPKI = current
+			err = errors.Join(err, m.writeTxn(*t))
+		}()
+		if err := renameDurable(m.pkiDir(), before); err != nil {
+			return err
+		}
 	}
 	if err := os.MkdirAll(m.ConfigDir, 0o750); err != nil {
-		return replaced, err
+		return err
 	}
 	if out, err := m.System.Run(ctx, m.PairBin, "pki", "--dir", m.pkiDir(), "--host", host); err != nil {
-		return replaced, fmt.Errorf("baft-pair pki: %v: %s", err, tailOf(out))
+		return fmt.Errorf("baft-pair pki: %v: %s", err, tailOf(out))
 	}
 	if err := writeFile(marker, []byte(host+"\n"), 0o644); err != nil {
-		return replaced, err
+		return err
 	}
 	// Same modes/ownership as install.sh, but verified and synced before the
 	// PKI tree can become live.
 	if err := m.securePKI(m.pkiDir()); err != nil {
-		return replaced, err
+		return err
 	}
-	return replaced, nil
+	return nil
 }
 
 // writeConfig installs b as the live config, root-owned and group-readable

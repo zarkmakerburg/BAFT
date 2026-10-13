@@ -117,13 +117,13 @@ func TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle(t *testing.T) {
 	deRoute, bgRoute := "127.0.0.1:"+strconv.Itoa(port()), "127.0.0.1:"+strconv.Itoa(port())
 	deTarget, bgTarget := "127.0.0.1:"+strconv.Itoa(echo(t)), "127.0.0.1:"+strconv.Itoa(echo(t))
 	var checkGermany func(string)
-	build := func(ex, ir *Manager, id string, listen int, route, target string, wantFailure bool) {
+	build := func(ex, ir *Manager, id, public string, listen int, route, target string, wantFailure bool) {
 		check := func(step string) {
 			if checkGermany != nil {
 				checkGermany(id + ": " + step)
 			}
 		}
-		code, err := ex.PrepareEX(ctx, id, ExParams{PublicAddress: "127.0.0.1", Port: listen, Target: target, RouteID: "service-main"})
+		code, err := ex.PrepareEX(ctx, id, ExParams{PublicAddress: public, Port: listen, Target: target, RouteID: "service-main"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -167,7 +167,7 @@ func TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle(t *testing.T) {
 		}
 	}
 	dePort, bgPort := port(), port()
-	build(deEX, deIR, "de-first", dePort, deRoute, deTarget, false)
+	build(deEX, deIR, "de-first", "127.0.0.1", dePort, deRoute, deTarget, false)
 	finalize(deEX, deIR, "de-first")
 	flow, err := net.DialTimeout("tcp", deRoute, 3*time.Second)
 	if err != nil {
@@ -215,21 +215,27 @@ func TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle(t *testing.T) {
 		}
 	}
 	checkGermany("baseline")
-	build(bgEX, bgIR, "bg-first", bgPort, bgRoute, bgTarget, false)
+	build(bgEX, bgIR, "bg-first", "127.0.0.1", bgPort, bgRoute, bgTarget, false)
 	finalize(bgEX, bgIR, "bg-first")
 	checkGermany("Bulgaria active")
-	build(bgEX, bgIR, "bg-port-edit", port(), bgRoute, bgTarget, false)
+	oldPKI := pkiDigests(bgEX.pkiDir())
+	// Changing the public address forces a genuinely different CA/leaf,
+	// unlike the earlier port-only regression which reused the same PKI.
+	build(bgEX, bgIR, "bg-port-edit", "127.0.0.2", port(), bgRoute, bgTarget, false)
 	for _, m := range []*Manager{bgIR, bgEX} {
 		if _, err := m.Rollback(ctx, "bg-port-edit"); err != nil {
 			t.Fatal(err)
 		}
 	}
 	through(t, bgRoute, "port edit rollback")
+	if !sameDigests(pkiDigests(bgEX.pkiDir()), oldPKI) {
+		t.Fatal("Bulgaria address/port rollback did not restore its original certificate set")
+	}
 	checkGermany("Bulgaria port edit rolled back")
 	irHost.mu.Lock()
 	irHost.failRestart = bgIR.Service
 	irHost.mu.Unlock()
-	build(bgEX, bgIR, "bg-failed", port(), bgRoute, bgTarget, true)
+	build(bgEX, bgIR, "bg-failed", "127.0.0.1", port(), bgRoute, bgTarget, true)
 	for _, m := range []*Manager{bgIR, bgEX} {
 		if _, err := m.Rollback(ctx, "bg-failed"); err != nil {
 			t.Fatal(err)
@@ -243,5 +249,5 @@ func TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle(t *testing.T) {
 		}
 	}
 	checkGermany("Bulgaria deleted")
-	t.Log("Germany: same TCP flow, same IR PID/generation and unchanged config/unit/marker/keys across Bulgaria creation, port edit, rollback, injected failure and retirement")
+	t.Log("Germany: same TCP flow, same IR PID/generation and unchanged config/unit/marker/keys across Bulgaria creation, address/port edit with PKI replacement, rollback, injected failure and retirement")
 }

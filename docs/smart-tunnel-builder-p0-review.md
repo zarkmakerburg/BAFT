@@ -1,4 +1,4 @@
-# Smart Tunnel Builder: P0 review and first implementation slice
+# Smart Tunnel Builder: P0 review and implementation slices
 
 Scope: #199, reusing #101/#102, #145/#146/#147 and #74.
 Reviewed baseline: `main@b028fd580fb2c3f0ebffe2fbf1a52f6b577cbf5f`.
@@ -89,6 +89,50 @@ error, clears failed attempts after a successful/reused connection, and ignores
 late losing dials. Error identity and endpoint sanitization remain intact.
 Deterministic pipe/dial-order regressions and 100 repetitions with race passed.
 
+### Verified PKI restoration before restarting the previous service
+
+The next slice starts from `2737902`. Changed-host regressions reproduced the
+old service restarting with the new certificate set, plus false rollback success
+in six missing/changed/symlink/extra-file scenarios. Those failed attempts are
+retained in `docs/evidence/smart-tunnel-p0/pki-before.log`.
+
+Before replacing an existing EX PKI tree, preparation now records its complete
+identity durably. The old and installed identities include all directories,
+regular-file bytes, modes and uid/gid; symlinks/special files are refused. Rollback
+checks both trees before changing config, unit, generation or service. It restores the
+old tree before config validation and restart, using the existing atomic directory
+exchange on Linux instead of deleting live material first.
+
+An already restored live tree is recognized by its recorded old identity, not by
+the absence of a backup. Faults after exchange/restart remain claimed and explicit
+retry through a fresh Manager works; the new set is retained until rollback
+finishes. Unknown backup/live edits and older replaced-PKI transactions without
+identity evidence fail closed. They require explicit repair rather than guessing
+ownership. Failed preparation captures partial generated material and reports an
+incomplete abort if restoration cannot be proved.
+
+Live identity is checked again after service operations before discarding the
+exchanged-out tree. A regression also reproduced false completion when a
+certificate was changed during restart; this now leaves rollback incomplete
+and retains the backup and active claim.
+
+The focused tests cover restart-time certificate name, missing/changed backups,
+changed live material/modes/ownership, added files, symlinks, missing identity,
+interrupted exchange, restart failure and absent/partial/generated PKI preparation failures.
+The two-instance fixture now changes Bulgaria's public address as well as its
+port, forcing a new CA/leaf; after rollback its original PKI and real echo payload
+are checked while the original Germany flow remains open.
+
+The uid/gid mutation subtest requires a privileged environment with another
+mapped uid/gid. It skips in this container (chown returns EINVAL) and on
+unprivileged runners. That case is not counted as live ownership acceptance;
+the failed environment attempt is retained alongside the guarded retry.
+
+This does not add automatic recovery after process restart, a general deployment
+payload gate, a host-wide lock, or a staged certificate cutover. The existing EX
+prepare path still replaces disk material before commit; fully staging that
+material and proving coordinated cutover remains a separate P0 design task.
+
 ## Two-live-instance laboratory regression
 
 `TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle` uses real built
@@ -98,7 +142,8 @@ separate host fixture. Service control is simulated; no machine's actual systemd
 or production config is touched.
 
 One Germany TCP connection remains open through Bulgaria prepare, activation,
-port edit, rollback, injected restart failure, recovery and retirement. Every
+address/port edit with PKI replacement, rollback, injected restart failure,
+recovery and retirement. Every
 checkpoint verifies the echoed bytes, the same Germany IR PID and generation,
 and unchanged Germany config, unit, ownership marker and Noise-key files.
 Bulgaria's previous working route is also tested after rollback.
@@ -143,11 +188,11 @@ is recorded in the PR and #67, including failed/repeated/race attempts.
    error aggregation still need broader injected-fault coverage.
 8. **Live acceptance:** the container fixture is not a two-VPS systemd/agent/BCC
    rollout. That gate needs a separately authorized isolated live laboratory.
-9. **PKI rollback ordering:** the current rollback restores a replaced PKI tree
-   after restarting the old service, and skips a missing `.before-ID` tree.
-   This source finding needs fault/changed-host regressions, verified backup
-   identity and restoration before restart; the current two-instance fixture
-   deliberately keeps the endpoint certificate name unchanged.
+9. **PKI cutover:** rollback ordering and backup/live identity now have
+   changed-host/fault regressions in the follow-up slice. The prepare path still
+   replaces existing live disk PKI before activation; fully staged, coordinated
+   cutover and served-certificate/payload evidence are still required. Identity
+   checks do not prove an atomic host-wide reservation against concurrent writers.
 
 ## P1 and P2 implementation map
 

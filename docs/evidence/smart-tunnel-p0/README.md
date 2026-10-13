@@ -59,6 +59,31 @@ existing TLS/error-redaction tests passed 100 repetitions under race
 (`h2-tls-after.log`). The complete local suite then passed
 (`local-with-h2-fix.log`). Exact final-SHA results are recorded in PR #200/#67.
 
+## PKI rollback follow-up from candidate 2737902
+
+All three GitHub workflows on `2737902dd54c1ac59dce4b79df40b3219a4fb2b0`
+completed successfully: CI `38462499352`, R3 `38462498989` and static analysis
+`38462499024`. These results apply to that candidate, not an untested successor.
+
+| Output | Command/meaning |
+| --- | --- |
+| pki-before.log | `go test ./internal/tunnelnode -run '^TestPKIRollback' -count=1 -timeout 90s`: FAIL on the old restart-time certificate and six unverified-material cases |
+| pki-after-focused.log | PKI + previous rollback/failed-commit regressions: PASS after the fix |
+| pki-after-expanded.log | Expanded identity/preparation/interrupted-exchange cases plus real two-instance payload with changed address/CA: PASS |
+| pki-unit-development.log | Full unit/integration suite before the additional uid/gid identity check: PASS |
+| pki-race-development.log | Full tunnelnode/agent/agentjob race before the additional uid/gid check: PASS |
+| pki-owner-attempt1.log | PKI race attempt after uid/gid identity was included: FAIL because the root user namespace cannot chown to uid/gid 65534 (EINVAL); other cases passed |
+| pki-owner-attempt2.log | PKI regressions plus occupied-backup-path refusal under race: PASS after an explicit environment capability guard; the ownership mutation case is SKIP |
+| pki-during-restart-before.log | Certificate changes during restart were falsely acknowledged: FAIL before the final live-identity recheck |
+
+The ownership mutation case requires root and a mapped uid/gid; it explicitly
+skips where chown is unavailable. Such a skip is not ownership field acceptance.
+
+Successful logs above are development checks before publication. Exact successor
+validation is recorded separately against its immutable commit. No live VPS or
+production service was modified. Explicit rollback retry is covered; no automatic
+process-restart resume feature is added.
+
 Toolchain: Go 1.27.1, Linux. The real-process fixture runs actual BAFT transport
 binaries with simulated systemd. Certificate name and endpoints are local
 loopback; this is not field evidence or production acceptance.

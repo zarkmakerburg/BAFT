@@ -195,6 +195,9 @@ func TestDiscoverIsBoundedAndDeterministic(t *testing.T) {
 	if len(rep.Instances) > maxDiscoveredUnits || !rep.Truncated {
 		t.Fatalf("%d instances, truncated=%v", len(rep.Instances), rep.Truncated)
 	}
+	if len(rep.Instances) == 0 || !rep.Instances[0].Primary {
+		t.Fatalf("the primary unit is not reported first among %d units", len(rep.Instances))
+	}
 	a, _ := json.Marshal(rep)
 	b, _ := json.Marshal(n.Discover(context.Background()))
 	if string(a) != string(b) {

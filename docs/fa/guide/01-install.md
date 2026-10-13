@@ -112,7 +112,7 @@ sudo bash install.sh --offline . --role ir --pairing-code 'BAFTPAIR1:...'
 <div dir="ltr" align="left">
 
 ```bash
-sudo bash <(curl -Ls https://raw.githubusercontent.com/zarkmakerburg/baft/main/install.sh) --role ir --pairing-code 'BAFTPAIR1:...'
+curl -Ls https://raw.githubusercontent.com/zarkmakerburg/baft/main/install.sh | sudo bash -s -- --role ir --pairing-code 'BAFTPAIR1:...'
 ```
 
 </div>

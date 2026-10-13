@@ -528,6 +528,30 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# clean_code CODE: a pasted code without the spaces, line breaks and invisible
+# characters a phone or chat app adds; only the code's own characters remain.
+clean_code() { printf '%s' "$1" | LC_ALL=C tr -cd 'A-Za-z0-9_:-'; }
+# pairing_code_problem CODE: why a BAFTPAIR1 code cannot be used, or nothing.
+pairing_code_problem() {
+  python3 - "$1" <<'PY' 2>/dev/null || true
+import base64, json, sys, time
+c = sys.argv[1]
+if not c.startswith("BAFTPAIR1:"):
+    print("this is not a pairing code: it must start with BAFTPAIR1: (a BAFTREPLY1 code goes to the outside server)")
+    sys.exit()
+b = c[len("BAFTPAIR1:"):]
+try:
+    d = json.loads(base64.urlsafe_b64decode(b + "=" * (-len(b) % 4)))
+except Exception:
+    print("the code is incomplete or changed: copy the whole BAFTPAIR1 line again")
+    sys.exit()
+if int(d.get("expires_unix", 0)) <= time.time():
+    print("the code has expired (codes last 15 minutes): get a new one by running the installer on the outside server again with --re-pair. If it is new, check this server's clock: " + time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime()))
+PY
+}
+PAIRING_CODE="$(clean_code "$PAIRING_CODE")"
+REPLY_CODE="$(clean_code "$REPLY_CODE")"
+
 # A healthy BCC rerun without --bcc-public-url keeps an already-managed
 # bootstrap configuration. An explicitly supplied environment value or CLI
 # option always wins; an explicit empty value disables bootstrap. The managed
@@ -738,12 +762,12 @@ classify_state() {
 # comparison can only use the requested version.
 STAGED=0; TARGET_REL=""
 STAGE_BIN=""; STAGE_PAIR=""; STAGE_AGENT=""; STAGE_BCC=""; STAGE_BCC_BOOTSTRAP=""
-DO_BIN=0
+DO_BIN=0; BIN_REPLACED=0
 plan_binary() { # item installed-path staged-path flag
   local item="$1" path="$2" staged="$3" present="$4"
   if [[ "$STAGED" == 1 ]]; then
     if same_file "$staged" "$path"; then plan_add "$item" keep "identical to the verified release ${TARGET_REL}"
-    elif [[ "$present" == 1 ]]; then plan_add "$item" update "replace with the verified release ${TARGET_REL} (the old one is kept for rollback)"; DO_BIN=1
+    elif [[ "$present" == 1 ]]; then plan_add "$item" update "replace with the verified release ${TARGET_REL} (the old one is kept for rollback)"; DO_BIN=1; BIN_REPLACED=1
     else plan_add "$item" create "install from the verified release ${TARGET_REL}"; DO_BIN=1; fi
   else
     if [[ "$present" == 1 ]]; then
@@ -992,7 +1016,7 @@ confirm_plan() {
 }
 
 # ---- apply with rollback ----
-BACKUP_DIR=""; BACKUP_MAP=(); CREATED=(); BACKED_UP=(); WAS_ACTIVE=0; WAS_AGENT_ACTIVE=0; WAS_BCC_ACTIVE=0; TOUCHED_SERVICE=0
+BACKUP_DIR=""; BACKUP_MAP=(); CREATED=(); CREATED_DIRS=(); BACKED_UP=(); WAS_ACTIVE=0; WAS_AGENT_ACTIVE=0; WAS_BCC_ACTIVE=0; TOUCHED_SERVICE=0
 backup_name() { printf '%s' "$1" | tr '/' '_'; }
 backup_file() {
   local f="$1"
@@ -1078,6 +1102,9 @@ rollback_apply() {
   done
   for f in "${CREATED[@]}"; do
     rm -f -- "$f" || { rollback_failed=1; warn "could not remove newly created $f"; }
+  done
+  for f in "${CREATED_DIRS[@]}"; do
+    rm -rf -- "$f" || { rollback_failed=1; warn "could not remove newly created $f"; }
   done
   systemctl daemon-reload || { rollback_failed=1; warn "could not reload systemd during rollback"; }
   # Never restart with a known incomplete file or service rollback.
@@ -1454,6 +1481,51 @@ suggest_carried_ports() {
     } END { print out }'
 }
 
+# to_ascii_digits TEXT: Persian and Arabic digits and commas as ASCII.
+to_ascii_digits() { printf '%s' "$1" | sed 's/۰/0/g;s/۱/1/g;s/۲/2/g;s/۳/3/g;s/۴/4/g;s/۵/5/g;s/۶/6/g;s/۷/7/g;s/۸/8/g;s/۹/9/g;s/٠/0/g;s/١/1/g;s/٢/2/g;s/٣/3/g;s/٤/4/g;s/٥/5/g;s/٦/6/g;s/٧/7/g;s/٨/8/g;s/٩/9/g;s/،/,/g;s/٬/,/g'; }
+# normalize_ports LIST: "443, 2053" or "none" as "443,2053" or "".
+normalize_ports() {
+  local v; v="$(to_ascii_digits "$1")"; v="${v//[[:space:]]/}"
+  [[ "$v" != none && "$v" != NONE && "$v" != - ]] || v=""
+  printf '%s' "$v"
+}
+# ports_problem LIST: why a carried-port list cannot be used, or nothing.
+ports_problem() {
+  local v p seen=","
+  v="$(normalize_ports "$1")"
+  [[ -n "$v" ]] || return 0
+  [[ "$v" =~ ^[0-9]+(,[0-9]+)*$ ]] || { printf 'ports must be a comma-separated list like 443,2053, or none'; return 0; }
+  IFS=',' read -r -a _pp <<<"$v"
+  (( ${#_pp[@]} <= 16 )) || { printf 'at most 16 ports can be carried'; return 0; }
+  for p in "${_pp[@]}"; do
+    p=$((10#$p))
+    (( p >= 1 && p <= 65535 )) || { printf 'port %s is not a port number (1 to 65535)' "$p"; return 0; }
+    [[ "$seen" != *",$p,"* ]] || { printf 'port %s is listed twice' "$p"; return 0; }
+    (( p != 22 )) || { printf 'port 22 is the Iran server SSH port and cannot be carried'; return 0; }
+    [[ "$ROLE" != ex || "$p" != "$BAFT_PORT" ]] || { printf 'port %s is the tunnel port itself; carry the x-ui ports, not the tunnel port' "$p"; return 0; }
+    seen+="$p,"
+  done
+}
+# free_tunnel_port: 443 when free, else 8443, else the first free port after.
+free_tunnel_port() {
+  local p
+  for p in 443 8443; do bcc_port_busy "$p" || { printf '%s' "$p"; return; }; done
+  for ((p = 8444; p < 8600; p++)); do bcc_port_busy "$p" || { printf '%s' "$p"; return; }; done
+  printf 8443
+}
+# ex_config_defaults FILE: an EX config's tunnel port, server name and carried
+# ports (comma list), one per line.
+ex_config_defaults() {
+  python3 - "$1" <<'PY' 2>/dev/null || true
+import json, sys
+c = json.load(open(sys.argv[1]))
+s = c.get("server") or {}
+print(s.get("listen", "").rsplit(":", 1)[-1] if s.get("listen") else "")
+print(s.get("server_name", ""))
+print(",".join(r["id"][5:] for r in c.get("routes") or [] if str(r.get("id", "")).startswith("port-")))
+PY
+}
+
 bcc_host_kind() {
   if [[ "$1" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then printf ip4
   elif [[ "$1" == *:* ]]; then printf ip6
@@ -1716,10 +1788,68 @@ free_local_port() {
   done
   die "no free local port from $1"
 }
+# keep_local_listens: a tunnel paired again keeps the local route and metrics
+# addresses its config already has, so its clients need no change.
+keep_local_listens() {
+  local v
+  [[ -f "$CONFIG" ]] || return 0
+  v="$(config_fact "$CONFIG" route)"; [[ -n "$EXPL_ROUTE" || -z "$v" ]] || BAFT_ROUTE_LISTEN="$v"
+  v="$(config_fact "$CONFIG" metrics)"; [[ -n "$EXPL_METRICS" || -z "$v" ]] || BAFT_METRICS_LISTEN="$v"
+}
+# pairing_code_field CODE FIELD: one field of a BAFTPAIR1 code ("address", or
+# "ports" as a comma list); nothing when the code cannot be read.
+pairing_code_field() {
+  python3 - "$1" "$2" <<'PY' 2>/dev/null || true
+import base64, json, sys
+c = "".join(sys.argv[1].split())
+if c.startswith("BAFTPAIR1:"):
+    b = c[len("BAFTPAIR1:"):]
+    try:
+        v = json.loads(base64.urlsafe_b64decode(b + "=" * (-len(b) % 4))).get(sys.argv[2])
+        print(",".join(map(str, v)) if isinstance(v, list) else (v or ""))
+    except Exception:
+        pass
+PY
+}
+# pending_psk FILE: the one-time PSK of the code this IR last applied.
+pending_psk() {
+  python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("one_time_psk",""))' "$1" 2>/dev/null || true
+}
+# tunnel_config_dirs: every config folder on this server that holds a tunnel,
+# the base one first.
+tunnel_config_dirs() {
+  local base="${BAFT_BASE_CONFIG_DIR:-$BAFT_CONFIG_DIR}" d
+  base="${base%/}"
+  for d in "$base" "$base"-*; do [[ ! -f "$d/baft.yaml" ]] || printf '%s\n' "$d"; done
+}
+# config_fact FILE peer|route|metrics|public: the outside server's address, the
+# local route and metrics addresses, or the public ports (one per line).
+config_fact() {
+  python3 - "$1" "$2" <<'PY' 2>/dev/null || true
+import json, sys
+c = json.load(open(sys.argv[1]))
+k = sys.argv[2]
+if k == "peer":
+    print((c.get("peer") or {}).get("address", ""))
+elif k == "metrics":
+    print((c.get("management") or {}).get("metrics_listen", ""))
+else:
+    for r in c.get("routes") or []:
+        if r.get("listen") and bool(r.get("public")) == (k == "public"):
+            print(r["listen"].rsplit(":", 1)[1] if k == "public" else r["listen"])
+            if k == "route":
+                break
+PY
+}
+# reserved_instance NAME: names that would land on another component's unit
+# or folders (baft-bcc, baft-agent, baft-net, baft-panel, baft-uninstall).
+reserved_instance() { [[ "$1" =~ ^(bcc|agent|net|panel|pair|uninstall|run)($|-) ]]; }
+
 # apply_instance: point every per-tunnel path and port at instance BAFT_INSTANCE.
 # Binaries, the release record, baft-net and the panel stay shared.
 apply_instance() {
   [[ "$BAFT_INSTANCE" =~ ^[a-z0-9][a-z0-9-]{0,15}$ ]] || die "--instance must be up to 16 lowercase letters, digits or '-'"
+  ! reserved_instance "$BAFT_INSTANCE" || die "--instance $BAFT_INSTANCE would use the folders of another BAFT part; pick another name"
   BAFT_BASE_CONFIG_DIR="${BAFT_BASE_CONFIG_DIR:-$BAFT_CONFIG_DIR}"
   [[ "$EXPL_INSTANCE_VARS" == *svc* ]] || BAFT_SERVICE="baft-$BAFT_INSTANCE"
   [[ "$EXPL_INSTANCE_VARS" == *cfg* ]] || BAFT_CONFIG_DIR="${BAFT_BASE_CONFIG_DIR%/}-$BAFT_INSTANCE"
@@ -1732,6 +1862,8 @@ apply_instance() {
   if [[ ! -f "$CONFIG" ]]; then
     [[ -n "$EXPL_ROUTE" ]] || BAFT_ROUTE_LISTEN="127.0.0.1:$(free_local_port 1444)"
     [[ -n "$EXPL_METRICS" ]] || BAFT_METRICS_LISTEN="127.0.0.1:$(free_local_port 9192)"
+  else
+    keep_local_listens
   fi
   ok "this run works on the separate tunnel $BAFT_SERVICE ($BAFT_CONFIG_DIR); other tunnels are not touched"
 }
@@ -1768,28 +1900,73 @@ fi
 # A server that already carries a tunnel can take another one alongside it:
 # a separate instance with its own service, config, state, local route and
 # metrics port, so the tunnel that is running is never touched.
-if [[ -z "$BAFT_INSTANCE" && "$BCC_ONLY" == 0 && "$AGENT_ONLY" == 0 && "$RE_PAIR" == 0 && "$PLAN_ONLY" != 1 &&
+[[ -z "$BAFT_INSTANCE" || "$AGENT_ONLY" == 0 ]] || die "--agent-only cannot be combined with --instance: the agent looks after the main tunnel"
+if [[ -z "$BAFT_INSTANCE" && "$BCC_ONLY" == 0 && "$AGENT_ONLY" == 0 && "$RE_PAIR" == 0 &&
       -z "$EXPL_INSTANCE_VARS" && -f "$CONFIG" && -n "$ROLE" ]]; then
   if [[ "$ROLE" == ir && -n "$PAIRING_CODE" ]]; then
-    # A pairing code for a server that is already paired is a new outside
-    # server: pair it alongside instead of replacing the current tunnel.
-    BAFT_INSTANCE="$(next_instance_name)"
-    log "BAFT is already paired here: the new outside server gets its own tunnel and the current one keeps running"
-  elif [[ -n "$ASK_FD" ]]; then
+    # A code from an outside server this server is already paired with is a
+    # re-pair of that tunnel; a code from any other outside server is a new
+    # tunnel alongside, so the current one is not replaced.
+    _ex_addr="$(pairing_code_field "$PAIRING_CODE" address)"
+    _match=""
+    if [[ -n "$_ex_addr" ]]; then
+      while IFS= read -r _d; do
+        [[ "$(config_fact "$_d/baft.yaml" peer)" != "$_ex_addr" ]] || { _match="$_d"; break; }
+      done < <(tunnel_config_dirs)
+    fi
+    if [[ -n "$_match" ]]; then
+      _st="$BAFT_STATE_DIR"
+      if [[ "$_match" != "${BAFT_CONFIG_DIR%/}" ]]; then BAFT_INSTANCE="${_match#"${BAFT_CONFIG_DIR%/}"-}"; _st="${BAFT_STATE_DIR%/}-$BAFT_INSTANCE"; fi
+      _psk="$(pairing_code_field "$PAIRING_CODE" one_time_psk)"
+      if [[ -n "$_psk" && "$(pending_psk "$_st/pairing.pending.json")" == "$_psk" ]]; then
+        # The same one-liner run again: this code is already applied, and
+        # applying it twice would replace a tunnel the EX may have accepted.
+        log "this pairing code was already applied here; the tunnel to $_ex_addr is checked, not paired again"
+      else
+        RE_PAIR=1
+        [[ -n "$BAFT_INSTANCE" ]] || keep_local_listens
+        log "this code is from $_ex_addr, which this server is already paired with: pairing that tunnel again"
+      fi
+    else
+      BAFT_INSTANCE="$(next_instance_name)"
+      log "BAFT is already paired here: the new outside server gets its own tunnel and the current one keeps running"
+    fi
+  elif [[ "$PLAN_ONLY" != 1 && -n "$ASK_FD" ]]; then
     if [[ "$UI" == 1 ]]; then
       printf '\n  %s?%s %sBAFT already runs a tunnel on this server.%s\n\n' "$S_GOLD$S_B" "$S_R" "$S_B" "$S_R" >&2
-      ui_choice 1 "Add another tunnel" "pair with a new $([[ "$ROLE" == ir ]] && echo "outside" || echo "Iran") server; the current tunnel keeps running"
-      ui_choice 2 "Check this one" "check, repair or upgrade the current tunnel"
+      ui_choice 1 "Check this one" "check, repair or upgrade the current tunnel  (default)"
+      ui_choice 2 "Add another tunnel" "pair with a new $([[ "$ROLE" == ir ]] && echo "outside" || echo "Iran") server; the current tunnel keeps running"
       printf '\n' >&2
     else
-      printf '\nBAFT already runs a tunnel on this server.\n  1) Add another tunnel alongside it (the current one keeps running)\n  2) Check, repair or upgrade the current tunnel\n' >&2
+      printf '\nBAFT already runs a tunnel on this server.\n  1) Check, repair or upgrade the current tunnel\n  2) Add another tunnel alongside it (the current one keeps running)\n' >&2
     fi
     _choice=""
     ask _choice "$(ui_ask_prompt "Choose 1 or 2" "[1]:")" || true
-    if [[ "${_choice:-1}" == 1 ]]; then BAFT_INSTANCE="$(next_instance_name)"; fi
+    if [[ "${_choice:-1}" == 2 ]]; then BAFT_INSTANCE="$(next_instance_name)"; fi
   fi
 fi
 [[ -z "$BAFT_INSTANCE" ]] || apply_instance
+# A code that will be used is checked now, before anything is downloaded.
+if [[ "$ROLE" == ir && -n "$PAIRING_CODE" && ( ! -f "$CONFIG" || "$RE_PAIR" == 1 ) ]]; then
+  _why="$(pairing_code_problem "$PAIRING_CODE")"
+  [[ -z "$_why" ]] || die "$_why"
+  # Each public port can be served by one tunnel only: a port another tunnel
+  # or program already holds would keep this whole tunnel from starting.
+  _own=" $(config_fact "$CONFIG" public 2>/dev/null | tr '\n' ' ') "
+  IFS=',' read -r -a _cports <<<"$(pairing_code_field "$PAIRING_CODE" ports)"
+  for _p in "${_cports[@]}"; do
+    [[ -n "$_p" && "$_own" != *" $_p "* ]] || continue
+    while IFS= read -r _d; do
+      [[ "$_d/baft.yaml" != "$CONFIG" ]] || continue
+      if config_fact "$_d/baft.yaml" public | grep -qx "$_p"; then
+        die "port $_p is already served by the tunnel in $_d; on the outside server, pair again with ports that no other tunnel here uses"
+      fi
+    done < <(tunnel_config_dirs)
+    if bcc_port_busy "$_p"; then
+      die "port $_p is already used on this server by another program; on the outside server, pair again without port $_p"
+    fi
+  done
+fi
 
 if [[ "$BCC_ONLY" == "1" ]]; then
   adopt_managed_bcc_bootstrap_settings
@@ -1807,6 +1984,16 @@ elif [[ "$AGENT_ONLY" == "1" ]]; then
 else
   # A fresh EX asks where the IR connects and what it carries; a rerun keeps
   # what the installed config already says.
+  # An EX paired again keeps its tunnel port, address and carried ports unless
+  # this run names new ones, so the IR side and x-ui links stay valid.
+  if [[ "$ROLE" == "ex" && "$RE_PAIR" == 1 && -f "$CONFIG" ]]; then
+    _old="$(ex_config_defaults "$CONFIG")"
+    _old_port="$(sed -n 1p <<<"$_old")"; _old_name="$(sed -n 2p <<<"$_old")"; _old_ports="$(sed -n 3p <<<"$_old")"
+    [[ -n "${BAFT_PORT_EXPLICIT:-}" || -z "$_old_port" ]] || BAFT_PORT="$_old_port"
+    [[ -n "$PUBLIC_ADDR" || -z "$_old_name" ]] || PUBLIC_ADDR="$_old_name"
+    [[ -n "$BAFT_PORTS" ]] || BAFT_PORTS="$_old_ports"
+  fi
+  if [[ "$ROLE" == "ex" && ! -f "$CONFIG" && -z "${BAFT_PORT_EXPLICIT:-}" ]]; then BAFT_PORT="$(free_tunnel_port)"; fi
   if [[ "$ROLE_ASKED" == 1 && "$ROLE" == "ex" && "$PLAN_ONLY" != "1" && ! -f "$CONFIG" ]]; then
     if [[ -z "$PUBLIC_ADDR" ]]; then
       _detected="$(bcc_public_ip)"
@@ -1814,23 +2001,31 @@ else
       PUBLIC_ADDR="${PUBLIC_ADDR:-$_detected}"
     fi
     if [[ -z "${BAFT_PORT_EXPLICIT:-}" ]]; then
-      _tp=8443; bcc_port_busy 443 || _tp=443
-      ask _ans "$(ui_ask_prompt "Tunnel port the Iran server connects to" "[$_tp]:")" || true
-      BAFT_PORT="${_ans:-$_tp}"; _ans=""
-      [[ "$BAFT_PORT" =~ ^[0-9]+$ ]] && (( BAFT_PORT >= 1 && BAFT_PORT <= 65535 )) || die "invalid tunnel port: $BAFT_PORT"
+      _tp="$BAFT_PORT"
+      while :; do
+        ask _ans "$(ui_ask_prompt "Tunnel port the Iran server connects to" "[$_tp]:")" || true
+        BAFT_PORT="$(to_ascii_digits "${_ans:-$_tp}")"; _ans=""
+        if ! [[ "$BAFT_PORT" =~ ^[0-9]+$ ]] || (( BAFT_PORT < 1 || BAFT_PORT > 65535 )); then warn "type a port number from 1 to 65535"; continue; fi
+        if bcc_port_busy "$BAFT_PORT"; then warn "port $BAFT_PORT is already used on this server; pick another"; continue; fi
+        break
+      done
     fi
     if [[ -z "$BAFT_PORTS" ]]; then
       _sug="$(suggest_carried_ports)"
       printf '\n  %sThe Iran server can serve your x-ui inbounds on its own IP: users then only%s\n  %schange the address in their links. Type the ports, or "none".%s\n' "$S_MUTE" "$S_R" "$S_MUTE" "$S_R" >&2
-      ask _ans "$(ui_ask_prompt "Ports to carry" "[${_sug:-none}]:")" || true
-      BAFT_PORTS="${_ans:-$_sug}"; _ans=""
-      [[ "$BAFT_PORTS" != none ]] || BAFT_PORTS=""
+      while :; do
+        ask _ans "$(ui_ask_prompt "Ports to carry" "[${_sug:-none}]:")" || true
+        BAFT_PORTS="${_ans:-$_sug}"; _ans=""
+        _why="$(ports_problem "$BAFT_PORTS")"
+        [[ -n "$_why" ]] || break
+        warn "$_why"
+      done
     fi
   fi
-  if [[ -n "$BAFT_PORTS" ]]; then
-    BAFT_PORTS="${BAFT_PORTS// /}"
-    [[ "$BAFT_PORTS" =~ ^[0-9]+(,[0-9]+)*$ ]] || die "--ports must be a comma-separated list like 443,2053"
-  fi
+  [[ -z "$PUBLIC_ADDR" ]] || PUBLIC_ADDR="${PUBLIC_ADDR//[[:space:]]/}"
+  _why="$(ports_problem "$BAFT_PORTS")"
+  [[ -z "$_why" ]] || die "--ports: $_why"
+  BAFT_PORTS="$(normalize_ports "$BAFT_PORTS")"
   [[ -n "$ROLE" ]] || die "--role ex, --role ir or --bcc-only is required when there is no terminal to ask"
   [[ "$ROLE" == "ex" || "$ROLE" == "ir" ]] || die "--role must be ex or ir"
   [[ -z "$IR_SSH" || "$ROLE" == "ex" ]] || die "--ir-ssh is for the EX installer"
@@ -1939,6 +2134,11 @@ ir_ssh_connect() {
     warn "SSH login to $user@$host was refused (wrong password or key?)"
     return 1
   fi
+  # A non-root login installs through sudo, which must not ask for a password.
+  if [[ "$user" != root ]] && ! env "${envs[@]}" ssh "${opts[@]}" "$user@$host" sudo -n true </dev/null >/dev/null 2>&1; then
+    warn "$user on $host cannot use sudo without a password; log in as root, or allow $user passwordless sudo"
+    return 1
+  fi
   IR_SSH_USER="$user"; IR_SSH_HOST="$host"; IR_SSH_DIR="$dir"; IR_SSH_OPTS=("${opts[@]}"); IR_SSH_ENVS=("${envs[@]}")
 }
 
@@ -1987,7 +2187,7 @@ setup_ir_over_ssh() { # PAIRING_CODE -> prints the BAFTREPLY1 code on stdout
   local code=$1 user="$IR_SSH_USER" host="$IR_SSH_HOST" dir="$IR_SSH_DIR"
   local -a opts=("${IR_SSH_OPTS[@]}") envs=("${IR_SSH_ENVS[@]}")
   local self="${BASH_SOURCE[0]:-}"
-  if [[ -n "$self" && -r "$self" ]]; then
+  if [[ -n "$self" && -f "$self" && -r "$self" ]]; then  # not /dev/fd/N from bash <(curl ...)
     cp -- "$self" "$dir/install.sh"
   else
     curl -fsSL --retry 3 "${BAFT_INSTALL_URL:-https://raw.githubusercontent.com/${BAFT_GITHUB_REPO}/${BAFT_REF}/install.sh}" -o "$dir/install.sh" || die "cannot download install.sh to send to the IR"
@@ -1995,11 +2195,28 @@ setup_ir_over_ssh() { # PAIRING_CODE -> prints the BAFTREPLY1 code on stdout
   grep -q '^BAFT_IR_INSTALL_SH_END$' "$dir/install.sh" && die "install.sh contains the transfer delimiter"
   local remote="bash -s"
   [[ "$user" == "root" ]] || remote="sudo -n bash -s"
+  # The release this server just verified goes along, so the IR needs no
+  # access to GitHub (often blocked from Iran). The IR verifies it again and
+  # uses it only when it has the same CPU type and the offline tools.
+  local bundle=""
+  if [[ -n "$REL_DIR" && -f "$REL_DIR/manifest.json" && -s "$REL_REV" ]]; then
+    mkdir -p "$dir/bundle/release"
+    cp -- "$REL_DIR"/* "$dir/bundle/release/"
+    cp -- "$REL_REV" "$dir/bundle/revocations.json"
+    tar -czf "$dir/bundle.tgz" -C "$dir/bundle" . && bundle="$dir/bundle.tgz"
+  fi
   {
-    printf 'set -e\numask 077\nf="$(mktemp)"\ntrap '"'"'rm -f "$f"'"'"' EXIT\n'
+    printf 'set -e\numask 077\nf="$(mktemp)"\no="$(mktemp -d)"\ntrap '"'"'rm -rf "$f" "$o"'"'"' EXIT\n'
     printf "cat >\"\$f\" <<'BAFT_IR_INSTALL_SH_END'\n"
     cat "$dir/install.sh"
     printf 'BAFT_IR_INSTALL_SH_END\n'
+    if [[ -n "$bundle" ]]; then
+      printf "base64 -d >\"\$o/b.tgz\" <<'BAFT_IR_BUNDLE_END'\n"
+      base64 -w 76 "$bundle"
+      printf 'BAFT_IR_BUNDLE_END\n'
+      printf 'case "$(uname -m)" in x86_64|amd64) a=amd64 ;; aarch64|arm64) a=arm64 ;; *) a= ;; esac\n'
+      printf 'if [ "$a" = %q ] && command -v python3 >/dev/null && command -v openssl >/dev/null && command -v sha256sum >/dev/null && tar -xzf "$o/b.tgz" -C "$o"; then export BAFT_OFFLINE_DIR="$o"; fi\n' "$GOARCH"
+    fi
     printf 'export BAFT_NONINTERACTIVE=1 BAFT_PAIRING_CODE=%q\n' "$code"
     # The IR gets BBR and network tuning unless the operator said otherwise.
     [[ -n "${BAFT_TUNE_NETWORK:-}" ]] || printf 'export BAFT_TUNE_NETWORK=1\n'
@@ -2541,6 +2758,12 @@ ensure_base() {
   if [[ "$F_USER" == 0 ]]; then
     useradd --system --home-dir "$BAFT_STATE_DIR" --create-home --shell /usr/sbin/nologin "$BAFT_USER"
   fi
+  # A new tunnel's own folders go again if this run is rolled back, so the
+  # next run can use the same name.
+  if [[ -n "$BAFT_INSTANCE" ]]; then
+    [[ -d "$BAFT_CONFIG_DIR" ]] || CREATED_DIRS+=("$BAFT_CONFIG_DIR")
+    [[ -d "$BAFT_STATE_DIR" ]] || CREATED_DIRS+=("$BAFT_STATE_DIR")
+  fi
   [[ -d "$BAFT_CONFIG_DIR" ]] || install -d -m 0750 -o root -g "$BAFT_USER" "$BAFT_CONFIG_DIR"
   [[ -d "$BAFT_STATE_DIR" ]] || install -d -m 0700 -o "$BAFT_USER" -g "$BAFT_USER" "$BAFT_STATE_DIR"
   [[ -d "$BAFT_PREFIX" ]] || install -d -m 0755 -o root -g root "$BAFT_PREFIX"
@@ -2810,7 +3033,7 @@ offer_panel() {
     fi
   fi
   src="$(mktemp)"; CLEANUP+=("$src")
-  if [[ -n "$self" && -r "$self" ]]; then
+  if [[ -n "$self" && -f "$self" && -r "$self" ]]; then  # not /dev/fd/N from bash <(curl ...)
     cp -- "$self" "$src"
   elif ! curl -fsSL --retry 3 "${BAFT_INSTALL_URL:-https://raw.githubusercontent.com/${BAFT_GITHUB_REPO}/${BAFT_REF}/install.sh}" -o "$src"; then
     warn "could not fetch the installer for the panel; add it later with --bcc-only"
@@ -3134,7 +3357,14 @@ if [[ "$DO_PAIRING" == 1 ]]; then
     backup_file "$CONFIG"
   fi
   if [[ "$ROLE" == "ex" ]]; then
-    [[ -n "$PUBLIC_ADDR" ]] || PUBLIC_ADDR="$(hostname -I | awk '{print $1}')"
+    # The address that reaches this server from outside: on cloud servers
+    # behind NAT the first interface address is a private one.
+    [[ -n "$PUBLIC_ADDR" ]] || PUBLIC_ADDR="$(bcc_public_ip)"
+    PUBLIC_ADDR="${PUBLIC_ADDR#[}"; PUBLIC_ADDR="${PUBLIC_ADDR%]}"
+    if [[ "$PUBLIC_ADDR" =~ ^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.) ]]; then
+      warn "$PUBLIC_ADDR is a private address; if the Iran server cannot reach it, run again with --public-address and this server's public IP"
+    fi
+    _dial="$PUBLIC_ADDR"; [[ "$_dial" != *:* ]] || _dial="[$_dial]"
     [[ -n "$PUBLIC_ADDR" ]] || die "cannot determine public address; use --public-address"
     if [[ "$DO_PKI" == 1 ]]; then generate_outer_pki_ex "$PUBLIC_ADDR"; fi
     IDENTITY="urn:baft:node:ex-$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
@@ -3169,12 +3399,19 @@ if [[ "$DO_PAIRING" == 1 ]]; then
       if ir_ssh_connect; then ir_path_test
       else IR_SSH=""; warn "falling back to manual pairing with the code below"; fi
     fi
+    # The path test may have moved the tunnel to a port below 1024, which the
+    # unit was rendered without the bind capability for.
+    if [[ -f "$UNIT_FILE" ]] && (( BAFT_PORT < 1024 )) && ! grep -q CAP_NET_BIND_SERVICE "$UNIT_FILE"; then
+      backup_file "$UNIT_FILE"
+      render_service_unit >"$UNIT_FILE"
+      systemctl daemon-reload
+    fi
     PORTS_FLAG=()
     if [[ -n "$BAFT_PORTS" ]]; then
       if "$BAFT_PAIR_BIN" ex-code -h 2>&1 | grep -q -- '-ports'; then PORTS_FLAG=(--ports "$BAFT_PORTS")
       else warn "this BAFT release cannot carry ports yet; the tunnel uses the local route only"; BAFT_PORTS=""; fi
     fi
-    PAIRING="$("$BAFT_PAIR_BIN" ex-code --key "$NOISE_KEY" --address "${PUBLIC_ADDR}:${BAFT_PORT}" \
+    PAIRING="$("$BAFT_PAIR_BIN" ex-code --key "$NOISE_KEY" --address "${_dial}:${BAFT_PORT}" \
       --server-name "$PUBLIC_ADDR" --identity "$IDENTITY" --ca-file "$BAFT_CONFIG_DIR/pki/ca.pem" \
       --psk-out "$BAFT_STATE_DIR/pairing.psk" --pending-out "$BAFT_STATE_DIR/pairing.ex.json" \
       --ttl 15m "${SHAPING_FLAG[@]}" "${PORTS_FLAG[@]}")"
@@ -3213,31 +3450,50 @@ if [[ "$DO_PAIRING" == 1 ]]; then
       fi
       printf '  sudo %s--reply BAFTREPLY1:...\n  sudo chown root:%s %s && sudo chmod 0640 %s && sudo systemctl restart %s\n\n' \
         "$_accept" "$BAFT_USER" "$CONFIG" "$CONFIG" "$BAFT_SERVICE" >&2
+      open_firewall_port "$BAFT_PORT"
       finalize_apply
       net_setup "$(dirname "$BAFT_BIN")"
       warn "installed; $BAFT_SERVICE.service starts once pairing is finished"
       offer_panel
       exit 0
     fi
-    if ! _acc_err="$("${ACCEPT[@]}" --reply "$REPLY_CODE" 2>&1 >/dev/null)"; then
-      die "the IR reply code was not accepted (${_acc_err##*: }). Codes work once and expire after 15 minutes: run this installer again with --re-pair and give the new code to the IR"
-    fi
+    REPLY_CODE="$(clean_code "$REPLY_CODE")"
+    while ! _acc_err="$("${ACCEPT[@]}" --reply "$REPLY_CODE" 2>&1 >/dev/null)"; do
+      # A bad paste is asked again while the code is still valid; only an
+      # expired code needs a new pairing.
+      if [[ "$_acc_err" != *expired* && "$ASK_TTY" == 1 ]]; then
+        warn "the reply code was not accepted (${_acc_err##*: }): copy the whole BAFTREPLY1 line from the IR and paste it again"
+        REPLY_CODE=""
+        ask REPLY_CODE "$(ui_ask_prompt "BAFTREPLY1 code from the IR:")" || true
+        REPLY_CODE="$(clean_code "$REPLY_CODE")"
+        [[ -n "$REPLY_CODE" ]] && continue
+      fi
+      if [[ "$_acc_err" == *expired* ]]; then
+        die "the IR reply code has expired (codes last 15 minutes): run this installer again with --re-pair and give the new code to the IR"
+      fi
+      die "the IR reply code was not accepted (${_acc_err##*: }): copy the whole BAFTREPLY1 line from the IR, or run this installer again with --re-pair for a new code"
+    done
     install_config
     open_firewall_port "$BAFT_PORT"
     TOUCHED_SERVICE=1
     systemctl restart "$BAFT_SERVICE.service"
+    wait_active "$BAFT_SERVICE.service" 20 || die "verify: $BAFT_SERVICE.service did not start; see: journalctl -u $BAFT_SERVICE -n 30"
     finalize_apply
     if [[ -n "$BAFT_PORTS" ]]; then ok "$BAFT_SERVICE.service started; listening on 0.0.0.0:${BAFT_PORT}, carrying ports ${BAFT_PORTS//,/, }"
     else ok "$BAFT_SERVICE.service started; listening on 0.0.0.0:${BAFT_PORT}, exiting to $BAFT_TARGET"; fi
   else
-    if [[ -z "$PAIRING_CODE" ]]; then
+    while [[ -z "$PAIRING_CODE" ]]; do
       ask PAIRING_CODE "$(ui_ask_prompt "Paste the BAFTPAIR1 pairing code printed by EX:")" -s || die "a pairing code is required: pass --pairing-code (or BAFT_PAIRING_CODE) when there is no terminal"
       printf '\n' >&2
+      PAIRING_CODE="$(clean_code "$PAIRING_CODE")"
       [[ -n "$PAIRING_CODE" ]] || die "no pairing code entered"
-    fi
+      _why="$(pairing_code_problem "$PAIRING_CODE")"
+      if [[ -n "$_why" ]]; then warn "$_why"; PAIRING_CODE=""; fi
+    done
     REPLY="$("$BAFT_PAIR_BIN" ir-apply --code "$PAIRING_CODE" --key "$NOISE_KEY" --state-dir "$BAFT_STATE_DIR" \
       --config-out "$CONFIG" --route-listen "$BAFT_ROUTE_LISTEN" --metrics-listen "$BAFT_METRICS_LISTEN" \
-      --unix-socket "$BAFT_STATE_DIR/admin.sock")"
+      --unix-socket "$BAFT_STATE_DIR/admin.sock" 2>"$STAGE/pair.err")" ||
+      die "the pairing code was not accepted ($(tail -n 1 "$STAGE/pair.err" | sed 's/^baft-pair: //')): get a new code from the outside server"
     chown -R "$BAFT_USER:$BAFT_USER" "$BAFT_STATE_DIR"
     install_config
     # A pairing that carries ports below 1024 needs the bind capability the
@@ -3248,9 +3504,6 @@ if [[ "$DO_PAIRING" == 1 ]]; then
       systemctl daemon-reload
     fi
     for _p in $(carried_ports); do
-      # Another tunnel or program on this server already serving the port
-      # would keep this one from starting.
-      bcc_port_busy "$_p" && warn "port $_p is already used on this server, so $BAFT_SERVICE cannot serve it; pair again from the outside server without port $_p"
       open_firewall_port "$_p"
     done
     if [[ "$UI" == 1 ]]; then
@@ -3281,6 +3534,22 @@ else
   else ok "$BAFT_SERVICE.service is running"; fi
 fi
 ok "baft is installed: $BAFT_BIN and $BAFT_PAIR_BIN"
+# The binary is shared, but this run restarted only its own tunnel: the
+# others keep the previous version until they are restarted, which is left to
+# the operator so their users are not cut off unasked.
+if [[ "$BIN_REPLACED" == 1 ]]; then
+  _others=()
+  for _u in "$BAFT_SYSTEMD_DIR"/baft*.service; do
+    [[ -f "$_u" ]] || continue
+    _n="$(basename "$_u" .service)"
+    [[ "$_n" != "$BAFT_SERVICE" ]] && grep -q "^ExecStart=$BAFT_BIN run " "$_u" && svc_active "$_n.service" && _others+=("$_n")
+  done
+  if (( ${#_others[@]} )); then
+    _list="$(printf '%s ' "${_others[@]}")"
+    warn "these tunnels still run the previous version until restarted: ${_list% }"
+    printf '  restart them when it suits their users:  sudo systemctl restart %s\n' "${_list% }" >&2
+  fi
+fi
 net_setup "$(dirname "$BAFT_BIN")"
 if [[ "$UI" == 1 ]]; then
   phase "Done" "what is running and where to look"

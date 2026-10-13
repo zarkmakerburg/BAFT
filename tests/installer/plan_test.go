@@ -1,6 +1,7 @@
 package installer_test
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"os"
 	"os/exec"
@@ -324,7 +325,7 @@ func TestTwentyInstances(t *testing.T) {
 	d := t.TempDir()
 	script := `set -euo pipefail
 die() { echo "DIE $*"; exit 1; }; ok() { :; }; bcc_port_busy() { return 1; }
-eval "$(sed -n '/^next_instance_name()/,/^}/p;/^free_local_port()/,/^}/p;/^apply_instance()/,/^}/p' "$1")"
+eval "$(sed -n '/^next_instance_name()/,/^}/p;/^free_local_port()/,/^}/p;/^apply_instance()/,/^}/p;/^keep_local_listens()/,/^}/p;/^config_fact()/,/^}/p;/^reserved_instance()/p' "$1")"
 BASE="$2/etc/baft"; BAFT_SYSTEMD_DIR="$2/sysd"; mkdir -p "$BASE" "$BAFT_SYSTEMD_DIR"
 printf 'routes:\n  - listen: 127.0.0.1:1443\nmetrics_listen: 127.0.0.1:9191\n' >"$BASE/baft.yaml"
 for i in $(seq 20); do
@@ -356,5 +357,67 @@ done`
 			}
 			seen[v] = true
 		}
+	}
+}
+
+// installerHelpers runs a bash snippet with the installer's small pure helpers
+// loaded and returns its output.
+func installerHelpers(t *testing.T, snippet string, args ...string) string {
+	t.Helper()
+	script := `set -euo pipefail
+die() { echo "DIE $*"; exit 1; }; warn() { :; }; bcc_port_busy() { return 1; }
+eval "$(sed -n '/^clean_code()/p;/^to_ascii_digits()/p;/^normalize_ports()/,/^}/p;/^ports_problem()/,/^}/p;/^pairing_code_field()/,/^}/p;/^pairing_code_problem()/,/^}/p;/^config_fact()/,/^}/p;/^ex_config_defaults()/,/^}/p;/^pending_psk()/,/^}/p;/^reserved_instance()/p' "$1")"
+shift
+` + snippet
+	out, err := exec.Command("bash", append([]string{"-c", script, "x", filepath.Join("..", "..", "install.sh")}, args...)...).CombinedOutput()
+	if err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func TestInstallerCodeAndPortHelpers(t *testing.T) {
+	body := `{"v":1,"address":"203.0.113.9:443","one_time_psk":"cHNr","expires_unix":4102444800,"ports":[443,2053]}`
+	code := "BAFTPAIR1:" + strings.TrimRight(base64.URLEncoding.EncodeToString([]byte(body)), "=")
+	// A code pasted from a phone: spaces, a line break and invisible marks.
+	pasted := " " + code[:20] + "\u200f\n" + code[20:] + " \u200b"
+	if got := installerHelpers(t, `clean_code "$1"`, pasted); got != code {
+		t.Fatalf("clean_code = %q, want %q", got, code)
+	}
+	if got := installerHelpers(t, `pairing_code_field "$1" address; pairing_code_field "$1" ports; pairing_code_problem "$1"`, code); got != "203.0.113.9:443\n443,2053" {
+		t.Fatalf("code fields = %q", got)
+	}
+	expired := "BAFTPAIR1:" + strings.TrimRight(base64.URLEncoding.EncodeToString([]byte(`{"v":1,"address":"a:1","expires_unix":1}`)), "=")
+	for c, want := range map[string]string{expired: "expired", "BAFTREPLY1:abc": "not a pairing code", code[:40]: "incomplete"} {
+		if got := installerHelpers(t, `pairing_code_problem "$1"`, c); !strings.Contains(got, want) {
+			t.Fatalf("pairing_code_problem(%q) = %q, want %q", c, got, want)
+		}
+	}
+	for in, want := range map[string]string{
+		"443, 2053": "", "none": "", "۴۴۳،۲۰۵۳": "", "443,443": "listed twice", "70000": "not a port",
+		"22": "port 22", "443;2053": "comma-separated", "8443": "tunnel port",
+	} {
+		got := installerHelpers(t, `ROLE=ex BAFT_PORT=8443; ports_problem "$1"`, in)
+		if (want == "") != (got == "") || !strings.Contains(got, want) {
+			t.Fatalf("ports_problem(%q) = %q, want %q", in, got, want)
+		}
+	}
+	if got := installerHelpers(t, `normalize_ports "$1"`, "۴۴۳، 2053"); got != "443,2053" {
+		t.Fatalf("normalize_ports = %q", got)
+	}
+	for _, n := range []string{"bcc", "agent", "net", "panel", "uninstall", "agent-2"} {
+		if got := installerHelpers(t, `reserved_instance "$1" && echo reserved`, n); got != "reserved" {
+			t.Fatalf("instance name %q is not refused", n)
+		}
+	}
+	if got := installerHelpers(t, `reserved_instance "$1" || echo ok`, "2"); got != "ok" {
+		t.Fatal("instance name 2 is refused")
+	}
+	d := t.TempDir()
+	cfg := filepath.Join(d, "baft.yaml")
+	os.WriteFile(cfg, []byte(`{"peer":{"address":"203.0.113.9:443"},"server":{"listen":"0.0.0.0:2083","server_name":"203.0.113.9"},
+"routes":[{"id":"main","listen":"127.0.0.1:1450"},{"id":"port-443","listen":"0.0.0.0:443","public":true}],"management":{"metrics_listen":"127.0.0.1:9200"}}`), 0o644)
+	if got := installerHelpers(t, `config_fact "$1" peer; config_fact "$1" route; config_fact "$1" metrics; config_fact "$1" public; ex_config_defaults "$1"`, cfg); got != "203.0.113.9:443\n127.0.0.1:1450\n127.0.0.1:9200\n443\n2083\n203.0.113.9\n443" {
+		t.Fatalf("config facts = %q", got)
 	}
 }

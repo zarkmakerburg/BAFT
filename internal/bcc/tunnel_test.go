@@ -258,10 +258,10 @@ func TestDashboardHasServerAndTunnelControlsWithoutStoringCredentials(t *testing
 			t.Errorf("dashboard lacks %s", want)
 		}
 	}
-	// The install button stays disabled until the fingerprint is confirmed,
-	// credentials are wiped after the request and never put in browser storage.
-	if !strings.Contains(dashboardHTML, `id="bsGo" onclick="bsRun()" disabled`) {
-		t.Error("install button is enabled before the fingerprint is confirmed")
+	// One step: the host key read on first contact is pinned for the install
+	// request, credentials are wiped after it and never put in browser storage.
+	if !strings.Contains(dashboardHTML, "host_key_fingerprint:d.fingerprint") {
+		t.Error("install does not pin the host key read on first contact")
 	}
 	if !strings.Contains(dashboardHTML, "q('#bsPass').value=q('#bsKey').value=q('#bsPhrase').value=''") {
 		t.Error("credential fields are not cleared after the request")

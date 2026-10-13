@@ -194,6 +194,9 @@ func (s *Server) Overview(now time.Time, window time.Duration) Overview {
 		if !m.LastSeen.IsZero() {
 			t := m.LastSeen
 			on.LastSeen = &t
+		} else if !n.AgentSeen.IsZero() {
+			t := n.AgentSeen
+			on.LastSeen = &t
 		}
 		if on.Status == "up" && n.LatencyMS >= 0 && !n.LastChecked.IsZero() {
 			l := n.LatencyMS

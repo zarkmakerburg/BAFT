@@ -93,7 +93,7 @@ One Iran server can connect to several outside servers. Each tunnel has its own 
 sudo bash <(curl -Ls https://raw.githubusercontent.com/zarkmakerburg/baft/main/install.sh) --role ir --pairing-code 'BAFTPAIR1:...'
 ```
 
-The second tunnel is the service `baft-2` with `/etc/baft-2` and `/var/lib/baft-2` (the third is `baft-3`). `--instance NAME` picks the name yourself. The ports the Iran server serves publicly must not repeat between tunnels; the installer warns if they do. To remove an extra tunnel: `sudo systemctl disable --now baft-2`, then delete its folders and `/etc/systemd/system/baft-2.service`.
+The second tunnel is the service `baft-2` with `/etc/baft-2` and `/var/lib/baft-2` (then `baft-3`, `baft-4` and so on, with no limit). `--instance NAME` picks the name yourself. The ports the Iran server serves publicly must not repeat between tunnels; the installer warns if they do. To remove an extra tunnel: `sudo systemctl disable --now baft-2`, then delete its folders and `/etc/systemd/system/baft-2.service`.
 
 ## Running the installer again
 

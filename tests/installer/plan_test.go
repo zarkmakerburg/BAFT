@@ -316,3 +316,45 @@ func TestPlanSecondInstance(t *testing.T) {
 		t.Fatalf("the shared baft binary is planned as %q", a)
 	}
 }
+
+// TestTwentyInstances adds twenty extra tunnels to one server, one after the
+// other, with the installer's own helpers: each gets its own name, config
+// directory, unit and local ports, and none repeats.
+func TestTwentyInstances(t *testing.T) {
+	d := t.TempDir()
+	script := `set -euo pipefail
+die() { echo "DIE $*"; exit 1; }; ok() { :; }; bcc_port_busy() { return 1; }
+eval "$(sed -n '/^next_instance_name()/,/^}/p;/^free_local_port()/,/^}/p;/^apply_instance()/,/^}/p' "$1")"
+BASE="$2/etc/baft"; BAFT_SYSTEMD_DIR="$2/sysd"; mkdir -p "$BASE" "$BAFT_SYSTEMD_DIR"
+printf 'routes:\n  - listen: 127.0.0.1:1443\nmetrics_listen: 127.0.0.1:9191\n' >"$BASE/baft.yaml"
+for i in $(seq 20); do
+  BAFT_CONFIG_DIR=$BASE BAFT_SERVICE=baft BAFT_STATE_DIR="$2/state/baft" BAFT_BASE_CONFIG_DIR=
+  EXPL_INSTANCE_VARS= EXPL_ROUTE= EXPL_METRICS=
+  BAFT_INSTANCE=$(next_instance_name); apply_instance
+  mkdir -p "$BAFT_CONFIG_DIR"
+  printf 'routes:\n  - listen: "%s"\nmetrics_listen: %s\n' "$BAFT_ROUTE_LISTEN" "$BAFT_METRICS_LISTEN" >"$CONFIG"
+  touch "$UNIT_FILE"
+  echo "$BAFT_SERVICE $BAFT_CONFIG_DIR $BAFT_ROUTE_LISTEN $BAFT_METRICS_LISTEN"
+done`
+	out, err := exec.Command("bash", "-c", script, "x", filepath.Join("..", "..", "install.sh"), d).CombinedOutput()
+	if err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	if len(lines) != 20 {
+		t.Fatalf("got %d tunnels, want 20:\n%s", len(lines), out)
+	}
+	seen := map[string]bool{"127.0.0.1:1443": true, "127.0.0.1:9191": true}
+	for _, l := range lines {
+		f := strings.Fields(l)
+		if len(f) != 4 || !strings.HasPrefix(f[1], d) {
+			t.Fatalf("bad tunnel line %q", l)
+		}
+		for _, v := range f {
+			if seen[v] {
+				t.Fatalf("%q is used twice:\n%s", v, out)
+			}
+			seen[v] = true
+		}
+	}
+}

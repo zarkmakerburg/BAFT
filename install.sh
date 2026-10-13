@@ -1709,9 +1709,9 @@ next_instance_name() {
 # no other BAFT config on this server already uses.
 free_local_port() {
   local p=$1 cfgs
-  cfgs="$(cat /etc/baft*/baft.yaml 2>/dev/null || true)"
+  cfgs="$(cat "${BAFT_BASE_CONFIG_DIR%/}"*/baft.yaml 2>/dev/null || true)"
   while (( p < 65535 )); do
-    if ! bcc_port_busy "$p" && [[ "$cfgs" != *":$p\""* ]]; then printf '%s' "$p"; return; fi
+    if ! bcc_port_busy "$p" && ! [[ "$cfgs" =~ :$p([^0-9]|$) ]]; then printf '%s' "$p"; return; fi
     p=$((p + 1))
   done
   die "no free local port from $1"
@@ -1720,9 +1720,10 @@ free_local_port() {
 # Binaries, the release record, baft-net and the panel stay shared.
 apply_instance() {
   [[ "$BAFT_INSTANCE" =~ ^[a-z0-9][a-z0-9-]{0,15}$ ]] || die "--instance must be up to 16 lowercase letters, digits or '-'"
+  BAFT_BASE_CONFIG_DIR="${BAFT_BASE_CONFIG_DIR:-$BAFT_CONFIG_DIR}"
   [[ "$EXPL_INSTANCE_VARS" == *svc* ]] || BAFT_SERVICE="baft-$BAFT_INSTANCE"
-  [[ "$EXPL_INSTANCE_VARS" == *cfg* ]] || BAFT_CONFIG_DIR="/etc/baft-$BAFT_INSTANCE"
-  [[ "$EXPL_INSTANCE_VARS" == *state* ]] || BAFT_STATE_DIR="/var/lib/baft-$BAFT_INSTANCE"
+  [[ "$EXPL_INSTANCE_VARS" == *cfg* ]] || BAFT_CONFIG_DIR="${BAFT_BASE_CONFIG_DIR%/}-$BAFT_INSTANCE"
+  [[ "$EXPL_INSTANCE_VARS" == *state* ]] || BAFT_STATE_DIR="${BAFT_STATE_DIR%/}-$BAFT_INSTANCE"
   CONFIG="$BAFT_CONFIG_DIR/baft.yaml"
   NOISE_KEY="$BAFT_CONFIG_DIR/noise-key.json"
   UNIT_FILE="$BAFT_SYSTEMD_DIR/$BAFT_SERVICE.service"

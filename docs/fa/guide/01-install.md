@@ -117,7 +117,7 @@ sudo bash <(curl -Ls https://raw.githubusercontent.com/zarkmakerburg/baft/main/i
 
 </div>
 
-تونل دوم سرویس `baft-2` با پوشه‌های `/etc/baft-2` و `/var/lib/baft-2` است (و سومی `baft-3`). با `--instance NAME` می‌توانید اسم را خودتان بدهید. پورت‌هایی که سرور ایران عمومی سرو می‌کند نباید بین دو تونل تکراری باشند؛ اگر باشند نصب‌کننده هشدار می‌دهد. برای حذف یک تونل اضافه: `sudo systemctl disable --now baft-2` و بعد پوشه‌های آن و فایل `/etc/systemd/system/baft-2.service` را پاک کنید.
+تونل دوم سرویس `baft-2` با پوشه‌های `/etc/baft-2` و `/var/lib/baft-2` است (و بعدی‌ها `baft-3`، `baft-4` و همین‌طور تا هر تعداد؛ سقفی ندارد). با `--instance NAME` می‌توانید اسم را خودتان بدهید. پورت‌هایی که سرور ایران عمومی سرو می‌کند نباید بین دو تونل تکراری باشند؛ اگر باشند نصب‌کننده هشدار می‌دهد. برای حذف یک تونل اضافه: `sudo systemctl disable --now baft-2` و بعد پوشه‌های آن و فایل `/etc/systemd/system/baft-2.service` را پاک کنید.
 
 ## اجرای دوبارهٔ نصب‌کننده
 

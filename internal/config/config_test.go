@@ -101,3 +101,23 @@ func TestValidateRejectsPublicServiceListener(t *testing.T) {
 		t.Fatal("expected public listener to be rejected by baseline schema")
 	}
 }
+
+func TestValidatePublicRoute(t *testing.T) {
+	c := validIR()
+	c.Routes[0].Listen = "0.0.0.0:443"
+	if err := Validate(c); err == nil {
+		t.Fatal("a non-loopback route listen without public was accepted")
+	}
+	for _, listen := range []string{"0.0.0.0:443", "[::]:2053", "203.0.113.7:8443"} {
+		c.Routes[0].Listen, c.Routes[0].Public = listen, true
+		if err := Validate(c); err != nil {
+			t.Fatalf("public route %s: %v", listen, err)
+		}
+	}
+	for _, listen := range []string{"example.com:443", "0.0.0.0:0"} {
+		c.Routes[0].Listen = listen
+		if err := Validate(c); err == nil {
+			t.Fatalf("public route %s was accepted", listen)
+		}
+	}
+}

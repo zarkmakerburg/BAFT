@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	mathrand "math/rand/v2"
 	"net"
 	"net/http"
 	"os"
@@ -1029,6 +1030,9 @@ func (r *Runtime) runDialer(ctx context.Context, cfg config.Config) error {
 						// obligations are level-triggered from state, not edge-triggered
 						// by the channel. This prevents a coalesced/stale wake from
 						// stranding FINALIZED-but-activation-incomplete replay.
+						// Consecutive failed attempts within this wake; reset per
+						// outer wake and implicitly after a successful recovery.
+						failedAttempts:=0
 						for sh.peer.NeedsRecovery()&&ctx.Err()==nil {
 							err:=r.recoverDialerShard(ctx,cfg,tlsCfg,index,sh)
 							if err==nil {
@@ -1061,9 +1065,10 @@ func (r *Runtime) runDialer(ctx context.Context, cfg config.Config) error {
 							// State is the source of truth for this immediate retry.
 							// Leave the coalesced wake intact so a later generation
 							// cannot lose its edge to this attempt's cleanup.
-							// The bounded backoff avoids a hot loop while the peer is
-							// temporarily unavailable.
-							timer:=time.NewTimer(10*time.Millisecond)
+							// Capped exponential backoff with jitter avoids a hot,
+							// fixed-cadence loop while the peer is unavailable.
+							timer:=time.NewTimer(recoveryBackoff(failedAttempts))
+							failedAttempts++
 							select{
 							case <-ctx.Done():
 								if !timer.Stop(){<-timer.C}
@@ -1308,4 +1313,35 @@ func (r *Runtime) routeHealthLoop(ctx context.Context,cfg config.Config,interval
 		case <-t.C:probeAll()
 		}
 	}
+}
+
+const (
+	recoveryBackoffInitial = 10 * time.Millisecond
+	recoveryBackoffMax     = 5 * time.Second
+)
+
+// recoveryBackoff returns the delay before the next dialer-shard recovery
+// retry after attempt consecutive failures (attempt 0 = first failure).
+func recoveryBackoff(attempt int) time.Duration {
+	return recoveryBackoffWith(attempt, mathrand.Int64N)
+}
+
+// recoveryBackoffWith is the pure form of recoveryBackoff. The base doubles
+// from recoveryBackoffInitial per attempt, capped at recoveryBackoffMax, and
+// the result is jittered uniformly in [base/2, base]. randN(n) must return a
+// value in [0, n).
+func recoveryBackoffWith(attempt int, randN func(int64) int64) time.Duration {
+	base := recoveryBackoffInitial
+	for i := 0; i < attempt && base < recoveryBackoffMax; i++ {
+		base *= 2
+	}
+	if base > recoveryBackoffMax {
+		base = recoveryBackoffMax
+	}
+	half := base / 2
+	j := randN(int64(base-half) + 1)
+	if j < 0 {
+		j = 0
+	}
+	return half + time.Duration(j)
 }

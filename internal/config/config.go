@@ -90,6 +90,11 @@ type Route struct {
 	TrafficClass string   `json:"traffic_class,omitempty"`
 	Target       string   `json:"target,omitempty"`
 	AllowedPeers []string `json:"allowed_peers,omitempty"`
+	// Public lets an outbound route listen on a non-loopback address, so
+	// clients on other hosts reach the carried service through this node
+	// (e.g. x-ui inbounds served from the IR's public IP). BAFT does not
+	// authenticate those clients; the carried service must.
+	Public bool `json:"public,omitempty"`
 }
 type Management struct {
 	UnixSocket    string `json:"unix_socket"`
@@ -242,10 +247,17 @@ func Validate(c Config) error {
 			if r.Listen == "" || r.RemoteRoute == "" || r.Target != "" {
 				return fmt.Errorf("route %s: outbound route requires listen+remote_route and no target", r.ID)
 			}
-			if err := validateLoopbackListen(r.Listen, "route.listen"); err != nil {
+			check := validateLoopbackListen
+			if r.Public {
+				check = validatePublicListen
+			}
+			if err := check(r.Listen, "route.listen"); err != nil {
 				return fmt.Errorf("route %s: %w", r.ID, err)
 			}
 		} else {
+			if r.Public {
+				return fmt.Errorf("route %s: public applies to outbound routes only", r.ID)
+			}
 			if r.Target == "" || r.Listen != "" || r.RemoteRoute != "" {
 				return fmt.Errorf("route %s: inbound route requires target and no listen/remote_route", r.ID)
 			}
@@ -302,6 +314,21 @@ func validateLoopbackListen(addr, field string) error {
 	ip := net.ParseIP(host)
 	if ip == nil || !ip.IsLoopback() {
 		return fmt.Errorf("%s must use an explicit loopback IP", field)
+	}
+	return nil
+}
+// validatePublicListen accepts any literal IP, including 0.0.0.0 and ::, with
+// an explicit port; names are refused so the bind address is never resolved.
+func validatePublicListen(addr, field string) error {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return fmt.Errorf("%s: %w", field, err)
+	}
+	if port == "" || port == "0" {
+		return fmt.Errorf("%s: explicit non-zero port required", field)
+	}
+	if net.ParseIP(host) == nil {
+		return fmt.Errorf("%s must use an IP literal", field)
 	}
 	return nil
 }

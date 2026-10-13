@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -25,6 +26,31 @@ type PairingDescriptor struct {
 	CAPEM         string `json:"ca_pem"`
 	ExpiresUnix   int64  `json:"expires_unix"`
 	RecordShaping bool   `json:"record_shaping"`
+	// Ports are the service ports the IR serves publicly, each carried to
+	// the same port on the EX. Empty keeps the single loopback route.
+	Ports []int `json:"ports,omitempty"`
+}
+
+// MaxCarriedPorts bounds Ports so a pairing code stays short.
+const MaxCarriedPorts = 16
+
+// ValidatePorts checks a carried-port list: 1..MaxCarriedPorts distinct
+// ports in 1..65535.
+func ValidatePorts(ports []int) error {
+	if len(ports) > MaxCarriedPorts {
+		return fmt.Errorf("securityinternal: at most %d carried ports", MaxCarriedPorts)
+	}
+	seen := make(map[int]bool, len(ports))
+	for _, p := range ports {
+		if p < 1 || p > 65535 {
+			return fmt.Errorf("securityinternal: invalid carried port %d", p)
+		}
+		if seen[p] {
+			return fmt.Errorf("securityinternal: duplicate carried port %d", p)
+		}
+		seen[p] = true
+	}
+	return nil
 }
 
 func NewPairingDescriptor(address, serverName, identity string, responderPub, caPEM []byte, ttl time.Duration) (PairingDescriptor, []byte, error) {
@@ -76,6 +102,9 @@ func DecodePairingDescriptor(s string, now time.Time) (PairingDescriptor, []byte
 	}
 	if d.Version != 1 || d.Address == "" || d.ServerName == "" || d.NodeIdentity == "" {
 		return PairingDescriptor{}, nil, nil, nil, errors.New("securityinternal: invalid pairing descriptor")
+	}
+	if err := ValidatePorts(d.Ports); err != nil {
+		return PairingDescriptor{}, nil, nil, nil, err
 	}
 	if now.Unix() >= d.ExpiresUnix {
 		return PairingDescriptor{}, nil, nil, nil, errors.New("securityinternal: pairing descriptor expired")

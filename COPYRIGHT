@@ -1,17 +1,26 @@
-Copyright (c) 2026 BAFT Project. All rights reserved.
+Copyright (C) 2026 BAFT Project.
 
-BAFT is source-visible proprietary software.
+BAFT is free software: you can redistribute it and/or modify it under the
+terms of the GNU Affero General Public License as published by the Free
+Software Foundation, version 3 (AGPL-3.0). The full license text is in
+LICENSE.
 
-The repository is publicly visible for review, but no general license is
-granted to use, run, copy, modify, distribute, sublicense, host, commercialize,
-or build services on BAFT.
+BAFT is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+A PARTICULAR PURPOSE. See the GNU Affero General Public License for more
+details.
 
-The complete default licensing terms are in LICENSE:
-BAFT Proprietary Source-Visible License v1.0.
+If you run a modified version of BAFT and let users interact with it over a
+network (for example the BCC web panel), section 13 of the AGPL requires you
+to offer those users the corresponding source code of your version.
 
-GitHub's Terms of Service may provide platform-specific rights necessary to
-view or fork a public repository on GitHub; those rights do not grant any
-additional software license from BAFT Project.
+Third-party components keep their own licenses; see THIRD_PARTY_LICENSES.md.
 
-The BAFT name, the name "بافت", the BAFT logo, and project branding are not
-licensed for use.
+Trademarks
+
+The BAFT name, the name "بافت", the BAFT logo and the project's branding are
+trademarks of the BAFT Project. They are not licensed under the AGPL-3.0.
+You may state truthfully that your software is based on or compatible with
+BAFT, but a modified or redistributed version must not use the BAFT name or
+logo in a way that suggests it is the official project or is endorsed by it,
+without written permission.

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability / آسیب‌پذیری امنیتی
+    url: https://github.com/zarkmakerburg/baft/blob/main/SECURITY.md
+    about: Report security problems privately (Security tab → Report a vulnerability). Do not open a public issue. / مشکل امنیتی را خصوصی گزارش کنید، نه با Issue عمومی.
+  - name: User guide / راهنمای کاربر
+    url: https://github.com/zarkmakerburg/baft/blob/main/docs/fa/guide/README.md
+    about: Install, x-ui, panel, troubleshooting and FAQ (Persian; English is linked at the top). / نصب، x-ui، پنل، عیب‌یابی و پرسش‌های رایج.

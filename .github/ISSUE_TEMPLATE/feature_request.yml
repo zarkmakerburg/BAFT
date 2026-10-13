@@ -1,0 +1,37 @@
+name: Feature request / درخواست قابلیت
+description: Suggest an idea or an improvement. / پیشنهاد ایده یا بهبود.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        BAFT is a TCP tunnel from Iran to abroad with a multi-server panel. It is not a user-selling panel, and it carries TCP only. You can write in English or Persian.
+
+        بافت یک تونل TCP از ایران به خارج با پنل چندسروره است؛ پنل فروش کاربر نیست و فقط TCP را عبور می‌دهد. می‌توانید فارسی یا انگلیسی بنویسید.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve? / این قابلیت چه مشکلی را حل می‌کند؟
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to happen? / دوست دارید چه اتفاقی بیفتد؟
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you tried / راه‌های دیگری که امتحان کردید
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area / بخش
+      options:
+        - Installer / نصب‌کننده
+        - Tunnel / تونل
+        - Panel (BCC) / پنل
+        - Network tools (baft-net) / ابزار شبکه
+        - Documentation / مستندات
+        - Other / سایر

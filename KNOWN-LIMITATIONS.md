@@ -13,8 +13,9 @@
 - endpoint pool/relay production path کامل نشده است.
 - H3 و Worker جزو مسیر پایه فعال نیستند.
 - benchmark رسمی 60s × 5 و profiler campaign کامل نشده است.
-- systemd/installer/config rollback/support bundle هنوز کامل نشده‌اند؛ transactional certificate rotation در A4 پیاده و تست شده است.
-- real Iran↔EX pilot اجرا نشده است.
+- نصب‌کنندهٔ قابل اجرای مجدد (بررسی، plan، اعمال، وارسی و بازگرداندن config، باینری‌ها و وضعیت سرویس systemd؛ سند 33)، حذف امن (سند 34)، بستهٔ پشتیبانی بدون راز (`baft support-bundle`) و transactional certificate rotation در A4 پیاده‌سازی و در CI روی systemd تست شده‌اند؛ اما روی مجموعهٔ بزرگی از سرورهای واقعی آزموده نشده‌اند. Update و Repair در منوی `baft` هنوز برنامه‌ریزی‌شده‌اند (از نصب‌کننده استفاده کنید).
+- **فقط TCP.** بافت جریان TCP را عبور می‌دهد و UDP را عبور نمی‌دهد. VLESS/VMess/Trojan روی TCP، WebSocket، gRPC یا HTTPUpgrade کار می‌کنند (حتی UDPای که داخل آن‌ها حمل می‌شود)؛ Hysteria2، TUIC، WireGuard و دیگر پروتکل‌های UDP خام کار نمی‌کنند.
+- هیچ پایلوت واقعی بزرگی بین ایران و EX اجرا نشده است؛ بافت تازه است و در میدان و در مقیاس بزرگ ثابت نشده. دست‌کم از یک دیتاسنتر ایرانی، TCP به خارج روی پورت‌هایی غیر از ۲۲ پس از حدود ۸٫۷ کیلوبایت قطع می‌شد، پس هر مسیر باید تست شود (`sudo baft-net`).
 - هیچ ادعای عمومی درباره سرعت تضمینی، تشخیص‌ناپذیری یا دسترسی در همه شرایط اثبات نشده است.
 - listener عمومی IR به‌صورت خودکار کاربر نهایی را authenticate نمی‌کند؛ اگر از loopback خارج شود، امنیت لایه سرویس جداگانه لازم است.
 

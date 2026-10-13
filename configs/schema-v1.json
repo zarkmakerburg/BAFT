@@ -192,7 +192,8 @@
           "direction": {"enum": ["outbound", "inbound"]},
           "traffic_class": {"type": "string"},
           "target": {"type": "string"},
-          "allowed_peers": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+          "allowed_peers": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+          "public": {"type": "boolean"}
         }
       }
     },

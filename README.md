@@ -1,65 +1,95 @@
-<p align="center">
-  <img src="docs/assets/baft-readme-poster.webp" alt="BAFT — resilient infrastructure for multi-path routing" width="100%">
-</p>
+<p align="right"><a href="README.fa.md"><strong>فارسی ←</strong></a></p>
 
 <p align="center">
-  <a href="#quick-install"><img src="docs/assets/btn-quick-start-en.png" alt="Quick start" width="240"></a>
-  &nbsp;
-  <a href="docs/en/README.md"><img src="docs/assets/btn-docs-en.png" alt="Technical docs" width="240"></a>
+  <img src="docs/assets/baft-readme-poster.webp" alt="BAFT" width="100%">
 </p>
 
 <h1 align="center">BAFT</h1>
 
-<p align="center"><strong>Bounded · Authenticated · Fail-safe · Transactional</strong></p>
-
 <p align="center">
   <a href="https://github.com/zarkmakerburg/baft/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/zarkmakerburg/baft?style=flat-square&label=release"></a>
   <a href="https://github.com/zarkmakerburg/baft/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/zarkmakerburg/baft/actions/workflows/ci.yml/badge.svg?branch=main"></a>
-  <img alt="Go" src="https://img.shields.io/badge/Go-1.27.1-00ADD8?style=flat-square&logo=go&logoColor=white">
-  <img alt="License" src="https://img.shields.io/badge/license-proprietary-8a6a22?style=flat-square">
+  <img alt="License: AGPL-3.0" src="https://img.shields.io/badge/license-AGPL--3.0-blue?style=flat-square">
 </p>
 
 <p align="center">
   <a href="README.fa.md">فارسی</a> ·
+  <a href="docs/en/guide/README.md">User guide</a> ·
   <a href="https://github.com/zarkmakerburg/baft/releases/latest">Latest release</a> ·
-  <a href="STATUS.en.md">Project status</a> ·
-  <a href="docs/en/README.md">Documentation</a>
+  <a href="CHANGELOG.md">Changelog</a>
 </p>
 
-> © 2026 BAFT Project. All rights reserved. This repository is public for review only; no license is granted. See [COPYRIGHT](COPYRIGHT).
+**BAFT is a secure, reliable tunnel from a server inside Iran to a server abroad, for people who run x-ui / 3x-ui (or any TCP service) on the foreign server, with a web panel to manage several servers.**
 
-BAFT is research software for securely relaying authenticated TCP byte streams between two operator-controlled agents. In the baseline architecture the **IR** agent initiates the Carrier connection to **EX**, while application data remains bidirectional. BAFT does not replace the target service, Xray, or the application protocol; it moves TCP bytes only through preconfigured, explicitly authorized Routes.
+It is not a panel for selling users or managing subscriptions (like Marzban). It carries your existing service from Iran to abroad; your x-ui stays exactly as it is.
 
-The repository is developed from content Blueprint v1.4 and Implementation Master Prompt v1.2 dated 2026-09-27. The historical Blueprint filename contains `v1.0`, but the normative content version is **1.4**.
+## Key features
 
-<a id="quick-install"></a>
+- **One-line install** on the outside server; it can install the Iran server for you over SSH.
+- **Carries your x-ui ports**: the Iran server listens on the same ports and forwards them to the outside server. Users change only the server address.
+- **Path test before pairing**: checks that the Iran → outside path really carries data, not just that a port opens.
+- **Web panel (BCC)** for several servers, on a domain or IP with a Let's Encrypt certificate.
+- **Network tuning**: BBR and TCP buffers on or off with one command, plus speed, route and port tests.
+- **Security**: signed releases verified against an offline root key, mutual TLS between servers, Argon2id panel login, agent jobs are signed and never run a shell.
+- **Safe to rerun, safe to remove**: a rerun shows a plan and rolls back on failure; uninstall removes only what BAFT provably owns.
 
-## Quick install
+## Install
 
-The same line on both servers (Debian/Ubuntu, run as root):
+On the **outside** server (Debian/Ubuntu, as root):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/zarkmakerburg/baft/main/install.sh | sudo bash
+bash <(curl -Ls https://raw.githubusercontent.com/zarkmakerburg/baft/main/install.sh)
 ```
 
-The installer asks where the server is and follows that path:
+Choose **1 (Outside Iran)** and answer the questions. Full walkthrough: [Install guide](docs/en/guide/01-install.md).
 
-1. **Outside Iran (EX)**: run it here first. It asks for the public address (the detected one is the default) and prints a one-time `BAFTPAIR1:...` pairing code, then waits.
-2. **Inside Iran (IR)**: run the same line and paste the pairing code. IR starts and prints a `BAFTREPLY1:...` code.
-3. Paste that reply code into the EX prompt. EX starts, and the tunnel is up.
+## Use with x-ui in 4 steps
 
-Or let EX do everything: on EX choose **set up the IR from here over SSH** and give the IR's `user@host`, then a key or password. EX installs and pairs the IR itself (its SSH host key is shown for you to confirm first), so you never log in to the IR. This needs SSH from EX to IR to be open. From scripts: `--ir-ssh root@IR_HOST --ir-ssh-key FILE --ir-ssh-fingerprint SHA256:...`. With BCC, the same is done from the dashboard: add both servers over SSH, then build the tunnel ([SSH bootstrap](docs/en/26-p1d-ssh-bootstrap.md), [tunnel builder](docs/en/27-p1e-tunnel-builder.md)).
+1. Run the installer on the outside server (where x-ui runs), choose **1**, and give the ports to carry, for example `443,2053` (it suggests the ports your server already listens on, such as x-ui inbounds; `--ports 443,2053` in scripts).
+2. Let it install the Iran server over SSH (or run the same line on the Iran server and paste the pairing code). It tests the Iran → outside path before pairing.
+3. The Iran server now listens on each carried port and forwards it through the tunnel to the same port on the outside server.
+4. In your x-ui links, change only the server address to the **Iran server's IP**. The port stays the same.
 
-For scripts and automation, skip the questions with flags: `... | sudo bash -s -- --role ex --public-address EX_HOST_OR_IP` or `--role ir --pairing-code 'BAFTPAIR1:...'`. Without a terminal (or with `BAFT_NONINTERACTIVE=1`) nothing is asked and `--role` is required.
+Details: [Use with x-ui](docs/en/guide/02-use-with-x-ui.md).
 
-Prefer to read the installer first? `curl -fsSLO https://raw.githubusercontent.com/zarkmakerburg/baft/main/install.sh && less install.sh`, then run `sudo bash install.sh`. Every release the installer fetches is verified against the pinned root key. Full guide: [Running IR and EX](docs/en/06-running-ir-ex.md).
+## What works, and the limits
 
+**Works** (TCP): VLESS, VMess and Trojan over TCP, WebSocket, gRPC and HTTPUpgrade, including UDP that is carried *inside* those protocols (for example DNS or games through VLESS). Any other plain TCP service works too.
+
+**Does not work** (UDP-based): Hysteria2, TUIC, WireGuard, and anything else that needs raw UDP. BAFT carries TCP only.
+
+**Status, plainly**: BAFT is new. It is tested in CI and in lab setups, but it has **not yet been proven in the field at scale**; no large real Iran ↔ abroad pilot has been run. Iranian networks differ by datacenter: from at least one Iranian datacenter, foreign TCP on ports other than 22 was cut after about 8.7 KB. Test your path (`sudo baft-net`) before you rely on it. See [Known limitations](KNOWN-LIMITATIONS.en.md).
+
+## Management commands
+
+| Command | Where | What |
+|---|---|---|
+| `baft` | every server | status menu: status, doctor, logs, certificates, support bundle, uninstall |
+| `sudo baft-panel` | panel server | panel link and login, new login, restart, logs, domain and SSL, update |
+| `sudo baft-net` | every server | BBR and tuning on/off, speed test, latency, route (mtr), port test |
+| `baft doctor` / `baft version` | every server | health check / installed version |
+| `journalctl -u baft -f` | every server | live tunnel logs |
+
+## Documentation
+
+- **[User guide](docs/en/guide/README.md)**: [install](docs/en/guide/01-install.md), [x-ui](docs/en/guide/02-use-with-x-ui.md), [panel](docs/en/guide/03-panel.md), [network and BBR](docs/en/guide/04-network-and-bbr.md), [update, backup, uninstall](docs/en/guide/05-update-backup-uninstall.md), [troubleshooting](docs/en/guide/06-troubleshooting.md), [FAQ](docs/en/guide/07-faq.md)
+- [Technical documentation](docs/en/README.md) and [engineering notes](docs/en/40-engineering-notes.md) (architecture, protocol, stages, CI evidence)
+- [Changelog](CHANGELOG.md) · [Known limitations](KNOWN-LIMITATIONS.en.md) · [Project status](STATUS.en.md)
+
+## Support and security
+
+- Bugs and questions: [GitHub issues](https://github.com/zarkmakerburg/baft/issues/new/choose). Never paste pairing codes, passwords or keys.
+- Security vulnerabilities: report privately, see [SECURITY.md](SECURITY.md). Please do not open a public issue.
+
+## License
+
+BAFT is free software under the [GNU AGPL-3.0](LICENSE). The BAFT name and logo are trademarks and are not licensed under the AGPL; see [COPYRIGHT](COPYRIGHT). Third-party notices: [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
 
 ## Support the project
 
-If BAFT is useful to you, please **[give it a star on GitHub](https://github.com/zarkmakerburg/baft/stargazers)** — it helps others find the project.
+If BAFT is useful to you, please **[give it a star on GitHub](https://github.com/zarkmakerburg/baft/stargazers)**; it helps others find the project.
 
-☕ **Buy me a coffee** — donations in crypto are welcome:
+Donations in crypto are welcome:
 
 | Network | Wallet address |
 |---|---|
@@ -67,165 +97,3 @@ If BAFT is useful to you, please **[give it a star on GitHub](https://github.com
 | TON | `UQAN4TZrv29BRagXzFD_4_tkWJvx1wf8mIEeFHymwhlIatLa` |
 
 Please double-check the address and network before sending; transfers cannot be reversed.
-
-## Project status
-
-BAFT is not declared production-ready.
-
-- **Stage A:** protocol contracts, parser, configuration, test PKI, and the HTTP/2+mTLS Carrier spike are implemented and tested.
-- **Stage B:** the secure TCP → BAFT → TCP vertical slice, peer authorization, Routes, Flow semantics, active revocation, CLI, and the 1 GiB COR-01 correctness gate are implemented.
-- **Stage C:** global memory allocation, backpressure, byte-based DRR, bounded control scheduling, and multi-Flow testing are being stabilized.
-- **Stage D and later:** resume, epoch fencing, replay, tombstones, formal benchmarking, operations, research gates, and real-server pilot work are not complete.
-
-See [STATUS.en.md](STATUS.en.md), [PLAN.en.md](PLAN.en.md), and [KNOWN-LIMITATIONS.en.md](KNOWN-LIMITATIONS.en.md).
-
-## What problem does BAFT solve?
-
-A local service on IR can be mapped to one fixed, pre-authorized service on EX without allowing a peer to provide an arbitrary destination:
-
-```text
-local application
-      │
-      ▼
-127.0.0.1:1443 on IR
-      │
-      ▼
-BAFT IR (dialer)
-      │
-      │ HTTP/2 + TLS 1.3 + mTLS
-      │ independent Shards
-      ▼
-BAFT EX (listener)
-      │
-      ▼
-fixed authorized Route: 127.0.0.1:2443
-      │
-      ▼
-target service
-```
-
-OPEN carries a `route_id`, not a target host supplied by the remote peer.
-
-## Core terminology
-
-| Term | Meaning |
-|---|---|
-| Node | BAFT process acting as `dialer` or `listener` |
-| IR | baseline Carrier initiator |
-| EX | baseline Carrier listener |
-| Carrier | authenticated bidirectional byte stream that transports BAFT frames |
-| Shard | independent Carrier with a bounded subset of Flows and its own scheduling |
-| Session | in-memory state associated with one Shard |
-| Flow | one bidirectional application TCP connection |
-| Route | pre-authorized mapping between a local listener and a fixed target |
-| ACK | contiguous byte acceptance by BAFT, not proof of final application processing |
-| WINDOW / Credit | absolute maximum offset a sender may transmit |
-| Replay | unacknowledged bytes retained for recovery semantics |
-| Epoch | Carrier generation used by the future resume design |
-
-See [docs/en/11-glossary.md](docs/en/11-glossary.md).
-
-## Non-negotiable security properties
-
-- TLS 1.3 minimum and mTLS are mandatory.
-- There is no plaintext fallback.
-- Certificate chain, hostname, validity time, and EKU verification stay enabled.
-- Node identity is derived from a verified URI SAN; HELLO `node_id` alone does not establish trust.
-- CA trust and Route authorization are separate.
-- The peer cannot supply an arbitrary target destination.
-- Frame sizes and types are validated before allocation.
-- User payload is not written to logs or support bundles.
-- Test and benchmark claims must come from real executions.
-- The project does not claim universal undetectability, guaranteed connectivity, or guaranteed public-network throughput.
-
-Read [Security model](docs/en/03-security-model.md).
-
-## Baseline architecture
-
-```text
-IR Node
-  ├─ Shard 0 ─ TCP/TLS ─ H2 POST ─┐
-  ├─ Shard 1 ─ TCP/TLS ─ H2 POST ─┤
-  ├─ Shard 2 ─ TCP/TLS ─ H2 POST ─┤──► EX Node
-  └─ Shard 3 ─ TCP/TLS ─ H2 POST ─┘
-
-Inside a Carrier:
-HELLO → HELLO_ACK → READY
-                  │
-                  ├─ OPEN / OPEN_OK
-                  ├─ DATA
-                  ├─ ACK
-                  ├─ WINDOW
-                  ├─ FIN / FIN_ACK
-                  └─ RESET
-```
-
-Each Shard owns an independent transport in the baseline so multiple Shards are not silently pooled onto one TCP connection.
-
-## Innovation and development method
-
-Important BAFT decisions are evaluated on two explicit tracks:
-
-1. **Baseline:** the smallest secure, bounded, testable mechanism with a rollback path.
-2. **Research:** a conceptually distinct mechanism aimed at a documented gap, with falsifiable experiments and explicit failure criteria.
-
-The 10x/100x rule is used as design pressure, not as a numeric claim. Research hypotheses, engineering results, and legal novelty/patentability are recorded as separate states.
-
-Current examples:
-
-- [TWRL — Tri-Watermark Receive Ledger](docs/en/13-stage-c-twrl.md): engineering result supported in CI.
-- [PADL — Pressure-Aged Deficit Leasing](docs/en/14-stage-c-padl.md): research hypothesis under evaluation.
-
-See [Innovation methodology](docs/en/12-innovation-method.md).
-
-## Developer quick start
-
-```bash
-git clone https://github.com/zarkmakerburg/baft.git
-cd baft
-go build ./cmd/baft
-
-go test ./...
-go test -race ./...
-go vet ./...
-```
-
-The repository currently targets Go 1.27.1 via `go.mod`.
-
-Validate configuration:
-
-```bash
-./baft config validate --file configs/example-ir.yaml
-./baft config validate --file configs/example-ex.yaml
-```
-
-After creating appropriate PKI material and adjusting addresses:
-
-```bash
-# EX
-./baft run --file /etc/baft/ex.yaml
-
-# IR
-./baft run --file /etc/baft/ir.yaml
-```
-
-## Documentation map
-
-1. [Overview and goals](docs/en/01-overview.md)
-2. [Architecture and data flow](docs/en/02-architecture.md)
-3. [Security model](docs/en/03-security-model.md)
-4. [BAFT/1 protocol](docs/en/04-protocol-baft1.md)
-5. [Configuration](docs/en/05-configuration.md)
-6. [Running IR and EX](docs/en/06-running-ir-ex.md)
-7. [Resource control and scheduling](docs/en/07-resource-control.md)
-8. [Testing and CI](docs/en/08-testing-and-ci.md)
-9. [Roadmap](docs/en/09-roadmap.md)
-10. [Repository layout](docs/en/10-repository-layout.md)
-11. [Glossary](docs/en/11-glossary.md)
-12. [Innovation methodology](docs/en/12-innovation-method.md)
-13. [Stage-C TWRL](docs/en/13-stage-c-twrl.md)
-14. [Stage-C PADL](docs/en/14-stage-c-padl.md)
-
-## What BAFT is not
-
-At the current stage BAFT is not a general-purpose VPN, arbitrary-destination reverse proxy, persistence layer for user payloads, or a finished recovery system. H3, relay, Worker, and real-path research remain outside the default core path until their later gates are explicitly implemented and tested.

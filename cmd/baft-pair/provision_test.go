@@ -29,7 +29,7 @@ func TestGeneratedConfigsLoadAndPinEachOther(t *testing.T) {
 	}
 	c := addCommonFlags(flag.NewFlagSet("t", flag.ContinueOnError), filepath.Join(dir, "admin.sock"))
 
-	irCfg, err := irConfig(d, "urn:baft:node:ir-1", filepath.Join(dir, "pki", "ca.pem"), filepath.Join(dir, "ir.json"), "127.0.0.1:1443", c)
+	irCfg, err := irConfig(d, "urn:baft:node:ir-1", filepath.Join(dir, "pki", "ca.pem"), filepath.Join(dir, "ir.json"), "127.0.0.1:1443", "0.0.0.0", c)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +47,7 @@ func TestGeneratedConfigsLoadAndPinEachOther(t *testing.T) {
 	}
 	p := exPending{Version: 1, Identity: d.NodeIdentity, ServerName: d.ServerName}
 	pki := func(n string) string { return filepath.Join(dir, "pki", n) }
-	exCfg, err := exConfig(p, id, pub, "0.0.0.0:8443", pki("ca.pem"), pki("server.pem"), pki("server.key"), filepath.Join(dir, "ex.json"), "127.0.0.1:2443", c)
+	exCfg, err := exConfig(p, id, pub, "0.0.0.0:8443", pki("ca.pem"), pki("server.pem"), pki("server.key"), filepath.Join(dir, "ex.json"), "127.0.0.1:2443", "127.0.0.1", c)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,6 +102,71 @@ func TestPKIServerCertificateVerifiesForHost(t *testing.T) {
 			if st.Mode().Perm() != 0o600 {
 				t.Fatalf("%s mode %v", n, st.Mode().Perm())
 			}
+		}
+	}
+}
+
+// With carried ports, the IR serves each port publicly and the EX exits each
+// route to the same port, and both configs still load.
+func TestCarriedPortsBuildMatchingPublicRoutes(t *testing.T) {
+	dir := t.TempDir()
+	if err := writePKI(filepath.Join(dir, "pki"), "192.0.2.10", time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	ex, _ := securityinternal.GenerateKeyPair()
+	ir, _ := securityinternal.GenerateKeyPair()
+	ca, _ := os.ReadFile(filepath.Join(dir, "pki", "ca.pem"))
+	d, psk, err := securityinternal.NewPairingDescriptor("192.0.2.10:8443", "192.0.2.10", "urn:baft:node:ex-1", ex.Public, ca, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ports, err := parsePorts(" 443, 2053 ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.Ports = ports
+	code, err := d.Encode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, _, _, _, err = securityinternal.DecodePairingDescriptor(code, time.Now())
+	if err != nil || len(d.Ports) != 2 {
+		t.Fatalf("ports did not survive the pairing code: %v %v", d.Ports, err)
+	}
+	c := addCommonFlags(flag.NewFlagSet("t", flag.ContinueOnError), filepath.Join(dir, "admin.sock"))
+	irCfg, err := irConfig(d, "urn:baft:node:ir-1", filepath.Join(dir, "pki", "ca.pem"), filepath.Join(dir, "ir.json"), "127.0.0.1:1443", "0.0.0.0", c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := writeConfig(filepath.Join(dir, "ir.yaml"), irCfg); err != nil {
+		t.Fatal(err)
+	}
+	reply, _ := securityinternal.NewPairingReply(d, ex.Public, psk, "urn:baft:node:ir-1", ir.Public)
+	id, pub, err := securityinternal.DecodePairingReply(reply, psk, ex.Public, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := exPending{Version: 1, Identity: d.NodeIdentity, ServerName: d.ServerName, Ports: ports}
+	pki := func(n string) string { return filepath.Join(dir, "pki", n) }
+	exCfg, err := exConfig(p, id, pub, "0.0.0.0:8443", pki("ca.pem"), pki("server.pem"), pki("server.key"), filepath.Join(dir, "ex.json"), "127.0.0.1:2443", "127.0.0.1", c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := writeConfig(filepath.Join(dir, "ex.yaml"), exCfg); err != nil {
+		t.Fatal(err)
+	}
+	if len(irCfg.Routes) != 2 || len(exCfg.Routes) != 2 {
+		t.Fatalf("want 2 routes each, got IR %d EX %d", len(irCfg.Routes), len(exCfg.Routes))
+	}
+	for i, want := range []string{"443", "2053"} {
+		r, e := irCfg.Routes[i], exCfg.Routes[i]
+		if !r.Public || r.Listen != "0.0.0.0:"+want || r.RemoteRoute != e.ID || e.Target != "127.0.0.1:"+want {
+			t.Fatalf("route %d mismatch: IR %+v EX %+v", i, r, e)
+		}
+	}
+	for _, bad := range []string{"0", "70000", "443,443", "x"} {
+		if _, err := parsePorts(bad); err == nil {
+			t.Fatalf("parsePorts(%q) accepted", bad)
 		}
 	}
 }

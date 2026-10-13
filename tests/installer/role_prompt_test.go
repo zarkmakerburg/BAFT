@@ -34,7 +34,7 @@ while time.time() < end:
             break
         out += d
         # Answer each prompt once, when it is the unfinished last line.
-        asked = out.count(b'Choose 1 or 2: ') + out.count(b'Public IP or hostname')
+        asked = out.count(b'Choose 1, 2 or 3: ') + out.count(b'Public IP or hostname')
         if answers and asked > answered and not out.endswith(b'\n'):
             os.write(fd, answers.pop(0).encode() + b'\n')
             answered += 1
@@ -68,12 +68,23 @@ func runPiped(t *testing.T, r *planRig, answers ...string) string {
 func TestInstallerAsksRoleWhenPipedWithTerminal(t *testing.T) {
 	r := newPlanRig(t)
 	ir := runPiped(t, r, "2")
-	if !strings.Contains(ir, "Where is this server?") || !strings.Contains(ir, "pair with the EX using the pairing code") {
+	if !strings.Contains(ir, "What is this server for?") || !strings.Contains(ir, "pair with the EX using the pairing code") {
 		t.Fatalf("answer 2 did not run the IR plan:\n%s", ir)
 	}
 	ex := runPiped(t, r, "x", "1")
-	if !strings.Contains(ex, "Please type 1 or 2.") || !strings.Contains(ex, "issue a one-time pairing code") {
+	if !strings.Contains(ex, "Please type 1, 2 or 3.") || !strings.Contains(ex, "issue a one-time pairing code") {
 		t.Fatalf("invalid then 1 did not run the EX plan:\n%s", ex)
+	}
+}
+
+func TestInstallerOffersThePanel(t *testing.T) {
+	r := newPlanRig(t)
+	out := runPiped(t, r, "3")
+	if !strings.Contains(out, "3) Panel") && !strings.Contains(out, "Panel") {
+		t.Fatalf("the menu did not offer the panel:\n%s", out)
+	}
+	if !strings.Contains(out, "BCC binary") {
+		t.Fatalf("answer 3 did not run the panel (BCC) plan:\n%s", out)
 	}
 }
 
@@ -84,7 +95,7 @@ func TestInstallerWithoutRoleOrTerminalFails(t *testing.T) {
 	cmd.Stdin = nil
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true} // no controlling terminal
 	out, err := cmd.CombinedOutput()
-	if err == nil || !strings.Contains(string(out), "--role ex or --role ir") {
+	if err == nil || !strings.Contains(string(out), "--role ex, --role ir or --bcc-only") {
 		t.Fatalf("want a clear error without a terminal, got err=%v\n%s", err, out)
 	}
 	cmd = exec.Command("bash", filepath.Join("..", "..", "install.sh"), "--plan")

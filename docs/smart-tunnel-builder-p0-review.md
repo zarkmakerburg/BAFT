@@ -79,6 +79,16 @@ accepted as stable health evidence. All four focused fault cases failed before
 the fix and pass afterward. Query errors now return unavailable evidence, and
 only a valid unsigned counter can participate in the stability comparison.
 
+### Preserve the first failing transport stage
+
+Final validation exposed an existing H2 diagnostic race: after TLS failed, the
+Noise pipe writer's secondary error could overwrite `phase=tls_handshake_error`.
+The existing test failed in 100 repeated attempts on unchanged baseline H2 code.
+The trace now retains an unrecovered TCP/TLS failure when reporting a transport
+error, clears failed attempts after a successful/reused connection, and ignores
+late losing dials. Error identity and endpoint sanitization remain intact.
+Deterministic pipe/dial-order regressions and 100 repetitions with race passed.
+
 ## Two-live-instance laboratory regression
 
 `TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle` uses real built

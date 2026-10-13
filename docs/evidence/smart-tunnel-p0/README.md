@@ -45,6 +45,20 @@ All candidate logs are named `candidate-678-*`. The failed CI excerpt is
 https://github.com/zarkmakerburg/BAFT/actions/runs/38458518689/job/115507337468.
 The five follow-up runs are in `startup-fixed-before-publication.log`.
 
+## Existing H2 failure-stage race found during final validation
+
+Candidate e97f041's first full local suite failed the existing
+`TestOpenNoiseReportsTLSPhase`: TLS failed, but a secondary Noise pipe failure
+overwrote the phase label. H2 source/tests were byte-identical to baseline b028fd5.
+The existing test failed again in 100 repetitions (`h2-tls-before.log`). The
+failure is retained in `candidate-e97-unit-integration-attempt1.log`.
+
+The follow-up preserves unrecovered transport failures, clears successful/reused
+connections and handles late losing dials. A deterministic regression plus the
+existing TLS/error-redaction tests passed 100 repetitions under race
+(`h2-tls-after.log`). The complete local suite then passed
+(`local-with-h2-fix.log`). Exact final-SHA results are recorded in PR #200/#67.
+
 Toolchain: Go 1.27.1, Linux. The real-process fixture runs actual BAFT transport
 binaries with simulated systemd. Certificate name and endpoints are local
 loopback; this is not field evidence or production acceptance.

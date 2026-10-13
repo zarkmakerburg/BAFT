@@ -43,7 +43,7 @@ Before a file is replaced it is copied to `/opt/baft/backups/rerun-<time>/` (the
 
 ## What you see
 
-On a colour, UTF-8 terminal the installer opens with the BAFT mark and walks through numbered, underlined phases: **Preflight** (root, OS, architecture and options, checked before any question is asked), **Inspect**, **Prerequisites**, **Release** (or **Build** for `--from-source`), **Plan**, **Apply**, **Pairing** and **Done**. The plan is a table with one row per item, and its action is marked `+` (create, enable, start), `~` (update, replace, restart), `=` (keep, skip) or `x` (refuse). Pairing and reply codes are always printed alone on their line, with no colour or border, so they copy cleanly. Anywhere else (a pipe, a log file, the EX reading an IR install over SSH, `NO_COLOR`, `TERM=dumb`, a non-UTF-8 locale) the output is the plain `[baft-install] ...` lines with the same words. The terminal mark is generated from `web/assets/baft-brand.png` by `scripts/install-logo.py`.
+On a colour, UTF-8 terminal the installer opens with the BAFT mark and walks through numbered, underlined phases: **Preflight** (root, OS, architecture and options, checked before any question is asked), **Inspect**, **Prerequisites**, **Release** (or **Build** for `--from-source`), **Plan**, **Apply**, **Pairing** and **Done**. The plan is a table with one row per item, and its action is marked `+` (create, enable, start), `~` (update, replace, restart), `=` (keep, skip) or `x` (refuse). Pairing and reply codes are always printed alone on their line, with no colour or border, so they copy cleanly. Anywhere else (a pipe, a log file, the EX reading an IR install over SSH, `NO_COLOR`, `TERM=dumb`, a non-UTF-8 locale) the output is the plain `[baft-install] ...` lines with the same words. The mark is a single line.
 
 ## Idempotency gate (CI)
 
@@ -52,3 +52,14 @@ On a colour, UTF-8 terminal the installer opens with the BAFT mark and walks thr
 ## Limits
 
 Source installs (`--from-source`) rebuild the binaries, so a rerun there is an upgrade by definition. `--plan` does not download, so it can only compare with `BAFT_VERSION`; the exact comparison happens after the release is verified. Update and Repair in the `baft` menu stay `(planned)` until a later change wires them to this installer.
+
+## Panel install, SSL and the management commands
+
+Run without options, the installer asks what the server is for: outside Iran (EX), inside Iran (IR) or **Panel** (BCC). For the panel it asks for a domain pointed at the server, or Enter to use its public IP, and a port (a random free one by default). It then gets a Let's Encrypt certificate with acme.sh (a domain gets the usual 90-day certificate, an IP the short-lived 6-day one; both renew from the daily `baft-bcc-cert.timer`; port 80 must be free and reachable during issuance), listens on that port with HTTPS and turns on adding servers over SSH. If no certificate can be issued, it offers a self-signed one (adding servers over SSH stays off until a real certificate is in place). Non-interactive: `--bcc-only --bcc-domain HOST --bcc-port N`. A rerun keeps the panel's address and certificate.
+
+The last screen shows the panel link, username and the one-time password. Afterwards:
+
+- `sudo baft-panel`: status, link and username, new login, restart, logs, set domain / get SSL, renew SSL, update, network.
+- `sudo baft-net` (every server): BBR and TCP buffer tuning on or off (`/etc/sysctl.d/99-baft-net.conf`), speed test (it also reports a foreign TCP transfer cut after a few KB), latency, route (mtr) and port checks. The installer offers to turn the tuning on once; `BAFT_TUNE_NETWORK=1` turns it on without asking, `0` never asks.
+
+On a fresh install the plan is one line; a rerun lists only what changes (`--plan` still shows the full table).

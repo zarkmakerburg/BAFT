@@ -391,7 +391,7 @@ Usage:
       # On a terminal it asks for a domain (or uses this server's IP) and a port,
       # gets a Let's Encrypt certificate for it and prints the panel link and login.
       # Without a domain/IP it listens on loopback 127.0.0.1:8080 as before.
-      # Afterwards, `sudo baft-panel` opens a small management menu.
+      # Afterwards, "sudo baft-panel" opens a small management menu.
 
 Options:
   --version vX.Y.Z    install this signed release (default: the latest)

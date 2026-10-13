@@ -196,35 +196,86 @@ func tunnelResourceConflict(a, b Tunnel) string {
 	if !tunnelsShareNode(a, b) || sameManagedSlot(a, b) {
 		return ""
 	}
-	if a.EXNode == b.EXNode {
-		if a.Port == b.Port {
-			return fmt.Sprintf("EX listener port %d is already used by tunnel %s", a.Port, b.ID)
-		}
-		if a.EXMetricsListen != "" && a.EXMetricsListen == b.EXMetricsListen {
-			return fmt.Sprintf("EX metrics listener %s is already used by tunnel %s", a.EXMetricsListen, b.ID)
-		}
-	}
-	if a.IRNode == b.IRNode {
-		if a.RouteListen == b.RouteListen {
-			return fmt.Sprintf("IR route listener %s is already used by tunnel %s", a.RouteListen, b.ID)
-		}
-		if a.IRMetricsListen != "" && a.IRMetricsListen == b.IRMetricsListen {
-			return fmt.Sprintf("IR metrics listener %s is already used by tunnel %s", a.IRMetricsListen, b.ID)
+	for _, x := range tunnelBinds(a) {
+		for _, y := range tunnelBinds(b) {
+			if x.node == y.node && bindEndpointsOverlap(x.address, y.address) {
+				return fmt.Sprintf("%s %s conflicts with %s %s already used by tunnel %s on node %s", x.name, x.address, y.name, y.address, b.ID, x.node)
+			}
 		}
 	}
 	return ""
 }
 
 func validateLoopbackEndpoint(v, field string) error {
-	host, port, err := net.SplitHostPort(v)
-	if err != nil || port == "" || port == "0" {
-		return fmt.Errorf("%s must be an explicit loopback IP:port", field)
+	if err := validateFixedEndpoint(v, field); err != nil {
+		return err
 	}
-	ip := net.ParseIP(host)
-	if ip == nil || !ip.IsLoopback() {
+	host, _, _ := net.SplitHostPort(v)
+	if !net.ParseIP(host).IsLoopback() {
 		return fmt.Errorf("%s must use a loopback IP", field)
 	}
 	return nil
+}
+
+func validateFixedEndpoint(v, field string) error {
+	host, port, err := net.SplitHostPort(v)
+	if err != nil || net.ParseIP(host) == nil {
+		return fmt.Errorf("%s must be an explicit IP:port", field)
+	}
+	n, err := strconv.Atoi(port)
+	if err != nil || n < 1 || n > 65535 {
+		return fmt.Errorf("%s port must be between 1 and 65535", field)
+	}
+	return nil
+}
+
+type tunnelBind struct{ node, name, address string }
+
+func tunnelBinds(t Tunnel) []tunnelBind {
+	out := []tunnelBind{
+		{t.EXNode, "EX listener port", net.JoinHostPort("0.0.0.0", strconv.Itoa(t.Port))},
+		{t.IRNode, "IR route listener", t.RouteListen},
+	}
+	if t.EXMetricsListen != "" {
+		out = append(out, tunnelBind{t.EXNode, "EX metrics listener", t.EXMetricsListen})
+	}
+	if t.IRMetricsListen != "" {
+		out = append(out, tunnelBind{t.IRNode, "IR metrics listener", t.IRMetricsListen})
+	}
+	return out
+}
+
+// Compare actual TCP binds, not field names or endpoint spelling. An IPv4
+// wildcard may become a dual-stack socket in Go, so reserve its port across
+// families. Explicit distinct loopback addresses can still coexist.
+func bindEndpointsOverlap(a, b string) bool {
+	ah, ap, ae := net.SplitHostPort(a)
+	bh, bp, be := net.SplitHostPort(b)
+	an, ane := strconv.Atoi(ap)
+	bn, bne := strconv.Atoi(bp)
+	if ae != nil || be != nil || ane != nil || bne != nil || an != bn {
+		return false
+	}
+	ai, bi := net.ParseIP(ah), net.ParseIP(bh)
+	if ai == nil || bi == nil {
+		return false
+	}
+	if ai.Equal(bi) {
+		return true
+	}
+	return ai.IsUnspecified() || bi.IsUnspecified()
+}
+
+func tunnelInternalResourceConflict(t Tunnel) string {
+	binds := tunnelBinds(t)
+	for i, x := range binds {
+		for _, y := range binds[i+1:] {
+			if x.node == y.node && bindEndpointsOverlap(x.address, y.address) {
+				return fmt.Sprintf("%s %s conflicts with %s %s on node %s", x.name, x.address, y.name, y.address, x.node)
+			}
+		}
+	}
+	return ""
 }
 
 // secretParams are job parameters that must not outlive the job.
@@ -331,8 +382,20 @@ func (s *Store) resolveTunnelLocked(req TunnelRequest, now time.Time) (Tunnel, N
 	if t.RouteID == "" {
 		t.RouteID = "service-main"
 	}
+	if t.Port < 1 || t.Port > 65535 {
+		return Tunnel{}, Node{}, Node{}, errors.New("listener port must be between 1 and 65535")
+	}
+	if err := validateFixedEndpoint(t.Target, "target"); err != nil {
+		return Tunnel{}, Node{}, Node{}, err
+	}
+	if err := validateLoopbackEndpoint(t.RouteListen, "route_listen"); err != nil {
+		return Tunnel{}, Node{}, Node{}, err
+	}
 	if t.InstanceID == "default" {
 		return Tunnel{}, Node{}, Node{}, errors.New("instance_id default is reserved for the legacy singleton")
+	}
+	if t.InstanceID == "" && (t.EXMetricsListen != "" || t.IRMetricsListen != "") {
+		return Tunnel{}, Node{}, Node{}, errors.New("explicit metrics listeners require an instance-scoped tunnel")
 	}
 	if t.InstanceID != "" {
 		if t.EXMetricsListen == "" || t.IRMetricsListen == "" {
@@ -344,6 +407,9 @@ func (s *Store) resolveTunnelLocked(req TunnelRequest, now time.Time) (Tunnel, N
 		if err := validateLoopbackEndpoint(t.IRMetricsListen, "ir_metrics_listen"); err != nil {
 			return Tunnel{}, Node{}, Node{}, err
 		}
+	}
+	if why := tunnelInternalResourceConflict(t); why != "" {
+		return Tunnel{}, Node{}, Node{}, errors.New(why)
 	}
 	for _, other := range s.st.Tunnels {
 		if !tunnelsShareNode(t, other) {

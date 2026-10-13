@@ -497,7 +497,10 @@ func (m *Manager) install(ctx context.Context, t Txn, port int) (string, error) 
 		}
 	}
 	state, _ := m.System.Systemctl(ctx, "is-active", m.Service)
-	t.WasActive = state == "active"
+	// Committing EX can briefly put its existing IR peer into systemd's
+	// restart/activating state before IR is committed. Rollback must restore
+	// that running intent, rather than explicitly stopping the old service.
+	t.WasActive = state == "active" || state == "activating" || state == "reloading"
 	if en, _ := m.System.Systemctl(ctx, "is-enabled", m.Service); en == "enabled" {
 		t.WasEnabled = true
 	}
@@ -605,12 +608,22 @@ func (m *Manager) Health(ctx context.Context, id string) (string, error) {
 }
 
 func (m *Manager) stableSample(ctx context.Context) (restarts string, err error) {
-	state, _ := m.System.Systemctl(ctx, "is-active", m.Service)
+	state, err := m.System.Systemctl(ctx, "is-active", m.Service)
+	if err != nil {
+		return "", fmt.Errorf("%s service state unavailable: %w", m.Service, err)
+	}
 	if state != "active" {
 		return "", fmt.Errorf("%s is %q", m.Service, state)
 	}
-	r, _ := m.System.Systemctl(ctx, "show", "-p", "NRestarts", "--value", m.Service)
-	return strings.TrimSpace(r), nil
+	r, err := m.System.Systemctl(ctx, "show", "-p", "NRestarts", "--value", m.Service)
+	if err != nil {
+		return "", fmt.Errorf("%s restart evidence unavailable: %w", m.Service, err)
+	}
+	n, err := strconv.ParseUint(strings.TrimSpace(r), 10, 64)
+	if err != nil {
+		return "", fmt.Errorf("%s restart evidence is not a valid counter", m.Service)
+	}
+	return strconv.FormatUint(n, 10), nil
 }
 
 // ---- finalize / rollback ----
@@ -661,10 +674,35 @@ func (m *Manager) Rollback(ctx context.Context, id string) (string, error) {
 	defer m.mu.Unlock()
 	t, err := m.readTxn(id)
 	if err != nil {
-		return "nothing to roll back", nil
+		if errors.Is(err, os.ErrNotExist) {
+			active, activeErr := os.ReadFile(m.activePath())
+			if activeErr != nil && !errors.Is(activeErr, os.ErrNotExist) {
+				return "", fmt.Errorf("cannot verify active rollback change: %w", activeErr)
+			}
+			if strings.TrimSpace(string(active)) == id {
+				return "", fmt.Errorf("rollback transaction %s is missing for the active change", id)
+			}
+			b, markerErr := os.ReadFile(m.markerPath())
+			if markerErr == nil {
+				var marker Marker
+				if err := json.Unmarshal(b, &marker); err != nil {
+					return "", fmt.Errorf("cannot verify rollback ownership marker: %w", err)
+				}
+				if marker.ManagedBy == "baft" && marker.TunnelID == id {
+					return "", fmt.Errorf("rollback transaction %s is missing for the installed change", id)
+				}
+			} else if !errors.Is(markerErr, os.ErrNotExist) {
+				return "", fmt.Errorf("cannot verify rollback ownership marker: %w", markerErr)
+			}
+			return "nothing to roll back", nil
+		}
+		return "", fmt.Errorf("cannot read rollback transaction %s: %w", id, err)
 	}
 	switch t.Phase {
 	case PhaseRolledBack:
+		if err := m.clearActiveChange(id); err != nil {
+			return "rollback incomplete: active change could not be released", err
+		}
 		return "already rolled back", nil
 	case PhaseFinalized:
 		return "", fmt.Errorf("tunnel change %s is finalized; make a new change instead", id)
@@ -721,16 +759,21 @@ func (m *Manager) rollbackTxn(ctx context.Context, t Txn) (string, error) {
 		} else {
 			note(removeIfExists(m.markerPath()))
 		}
-		_, _ = m.System.Systemctl(ctx, "daemon-reload")
+		_, err := m.System.Systemctl(ctx, "daemon-reload")
+		note(err)
 		if t.HadConfig && t.WasActive {
 			if _, err := m.System.Systemctl(ctx, "restart", m.Service); err != nil {
 				note(err)
 			}
 		} else {
-			_, _ = m.System.Systemctl(ctx, "stop", m.Service)
-			if !t.WasEnabled {
-				_, _ = m.System.Systemctl(ctx, "disable", m.Service)
-			}
+			_, err := m.System.Systemctl(ctx, "stop", m.Service)
+			note(err)
+		}
+		// Active services can still be disabled at boot. Restore enablement
+		// independently of the previous running state.
+		if !t.WasEnabled {
+			_, err := m.System.Systemctl(ctx, "disable", m.Service)
+			note(err)
 		}
 	}
 	if t.PKIReplaced {
@@ -744,14 +787,35 @@ func (m *Manager) rollbackTxn(ctx context.Context, t Txn) (string, error) {
 		return "rollback incomplete: " + strings.Join(errs, "; "), errors.New("rollback incomplete: " + strings.Join(errs, "; "))
 	}
 	for _, f := range []string{"psk", "pending.json", "pairing.pending.json", "ex-params.json", "baft.new.yaml"} {
-		_ = os.Remove(filepath.Join(m.stage(t.ID), f))
+		note(removeIfExists(filepath.Join(m.stage(t.ID), f)))
+	}
+	if len(errs) > 0 {
+		return "rollback incomplete: " + strings.Join(errs, "; "), errors.New("rollback incomplete: " + strings.Join(errs, "; "))
 	}
 	t.Phase = PhaseRolledBack
-	_ = m.writeTxn(t)
-	if m.activeID() == t.ID {
-		m.clearActive()
+	if err := m.writeTxn(t); err != nil {
+		return "rollback incomplete: completion could not be recorded", err
+	}
+	if err := m.clearActiveChange(t.ID); err != nil {
+		return "rollback incomplete: active change could not be released", err
 	}
 	return "rolled back", nil
+}
+
+// Keep an incomplete change claimed. Reading/removing the receipt must not
+// silently fail, and a newer change's receipt must never be removed.
+func (m *Manager) clearActiveChange(id string) error {
+	b, err := os.ReadFile(m.activePath())
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(string(b)) != id {
+		return nil
+	}
+	return removeIfExists(m.activePath())
 }
 
 // ---- helpers ----
@@ -1249,6 +1313,9 @@ func (m *Manager) ownershipViolations(t Txn) []string {
 		}
 		b, err := os.ReadFile(live)
 		if err != nil {
+			if !errors.Is(err, os.ErrNotExist) {
+				v = append(v, label+" "+live+" cannot be read to verify BAFT ownership")
+			}
 			return // absent: nothing of ours to protect
 		}
 		sum := shaHex(b)

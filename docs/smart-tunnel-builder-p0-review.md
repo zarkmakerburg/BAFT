@@ -95,8 +95,11 @@ Bulgaria's previous working route is also tested after rollback.
 
 Attempt 1 and attempt 2 failed at Bulgaria rollback. Attempt 3 passed after the
 running-intent fix. These attempts are retained; they are not relabelled as
-three successful runs. The final exact-commit validation is recorded in the PR
-and #67, including repeated/race attempts.
+three successful runs. Candidate 678d001 later passed three repeats but failed
+the GitHub R3 startup check: a 50ms fixture settle window could precede actual
+listener readiness. The follow-up waits for handshake and real echo payload
+before health sampling; five local repeats passed. Final exact-commit validation
+is recorded in the PR and #67, including failed/repeated/race attempts.
 
 ## Remaining P0 gates and review findings
 

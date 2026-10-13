@@ -149,12 +149,15 @@ func TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle(t *testing.T) {
 			t.Fatal(err)
 		}
 		check("commit IR")
+		// Type=simple/process-start is not listener readiness. Wait for real
+		// handshake and payload before sampling health; a fixed 50ms settle
+		// can otherwise race startup on a loaded CI runner.
+		through(t, route, id)
 		for _, m := range []*Manager{ir, ex} {
 			if _, err := m.Health(ctx, id); err != nil {
 				t.Fatal(err)
 			}
 		}
-		through(t, route, id)
 	}
 	finalize := func(ex, ir *Manager, id string) {
 		for _, m := range []*Manager{ir, ex} {

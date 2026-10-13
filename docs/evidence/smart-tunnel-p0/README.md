@@ -25,6 +25,26 @@ recorded in the PR/#67 with its SHA; those gates are separate from this history.
 | health-after.log | Same cases after evidence validation: PASS |
 | full-local.log | `go test ./... -count=1 -timeout 180s`: PASS before publication; source matches the published tree |
 
+## Candidate 678d001 and startup-readiness follow-up
+
+Candidate `678d0014b2a9fa5ddb0651c6ae50df29b1d89190` was tested from a clean
+checkout. Its full unit/integration suite and three real-process repeats passed.
+Full race passed for tunnelnode/agent/agentjob, while BCC initially timed out at
+180 seconds. The existing alert test passed separately in 100.46 seconds; full
+BCC race then passed with Go's normal 10-minute limit (323.778 seconds).
+Focused BCC preflight/scoped/atomic-plan race also passed.
+
+The candidate's R3 GitHub job `115507337468`, run `38458518689`, failed because
+the new fixture sampled a local listener before asynchronous startup completed.
+The follow-up waits for real handshake and echo payload before health sampling;
+it changes the test, not the production checks. Five local repeats passed after
+that correction. The new candidate's exact-SHA gates are recorded in PR #200.
+
+All candidate logs are named `candidate-678-*`. The failed CI excerpt is
+`ci-r3-startup-attempt1.log`; its full job remains available at
+https://github.com/zarkmakerburg/BAFT/actions/runs/38458518689/job/115507337468.
+The five follow-up runs are in `startup-fixed-before-publication.log`.
+
 Toolchain: Go 1.27.1, Linux. The real-process fixture runs actual BAFT transport
 binaries with simulated systemd. Certificate name and endpoints are local
 loopback; this is not field evidence or production acceptance.

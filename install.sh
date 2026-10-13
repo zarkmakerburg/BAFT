@@ -12,6 +12,7 @@ BAFT_REF="${BAFT_REF:-main}"
 BAFT_INSTALL_FROM="${BAFT_INSTALL_FROM:-release}"
 BAFT_GITHUB_REPO="${BAFT_GITHUB_REPO:-zarkmakerburg/baft}"
 BAFT_VERSION="${BAFT_VERSION:-}"
+BAFT_WITH_PANEL="${BAFT_WITH_PANEL:-}"
 BAFT_RELEASE_URL="${BAFT_RELEASE_URL:-}"
 BAFT_REVOCATIONS_URL="${BAFT_REVOCATIONS_URL:-https://raw.githubusercontent.com/${BAFT_GITHUB_REPO}/main/release/keys/revocations.json}"
 # The offline release root public key (release/keys/root.pub). tests/docs
@@ -406,6 +407,9 @@ Options:
   --re-pair           start a NEW pairing on an installed node (the current config is
                       backed up first); a rerun never re-pairs on its own
   --bcc-only          install only BAFT Command Center (no tunnel/data-plane changes)
+  --with-panel        EX: also install the web panel on this server afterwards
+                      (asked by default on a terminal when no panel is installed)
+  --no-panel          EX: do not offer the web panel
   --bcc-domain HOST   panel domain, or this server's public IP; gets a Let's Encrypt
                       certificate (domain: 90 days, IP: short-lived 6 days), both
                       renewed automatically. Needs port 80 free during issuance.
@@ -442,6 +446,8 @@ Environment:
   BAFT_TARGET (EX: fixed IP:port traffic exits to, default 127.0.0.1:2443)
   BAFT_ROUTE_LISTEN (IR: loopback address local clients use, default 127.0.0.1:1443)
   BAFT_METRICS_LISTEN BAFT_RUN_TESTS BAFT_PAIRING_CODE BAFT_REPLY_CODE
+  BAFT_WITH_PANEL (EX: 1 installs the web panel too, 0 never offers it)
+  BAFT_TUNE_NETWORK (1 turns on BBR and network tuning, 0 never asks)
   BAFT_BCC_BIN BAFT_BCC_CONFIG_DIR BAFT_BCC_STATE_DIR BAFT_BCC_STATE_FILE
   BAFT_BCC_ADMIN_TOKEN_FILE BAFT_BCC_ACCESS_FILE BAFT_BCC_JOB_KEY_FILE
   BAFT_BCC_BACKUP_DIR BAFT_BCC_SERVICE BAFT_BCC_LISTEN BAFT_BCC_PUBLIC_URL
@@ -483,6 +489,8 @@ while [[ $# -gt 0 ]]; do
     --re-pair) RE_PAIR=1; shift ;;
     --agent-only) AGENT_ONLY=1; shift ;;
     --bcc-only) BCC_ONLY=1; shift ;;
+    --with-panel) BAFT_WITH_PANEL=1; shift ;;
+    --no-panel) BAFT_WITH_PANEL=0; shift ;;
     --bcc-listen) BAFT_BCC_LISTEN="${2:-}"; BCC_LISTEN_EXPLICIT=1; shift 2 ;;
     --bcc-domain) BAFT_BCC_DOMAIN="${2:-}"; shift 2 ;;
     --bcc-port) BAFT_BCC_PORT="${2:-}"; shift 2 ;;
@@ -2564,6 +2572,43 @@ net_setup() {
   else warn "network tuning could not be applied"; fi
 }
 
+# offer_panel: an EX install ends with the panel offer, like x-ui installing
+# its panel with the core. Yes runs this same installer again with --bcc-only,
+# which asks for the domain or IP and gets the certificate. Only on a
+# terminal, only when no panel is installed here; --no-panel skips it and
+# --with-panel installs it without asking.
+offer_panel() {
+  [[ "$ROLE" == ex && "$PLAN_ONLY" != 1 && "$BAFT_WITH_PANEL" != 0 ]] || return 0
+  [[ -f "$BAFT_BCC_UNIT_FILE" ]] && return 0
+  local a="" self="${BASH_SOURCE[0]:-}" src args=(--bcc-only)
+  if [[ "$BAFT_WITH_PANEL" != 1 ]]; then
+    [[ "$ASK_TTY" == 1 ]] || return 0
+    ask a "$(printf '\n'; ui_ask_prompt "Install the web panel on this server too? (manage every server from a browser)" "[Y/n]")" || return 0
+    if [[ "$a" == n || "$a" == N || "$a" == no ]]; then
+      log "panel skipped; add it later by running the installer with --bcc-only"
+      return 0
+    fi
+  fi
+  src="$(mktemp)"; CLEANUP+=("$src")
+  if [[ -n "$self" && -r "$self" ]]; then
+    cp -- "$self" "$src"
+  elif ! curl -fsSL --retry 3 "${BAFT_INSTALL_URL:-https://raw.githubusercontent.com/${BAFT_GITHUB_REPO}/${BAFT_REF}/install.sh}" -o "$src"; then
+    warn "could not fetch the installer for the panel; add it later with --bcc-only"
+    return 0
+  fi
+  [[ -z "$BAFT_VERSION" ]] || args+=(--version "$BAFT_VERSION")
+  [[ "$BAFT_INSTALL_FROM" != source ]] || args+=(--from-source)
+  [[ -z "$BAFT_OFFLINE_DIR" ]] || args+=(--offline "$BAFT_OFFLINE_DIR")
+  [[ "$ASSUME_YES" != 1 ]] || args+=(--yes)
+  # The tuning question was already answered for this server.
+  local tune=0; [[ -f "$BAFT_NET_SYSCTL" ]] && tune=1
+  if [[ -n "$ASK_FD" ]]; then
+    BAFT_TUNE_NETWORK="$tune" bash "$src" "${args[@]}" <&"$ASK_FD" || warn "the panel was not installed; retry with --bcc-only"
+  else
+    BAFT_TUNE_NETWORK="$tune" bash "$src" "${args[@]}" </dev/null || warn "the panel was not installed; retry with --bcc-only"
+  fi
+}
+
 # The panel's own management command, like x-ui's menu: status, link, a new
 # login, restart, logs, SSL and update, by number or by name.
 write_panel_menu() {
@@ -2940,6 +2985,7 @@ if [[ "$DO_PAIRING" == 1 ]]; then
       finalize_apply
       net_setup "$(dirname "$BAFT_BIN")"
       warn "installed; $BAFT_SERVICE.service starts once pairing is finished"
+      offer_panel
       exit 0
     fi
     "${ACCEPT[@]}" --reply "$REPLY_CODE" >/dev/null
@@ -2998,3 +3044,4 @@ if [[ "$UI" == 1 ]]; then
   kv "re-run" "safe: changes only what differs"
   printf '\n' >&2
 fi
+offer_panel

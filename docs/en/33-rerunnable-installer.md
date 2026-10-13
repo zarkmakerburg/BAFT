@@ -57,6 +57,8 @@ Source installs (`--from-source`) rebuild the binaries, so a rerun there is an u
 
 Run without options, the installer asks what the server is for: outside Iran (EX), inside Iran (IR) or **Panel** (BCC). For the panel it asks for a domain pointed at the server, or Enter to use its public IP, and a port (a random free one by default). It then gets a Let's Encrypt certificate with acme.sh (a domain gets the usual 90-day certificate, an IP the short-lived 6-day one; both renew from the daily `baft-bcc-cert.timer`; port 80 must be free and reachable during issuance), listens on that port with HTTPS and turns on adding servers over SSH. If no certificate can be issued, it offers a self-signed one (adding servers over SSH stays off until a real certificate is in place). Non-interactive: `--bcc-only --bcc-domain HOST --bcc-port N`. A rerun keeps the panel's address and certificate.
 
+An outside-Iran (EX) install ends by asking whether to install the panel on the same server too (only on a terminal, and only when no panel is installed there); yes runs the panel install above. `--with-panel` installs it without asking, `--no-panel` never offers it.
+
 The last screen shows the panel link, username and the one-time password. Afterwards:
 
 - `sudo baft-panel`: status, link and username, new login, restart, logs, set domain / get SSL, renew SSL, update, network.

@@ -1,0 +1,74 @@
+name: Bug report / گزارش خطا
+description: Something does not work as the guide says. / چیزی طبق راهنما کار نمی‌کند.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not paste secrets.** Remove pairing codes (`BAFTPAIR1:...`, `BAFTREPLY1:...`), panel links with their secret path, passwords, agent tokens, private keys and SSH passwords before posting. For security problems use [SECURITY.md](https://github.com/zarkmakerburg/baft/blob/main/SECURITY.md), not an issue.
+
+        **هیچ رازی را این‌جا نگذارید.** کد جفت‌شدن، لینک مخفی پنل، رمزها، توکن agent، کلید خصوصی و رمز SSH را پیش از ارسال پاک کنید. مشکل امنیتی را از طریق SECURITY.md گزارش کنید، نه Issue.
+
+        Please check [Troubleshooting](https://github.com/zarkmakerburg/baft/blob/main/docs/en/guide/06-troubleshooting.md) / [عیب‌یابی](https://github.com/zarkmakerburg/baft/blob/main/docs/fa/guide/06-troubleshooting.md) first. You can write in English or Persian.
+  - type: dropdown
+    id: role
+    attributes:
+      label: Server role / نقش سرور
+      description: Which server has the problem? / مشکل روی کدام سرور است؟
+      multiple: true
+      options:
+        - Outside Iran (EX) / سرور خارج
+        - Inside Iran (IR) / سرور ایران
+        - Panel (BCC) / پنل
+        - Not sure / مطمئن نیستم
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system / سیستم‌عامل
+      description: For example Ubuntu 24.04 amd64 (`cat /etc/os-release`, `uname -m`).
+      placeholder: Ubuntu 24.04 amd64
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: BAFT version / نسخهٔ بافت
+      description: Output of `baft version`.
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened, and what did you expect? / چه شد و انتظار چه داشتید؟
+      description: Steps to reproduce, if you can. / در صورت امکان، قدم‌های تکرار مشکل.
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `baft doctor` / خروجی `baft doctor`
+      description: Run `sudo baft doctor` on the affected server and paste the output. Check it for secrets first.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: installer
+    attributes:
+      label: Installer output / خروجی نصب‌کننده
+      description: If the problem is during install or update, paste the installer output (remove pairing codes and passwords).
+      render: text
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / لاگ‌ها
+      description: For example `journalctl -u baft -n 100 --no-pager` or `sudo baft-panel logs`.
+      render: text
+  - type: checkboxes
+    id: secrets
+    attributes:
+      label: Before you submit / پیش از ارسال
+      options:
+        - label: I removed pairing codes, passwords, tokens, keys and the panel's secret link. / کد جفت‌شدن، رمزها، توکن‌ها، کلیدها و لینک مخفی پنل را پاک کردم.
+          required: true

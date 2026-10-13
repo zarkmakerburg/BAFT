@@ -1,8 +1,32 @@
 # BAFT Documentation Guide
 
-[مستندات فارسی](../fa/README.md) | [English root README](../../README.md)
+[مستندات فارسی](../fa/README.md) | [English root README](../../README.md) | [User guide](guide/README.md)
 
-This documentation is written for readers with no prior BAFT context. Recommended order:
+## Start here: the user guide
+
+If you want to install BAFT and use it with x-ui, read the **[user guide](guide/README.md)** first: [install](guide/01-install.md), [use with x-ui](guide/02-use-with-x-ui.md), [panel](guide/03-panel.md), [network and BBR](guide/04-network-and-bbr.md), [update, backup, uninstall](guide/05-update-backup-uninstall.md), [troubleshooting](guide/06-troubleshooting.md), [FAQ](guide/07-faq.md).
+
+## Operator documentation
+
+How the installer, panel and tools behave in detail:
+
+- [06 — Building and running IR/EX](06-running-ir-ex.md)
+- [23 — Signed release artifacts and the offline bundle](23-p1a-signed-releases.md)
+- [24 — BCC web access and SQLite state](24-p1c-bcc-access.md)
+- [25 — Secure agent jobs](25-p1d-agent.md)
+- [26 — Server inventory and SSH bootstrap](26-p1d-ssh-bootstrap.md)
+- [27 — Native tunnel builder](27-p1e-tunnel-builder.md)
+- [29 — BCC backups and restore preview](29-bcc-backup-restore-preview.md)
+- [30 — BCC layered health](30-bcc-layered-health.md)
+- [32 — The `baft` menu](32-baft-menu.md)
+- [33 — The rerunnable installer (panel install, SSL, `baft-panel`, `baft-net`)](33-rerunnable-installer.md)
+- [34 — Safe uninstall](34-safe-uninstall.md)
+- [35 — Transactional certificate rotation](35-cert-rotation.md)
+- [37 — Running BAFT behind Cloudflare (WebSocket carrier)](37-cloudflare-websocket.md)
+
+## Technical documentation
+
+This part is written for readers with no prior BAFT context. Recommended order:
 
 1. [01 — Overview, goals, and scope](01-overview.md)
 2. [02 — Architecture, roles, and data flow](02-architecture.md)
@@ -46,6 +70,14 @@ A feature described by the Blueprint but not recorded as implemented in STATUS i
 
 15D. [ECRL — prior art, threat model, and formal invariants](15-stage-d-ecrl.md)
 
+21. [21 — R3.1 Morphing (Stealth Pro, experimental)](21-stealth-pro.md)
+22. [22 — Launch-1 roadmap](22-launch-1-roadmap.md)
+23. [23 — P1-A: signed release artifacts](23-p1a-signed-releases.md)
+24. [24 — P1-C: BCC web access and SQLite state](24-p1c-bcc-access.md)
+25. [25 — P1-D: secure agent jobs](25-p1d-agent.md)
+26. [26 — P1-D: server inventory and SSH bootstrap](26-p1d-ssh-bootstrap.md)
+27. [27 — P1-E: native tunnel builder](27-p1e-tunnel-builder.md)
+
 28. [28 — BCC visual system](28-bcc-visual-system.md)
 29. [29 — BCC backups and restore preview](29-bcc-backup-restore-preview.md)
 30. [30 — BCC layered health with hysteresis](30-bcc-layered-health.md)
@@ -54,3 +86,6 @@ A feature described by the Blueprint but not recorded as implemented in STATUS i
 33. [33 — The rerunnable installer](33-rerunnable-installer.md)
 34. [34 — Safe uninstall](34-safe-uninstall.md)
 35. [35 — Transactional certificate rotation](35-cert-rotation.md)
+36. [36 — Adversarial resilience soak](36-adversarial-resilience.md)
+37. [37 — Running BAFT behind Cloudflare (WebSocket carrier)](37-cloudflare-websocket.md)
+40. [40 — Engineering notes (moved from the front page)](40-engineering-notes.md)

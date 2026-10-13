@@ -59,7 +59,12 @@ func exCode(args []string) {
 	ttl := fs.Duration("ttl", 15*time.Minute, "pairing lifetime")
 	recordShaping := fs.Bool("record-shaping", false, "enable record shaping in the configs generated from this pairing (both peers)")
 	pendingOut := fs.String("pending-out", "", "write the state ex-accept needs to verify the IR reply")
+	portsFlag := fs.String("ports", "", "service ports the IR serves publicly and carries to the same port here, e.g. 443,2053")
 	_ = fs.Parse(args)
+	ports, err := parsePorts(*portsFlag)
+	if err != nil {
+		die(err.Error())
+	}
 	if *keyPath == "" || *address == "" || *serverName == "" || *identity == "" || *caFile == "" || *pskOut == "" {
 		die("missing required flag")
 	}
@@ -74,6 +79,7 @@ func exCode(args []string) {
 	d, psk, err := securityinternal.NewPairingDescriptor(*address, *serverName, *identity, k.Public, ca, *ttl)
 	if err == nil {
 		d.RecordShaping = *recordShaping
+		d.Ports = ports
 	}
 	if err != nil {
 		die(err.Error())
@@ -82,7 +88,7 @@ func exCode(args []string) {
 		die(err.Error())
 	}
 	if *pendingOut != "" {
-		if err := writePending(*pendingOut, *identity, *serverName, psk, d.ExpiresUnix, *recordShaping); err != nil {
+		if err := writePending(*pendingOut, *identity, *serverName, psk, d.ExpiresUnix, *recordShaping, ports); err != nil {
 			die(err.Error())
 		}
 	}
@@ -100,6 +106,7 @@ func irApply(args []string) {
 	stateDir := fs.String("state-dir", "", "state directory")
 	identity := fs.String("identity", "", "IR node identity for --config-out (default: a random urn:baft:node:ir-...)")
 	routeListen := fs.String("route-listen", "127.0.0.1:1443", "loopback address local clients connect to")
+	publicIP := fs.String("public-ip", "0.0.0.0", "IP the carried ports listen on when the pairing code carries ports")
 	c := addCommonFlags(fs, "")
 	_ = fs.Parse(args)
 	if *code == "" || *keyPath == "" || *stateDir == "" {
@@ -153,7 +160,7 @@ func irApply(args []string) {
 	if *c.unixSocket == "" {
 		*c.unixSocket = filepath.Join(*stateDir, "admin.sock")
 	}
-	cfg, err := irConfig(d, *identity, caPath, *keyPath, *routeListen, c)
+	cfg, err := irConfig(d, *identity, caPath, *keyPath, *routeListen, *publicIP, c)
 	if err != nil {
 		die(err.Error())
 	}

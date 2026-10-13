@@ -84,7 +84,7 @@ trap 'rm -f "$tmp"' EXIT
   done
 } >"$tmp"
 
-# Strong-copyleft licenses are incompatible with BAFT's proprietary license.
+# Strong-copyleft licenses are not allowed in BAFT's own dependencies without review (BAFT itself is AGPL-3.0).
 # Match license titles, not mentions: MPL-2.0 (file-level, allowed for
 # unmodified use) names the GPL family in its "Secondary License" definition.
 if grep -nE '^[[:space:]]*GNU (AFFERO |LESSER )?GENERAL PUBLIC LICENSE|^[[:space:]]*Server Side Public License' "$tmp" >&2; then

@@ -11,8 +11,9 @@
 - endpoint-pool/relay production paths are incomplete.
 - H3 and Worker paths are not enabled in the baseline core.
 - formal 60s × 5 benchmarking and profiling are incomplete.
-- final systemd/installer/config rollback/support-bundle operations remain incomplete; A4 transactional certificate rotation is implemented and tested.
-- no real Iran↔EX pilot has been run.
+- the rerunnable installer (inspect, plan, apply, verify, roll back config/binaries/systemd service state; doc 33), safe uninstall (doc 34), the secret-safe support bundle (`baft support-bundle`) and A4 transactional certificate rotation are implemented and tested in CI on systemd; they have not been exercised on a large real fleet. Update and Repair in the `baft` menu are still planned (use the installer).
+- **TCP only.** BAFT carries TCP streams; it does not carry UDP. VLESS/VMess/Trojan over TCP, WebSocket, gRPC or HTTPUpgrade work (including UDP carried inside them); Hysteria2, TUIC, WireGuard and other raw-UDP protocols do not.
+- no large real Iran↔EX pilot has been run; BAFT is new and not field-proven at scale. From at least one Iranian datacenter, foreign TCP on ports other than 22 was cut after about 8.7 KB, so each path must be tested (`sudo baft-net`).
 - no universal throughput, undetectability, or guaranteed-connectivity claim has been established.
 - the IR public listener does not authenticate end users automatically; if it is exposed beyond loopback, separate service-layer security is required.
 

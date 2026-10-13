@@ -9,7 +9,9 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -20,6 +22,29 @@ import (
 
 const identityPrefix = "urn:baft:node:"
 
+// portRouteID names the route that carries one service port.
+func portRouteID(port int) string { return "port-" + strconv.Itoa(port) }
+
+// parsePorts reads "443,2053" into a validated port list.
+func parsePorts(s string) ([]int, error) {
+	var ports []int
+	for _, f := range strings.Split(s, ",") {
+		f = strings.TrimSpace(f)
+		if f == "" {
+			continue
+		}
+		n, err := strconv.Atoi(f)
+		if err != nil {
+			return nil, fmt.Errorf("invalid port %q", f)
+		}
+		ports = append(ports, n)
+	}
+	if err := securityinternal.ValidatePorts(ports); err != nil {
+		return nil, err
+	}
+	return ports, nil
+}
+
 // exPending is what ex-code leaves for ex-accept: everything the EX needs to
 // verify the IR's reply. It holds the one-time PSK and is deleted on accept.
 type exPending struct {
@@ -29,6 +54,7 @@ type exPending struct {
 	OneTimePSK    string `json:"one_time_psk"`
 	ExpiresUnix   int64  `json:"expires_unix"`
 	RecordShaping bool   `json:"record_shaping"`
+	Ports         []int  `json:"ports,omitempty"`
 }
 
 // commonFlags are the parts of baft.yaml both roles share.
@@ -120,10 +146,11 @@ func randomNodeID(prefix string) string {
 	return prefix + "-" + hex.EncodeToString(b[:])
 }
 
-func writePending(path, identity, serverName string, psk []byte, expires int64, recordShaping bool) error {
+func writePending(path, identity, serverName string, psk []byte, expires int64, recordShaping bool, ports []int) error {
 	b, err := json.MarshalIndent(exPending{
 		Version: 1, Identity: identity, ServerName: serverName,
 		OneTimePSK: base64.RawURLEncoding.EncodeToString(psk), ExpiresUnix: expires, RecordShaping: recordShaping,
+		Ports: ports,
 	}, "", "  ")
 	if err != nil {
 		return err
@@ -141,7 +168,7 @@ func readPending(path string) (exPending, []byte, error) {
 		return exPending{}, nil, err
 	}
 	psk, err := base64.RawURLEncoding.DecodeString(p.OneTimePSK)
-	if err != nil || len(psk) != 32 || p.Version != 1 || p.Identity == "" || p.ServerName == "" {
+	if err != nil || len(psk) != 32 || p.Version != 1 || p.Identity == "" || p.ServerName == "" || securityinternal.ValidatePorts(p.Ports) != nil {
 		return exPending{}, nil, errors.New("invalid pairing state")
 	}
 	return p, psk, nil
@@ -149,7 +176,7 @@ func readPending(path string) (exPending, []byte, error) {
 
 // irConfig builds the IR (dialer) side from a decoded pairing code. The IR
 // presents no outer client certificate: Noise pins both static keys.
-func irConfig(d securityinternal.PairingDescriptor, identity, caFile, keyFile, routeListen string, c commonFlags) (config.Config, error) {
+func irConfig(d securityinternal.PairingDescriptor, identity, caFile, keyFile, routeListen, publicIP string, c commonFlags) (config.Config, error) {
 	nodeID, err := nodeIDOf(identity)
 	if err != nil {
 		return config.Config{}, err
@@ -159,11 +186,18 @@ func irConfig(d securityinternal.PairingDescriptor, identity, caFile, keyFile, r
 	cfg.TLS.CAFile = caFile
 	cfg.Noise = &config.Noise{KeyFile: keyFile, PeerPublicKey: d.ResponderKey, RecordShaping: shaping(d.RecordShaping)}
 	cfg.Routes = []config.Route{{ID: *c.routeID, Listen: routeListen, RemoteRoute: *c.routeID, Direction: "outbound", TrafficClass: "interactive"}}
+	if len(d.Ports) > 0 {
+		cfg.Routes = cfg.Routes[:0]
+		for _, port := range d.Ports {
+			id := portRouteID(port)
+			cfg.Routes = append(cfg.Routes, config.Route{ID: id, Listen: net.JoinHostPort(publicIP, strconv.Itoa(port)), RemoteRoute: id, Direction: "outbound", TrafficClass: "interactive", Public: true})
+		}
+	}
 	return cfg, nil
 }
 
 // exConfig builds the EX (listener) side once the IR's reply is verified.
-func exConfig(p exPending, irIdentity string, irPub []byte, listen, caFile, certFile, keyFile, noiseKey, target string, c commonFlags) (config.Config, error) {
+func exConfig(p exPending, irIdentity string, irPub []byte, listen, caFile, certFile, keyFile, noiseKey, target, portsTarget string, c commonFlags) (config.Config, error) {
 	nodeID, err := nodeIDOf(p.Identity)
 	if err != nil {
 		return config.Config{}, err
@@ -180,6 +214,12 @@ func exConfig(p exPending, irIdentity string, irPub []byte, listen, caFile, cert
 	cfg.TLS.CAFile, cfg.TLS.CertFile, cfg.TLS.KeyFile = caFile, certFile, keyFile
 	cfg.Noise = &config.Noise{KeyFile: noiseKey, PeerPublicKey: pub, RecordShaping: shaping(p.RecordShaping)}
 	cfg.Routes = []config.Route{{ID: *c.routeID, Direction: "inbound", Target: target, AllowedPeers: []string{irIdentity}}}
+	if len(p.Ports) > 0 {
+		cfg.Routes = cfg.Routes[:0]
+		for _, port := range p.Ports {
+			cfg.Routes = append(cfg.Routes, config.Route{ID: portRouteID(port), Direction: "inbound", Target: net.JoinHostPort(portsTarget, strconv.Itoa(port)), AllowedPeers: []string{irIdentity}})
+		}
+	}
 	return cfg, nil
 }
 
@@ -194,6 +234,7 @@ func exAccept(args []string) {
 	certFile := fs.String("cert-file", "", "outer TLS server certificate")
 	certKey := fs.String("cert-key-file", "", "outer TLS server private key")
 	target := fs.String("target", "127.0.0.1:2443", "fixed IP:port the route exits to")
+	portsTarget := fs.String("ports-target", "127.0.0.1", "IP the carried ports exit to (same port number); used when the pairing carries ports")
 	c := addCommonFlags(fs, "/var/lib/baft/admin.sock")
 	_ = fs.Parse(args)
 	if *reply == "" || *pendingPath == "" || *keyPath == "" || *caFile == "" || *certFile == "" || *certKey == "" || *c.configOut == "" {
@@ -211,7 +252,7 @@ func exAccept(args []string) {
 	if err != nil {
 		die(err.Error())
 	}
-	cfg, err := exConfig(p, irIdentity, irPub, *listen, *caFile, *certFile, *certKey, *keyPath, *target, c)
+	cfg, err := exConfig(p, irIdentity, irPub, *listen, *caFile, *certFile, *certKey, *keyPath, *target, *portsTarget, c)
 	if err != nil {
 		die(err.Error())
 	}

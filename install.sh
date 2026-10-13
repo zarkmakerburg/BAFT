@@ -33,6 +33,7 @@ BAFT_PAIR_BIN="${BAFT_PAIR_BIN:-/usr/local/bin/baft-pair}"
 # service cannot roll back the record of what was installed.
 BAFT_RELEASE_STATE="${BAFT_RELEASE_STATE:-$BAFT_PREFIX/release-state.json}"
 BAFT_USER="${BAFT_USER:-baft}"
+[[ ${BAFT_PORT+x} ]] && BAFT_PORT_EXPLICIT=1
 BAFT_PORT="${BAFT_PORT:-8443}"
 BAFT_SERVICE="${BAFT_SERVICE:-baft}"
 BAFT_TARGET="${BAFT_TARGET:-127.0.0.1:2443}"
@@ -43,6 +44,9 @@ REPLY_CODE="${BAFT_REPLY_CODE:-}"
 ROLE=""
 PAIRING_CODE="${BAFT_PAIRING_CODE:-}"
 PUBLIC_ADDR="${BAFT_PUBLIC_ADDR:-}"
+# EX: service ports the IR serves publicly, each carried to the same port here
+# (e.g. x-ui inbounds). Empty keeps the single loopback route.
+BAFT_PORTS="${BAFT_PORTS:-}"
 # EX only: set up the IR server from here over SSH (user@host[:port]).
 IR_SSH="${BAFT_IR_SSH:-}"
 IR_SSH_KEY="${BAFT_IR_SSH_KEY:-}"
@@ -404,6 +408,11 @@ Options:
                       key is shown for confirmation, or pinned with
                       --ir-ssh-fingerprint SHA256:... (required without a
                       terminal). A non-root user needs passwordless sudo.
+                      Before pairing, the IR downloads 1 MB from this server on the
+                      tunnel port to show whether its network cuts that port.
+  --port N            EX: tunnel port the IR connects to (default 443 if free, else 8443)
+  --ports LIST        EX: ports the IR serves publicly, e.g. 443,2053 ("none" for
+                      none); each is carried to the same port on this server
   --re-pair           start a NEW pairing on an installed node (the current config is
                       backed up first); a rerun never re-pairs on its own
   --bcc-only          install only BAFT Command Center (no tunnel/data-plane changes)
@@ -444,6 +453,8 @@ Environment:
   BAFT_REPO_URL BAFT_MIRROR_URL BAFT_REF BAFT_GO_VERSION (source installs)
   BAFT_PREFIX BAFT_CONFIG_DIR BAFT_STATE_DIR BAFT_PORT BAFT_SERVICE
   BAFT_TARGET (EX: fixed IP:port traffic exits to, default 127.0.0.1:2443)
+  BAFT_PORTS (EX: comma-separated ports the IR serves publicly, e.g. 443,2053;
+             each is carried to the same port on 127.0.0.1 here)
   BAFT_ROUTE_LISTEN (IR: loopback address local clients use, default 127.0.0.1:1443)
   BAFT_METRICS_LISTEN BAFT_RUN_TESTS BAFT_PAIRING_CODE BAFT_REPLY_CODE
   BAFT_WITH_PANEL (EX: 1 installs the web panel too, 0 never offers it)
@@ -472,6 +483,8 @@ while [[ $# -gt 0 ]]; do
     --role) ROLE="${2:-}"; shift 2 ;;
     --pairing-code) PAIRING_CODE="${2:-}"; shift 2 ;;
     --public-address) PUBLIC_ADDR="${2:-}"; shift 2 ;;
+    --ports) BAFT_PORTS="${2:-}"; shift 2 ;;
+    --port) BAFT_PORT="${2:-}"; BAFT_PORT_EXPLICIT=1; shift 2 ;;
     --reply-code) REPLY_CODE="${2:-}"; shift 2 ;;
     --ir-ssh) IR_SSH="${2:-}"; shift 2 ;;
     --ir-ssh-key) IR_SSH_KEY="${2:-}"; shift 2 ;;
@@ -1420,6 +1433,17 @@ bcc_free_port() {
 }
 
 # bcc_host_kind HOST: ip4, ip6 or domain.
+# The ports x-ui/xray/sing-box serve on this server, offered as the ports the
+# IR should carry; the x-ui panel itself, SSH and BAFT are left out.
+suggest_carried_ports() {
+  command -v ss >/dev/null 2>&1 || return 0
+  ss -ltnpH 2>/dev/null | awk '/"(xray|xray-linux-[^"]*|sing-box|v2ray)"/ {
+      n=split($4,a,":"); p=a[n]; h=substr($4,1,length($4)-length(p)-1)
+      if (h ~ /^127\./ || h == "[::1]") next
+      if (!(p in seen)) { seen[p]=1; out = out (out=="" ? "" : ",") p }
+    } END { print out }'
+}
+
 bcc_host_kind() {
   if [[ "$1" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then printf ip4
   elif [[ "$1" == *:* ]]; then printf ip6
@@ -1708,14 +1732,38 @@ elif [[ "$AGENT_ONLY" == "1" ]]; then
   [[ -n "${BAFT_BCC_JOB_KEY:-}" ]] || die "BAFT_BCC_JOB_KEY (baft-bcc jobkey show) is required"
   [[ -n "${BAFT_AGENT_TOKEN_FILE:-}" || -n "${BAFT_AGENT_TOKEN:-}" ]] || die "BAFT_AGENT_TOKEN_FILE or BAFT_AGENT_TOKEN is required"
 else
-  if [[ "$ROLE_ASKED" == 1 && "$ROLE" == "ex" && -z "$PUBLIC_ADDR" && "$PLAN_ONLY" != "1" ]]; then
-    _detected="$(hostname -I 2>/dev/null | awk '{print $1}')"
-    ask PUBLIC_ADDR "$(ui_ask_prompt "Public IP or hostname IR will connect to" "[${_detected:-none}]:")" || true
-    PUBLIC_ADDR="${PUBLIC_ADDR:-$_detected}"
+  # A fresh EX asks where the IR connects and what it carries; a rerun keeps
+  # what the installed config already says.
+  if [[ "$ROLE_ASKED" == 1 && "$ROLE" == "ex" && "$PLAN_ONLY" != "1" && ! -f "$CONFIG" ]]; then
+    if [[ -z "$PUBLIC_ADDR" ]]; then
+      _detected="$(bcc_public_ip)"
+      ask PUBLIC_ADDR "$(ui_ask_prompt "Public IP or hostname IR will connect to" "[${_detected:-none}]:")" || true
+      PUBLIC_ADDR="${PUBLIC_ADDR:-$_detected}"
+    fi
+    if [[ -z "${BAFT_PORT_EXPLICIT:-}" ]]; then
+      _tp=8443; bcc_port_busy 443 || _tp=443
+      ask _ans "$(ui_ask_prompt "Tunnel port the Iran server connects to" "[$_tp]:")" || true
+      BAFT_PORT="${_ans:-$_tp}"; _ans=""
+      [[ "$BAFT_PORT" =~ ^[0-9]+$ ]] && (( BAFT_PORT >= 1 && BAFT_PORT <= 65535 )) || die "invalid tunnel port: $BAFT_PORT"
+    fi
+    if [[ -z "$BAFT_PORTS" ]]; then
+      _sug="$(suggest_carried_ports)"
+      printf '\n  %sThe Iran server can serve your x-ui inbounds on its own IP: users then only%s\n  %schange the address in their links. Type the ports, or "none".%s\n' "$S_MUTE" "$S_R" "$S_MUTE" "$S_R" >&2
+      ask _ans "$(ui_ask_prompt "Ports to carry" "[${_sug:-none}]:")" || true
+      BAFT_PORTS="${_ans:-$_sug}"; _ans=""
+      [[ "$BAFT_PORTS" != none ]] || BAFT_PORTS=""
+    fi
+  fi
+  if [[ -n "$BAFT_PORTS" ]]; then
+    BAFT_PORTS="${BAFT_PORTS// /}"
+    [[ "$BAFT_PORTS" =~ ^[0-9]+(,[0-9]+)*$ ]] || die "--ports must be a comma-separated list like 443,2053"
   fi
   [[ -n "$ROLE" ]] || die "--role ex, --role ir or --bcc-only is required when there is no terminal to ask"
   [[ "$ROLE" == "ex" || "$ROLE" == "ir" ]] || die "--role must be ex or ir"
   [[ -z "$IR_SSH" || "$ROLE" == "ex" ]] || die "--ir-ssh is for the EX installer"
+  if [[ "$ROLE" == "ex" && ! -f "$CONFIG" && "$PLAN_ONLY" != "1" ]] && bcc_port_busy "$BAFT_PORT"; then
+    die "port $BAFT_PORT is already used on this server ($(ss -ltnpH "( sport = :$BAFT_PORT )" 2>/dev/null | grep -o '"[^"]*"' | head -n1)); pick another tunnel port with --port N"
+  fi
 fi
 
 # What this run is about to work on (terminal only).
@@ -1740,9 +1788,14 @@ fi
 # in its environment (never on a command line), non-interactively; its reply
 # code is read back from its output. The IR host key is pinned before any
 # credential is sent: confirmed by the operator or given as a fingerprint.
-IR_SSH_ENV_PASS="BAFT_INSTALL_FROM BAFT_VERSION BAFT_RELEASE_URL BAFT_GITHUB_REPO BAFT_REVOCATIONS_URL BAFT_ROOT_PUB BAFT_ALLOW_DOWNGRADE BAFT_REPO_URL BAFT_REF BAFT_MIRROR_URL BAFT_GO_VERSION BAFT_RUN_TESTS"
-setup_ir_over_ssh() { # PAIRING_CODE -> prints the BAFTREPLY1 code on stdout
-  local code=$1 user host port target
+IR_SSH_ENV_PASS="BAFT_INSTALL_FROM BAFT_VERSION BAFT_RELEASE_URL BAFT_GITHUB_REPO BAFT_REVOCATIONS_URL BAFT_ROOT_PUB BAFT_ALLOW_DOWNGRADE BAFT_REPO_URL BAFT_REF BAFT_MIRROR_URL BAFT_GO_VERSION BAFT_RUN_TESTS BAFT_TUNE_NETWORK"
+# ir_ssh_connect: pins the IR host key, gets the login and checks it, leaving
+# IR_SSH_USER, IR_SSH_HOST, IR_SSH_DIR, IR_SSH_OPTS and IR_SSH_ENVS for the
+# path test and the install. Fails (without changing anything) when the IR
+# cannot be reached or the login is refused.
+IR_SSH_USER=""; IR_SSH_HOST=""; IR_SSH_DIR=""; IR_SSH_OPTS=(); IR_SSH_ENVS=()
+ir_ssh_connect() {
+  local user host port target
   target="$IR_SSH"
   [[ "$target" =~ ^(([A-Za-z0-9._-]+)@)?([A-Za-z0-9.-]+|\[[0-9A-Fa-f:]+\])(:([0-9]{1,5}))?$ ]] || die "--ir-ssh must be user@host[:port]"
   user="${BASH_REMATCH[2]:-root}"; host="${BASH_REMATCH[3]}"; port="${BASH_REMATCH[5]:-22}"
@@ -1756,7 +1809,10 @@ setup_ir_over_ssh() { # PAIRING_CODE -> prints the BAFTREPLY1 code on stdout
   local dir; dir="$(mktemp -d)"; CLEANUP+=("$dir")
   log "reading the IR host key from $host:$port"
   ssh-keyscan -T 15 -p "$port" "$host" >"$dir/scan" 2>/dev/null || true
-  [[ -s "$dir/scan" ]] || die "cannot reach SSH on $host:$port from this server (firewall?); set up the IR by hand and paste its reply code instead"
+  if [[ ! -s "$dir/scan" ]]; then
+    warn "cannot reach SSH on $host:$port from this server (check the address, the SSH port and the provider firewall)"
+    return 1
+  fi
   local line fp ok=0 shown=""
   : >"$dir/known_hosts"
   while IFS= read -r line; do
@@ -1773,20 +1829,21 @@ setup_ir_over_ssh() { # PAIRING_CODE -> prints the BAFTREPLY1 code on stdout
   if [[ -n "$IR_SSH_FINGERPRINT" ]]; then
     [[ "$ok" == 1 ]] || die "the IR host key does not match --ir-ssh-fingerprint; it presented:"$'\n'"$shown"
   else
+    # Like ssh itself on a first connection: show the key and ask once.
     if [[ "$UI" == 1 ]]; then
-      printf '\n  %sThe IR server presented these SSH host keys%s\n\n%s\n' "$S_B$S_U" "$S_R" "$shown" >&2
-      printf '  %sCompare them with the server (provider console: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub).%s\n\n' "$S_MUTE" "$S_R" >&2
+      printf '\n  %sFirst connection to %s.%s Its SSH key:\n%s' "$S_B" "$host" "$S_R" "$shown" >&2
+      printf '  %sTo be sure it is your server, compare it in the provider console with:%s\n  %sssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub%s\n\n' "$S_MUTE" "$S_R" "$S_MUTE" "$S_R" >&2
     else
-      printf '\nThe IR server presented these SSH host keys:\n%s' "$shown" >&2
-      printf 'Compare them with the server (provider console: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub).\n' >&2
+      printf '\nFirst connection to %s. Its SSH key:\n%s' "$host" "$shown" >&2
+      printf 'Compare it in the provider console with: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub\n' >&2
     fi
     local yes=""
-    ask yes "$(ui_ask_prompt "Do they match?" "[y/N]")" || die "the IR host key must be confirmed; pass --ir-ssh-fingerprint SHA256:... when there is no terminal"
-    [[ "$yes" == "y" || "$yes" == "Y" || "$yes" == "yes" ]] || die "IR host key not confirmed; nothing was sent to it"
+    ask yes "$(ui_ask_prompt "Continue with this server?" "[Y/n]")" || die "the IR host key must be confirmed; pass --ir-ssh-fingerprint SHA256:... when there is no terminal"
+    [[ "$yes" != n && "$yes" != N && "$yes" != no ]] || die "IR host key not confirmed; nothing was sent to it"
   fi
 
   local -a opts=(-p "$port" -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$dir/known_hosts"
-    -o GlobalKnownHostsFile=/dev/null -o ConnectTimeout=20 -o ServerAliveInterval=30 -o LogLevel=ERROR)
+    -o GlobalKnownHostsFile=/dev/null -o ConnectTimeout=20 -o ServerAliveInterval=30 -o ServerAliveCountMax=6 -o LogLevel=ERROR)
   local -a envs=()
   if [[ -n "$IR_SSH_KEY" ]]; then
     [[ -r "$IR_SSH_KEY" ]] || die "--ir-ssh-key $IR_SSH_KEY is not readable"
@@ -1805,7 +1862,57 @@ setup_ir_over_ssh() { # PAIRING_CODE -> prints the BAFTREPLY1 code on stdout
     envs=(SSH_ASKPASS="$dir/askpass" SSH_ASKPASS_REQUIRE=force DISPLAY=baft BAFT_IR_SSH_ASKPASS_SECRET="$pass")
     opts+=(-o PreferredAuthentications=password,keyboard-interactive -o PubkeyAuthentication=no -o NumberOfPasswordPrompts=1)
   fi
+  if ! env "${envs[@]}" ssh "${opts[@]}" "$user@$host" true </dev/null >/dev/null 2>&1; then
+    warn "SSH login to $user@$host was refused (wrong password or key?)"
+    return 1
+  fi
+  IR_SSH_USER="$user"; IR_SSH_HOST="$host"; IR_SSH_DIR="$dir"; IR_SSH_OPTS=("${opts[@]}"); IR_SSH_ENVS=("${envs[@]}")
+}
 
+# ir_path_test: before pairing, checks that the IR really reaches this server
+# on the tunnel port: a temporary web server here serves 1 MB and the IR
+# downloads it over SSH. Some Iranian networks cut foreign connections after a
+# few KB on most ports; this shows it before anything is paired. It only
+# reports; the operator decides which port to use.
+ir_path_test() {
+  command -v python3 >/dev/null 2>&1 || return 0
+  local addr="$PUBLIC_ADDR" d pid out size secs a=""
+  [[ "$addr" == *:* ]] && addr="[$addr]"
+  while :; do
+    open_firewall_port "$BAFT_PORT"
+    d="$(mktemp -d)"; CLEANUP+=("$d")
+    head -c 1048576 /dev/urandom >"$d/blob"
+    python3 -m http.server "$BAFT_PORT" --bind 0.0.0.0 --directory "$d" >/dev/null 2>&1 &
+    pid=$!
+    sleep 1
+    log "testing the path from the Iran server to this server on port $BAFT_PORT"
+    out="$(env "${IR_SSH_ENVS[@]}" ssh "${IR_SSH_OPTS[@]}" "$IR_SSH_USER@$IR_SSH_HOST" \
+      "command -v curl >/dev/null || { echo nocurl; exit 0; }; curl -s -o /dev/null -m 25 -w '%{size_download} %{time_total}' http://$addr:$BAFT_PORT/blob" </dev/null 2>/dev/null || true)"
+    kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true
+    [[ "$out" != nocurl ]] || { log "path test skipped: curl is not installed on the Iran server"; return 0; }
+    size="${out%% *}"; secs="${out##* }"; size="${size%.*}"
+    [[ "$size" =~ ^[0-9]+$ ]] || size=0
+    if (( size >= 1048576 )); then
+      ok "path Iran → here on port $BAFT_PORT works (1 MB in ${secs} s)"
+      return 0
+    elif (( size > 0 )); then
+      warn "path Iran → here on port $BAFT_PORT is cut after $(( size / 1024 )) KB: the tunnel would not stay up on this port"
+    else
+      warn "the Iran server cannot reach this server on port $BAFT_PORT (filtered, or closed by the provider firewall)"
+    fi
+    [[ "$ASK_TTY" == 1 ]] || return 0
+    a=""
+    ask a "$(ui_ask_prompt "Another tunnel port to test, or Enter to continue with $BAFT_PORT:")" || return 0
+    [[ -n "$a" ]] || return 0
+    if [[ ! "$a" =~ ^[0-9]+$ ]] || (( a < 1 || a > 65535 )); then warn "not a port: $a"; continue; fi
+    if bcc_port_busy "$a"; then warn "port $a is already used on this server"; continue; fi
+    BAFT_PORT="$a"
+  done
+}
+
+setup_ir_over_ssh() { # PAIRING_CODE -> prints the BAFTREPLY1 code on stdout
+  local code=$1 user="$IR_SSH_USER" host="$IR_SSH_HOST" dir="$IR_SSH_DIR"
+  local -a opts=("${IR_SSH_OPTS[@]}") envs=("${IR_SSH_ENVS[@]}")
   local self="${BASH_SOURCE[0]:-}"
   if [[ -n "$self" && -r "$self" ]]; then
     cp -- "$self" "$dir/install.sh"
@@ -1821,6 +1928,8 @@ setup_ir_over_ssh() { # PAIRING_CODE -> prints the BAFTREPLY1 code on stdout
     cat "$dir/install.sh"
     printf 'BAFT_IR_INSTALL_SH_END\n'
     printf 'export BAFT_NONINTERACTIVE=1 BAFT_PAIRING_CODE=%q\n' "$code"
+    # The IR gets BBR and network tuning unless the operator said otherwise.
+    [[ -n "${BAFT_TUNE_NETWORK:-}" ]] || printf 'export BAFT_TUNE_NETWORK=1\n'
     local v
     local -a pass_vars=() ir_env=()
     IFS=' ' read -r -a pass_vars <<<"$IR_SSH_ENV_PASS"
@@ -1849,9 +1958,47 @@ setup_ir_over_ssh() { # PAIRING_CODE -> prints the BAFTREPLY1 code on stdout
 }
 
 # ---- renderers (pure: they print, they never touch the system) ----
+# carried_ports: the public ports the installed config serves, one per line.
+carried_ports() {
+  [[ -r "$CONFIG" ]] || return 0
+  python3 - "$CONFIG" <<'PY' 2>/dev/null || true
+import json, sys
+for r in json.load(open(sys.argv[1])).get("routes") or []:
+    if r.get("public"):
+        print(r["listen"].rsplit(":", 1)[1])
+PY
+}
+
+# open_firewall_port PORT: allow PORT/tcp when ufw or firewalld is active;
+# nothing else on the host firewall is changed.
+open_firewall_port() {
+  if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q '^Status: active'; then
+    ufw allow "$1/tcp" >/dev/null 2>&1 && log "firewall: opened $1/tcp (ufw)"
+  elif command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
+    firewall-cmd --permanent --add-port="$1/tcp" >/dev/null 2>&1 && firewall-cmd --reload >/dev/null 2>&1 && log "firewall: opened $1/tcp (firewalld)"
+  fi
+  return 0
+}
+
+# config_binds_low_port: the installed config has a public route below 1024
+# (the IR serving x-ui on 443), so the unprivileged service needs the bind
+# capability.
+config_binds_low_port() {
+  [[ -r "$CONFIG" ]] || return 1
+  python3 - "$CONFIG" <<'PY' 2>/dev/null
+import json, sys
+try:
+    routes = json.load(open(sys.argv[1])).get("routes") or []
+    low = any(r.get("public") and int(r["listen"].rsplit(":", 1)[1]) < 1024 for r in routes)
+except Exception:
+    low = False
+sys.exit(0 if low else 1)
+PY
+}
+
 render_service_unit() {
   local caps=""
-  if (( BAFT_PORT < 1024 )); then
+  if (( BAFT_PORT < 1024 )) || { declare -F config_binds_low_port >/dev/null && config_binds_low_port; }; then
     caps=$'AmbientCapabilities=CAP_NET_BIND_SERVICE\nCapabilityBoundingSet=CAP_NET_BIND_SERVICE'
   fi
   cat <<EOF
@@ -2923,17 +3070,6 @@ if [[ "$DO_PAIRING" == 1 ]]; then
       SHAPING_FLAG=(--record-shaping)
     fi
     backup_file "$BAFT_STATE_DIR/pairing.psk"; backup_file "$BAFT_STATE_DIR/pairing.ex.json"
-    PAIRING="$("$BAFT_PAIR_BIN" ex-code --key "$NOISE_KEY" --address "${PUBLIC_ADDR}:${BAFT_PORT}" \
-      --server-name "$PUBLIC_ADDR" --identity "$IDENTITY" --ca-file "$BAFT_CONFIG_DIR/pki/ca.pem" \
-      --psk-out "$BAFT_STATE_DIR/pairing.psk" --pending-out "$BAFT_STATE_DIR/pairing.ex.json" \
-      --ttl 15m "${SHAPING_FLAG[@]}")"
-    ACCEPT=("$BAFT_PAIR_BIN" ex-accept
-      --pending "$BAFT_STATE_DIR/pairing.ex.json" --psk-file "$BAFT_STATE_DIR/pairing.psk"
-      --key "$NOISE_KEY" --listen "0.0.0.0:${BAFT_PORT}"
-      --ca-file "$BAFT_CONFIG_DIR/pki/ca.pem" --cert-file "$BAFT_CONFIG_DIR/pki/server.pem"
-      --cert-key-file "$BAFT_CONFIG_DIR/pki/server.key" --target "$BAFT_TARGET"
-      --metrics-listen "$BAFT_METRICS_LISTEN" --unix-socket "$BAFT_STATE_DIR/admin.sock"
-      --config-out "$CONFIG")
     if [[ -z "$REPLY_CODE" && -z "$IR_SSH" && "$ASK_TTY" == 1 ]]; then
       if [[ "$UI" == 1 ]]; then
         printf '\n  %s?%s %sHow should the Iran (IR) server be set up?%s\n\n' "$S_GOLD$S_B" "$S_R" "$S_B$S_U" "$S_R" >&2
@@ -2954,7 +3090,29 @@ if [[ "$DO_PAIRING" == 1 ]]; then
         IR_SSH_KEY="${_key:-$IR_SSH_KEY}"
       fi
     fi
+    # Log in to the IR first and test the tunnel port from there, so a port
+    # the IR network cuts is found before it goes into the pairing code.
     if [[ -z "$REPLY_CODE" && -n "$IR_SSH" ]]; then
+      if ir_ssh_connect; then ir_path_test
+      else IR_SSH=""; warn "falling back to manual pairing with the code below"; fi
+    fi
+    PORTS_FLAG=()
+    if [[ -n "$BAFT_PORTS" ]]; then
+      if "$BAFT_PAIR_BIN" ex-code -h 2>&1 | grep -q -- '-ports'; then PORTS_FLAG=(--ports "$BAFT_PORTS")
+      else warn "this BAFT release cannot carry ports yet; the tunnel uses the local route only"; BAFT_PORTS=""; fi
+    fi
+    PAIRING="$("$BAFT_PAIR_BIN" ex-code --key "$NOISE_KEY" --address "${PUBLIC_ADDR}:${BAFT_PORT}" \
+      --server-name "$PUBLIC_ADDR" --identity "$IDENTITY" --ca-file "$BAFT_CONFIG_DIR/pki/ca.pem" \
+      --psk-out "$BAFT_STATE_DIR/pairing.psk" --pending-out "$BAFT_STATE_DIR/pairing.ex.json" \
+      --ttl 15m "${SHAPING_FLAG[@]}" "${PORTS_FLAG[@]}")"
+    ACCEPT=("$BAFT_PAIR_BIN" ex-accept
+      --pending "$BAFT_STATE_DIR/pairing.ex.json" --psk-file "$BAFT_STATE_DIR/pairing.psk"
+      --key "$NOISE_KEY" --listen "0.0.0.0:${BAFT_PORT}"
+      --ca-file "$BAFT_CONFIG_DIR/pki/ca.pem" --cert-file "$BAFT_CONFIG_DIR/pki/server.pem"
+      --cert-key-file "$BAFT_CONFIG_DIR/pki/server.key" --target "$BAFT_TARGET"
+      --metrics-listen "$BAFT_METRICS_LISTEN" --unix-socket "$BAFT_STATE_DIR/admin.sock"
+      --config-out "$CONFIG")
+    if [[ -z "$REPLY_CODE" && -n "$IR_SSH_HOST" ]]; then
       REPLY_CODE="$(setup_ir_over_ssh "$PAIRING")" || REPLY_CODE=""
       [[ -n "$REPLY_CODE" ]] || warn "falling back to manual pairing with the code below"
     fi
@@ -2988,12 +3146,16 @@ if [[ "$DO_PAIRING" == 1 ]]; then
       offer_panel
       exit 0
     fi
-    "${ACCEPT[@]}" --reply "$REPLY_CODE" >/dev/null
+    if ! _acc_err="$("${ACCEPT[@]}" --reply "$REPLY_CODE" 2>&1 >/dev/null)"; then
+      die "the IR reply code was not accepted (${_acc_err##*: }). Codes work once and expire after 15 minutes: run this installer again with --re-pair and give the new code to the IR"
+    fi
     install_config
+    open_firewall_port "$BAFT_PORT"
     TOUCHED_SERVICE=1
     systemctl restart "$BAFT_SERVICE.service"
     finalize_apply
-    ok "$BAFT_SERVICE.service started; listening on 0.0.0.0:${BAFT_PORT}, exiting to $BAFT_TARGET"
+    if [[ -n "$BAFT_PORTS" ]]; then ok "$BAFT_SERVICE.service started; listening on 0.0.0.0:${BAFT_PORT}, carrying ports ${BAFT_PORTS//,/, }"
+    else ok "$BAFT_SERVICE.service started; listening on 0.0.0.0:${BAFT_PORT}, exiting to $BAFT_TARGET"; fi
   else
     if [[ -z "$PAIRING_CODE" ]]; then
       ask PAIRING_CODE "$(ui_ask_prompt "Paste the BAFTPAIR1 pairing code printed by EX:")" -s || die "a pairing code is required: pass --pairing-code (or BAFT_PAIRING_CODE) when there is no terminal"
@@ -3005,6 +3167,14 @@ if [[ "$DO_PAIRING" == 1 ]]; then
       --unix-socket "$BAFT_STATE_DIR/admin.sock")"
     chown -R "$BAFT_USER:$BAFT_USER" "$BAFT_STATE_DIR"
     install_config
+    # A pairing that carries ports below 1024 needs the bind capability the
+    # unit was rendered without (the ports were not known until now).
+    if config_binds_low_port && ! grep -q CAP_NET_BIND_SERVICE "$UNIT_FILE"; then
+      backup_file "$UNIT_FILE"
+      render_service_unit >"$UNIT_FILE"
+      systemctl daemon-reload
+    fi
+    for _p in $(carried_ports); do open_firewall_port "$_p"; done
     if [[ "$UI" == 1 ]]; then
       printf '\n  %sREPLY CODE for the EX%s  %ssecret · expires with the pairing code%s\n\n' "$S_GOLD$S_B$S_U" "$S_R" "$S_MUTE" "$S_R" >&2
       printf '%s\n\n' "$REPLY"
@@ -3017,7 +3187,8 @@ if [[ "$DO_PAIRING" == 1 ]]; then
     TOUCHED_SERVICE=1
     systemctl restart "$BAFT_SERVICE.service"
     finalize_apply
-    ok "$BAFT_SERVICE.service started; local clients connect to $BAFT_ROUTE_LISTEN"
+    if [[ -n "$(carried_ports)" ]]; then ok "$BAFT_SERVICE.service started; it connects once the EX accepts the reply code"
+    else ok "$BAFT_SERVICE.service started; local clients connect to $BAFT_ROUTE_LISTEN (once the EX accepts the reply code)"; fi
   fi
 else
   # Already paired: only what the plan listed is done.
@@ -3039,6 +3210,15 @@ if [[ "$UI" == 1 ]]; then
   printf '  %s◆%s %sBAFT is installed%s  %s/  نصب شد%s\n\n' "$S_GOLD$S_B" "$S_R" "$S_B" "$S_R" "$S_MUTE" "$S_R" >&2
   kv "server" "$([[ "$ROLE" == "ex" ]] && echo "outside Iran (EX, exit)" || echo "inside Iran (IR, entry)")"
   kv "service" "$([[ "$_st" == active ]] && printf '%srunning%s' "$S_OK" "$S_R" || printf '%s%s%s' "$S_WARN" "${_st:-stopped}" "$S_R")"
+  _carried="$(carried_ports | paste -sd, -)"
+  if [[ "$ROLE" == "ex" ]]; then
+    kv "tunnel port" "$BAFT_PORT/tcp  (must be open to the Iran server)"
+    [[ -z "$BAFT_PORTS" ]] || kv "carries" "${BAFT_PORTS//,/, }  → the same ports here"
+    [[ -z "$BAFT_PORTS" || -z "$IR_SSH_HOST" ]] || kv "use" "in your x-ui links, change only the address to $IR_SSH_HOST"
+  elif [[ -n "$_carried" ]]; then
+    kv "serves" "${_carried//,/, }  on this server's IP"
+    kv "use" "in your x-ui links, change only the address to $(bcc_public_ip)"
+  fi
   kv "logs" "journalctl -u $BAFT_SERVICE -f"
   kv "network" "sudo baft-net   BBR, speed and route tests"
   kv "re-run" "safe: changes only what differs"

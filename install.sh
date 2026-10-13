@@ -25,6 +25,12 @@ BAFT_ALLOW_DOWNGRADE="${BAFT_ALLOW_DOWNGRADE:-0}"
 BAFT_OFFLINE_DIR="${BAFT_OFFLINE_DIR:-}"
 BAFT_GO_VERSION="${BAFT_GO_VERSION:-1.27.1}"
 BAFT_PREFIX="${BAFT_PREFIX:-/opt/baft}"
+# Set by the caller (not defaulted): a second instance keeps these as given.
+EXPL_INSTANCE_VARS="${BAFT_CONFIG_DIR+cfg}${BAFT_STATE_DIR+state}${BAFT_SERVICE+svc}"
+EXPL_ROUTE="${BAFT_ROUTE_LISTEN+1}"; EXPL_METRICS="${BAFT_METRICS_LISTEN+1}"
+# Another tunnel on a server that already has one: NAME selects the service
+# baft-NAME with /etc/baft-NAME and /var/lib/baft-NAME (see apply_instance).
+BAFT_INSTANCE="${BAFT_INSTANCE:-}"
 BAFT_CONFIG_DIR="${BAFT_CONFIG_DIR:-/etc/baft}"
 BAFT_STATE_DIR="${BAFT_STATE_DIR:-/var/lib/baft}"
 BAFT_BIN="${BAFT_BIN:-/usr/local/bin/baft}"
@@ -413,6 +419,9 @@ Options:
   --port N            EX: tunnel port the IR connects to (default 443 if free, else 8443)
   --ports LIST        EX: ports the IR serves publicly, e.g. 443,2053 ("none" for
                       none); each is carried to the same port on this server
+  --instance NAME     a separate tunnel (service baft-NAME, /etc/baft-NAME) next to
+                      the one already on this server, which keeps running. Chosen
+                      automatically when an already paired IR gets a pairing code.
   --re-pair           start a NEW pairing on an installed node (the current config is
                       backed up first); a rerun never re-pairs on its own
   --bcc-only          install only BAFT Command Center (no tunnel/data-plane changes)
@@ -500,6 +509,7 @@ while [[ $# -gt 0 ]]; do
     --json) PLAN_JSON=1; shift ;;
     --yes|-y) ASSUME_YES=1; shift ;;
     --re-pair) RE_PAIR=1; shift ;;
+    --instance) BAFT_INSTANCE="${2:-}"; shift 2 ;;
     --agent-only) AGENT_ONLY=1; shift ;;
     --bcc-only) BCC_ONLY=1; shift ;;
     --with-panel) BAFT_WITH_PANEL=1; shift ;;
@@ -1689,6 +1699,42 @@ if [[ "$PLAN_ONLY" != "1" ]]; then
   esac
 fi
 
+# next_instance_name: the first free N (2, 3, ...) with no /etc/baft-N yet.
+next_instance_name() {
+  local n=2
+  while [[ -e "${BAFT_CONFIG_DIR%/}-$n" || -e "$BAFT_SYSTEMD_DIR/${BAFT_SERVICE}-$n.service" ]]; do n=$((n + 1)); done
+  printf '%s' "$n"
+}
+# free_local_port START: the first port from START that nothing listens on and
+# no other BAFT config on this server already uses.
+free_local_port() {
+  local p=$1 cfgs
+  cfgs="$(cat /etc/baft*/baft.yaml 2>/dev/null || true)"
+  while (( p < 65535 )); do
+    if ! bcc_port_busy "$p" && [[ "$cfgs" != *":$p\""* ]]; then printf '%s' "$p"; return; fi
+    p=$((p + 1))
+  done
+  die "no free local port from $1"
+}
+# apply_instance: point every per-tunnel path and port at instance BAFT_INSTANCE.
+# Binaries, the release record, baft-net and the panel stay shared.
+apply_instance() {
+  [[ "$BAFT_INSTANCE" =~ ^[a-z0-9][a-z0-9-]{0,15}$ ]] || die "--instance must be up to 16 lowercase letters, digits or '-'"
+  [[ "$EXPL_INSTANCE_VARS" == *svc* ]] || BAFT_SERVICE="baft-$BAFT_INSTANCE"
+  [[ "$EXPL_INSTANCE_VARS" == *cfg* ]] || BAFT_CONFIG_DIR="/etc/baft-$BAFT_INSTANCE"
+  [[ "$EXPL_INSTANCE_VARS" == *state* ]] || BAFT_STATE_DIR="/var/lib/baft-$BAFT_INSTANCE"
+  CONFIG="$BAFT_CONFIG_DIR/baft.yaml"
+  NOISE_KEY="$BAFT_CONFIG_DIR/noise-key.json"
+  UNIT_FILE="$BAFT_SYSTEMD_DIR/$BAFT_SERVICE.service"
+  # The local route and metrics addresses only matter for a new pairing; an
+  # instance that is already paired keeps what its config says.
+  if [[ ! -f "$CONFIG" ]]; then
+    [[ -n "$EXPL_ROUTE" ]] || BAFT_ROUTE_LISTEN="127.0.0.1:$(free_local_port 1444)"
+    [[ -n "$EXPL_METRICS" ]] || BAFT_METRICS_LISTEN="127.0.0.1:$(free_local_port 9192)"
+  fi
+  ok "this run works on the separate tunnel $BAFT_SERVICE ($BAFT_CONFIG_DIR); other tunnels are not touched"
+}
+
 # One install command for everything: without --role, --bcc-only or
 # --agent-only, ask what this server is for and continue with those steps.
 ROLE_ASKED=0
@@ -1717,6 +1763,32 @@ if [[ -z "$ROLE" && "$BCC_ONLY" == "0" && "$AGENT_ONLY" == "0" && -n "$ASK_FD" ]
   done
   ROLE_ASKED=1
 fi
+
+# A server that already carries a tunnel can take another one alongside it:
+# a separate instance with its own service, config, state, local route and
+# metrics port, so the tunnel that is running is never touched.
+if [[ -z "$BAFT_INSTANCE" && "$BCC_ONLY" == 0 && "$AGENT_ONLY" == 0 && "$RE_PAIR" == 0 && "$PLAN_ONLY" != 1 &&
+      -z "$EXPL_INSTANCE_VARS" && -f "$CONFIG" && -n "$ROLE" ]]; then
+  if [[ "$ROLE" == ir && -n "$PAIRING_CODE" ]]; then
+    # A pairing code for a server that is already paired is a new outside
+    # server: pair it alongside instead of replacing the current tunnel.
+    BAFT_INSTANCE="$(next_instance_name)"
+    log "BAFT is already paired here: the new outside server gets its own tunnel and the current one keeps running"
+  elif [[ -n "$ASK_FD" ]]; then
+    if [[ "$UI" == 1 ]]; then
+      printf '\n  %s?%s %sBAFT already runs a tunnel on this server.%s\n\n' "$S_GOLD$S_B" "$S_R" "$S_B" "$S_R" >&2
+      ui_choice 1 "Add another tunnel" "pair with a new $([[ "$ROLE" == ir ]] && echo "outside" || echo "Iran") server; the current tunnel keeps running"
+      ui_choice 2 "Check this one" "check, repair or upgrade the current tunnel"
+      printf '\n' >&2
+    else
+      printf '\nBAFT already runs a tunnel on this server.\n  1) Add another tunnel alongside it (the current one keeps running)\n  2) Check, repair or upgrade the current tunnel\n' >&2
+    fi
+    _choice=""
+    ask _choice "$(ui_ask_prompt "Choose 1 or 2" "[1]:")" || true
+    if [[ "${_choice:-1}" == 1 ]]; then BAFT_INSTANCE="$(next_instance_name)"; fi
+  fi
+fi
+[[ -z "$BAFT_INSTANCE" ]] || apply_instance
 
 if [[ "$BCC_ONLY" == "1" ]]; then
   adopt_managed_bcc_bootstrap_settings
@@ -3174,7 +3246,12 @@ if [[ "$DO_PAIRING" == 1 ]]; then
       render_service_unit >"$UNIT_FILE"
       systemctl daemon-reload
     fi
-    for _p in $(carried_ports); do open_firewall_port "$_p"; done
+    for _p in $(carried_ports); do
+      # Another tunnel or program on this server already serving the port
+      # would keep this one from starting.
+      bcc_port_busy "$_p" && warn "port $_p is already used on this server, so $BAFT_SERVICE cannot serve it; pair again from the outside server without port $_p"
+      open_firewall_port "$_p"
+    done
     if [[ "$UI" == 1 ]]; then
       printf '\n  %sREPLY CODE for the EX%s  %ssecret · expires with the pairing code%s\n\n' "$S_GOLD$S_B$S_U" "$S_R" "$S_MUTE" "$S_R" >&2
       printf '%s\n\n' "$REPLY"
@@ -3219,6 +3296,7 @@ if [[ "$UI" == 1 ]]; then
     kv "serves" "${_carried//,/, }  on this server's IP"
     kv "use" "in your x-ui links, change only the address to $(bcc_public_ip)"
   fi
+  [[ -z "$BAFT_INSTANCE" ]] || kv "tunnel" "$BAFT_SERVICE  ($BAFT_CONFIG_DIR, separate from the other tunnels)"
   kv "logs" "journalctl -u $BAFT_SERVICE -f"
   kv "network" "sudo baft-net   BBR, speed and route tests"
   kv "re-run" "safe: changes only what differs"

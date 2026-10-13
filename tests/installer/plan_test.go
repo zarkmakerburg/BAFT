@@ -284,3 +284,35 @@ func TestPlanAgentOnly(t *testing.T) {
 		t.Fatalf("different token: %+v", p.Steps)
 	}
 }
+
+// --instance plans a separate tunnel next to an installed one: its own unit,
+// config and key, while the installed tunnel's files are left alone.
+func TestPlanSecondInstance(t *testing.T) {
+	r := newPlanRig(t)
+	r.installed(true)
+	r.mark("active.baft.service")
+	r.mark("enabled.baft.service")
+	var env []string
+	for _, e := range r.env {
+		if !strings.HasPrefix(e, "BAFT_CONFIG_DIR=") && !strings.HasPrefix(e, "BAFT_STATE_DIR=") {
+			env = append(env, e)
+		}
+	}
+	r.env = env
+	p := r.plan("--role", "ir", "--instance", "2")
+	if p.State != "FRESH_INSTALL" {
+		t.Fatalf("second instance state = %s, want FRESH_INSTALL: %+v", p.State, p.Steps)
+	}
+	var unit string
+	for _, s := range p.Steps {
+		if s.Item == "systemd unit" {
+			unit = s.Detail
+		}
+	}
+	if !strings.HasSuffix(unit, "/baft-2.service") {
+		t.Fatalf("second instance unit = %q, want .../baft-2.service", unit)
+	}
+	if a := p.action("baft binary"); a == "create" {
+		t.Fatalf("the shared baft binary is planned as %q", a)
+	}
+}

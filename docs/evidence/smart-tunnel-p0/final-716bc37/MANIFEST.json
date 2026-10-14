@@ -8,7 +8,7 @@
     "04-full.log": "6257cc8a8c542c003d31cb48a9f7c53493aa44e9464821e48837eeb282c5555f",
     "05-vet.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "06-ci-policy.log": "9535551181d20402fde5b2ee52e2c08a58f250b5966c33eb34e0553c99b992d7",
-    "07-attempt-ledger.md": "bdaa3f1fb5f14b68a28df058d32d0af6cdcdaf90a56f891344bf190aadde91b2",
+    "07-attempt-ledger.md": "7500da9634721050c38c8144c54dcf6cc1329cc094296e56bd8b4c3b0b51945e",
     "08-exact-full.log": "246b079676841d86a34413f5ed7fab0713ae34beb536595f2b8a1acdb644af65",
     "09-exact-race.log": "4ba2af5b89925e9d2e68f5820382eaeb410d6036b4c6e830a71de60ea30fc567",
     "10-exact-vet.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -20,11 +20,18 @@
     "16-systemd.log": "e048121cf8205c7fd2a9fa941a7822ccabf3b1c5059630a52dd55543b7413afa",
     "17-ci-failed-retry.json": "6a9c97c7379f944c4a018d4fed65252c4e5368331cfb03eb0287031db25626c5",
     "18-r3-complete.log": "d68a4b2df8fc034a64dabe4ce3f1049914bdc206c59d34a1af31148b9b7658b5",
+    "19-credential-manifest-audit.log": "652ce9ea25e4014868611c95daa65861e6e5cbbad6c42d075fd124490b32b366",
     "20-main-ci-failed.archive.json": "7bae11bc410da1c0774c53606f033c42c55933bb5c562460644a0107b9b77602",
     "20-main-ci-failed.log.gz.b64": "3e712b851f4b39b0e1e32df0cd7c5c6006efcd5556ade6add57c67ed8c5d6a99",
     "20-main-ci-timeout-excerpt.log": "54a2b92590661a1d4b7a6f113112f21b66ed8476cce7adb9dbd6ad4d235743a6",
     "21-isolated-username-limiter.log": "02a0f23783b597cf3be5ffefb75b2f2b1f7142dfe499be003d44a8149750d3b0",
     "22-isolated-username-limiter.log": "3fe8c4f60892876480ce1378246ab2ee96fc50a3ad16582f61cba4620137e75f",
-    "README.md": "d8c872477464351ac77da05a30aaa4d102fc48f5e99f363c0aa99130b0b88fb2"
+    "23-ci-complete.json": "c6b7d734c4ffaa6e20a9ee27ca820060251617feb39edc5b5f8038191cc32cf7",
+    "24-main-ci-retry-complete.archive.json": "ae571530622d257ddb4dfad9a9cf0fd58319c65b8786be36819c3a649e640e83",
+    "24-main-ci-retry-complete.log.gz.b64": "68c83a4ef4c00146b6adf77db344c68d31a1a91384c4e4e1ee5a5565f01dc8a6",
+    "25-native-account-retry.log": "cbca9d9ec81974aae06528990a62b2ea80174842124c049640b676339294dd30",
+    "26-native-resource-retry.log": "e27bcac91e4f5af885c7f401b022facccd3e03799f351c52a5e371408dd368f9",
+    "27-systemd-retry.log": "e048121cf8205c7fd2a9fa941a7822ccabf3b1c5059630a52dd55543b7413afa",
+    "README.md": "4cdc3a01561e4dc93175bef5816477e7e87bda916fbca294be96937eee8033c9"
   }
 }

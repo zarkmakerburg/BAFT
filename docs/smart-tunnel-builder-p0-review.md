@@ -303,6 +303,46 @@ tests three times with `BAFT_REQUIRE_RESOURCE_EVIDENCE=1`, converting either
 environment skip into failure. Current-head Linux/real-systemd qualification must
 finish before acceptance; predecessor green checks do not satisfy this gate.
 
+## Prepared configuration identity and validation follow-up
+
+Baseline: PR #200 at `0da45e07d71c5f7a84f29bc07c9f98d644745f4b`.
+Regressions reproduced acceptance of valid edits to a prepared IR config, CA,
+Noise key, symlink and permission changes. An invalid prepared IR config was
+refused only after rollback had reloaded/restarted the previous service. A
+changed EX target was also accepted and consumed the pairing material. A
+separate injected change after the binary's successful config validation
+reproduced active PKI/config replacement with unchecked candidate bytes.
+
+New preparations durably bind IR config bytes and config/input modes and uid/gid
+to the transaction before returning its reply. EX preparation similarly binds
+the parameters, pending state, one-time PSK and Noise key before returning its
+code; drift is refused before reply acceptance/consumption. Once the EX reply
+completes its candidate, that configuration is validated and bound before any
+live PKI activation. Reads are bounded to 1 MiB, reject symlink/special files
+and directory aliases, and sample metadata around a single open descriptor.
+Neither private keys, config contents nor pairing codes are added to job output.
+
+Commit verifies the recorded config and dependencies with the typed loader and
+the installed binary before backup/live mutation, repeats the identity check
+before activation and installs the captured validated bytes. Role, Noise-key,
+candidate CA and management paths must belong to the selected instance.
+An invalid/changed candidate retains its prepared claim and leaves live
+configuration, unit, marker, generation, certificates and service untouched.
+Restoring the recorded candidate permits an explicit retry. Older in-flight
+receipts without preparation identities keep their prior identity contract;
+they still receive bounded syntax/path validation before activation. Failed IR
+preparation now also reports any incomplete rollback instead of hiding it.
+
+This closes candidate drift/validation ordering gaps, not the entire staging
+roadmap. EX candidate generation still completes inside CommitEX after the IR
+reply; BCC does not yet coordinate a separate candidate process handshake or
+payload BEFORE either active service changes. Root/operator writes after the
+last check and service-credential readability need further host locking and
+access review. Shared-binary upgrades and installer #197 coexistence remain
+separate gates; no installer source, transport/shaping or recovery behavior is
+changed. Exact final SHA/CI evidence and all attempts are linked from PR #200
+and #67/#199 rather than counting predecessor checks as acceptance.
+
 ## Two-live-instance laboratory regression
 
 `TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle` uses real built

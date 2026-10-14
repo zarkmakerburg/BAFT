@@ -19,6 +19,7 @@
 package tunnelnode
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -129,6 +130,12 @@ type Txn struct {
 	ResourcesRequired    bool                `json:"resources_required,omitempty"`
 	VerificationRequired bool                `json:"verification_required,omitempty"`
 	ReadyProof           *verification.Proof `json:"ready_proof,omitempty"`
+	// New preparations bind the candidate and its private dependencies to
+	// this transaction. Empty fields preserve older in-flight receipts.
+	PreparedConfigSHA      string            `json:"prepared_config_sha,omitempty"`
+	PreparedConfigIdentity string            `json:"prepared_config_identity,omitempty"`
+	PreparedConfigInputs   map[string]string `json:"prepared_config_inputs,omitempty"`
+	PreparedPairingInputs  map[string]string `json:"prepared_pairing_inputs,omitempty"`
 
 	// Ownership: what this change installed, so rollback only ever restores or
 	// deletes files that are still exactly the ones BAFT wrote.
@@ -415,6 +422,11 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 		_, rollbackErr := m.rollbackTxn(ctx, t)
 		return "", errors.Join(err, rollbackErr)
 	}
+	t.PreparedPairingInputs, err = m.pairingInputs(id)
+	if err != nil {
+		_, rollbackErr := m.rollbackTxn(ctx, t)
+		return "", errors.Join(err, rollbackErr)
+	}
 	return code, m.writeTxn(t)
 }
 
@@ -455,14 +467,14 @@ func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (s
 		if err := m.chownTree(stage); err != nil {
 			return "", err
 		}
-		if out, err := m.System.Run(ctx, m.BaftBin, "config", "validate", "--file", filepath.Join(stage, "baft.new.yaml")); err != nil {
-			return "", fmt.Errorf("staged config is invalid: %v: %s", err, tailOf(out))
+		if err := m.recordPreparedConfig(ctx, &t); err != nil {
+			return "", err
 		}
 		return strings.TrimSpace(out), nil
 	}()
 	if err != nil {
-		m.abort(ctx, t)
-		return "", err
+		_, rollbackErr := m.rollbackTxn(ctx, t)
+		return "", errors.Join(err, rollbackErr)
 	}
 	return reply, m.writeTxn(t)
 }
@@ -478,9 +490,23 @@ func (m *Manager) CommitEX(ctx context.Context, id, reply string) (string, error
 	if err != nil {
 		return "", err
 	}
+	if err := m.verifyPairingInputs(t); err != nil {
+		return "", err
+	}
 	var p ExParams
-	if err := readJSON(filepath.Join(m.stage(id), "ex-params.json"), &p); err != nil {
+	paramPath := filepath.Join(m.stage(id), "ex-params.json")
+	paramBytes, paramDigest, err := preparedMaterial(paramPath)
+	if err != nil {
 		return "", fmt.Errorf("prepare state missing: %w", err)
+	}
+	if len(t.PreparedPairingInputs) > 0 && paramDigest != t.PreparedPairingInputs[paramPath] {
+		return "", errors.New("commit refused: prepared EX parameters changed")
+	}
+	if err := json.Unmarshal(paramBytes, &p); err != nil {
+		return "", fmt.Errorf("prepare state invalid: %w", err)
+	}
+	if err := p.validate(); err != nil {
+		return "", err
 	}
 	if t.PKIHost != "" && t.PKIHost != p.PublicAddress {
 		return "", errors.New("prepare state does not match the certificate host")
@@ -504,8 +530,8 @@ func (m *Manager) CommitEX(ctx context.Context, id, reply string) (string, error
 		// Nothing live was touched; the transaction stays prepared so BCC can roll it back.
 		return "", fmt.Errorf("baft-pair ex-accept: %v: %s", err, redact(tailOf(out), reply))
 	}
-	if out, err := m.System.Run(ctx, m.BaftBin, "config", "validate", "--file", filepath.Join(stage, "baft.new.yaml")); err != nil {
-		return "", fmt.Errorf("staged config is invalid: %v: %s", err, tailOf(out))
+	if err := m.recordPreparedConfig(ctx, &t); err != nil {
+		return "", err
 	}
 	return m.install(ctx, t, p.Port)
 }
@@ -524,16 +550,11 @@ func (m *Manager) CommitIR(ctx context.Context, id string) (string, error) {
 // install swaps the staged config in, starts the service, and restores the
 // previous state if it does not come up.
 func (m *Manager) install(ctx context.Context, t Txn, port int) (string, error) {
-	stage := m.stage(t.ID)
-	staged := filepath.Join(stage, "baft.new.yaml")
-	if _, err := os.Stat(staged); err != nil {
-		return "", errors.New("no staged config")
+	staged2, cfg, _, err := m.validatePreparedConfig(ctx, t)
+	if err != nil {
+		return "", err
 	}
 	if t.ResourcesRequired {
-		cfg, err := config.LoadFile(staged)
-		if err != nil {
-			return "", err
-		}
 		binds := configurationBinds(cfg)
 		if err := m.preflightResources(ctx, binds); err != nil {
 			return "", err
@@ -567,9 +588,9 @@ func (m *Manager) install(ctx context.Context, t Txn, port int) (string, error) 
 			return "", err
 		}
 	}
-	staged2, err := os.ReadFile(staged)
-	if err != nil {
-		return "", err
+	after, _, _, err := m.readPreparedConfig(t)
+	if err != nil || !bytes.Equal(staged2, after) {
+		return "", errors.New("commit refused: candidate changed before activation")
 	}
 	want := m.ManagedUnit(port, t.ID, t.Generation)
 	t.InstalledUnitSHA = shaHex([]byte(want))
@@ -615,7 +636,7 @@ func (m *Manager) install(ctx context.Context, t Txn, port int) (string, error) 
 		_, _ = m.rollbackTxn(ctx, t)
 		return "", err
 	}
-	_ = os.Remove(staged)
+	_ = os.Remove(filepath.Join(m.stage(t.ID), "baft.new.yaml"))
 	for _, args := range [][]string{{"daemon-reload"}, {"enable", m.Service}, {"restart", m.Service}} {
 		if _, err := m.System.Systemctl(ctx, args...); err != nil {
 			msg, _ := m.rollbackTxn(ctx, t)

@@ -28,3 +28,12 @@ func TestTrackerRejectsCorruptSnapshot(t *testing.T) {
  _,err:=NewTracker(Snapshot{Active:map[string]Incident{"a":{InstanceID:"other"}}})
  if err==nil {t.Fatal("accepted mismatched incident identity")}
 }
+
+func TestTrackerRejectsInvalidCompletedHistory(t *testing.T) {
+ now:=time.Now().UTC()
+ _,err:=NewTracker(Snapshot{History:[]Incident{{InstanceID:"a",StartedAt:now,LastObservedAt:now}}})
+ if err==nil {t.Fatal("accepted unfinished incident as completed history")}
+ end:=now.Add(time.Minute)
+ _,err=NewTracker(Snapshot{History:[]Incident{{InstanceID:"a",StartedAt:now,LastObservedAt:end,RecoveredAt:&end}}})
+ if err!=nil {t.Fatalf("rejected valid recovered incident: %v",err)}
+}

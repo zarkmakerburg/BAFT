@@ -34,7 +34,7 @@ func TestTrackerRejectsInvalidCompletedHistory(t *testing.T) {
  _,err:=NewTracker(Snapshot{History:[]Incident{{InstanceID:"a",StartedAt:now,LastObservedAt:now}}})
  if err==nil {t.Fatal("accepted unfinished incident as completed history")}
  end:=now.Add(time.Minute)
- _,err=NewTracker(Snapshot{History:[]Incident{{InstanceID:"a",StartedAt:now,LastObservedAt:end,RecoveredAt:&end}}})
+ _,err=NewTracker(Snapshot{History:[]Incident{{InstanceID:"a",StartedAt:now,LastObservedAt:end,RecoveredAt:&end,Status:NodeOffline,Observations:1}}})
  if err!=nil {t.Fatalf("rejected valid recovered incident: %v",err)}
 }
 

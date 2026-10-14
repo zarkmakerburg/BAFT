@@ -628,12 +628,12 @@ func TestPlanCheckAndCreationAreOneAtomicStep(t *testing.T) {
 	// The reviewed state may change at any moment. Whatever interleaving
 	// happens, a tunnel is only ever created with the generation the plan
 	// that was reviewed promised.
-	now := time.Now()
 	for i := 0; i < 200; i++ {
 		s := tunnelStore(t)
 		withContact(t, s)
+		now := time.Now()
 		req := TunnelRequest{EXNode: "ex-1", IRNode: "ir-1"}
-		plan, _ := s.BuildPlan(req, time.Now())
+		plan, _ := s.BuildPlan(req, now)
 		var wg sync.WaitGroup
 		var created Tunnel
 		var cerr error

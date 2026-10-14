@@ -15,6 +15,7 @@ type Snapshot struct {
 }
 
 const MaxHistory = 256
+const MaxActive = 4096
 const MaxSnapshotBytes = 1 << 20
 
 // AddCompleted returns a copy with oldest completed incidents evicted.

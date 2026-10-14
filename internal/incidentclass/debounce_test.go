@@ -34,3 +34,18 @@ func TestDebouncerDoesNotCountReplayedObservation(t *testing.T) {
  status,ok:=d.Confirm(Result{Status:NetworkPathFailure,ObservedAt:now.Add(time.Second)},2,time.Second)
  if !ok||status!=NetworkPathFailure {t.Fatal("valid consecutive observations not confirmed")}
 }
+
+func TestDebouncerEmitsTransitionOnlyOnce(t *testing.T) {
+ now:=time.Now().UTC()
+ var d Debouncer
+ sample:=func(status Status, seconds int) bool {
+  _,ok:=d.Confirm(Result{Status:status,ObservedAt:now.Add(time.Duration(seconds)*time.Second)},2,time.Second)
+  return ok
+ }
+ if sample(NodeOffline,0) || !sample(NodeOffline,1) {t.Fatal("failure transition not confirmed")}
+ if sample(NodeOffline,2) || sample(NodeOffline,3) {t.Fatal("duplicate alert for stable failure")}
+ if sample(Healthy,4) || !sample(Healthy,5) {t.Fatal("recovery transition not confirmed")}
+ if sample(Healthy,6) {t.Fatal("duplicate recovery")}
+ if sample(Unknown,7) {t.Fatal("unknown transition confirmed")}
+ if sample(NodeOffline,8) || !sample(NodeOffline,9) {t.Fatal("new failure not confirmed after unknown")}
+}

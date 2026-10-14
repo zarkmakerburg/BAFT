@@ -47,7 +47,7 @@ Main test job 115729769307:
 - Unit and integration tests: SUCCESS.
 - Node-local tunnel resource acceptance: SUCCESS. It runs the exact focused regex THREE TIMES with BAFT_REQUIRE_RESOURCE_EVIDENCE=1. This includes the two-real-process H2/TLS/Noise sibling lifecycle, unknown Unix socket preservation and real held-management-client regression, with environment skips forbidden.
 - This confirms the existing Germany echo flow/PID/generation/artifacts while Bulgaria is prepared/activated/address-port-CA edited/rolled back/failed/retired. Local process fixture service control is simulated; it is not itself real-systemd evidence.
-- Remaining aggregate CI and R3 checks were still running in the recorded snapshot; see ci-status.json for the latest separately recorded status.
+- Aggregate CI is still running its race step. R3 subsequently completed SUCCESS; final-status.json records that newer observation while the earlier ci-status.json is retained.
 - BCC UI 38527050336 and static-analysis 38527050497: SUCCESS.
 - Real-systemd signed-release launch job 115729769458: completed SUCCESS, including build/break/rollback acceptance on a throwaway GitHub runner. This is current-source evidence, not a production deployment.
 

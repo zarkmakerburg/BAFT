@@ -8,6 +8,7 @@ type Debouncer struct {
  Candidate Status
  Since time.Time
  Count int
+ LastObservedAt time.Time
 }
 
 // Confirm returns a status only after at least minSamples consecutive
@@ -21,13 +22,18 @@ func (d *Debouncer) Confirm(result Result, minSamples int, minDuration time.Dura
  switch result.Status {
  case Healthy, Recovered, NodeOffline, NetworkPathFailure, TransportFailure:
  default:
-  d.Candidate, d.Since, d.Count = Unknown,time.Time{},0
+  d.Candidate, d.Since, d.LastObservedAt, d.Count = Unknown,time.Time{},time.Time{},0
   return Unknown,false
  }
- if result.Status!=d.Candidate || result.ObservedAt.Before(d.Since) {
-  d.Candidate,d.Since,d.Count=result.Status,result.ObservedAt,1
+ if !d.LastObservedAt.IsZero() && !result.ObservedAt.After(d.LastObservedAt) {
+  return Unknown,false
+ }
+ if result.Status!=d.Candidate {
+  d.Candidate,d.Since,d.LastObservedAt,d.Count=result.Status,result.ObservedAt,result.ObservedAt,1
  } else if result.ObservedAt.After(d.Since) {
   d.Count++
+  // Advance the last accepted observation, not the candidate start time.
+  d.LastObservedAt=result.ObservedAt
  }
  if d.Count>=minSamples && result.ObservedAt.Sub(d.Since)>=minDuration {
   return d.Candidate,true

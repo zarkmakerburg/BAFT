@@ -50,3 +50,14 @@ func TestSnapshotRejectsSemanticallyInvalidJSON(t *testing.T) {
  if err:=os.WriteFile(path,[]byte(`{"active":{"one":{"instance_id":"two"}}}`),0600);err!=nil {t.Fatal(err)}
  if _,err:=LoadSnapshot(path);err==nil {t.Fatal("accepted inconsistent incident identity")}
 }
+
+func TestSaveSnapshotRejectsInvalidStateWithoutOverwriting(t *testing.T) {
+ path:=filepath.Join(t.TempDir(),"state.json")
+ original:=[]byte("{}")
+ if err:=os.WriteFile(path,original,0600);err!=nil {t.Fatal(err)}
+ invalid:=Snapshot{Active:map[string]Incident{"one":{InstanceID:"other"}}}
+ if err:=SaveSnapshot(path,invalid);err==nil {t.Fatal("invalid state persisted")}
+ got,err:=os.ReadFile(path)
+ if err!=nil {t.Fatal(err)}
+ if string(got)!=string(original) {t.Fatal("rejected write modified existing snapshot")}
+}

@@ -13,15 +13,21 @@
   "12-exact-vet.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "13-exact-environment.log": "0055ebf2ca772d8e26182bf96c4ee722bb2ac065bc8c1489ebd2b1532b7acfed",
   "14-exact-owner.log": "52dafb49a183467d793f5665240e579b1dd7ccdb1c26be274cfe1600813f9507",
-  "15-attempt-ledger.md": "55bf2254c444af2ff570b9cb137b2f7a0a2ee95544b124e64b1068a096253e07",
+  "15-attempt-ledger.md": "625d74a310b94e989b5b3abf035de3635176d3829030bea9269a283d22153dd4",
   "16-uninstall-isolated.log": "d46537072968e4d4491a5637fa6eee598d81bbe9d6683c4f750182afaf3fdab3",
   "17-atomic-fixture.log": "31ed06f4809bcd72c5a8511f158a8c4d5a4148027e01289382fd5c635b09718a",
   "18-r3-first-attempt.log": "868607da5c3988c32d8a8099703155ba59e144fd12e6492759d456d165522327",
   "19-final-full.log": "da36a8b7364b8ea1ba7363d9e6328c27b196931369c11377f48b702bb99e9450",
+  "20-final-race.log": "3a069980269c1ae011d830625691142f8bee50387e2ebdd1b1683b1fe645e18e",
   "21-final-vet.log": "2beab475d920f08f0c8a16cf516c1e5f65ea7f792d32e3be377b5e227d41e99f",
   "22-core-native-resource.log": "faebca9e084453daaccc03b97a7acd003c15801d9a11ab2cd2891f9d88cf476c",
   "23-core-systemd.log": "86aa90ea3586320be91bfdf8ebd18e603768d25ad31e25b71fea98a4c551f1a7",
   "24-core-ci-complete.json": "fdc4cf2b7283001505c7068ddae5eb377c6dba461d6b674f89356ee473ba5c3c",
   "25-final-environment.log": "e0cbac9b6399a08c1ba7adc0906b3885f5e50c64796f19d2f67ffef556f7a859",
-  "README.md": "f83c62e61e44b5006fecdb55261ca01b587c7aa8f14825587cb3c0402c551d35"
+  "26-final-systemd.log": "e294d8b6c963d536f306adda78eac67dcfd83b66e9cfbfc7e2162f837b4fa93a",
+  "27-final-r3.log": "ec022fad29266b47ac3e74e16f5b4331c3f6afa92d0b93741cbb4607a5561a3e",
+  "28-final-native-resource.log": "18d706b584bb3f79a9536f438b9f001af91947fa32677ddeb7b2fef33af72a83",
+  "29-final-ci-complete.json": "03efa5146c07bcad4ef38396a0470f953ce1f977dee9fa5620e76a77a3136172",
+  "30-publication-audit.md": "1eb2d24119d8b3bb316b1cc5b0dd013f8f7a71432dce5d02f4f4d1c3f6844bff",
+  "README.md": "52747443c6853eb007269599b38ce2e038641d5761defad7df435b2f11c14324"
 }

@@ -125,7 +125,7 @@ func TestCandidateExecutableDriftPreservesActiveService(t *testing.T) {
 					}
 					switch mode {
 					case "replacement":
-						if err := os.WriteFile(*path, []byte("replacement installer binary"), 0700); err != nil {
+						if err := replaceTestExecutable(*path, []byte("replacement installer binary")); err != nil {
 							t.Fatal(err)
 						}
 					case "mode":
@@ -230,7 +230,7 @@ func TestCandidatePairExecutableDriftBeforeReplyConsumption(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(p.ex.PairBin, []byte("replacement"), 0700); err != nil {
+	if err := replaceTestExecutable(p.ex.PairBin, []byte("replacement")); err != nil {
 		t.Fatal(err)
 	}
 	assertPreparedRefusal(t, p.ex, func() error { _, err := p.ex.StageEX(ctx, "candidate", reply); return err })
@@ -277,4 +277,14 @@ func TestOlderCandidateReceiptDoesNotAcquireExecutableGate(t *testing.T) {
 	if _, err := p.ir.ValidateCandidate(context.Background(), "candidate"); err != nil {
 		t.Fatal("silently upgraded older receipt", err)
 	}
+}
+
+// Model installer atomic replacement; rewriting a recently executed inode can
+// fail with ETXTBSY before the candidate drift gate is exercised.
+func replaceTestExecutable(path string, b []byte) error {
+	next := path + ".replacement"
+	if err := os.WriteFile(next, b, 0700); err != nil {
+		return err
+	}
+	return os.Rename(next, path)
 }

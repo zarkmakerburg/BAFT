@@ -3,8 +3,8 @@
   "tree": "2e98dca8df1143736dfc15b8fda9605e066b0bdc",
   "files": {
     "README.md": {
-      "sha256": "0c5705861f95f76659fa21c93c973b784787addd8e8beff63bd7943fad4b1a7f",
-      "bytes": 10859
+      "sha256": "4ab8854bcfe5664360b71f1e54f33c7d7fceb11d22c34176a674981d39dfa89b",
+      "bytes": 12193
     },
     "attempts/01-baseline-order.log": {
       "sha256": "9cbceb12f40dc5214573d264bac09a1d5aeb2054d301d3e3bca26728ce288caf",
@@ -114,6 +114,14 @@
       "sha256": "129b6b30c0bb03e90acd55249063d94ef3cab58e33f164fc4392ff309c5aa84b",
       "bytes": 1085
     },
+    "attempts/28-final-publication-and-ci.log": {
+      "sha256": "34616e50102207bc24ceb703310a6cec61bebaf8a334be50234ba9bff0f5b88e",
+      "bytes": 1555
+    },
+    "ci-complete.json": {
+      "sha256": "9a83b00f48df348e1f7ba288325ecb5c296b33e6421831d8de3d4a83e89c38d6",
+      "bytes": 33125
+    },
     "ci-core-completion.json": {
       "sha256": "544c540ca569f19e7b1b27b9de6d0a858f6790a172c5778bf1a7d5feda580808",
       "bytes": 3948
@@ -125,6 +133,10 @@
     "ci-qualification.json": {
       "sha256": "0cfb9deb5ffbd728509209cc7ac1b645aadd51a35af57e1ca7689ecc070f43fc",
       "bytes": 37783
+    },
+    "native-4d9.log": {
+      "sha256": "05f69d6265997e73474af7f1e17e4ed7e1b856f6a2c45c445633d74bd2f1f9ce",
+      "bytes": 20753
     },
     "native-fa6.log": {
       "sha256": "9a164909528a7590bd3211984e9caad3860ec14c9ec0fb5a2039f9e26af5761b",

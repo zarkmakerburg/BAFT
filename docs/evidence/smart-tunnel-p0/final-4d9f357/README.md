@@ -126,3 +126,24 @@ At this qualification snapshot final UI 38564701042, static 38564701055 and R3
 38564700891 SUCCESS; 14 of 15 main CI jobs SUCCESS. Test job 115854292544 remains
 in its full race step. No final all-green inference. A later completion snapshot
 is appended separately if available; pending evidence is retained unchanged.
+
+## Final CI completion — exact 4d9f357
+
+All FOUR final-source workflows SUCCESS: CI 38564701130, R3 38564700891,
+static 38564701055 and BCC UI 38564701042. All 15 CI jobs SUCCESS, including
+full native race/vet/fuzz and the real-systemd signed-release launch job.
+Actual final main-job log retrieved after completion; native-4d9.log proves
+THREE two-live-instance passes, THREE same-name installer-unit refusal passes,
+THREE held-Unix-management-client passes, NO resource skips, with the mandatory
+BAFT_REQUIRE_RESOURCE_EVIDENCE=1 gate. Updated real process fixture completes
+EX staging and IR candidate/resource validation before either commit; the
+previous route and unrelated sibling flow/PID/generation/artifacts continue.
+Candidate handshake/payload itself remains post-commit, not pre-cutover.
+
+ci-complete.json retains the completed run/job snapshot. Earlier CI pending,
+systemd fixture assertion failure, broad local timeouts/rotation failure,
+explicit local skips and all 27 attempts remain unchanged. Final manifest
+integrity and credential-pattern audit PASS. Evidence publication itself was
+verified to modify only evidence files; source HEAD remains 4d9f357 and draft.
+No reviewers/inline threads and no new parallel claim observed. This qualifies
+this development slice, not all #199 or field/production acceptance.

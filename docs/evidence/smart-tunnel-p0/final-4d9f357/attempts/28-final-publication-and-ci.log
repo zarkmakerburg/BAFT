@@ -1,0 +1,7 @@
+Final qualification/publication checks, 2026-10-14:
+- Fetched evidence commit 859297e643e0229ee09504cba6e8e358faad9e2e; exactly 34 evidence files against source 4d9, no runtime diff. API tree f64e5b18a0e32d113fceb8dad4c75cec8a335229 matched local commit e419d3e; evidence branch was created at 4d9 then fast-forwarded using expected_sha=4d9 and force=false.
+- Manifest integrity and credential-pattern scan PASS: no private-key blocks, real-length pairing/reply secrets or bearer credential strings in evidence. Synthetic placeholder test codes are retained in baseline failure log.
+- Auxiliary direct actions/jobs REST fetch was not exposed by the approved fetch tool (INVALID_ARGUMENT); follow-up parse refused missing content. No escalation or alternate unauthorized route attempted. Used purpose-built workflow job/step tools successfully.
+- Final source 4d9: CI 38564701130, R3 38564700891, static 38564701055 and UI 38564701042 ALL SUCCESS; all 15 CI jobs SUCCESS. Main full race/vet/fuzz SUCCESS; systemd 115854292744 SUCCESS.
+- Actual completed main job 115854292544 native output retrieved: three two-live-instance passes, three installer-namespace refusal passes, three held-Unix-management-client passes, NO resource skips. Exact synthetic merge bb9b7115000a15058c1c53dad1f40ec12fb63bb4 has the same final source tree.
+- Current-source evidence completion only appends artifacts; existing failed/pending snapshots remain. Source PR stays draft/open. All earlier local broad failures and skips remain explicitly separate from native acceptance.

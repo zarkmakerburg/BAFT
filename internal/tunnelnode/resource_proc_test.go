@@ -119,3 +119,54 @@ func TestResourceBindOverlapHandlesWildcardAndAddressFamilies(t *testing.T) {
 		t.Fatal("untrusted PID reached filesystem traversal")
 	}
 }
+
+func TestResourceUnixListenerDoesNotConfuseAcceptedClientsWithBindOwner(t *testing.T) {
+	header := "Num RefCount Protocol Flags Type St Inode Path\n"
+	listener := "0: 00000002 00000000 00010000 0001 01 100 /var/lib/baft/admin.sock\n"
+	client := "1: 00000003 00000000 00000000 0001 03 200 /var/lib/baft/admin.sock\n"
+	for _, b := range []string{header + listener, header + client + listener, header + listener + client} {
+		n, err := parseProcUnixListener([]byte(b), "/var/lib/baft/admin.sock")
+		if err != nil || n != 100 {
+			t.Fatalf("accepted client changed bind ownership: %d %v", n, err)
+		}
+	}
+	for _, b := range []string{header + client, header + listener + strings.ReplaceAll(listener, "100 ", "300 "), header + strings.ReplaceAll(listener, "00010000", "bad-flags")} {
+		if _, err := parseProcUnixListener([]byte(b), "/var/lib/baft/admin.sock"); err == nil {
+			t.Fatal("unavailable/ambiguous listener evidence was accepted")
+		}
+	}
+}
+
+func TestResourceUnixListenerEvidenceWithActiveManagementClient(t *testing.T) {
+	path := t.TempDir() + "/admin.sock"
+	l, err := net.Listen("unix", path)
+	if err != nil {
+		if errors.Is(err, syscall.EPERM) || errors.Is(err, syscall.EACCES) {
+			if os.Getenv("BAFT_REQUIRE_RESOURCE_EVIDENCE") == "1" {
+				t.Fatalf("required Unix client acceptance environment unavailable: %v", err)
+			}
+			t.Skipf("environment cannot create Unix sockets: %v", err)
+		}
+		t.Fatal(err)
+	}
+	defer l.Close()
+	client, err := net.Dial("unix", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	accepted, err := l.Accept()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer accepted.Close()
+	ctx := context.Background()
+	inode, err := hostUnixSocketInode(ctx, path)
+	if err != nil {
+		t.Fatalf("active management client confused listener identity: %v", err)
+	}
+	owned, err := serviceSocketInodes(ctx, strconv.Itoa(os.Getpid()))
+	if err != nil || !owned[inode] {
+		t.Fatalf("listener owner unavailable with client connected: %v", err)
+	}
+}

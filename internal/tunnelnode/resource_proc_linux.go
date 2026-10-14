@@ -125,6 +125,10 @@ func hostUnixSocketInode(ctx context.Context, path string) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
+	return parseProcUnixListener(b, path)
+}
+
+func parseProcUnixListener(b []byte, path string) (uint64, error) {
 	s := bufio.NewScanner(bytes.NewReader(b))
 	if !s.Scan() || !strings.Contains(s.Text(), "Inode") {
 		return 0, errors.New("Unix inventory header unavailable")
@@ -136,6 +140,17 @@ func hostUnixSocketInode(ctx context.Context, path string) (uint64, error) {
 			return 0, errors.New("malformed Unix inventory")
 		}
 		if len(f) < 8 || strings.Join(f[7:], " ") != path {
+			continue
+		}
+		flags, ef := strconv.ParseUint(f[3], 16, 32)
+		kind, ek := strconv.ParseUint(f[4], 16, 16)
+		_, es := strconv.ParseUint(f[5], 16, 8)
+		if ef != nil || ek != nil || es != nil {
+			return 0, errors.New("invalid Unix socket flags/type/state")
+		}
+		// Accepted stream connections can retain the listener's pathname.
+		// Only the SOCK_STREAM socket with SO_ACCEPTCON owns the listen bind.
+		if kind != 1 || flags&0x10000 == 0 {
 			continue
 		}
 		if found != 0 {
@@ -153,7 +168,7 @@ func hostUnixSocketInode(ctx context.Context, path string) (uint64, error) {
 	if found == 0 {
 		return 0, errors.New("Unix socket absent from inventory")
 	}
-	return found, ctx.Err()
+	return found, nil
 }
 
 func procStartTime(base string) (string, error) {

@@ -278,6 +278,10 @@ configuration and its inode belongs to the current systemd MainPID. The process
 start identity and network namespace are checked around bounded FD reads, and
 MainPID is rechecked afterward. The admin Unix socket also needs exact path,
 inode and service ownership; unrelated files/sockets are preserved.
+Unix accepted clients can retain the listener pathname. The parser selects
+only the listening stream socket; an active management connection does not
+make that owner appear ambiguous. Pure parser and real client-held Unix socket
+regressions cover this distinction.
 
 This is fresh node-local inspection, not an atomic reservation against another
 process. The remaining window between check and bind still relies on service
@@ -286,6 +290,8 @@ namespaces, absent procfs or unavailable FD ownership cannot be declared safe.
 General interfaces/routes, disk capacity, all shared installer resources and
 cross-process host locking remain open. Adapter fixtures explicitly model socket
 inventory; they do not count as real host acceptance.
+OS permission/UID/GID hardening beyond the existing PKI checks still requires
+review; matching artifact bytes/markers is not a general permission audit.
 
 Local regression tests cover the real occupied bind, a new bind between prepare
 and commit with safe retry, unknown/malformed inventory, wildcard/address-family

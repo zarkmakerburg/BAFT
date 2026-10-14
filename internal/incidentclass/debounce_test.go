@@ -23,3 +23,14 @@ func TestDebouncerRejectsInvalidPolicy(t *testing.T) {
  if _,ok:=d.Confirm(Result{Status:Healthy,ObservedAt:time.Now()},0,0);ok {t.Fatal("invalid policy accepted")}
  if _,ok:=d.Confirm(Result{Status:Healthy,ObservedAt:time.Now()},1,-time.Second);ok {t.Fatal("negative duration accepted")}
 }
+
+func TestDebouncerDoesNotCountReplayedObservation(t *testing.T) {
+ now:=time.Now().UTC()
+ var d Debouncer
+ first:=Result{Status:NetworkPathFailure,ObservedAt:now}
+ if _,ok:=d.Confirm(first,2,time.Second);ok {t.Fatal("premature confirmation")}
+ if _,ok:=d.Confirm(first,2,time.Second);ok {t.Fatal("replay confirmed failure")}
+ if _,ok:=d.Confirm(Result{Status:NetworkPathFailure,ObservedAt:now.Add(-time.Second)},2,time.Second);ok {t.Fatal("out-of-order confirmed failure")}
+ status,ok:=d.Confirm(Result{Status:NetworkPathFailure,ObservedAt:now.Add(time.Second)},2,time.Second)
+ if !ok||status!=NetworkPathFailure {t.Fatal("valid consecutive observations not confirmed")}
+}

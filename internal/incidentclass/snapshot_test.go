@@ -10,7 +10,7 @@ import (
 func TestSnapshotRoundTrip(t *testing.T) {
  path:=filepath.Join(t.TempDir(),"incidents.json")
  if err:=os.WriteFile(path,[]byte("{}"),0600);err!=nil {t.Fatal(err)}
- snap:=Snapshot{Active:map[string]Incident{"a":{InstanceID:"a",Status:NodeOffline,StartedAt:time.Now().UTC()}}}
+ snap:=Snapshot{Active:map[string]Incident{"a":{InstanceID:"a",Status:NodeOffline,StartedAt:time.Now().UTC(),LastObservedAt:time.Now().UTC(),Observations:1}}}
  if err:=SaveSnapshot(path,snap);err!=nil {t.Fatal(err)}
  got,err:=LoadSnapshot(path)
  if err!=nil {t.Fatal(err)}

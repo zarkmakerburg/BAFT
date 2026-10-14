@@ -40,7 +40,7 @@ func (t *Tracker) Observe(instanceID string, result Result) {
  var current *Incident
  if existing,ok:=t.active[instanceID];ok {copy:=existing;current=&copy}
  next,completed:=Advance(instanceID,current,result)
- if current==nil && next!=nil && len(t.active)>=MaxActive {return Result{Status:Unknown,Reason:"incident_capacity_exceeded",ObservedAt:result.ObservedAt}}
+ if current==nil && next!=nil && len(t.active)>=MaxActive {return}
  if next==nil {delete(t.active,instanceID)} else {t.active[instanceID]=*next}
  if completed!=nil {t.history=AddCompleted(t.history,*completed)}
 }
@@ -77,6 +77,7 @@ func (t *Tracker) ObserveEvidence(instanceID string, now time.Time, maxAge time.
  }
  result:=Classify(now,maxAge,evidence,previous)
  next,completed:=Advance(instanceID,current,result)
+ if current==nil && next!=nil && len(t.active)>=MaxActive {return Result{Status:Unknown,Reason:"incident_capacity_exceeded",ObservedAt:result.ObservedAt}}
  if next==nil {delete(t.active,instanceID)} else {t.active[instanceID]=*next}
  if completed!=nil {t.history=AddCompleted(t.history,*completed)}
  return result

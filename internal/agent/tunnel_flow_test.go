@@ -129,11 +129,21 @@ func freeFlowPort(t *testing.T) int {
 
 func accept(t *testing.T, port int) {
 	t.Helper()
-	l, err := net.Listen("tcp", "127.0.0.1:"+strconv.Itoa(port))
+	acceptFlowListener(t, reserveFlowListener(t, "127.0.0.1:"+strconv.Itoa(port)))
+}
+
+func reserveFlowListener(t *testing.T, addr string) net.Listener {
+	t.Helper()
+	l, err := net.Listen("tcp", addr)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { l.Close() })
+	return l
+}
+
+func acceptFlowListener(t *testing.T, l net.Listener) {
+	t.Helper()
 	go func() {
 		for {
 			c, err := l.Accept()
@@ -147,12 +157,12 @@ func accept(t *testing.T, port int) {
 
 func newFlow(t *testing.T) *flow {
 	t.Helper()
-	return newFlowWith(t, accept)
+	return newFlowWith(t, acceptFlowListener)
 }
 
 // newFlowWith builds the flow with serveEX standing in for the EX's
 // listener on its tunnel port.
-func newFlowWith(t *testing.T, serveEX func(*testing.T, int)) *flow {
+func newFlowWith(t *testing.T, serveEX func(*testing.T, net.Listener)) *flow {
 	t.Helper()
 	dir := t.TempDir()
 	store, err := bcc.OpenStore(filepath.Join(dir, "bcc", "state.json"))
@@ -168,13 +178,18 @@ func newFlowWith(t *testing.T, serveEX func(*testing.T, int)) *flow {
 		t.Fatal(err)
 	}
 	app.ConfigureJobSigning(key)
-	f := &flow{t: t, app: app, store: store, h: app.Handler(), dir: dir, exPort: freeFlowPort(t), jobKey: key}
-	f.irRoute = "127.0.0.1:" + strconv.Itoa(freeFlowPort(t))
-	targetPort := freeFlowPort(t)
-	accept(t, targetPort)
-	f.target = "127.0.0.1:" + strconv.Itoa(targetPort)
-	serveEX(t, f.exPort)
-	accept(t, mustFlowPort(f.irRoute))
+	f := &flow{t: t, app: app, store: store, h: app.Handler(), dir: dir, jobKey: key}
+	// Keep the listeners bound: a released "free" port can otherwise be
+	// selected again by this fixture's target, metrics or TLS listener.
+	exListener := reserveFlowListener(t, "127.0.0.1:0")
+	f.exPort = exListener.Addr().(*net.TCPAddr).Port
+	irListener := reserveFlowListener(t, "127.0.0.1:0")
+	f.irRoute = irListener.Addr().String()
+	targetListener := reserveFlowListener(t, "127.0.0.1:0")
+	f.target = targetListener.Addr().String()
+	serveEX(t, exListener)
+	acceptFlowListener(t, irListener)
+	acceptFlowListener(t, targetListener)
 	// Agents reach BCC through f.h, so a test can restart BCC underneath.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { f.h.ServeHTTP(w, r) }))
 	t.Cleanup(srv.Close)

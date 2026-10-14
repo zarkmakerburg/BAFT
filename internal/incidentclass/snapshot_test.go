@@ -37,3 +37,16 @@ func TestSnapshotBoundAndCorruption(t *testing.T) {
  if err:=os.WriteFile(path,[]byte("{broken"),0600);err!=nil {t.Fatal(err)}
  if _,err:=LoadSnapshot(path);err==nil {t.Fatal("accepted malformed JSON")}
 }
+
+func TestSnapshotRejectsPermissivePermissions(t *testing.T) {
+ path:=filepath.Join(t.TempDir(),"public.json")
+ if err:=os.WriteFile(path,[]byte("{}"),0644);err!=nil {t.Fatal(err)}
+ if err:=SaveSnapshot(path,Snapshot{});err==nil {t.Fatal("accepted permissive target")}
+ if _,err:=LoadSnapshot(path);err==nil {t.Fatal("accepted permissive source")}
+}
+
+func TestSnapshotRejectsSemanticallyInvalidJSON(t *testing.T) {
+ path:=filepath.Join(t.TempDir(),"invalid.json")
+ if err:=os.WriteFile(path,[]byte(`{"active":{"one":{"instance_id":"two"}}}`),0600);err!=nil {t.Fatal(err)}
+ if _,err:=LoadSnapshot(path);err==nil {t.Fatal("accepted inconsistent incident identity")}
+}

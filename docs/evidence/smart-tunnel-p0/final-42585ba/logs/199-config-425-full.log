@@ -1,0 +1,47 @@
+ok  	github.com/zarkmakerburg/baft/cmd/baft	7.376s
+ok  	github.com/zarkmakerburg/baft/cmd/baft-agent	0.117s
+ok  	github.com/zarkmakerburg/baft/cmd/baft-bcc	4.086s
+?   	github.com/zarkmakerburg/baft/cmd/baft-bcc-audit-verify	[no test files]
+?   	github.com/zarkmakerburg/baft/cmd/baft-cluster-keygen	[no test files]
+?   	github.com/zarkmakerburg/baft/cmd/baft-master	[no test files]
+ok  	github.com/zarkmakerburg/baft/cmd/baft-pair	0.183s
+?   	github.com/zarkmakerburg/baft/cmd/baft-release	[no test files]
+?   	github.com/zarkmakerburg/baft/cmd/baft-worker	[no test files]
+ok  	github.com/zarkmakerburg/baft/internal/agent	51.520s
+ok  	github.com/zarkmakerburg/baft/internal/agentjob	0.410s
+ok  	github.com/zarkmakerburg/baft/internal/bcc	129.057s
+ok  	github.com/zarkmakerburg/baft/internal/carrier/h2	0.350s
+ok  	github.com/zarkmakerburg/baft/internal/carrier/utlsdial	0.150s
+ok  	github.com/zarkmakerburg/baft/internal/carrier/ws	0.240s
+ok  	github.com/zarkmakerburg/baft/internal/cluster	4.871s
+ok  	github.com/zarkmakerburg/baft/internal/clustersync	0.421s
+ok  	github.com/zarkmakerburg/baft/internal/config	0.114s
+ok  	github.com/zarkmakerburg/baft/internal/failover	0.024s
+ok  	github.com/zarkmakerburg/baft/internal/geoip	0.188s
+ok  	github.com/zarkmakerburg/baft/internal/identity	0.034s
+?   	github.com/zarkmakerburg/baft/internal/mesh	[no test files]
+ok  	github.com/zarkmakerburg/baft/internal/metrics	0.012s
+ok  	github.com/zarkmakerburg/baft/internal/node	0.049s
+ok  	github.com/zarkmakerburg/baft/internal/protocol	0.047s
+ok  	github.com/zarkmakerburg/baft/internal/recordshape	0.204s
+ok  	github.com/zarkmakerburg/baft/internal/recovery	1.036s
+ok  	github.com/zarkmakerburg/baft/internal/release	0.271s
+ok  	github.com/zarkmakerburg/baft/internal/resources	0.036s
+ok  	github.com/zarkmakerburg/baft/internal/routes	0.008s
+ok  	github.com/zarkmakerburg/baft/internal/scheduler	0.332s
+ok  	github.com/zarkmakerburg/baft/internal/securityinternal	0.070s
+ok  	github.com/zarkmakerburg/baft/internal/session	0.367s
+ok  	github.com/zarkmakerburg/baft/internal/sshboot	0.125s
+ok  	github.com/zarkmakerburg/baft/internal/sshmigrate	0.024s
+ok  	github.com/zarkmakerburg/baft/internal/telemetry	0.866s
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	75.434s
+ok  	github.com/zarkmakerburg/baft/internal/uninstall	14.396s
+?   	github.com/zarkmakerburg/baft/internal/verification	[no test files]
+ok  	github.com/zarkmakerburg/baft/tests/camouflage	0.083s
+ok  	github.com/zarkmakerburg/baft/tests/correctness	0.015s
+ok  	github.com/zarkmakerburg/baft/tests/docs	0.111s
+ok  	github.com/zarkmakerburg/baft/tests/installer	21.906s
+ok  	github.com/zarkmakerburg/baft/tests/integration	77.142s
+ok  	github.com/zarkmakerburg/baft/tests/release	5.924s
+ok  	github.com/zarkmakerburg/baft/tests/uninstall	0.245s
+?   	github.com/zarkmakerburg/baft/web	[no test files]

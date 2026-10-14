@@ -1,0 +1,56 @@
+go: downloading golang.org/x/sys v0.48.0
+go: downloading go.yaml.in/yaml/v3 v3.0.5
+go: downloading github.com/flynn/noise v1.1.0
+go: downloading golang.org/x/crypto v0.57.0
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/valid-config-edit
+    config_preparation_test.go:51: changed candidate was accepted
+    config_preparation_test.go:51: refusal changed live artifact: baft.yaml
+    config_preparation_test.go:51: refusal changed live artifact: baft.service
+    config_preparation_test.go:51: refusal changed live artifact: baft.managed.json
+    config_preparation_test.go:51: refusal changed live artifact: generation
+    config_preparation_test.go:51: refusal touched service: daemon-reload
+    config_preparation_test.go:51: refusal touched service: enable baft
+    config_preparation_test.go:51: refusal touched service: restart baft
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/invalid-config
+    config_preparation_test.go:51: refusal touched service: daemon-reload
+    config_preparation_test.go:51: refusal touched service: restart baft
+    config_preparation_test.go:51: refusal lost prepared ownership
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/noise-key-edit
+    config_preparation_test.go:51: changed candidate was accepted
+    config_preparation_test.go:51: refusal changed live artifact: baft.yaml
+    config_preparation_test.go:51: refusal changed live artifact: baft.service
+    config_preparation_test.go:51: refusal changed live artifact: baft.managed.json
+    config_preparation_test.go:51: refusal changed live artifact: generation
+    config_preparation_test.go:51: refusal touched service: daemon-reload
+    config_preparation_test.go:51: refusal touched service: enable baft
+    config_preparation_test.go:51: refusal touched service: restart baft
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/peer-ca-edit
+    config_preparation_test.go:51: changed candidate was accepted
+    config_preparation_test.go:51: refusal changed live artifact: baft.yaml
+    config_preparation_test.go:51: refusal changed live artifact: baft.service
+    config_preparation_test.go:51: refusal changed live artifact: baft.managed.json
+    config_preparation_test.go:51: refusal changed live artifact: generation
+    config_preparation_test.go:51: refusal touched service: daemon-reload
+    config_preparation_test.go:51: refusal touched service: enable baft
+    config_preparation_test.go:51: refusal touched service: restart baft
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/config-symlink
+    config_preparation_test.go:51: changed candidate was accepted
+    config_preparation_test.go:51: refusal changed live artifact: baft.yaml
+    config_preparation_test.go:51: refusal changed live artifact: baft.service
+    config_preparation_test.go:51: refusal changed live artifact: baft.managed.json
+    config_preparation_test.go:51: refusal changed live artifact: generation
+    config_preparation_test.go:51: refusal touched service: daemon-reload
+    config_preparation_test.go:51: refusal touched service: enable baft
+    config_preparation_test.go:51: refusal touched service: restart baft
+--- FAIL: TestPreparedIRConfigDriftRefusedBeforeLiveMutation (1.40s)
+    --- FAIL: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/valid-config-edit (0.28s)
+    --- FAIL: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/invalid-config (0.25s)
+    --- FAIL: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/noise-key-edit (0.27s)
+    --- FAIL: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/peer-ca-edit (0.32s)
+    --- FAIL: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/config-symlink (0.28s)
+=== RUN   TestPreparedEXParamsDriftRefusedBeforeReplyConsumption
+--- PASS: TestPreparedEXParamsDriftRefusedBeforeReplyConsumption (0.34s)
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/tunnelnode	31.579s
+FAIL

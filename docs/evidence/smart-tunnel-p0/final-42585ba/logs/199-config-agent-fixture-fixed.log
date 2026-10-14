@@ -1,0 +1,4 @@
+=== RUN   TestTunnelPrepareReturnsTheSecretOnlyAsOutput
+--- PASS: TestTunnelPrepareReturnsTheSecretOnlyAsOutput (0.07s)
+PASS
+ok  	github.com/zarkmakerburg/baft/internal/agent	3.581s

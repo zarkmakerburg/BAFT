@@ -1,0 +1,32 @@
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/valid-config-edit
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/invalid-config
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/noise-key-edit
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/peer-ca-edit
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/config-symlink
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/config-mode
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/key-mode
+--- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation (2.63s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/valid-config-edit (0.40s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/invalid-config (0.27s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/noise-key-edit (0.26s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/peer-ca-edit (0.93s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/config-symlink (0.31s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/config-mode (0.25s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/key-mode (0.20s)
+=== RUN   TestPreparedEXParamsDriftRefusedBeforeReplyConsumption
+--- PASS: TestPreparedEXParamsDriftRefusedBeforeReplyConsumption (0.24s)
+=== RUN   TestPreparedValidationDriftRefusedBeforePKIActivation
+    config_validation_drift_test.go:41: changed candidate was accepted
+    config_validation_drift_test.go:41: refusal changed live artifact: baft.yaml
+    config_validation_drift_test.go:41: refusal changed live artifact: baft.service
+    config_validation_drift_test.go:41: refusal changed live artifact: baft.managed.json
+    config_validation_drift_test.go:41: refusal changed live artifact: generation
+    config_validation_drift_test.go:41: refusal touched service: daemon-reload
+    config_validation_drift_test.go:41: refusal touched service: enable baft
+    config_validation_drift_test.go:41: refusal touched service: restart baft
+    config_validation_drift_test.go:41: refusal changed live certificates
+--- FAIL: TestPreparedValidationDriftRefusedBeforePKIActivation (0.41s)
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/tunnelnode	5.606s
+FAIL

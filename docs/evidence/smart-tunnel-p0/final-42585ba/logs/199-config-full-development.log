@@ -1,0 +1,53 @@
+go: downloading modernc.org/sqlite v1.60.1
+go: downloading github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec
+ok  	github.com/zarkmakerburg/baft/cmd/baft	3.458s
+ok  	github.com/zarkmakerburg/baft/cmd/baft-agent	0.044s
+ok  	github.com/zarkmakerburg/baft/cmd/baft-bcc	2.100s
+?   	github.com/zarkmakerburg/baft/cmd/baft-bcc-audit-verify	[no test files]
+?   	github.com/zarkmakerburg/baft/cmd/baft-cluster-keygen	[no test files]
+?   	github.com/zarkmakerburg/baft/cmd/baft-master	[no test files]
+ok  	github.com/zarkmakerburg/baft/cmd/baft-pair	0.080s
+?   	github.com/zarkmakerburg/baft/cmd/baft-release	[no test files]
+?   	github.com/zarkmakerburg/baft/cmd/baft-worker	[no test files]
+--- FAIL: TestTunnelPrepareReturnsTheSecretOnlyAsOutput (0.33s)
+    tunnel_test.go:43: prepared material is missing, unreadable or a symlink
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/agent	76.486s
+ok  	github.com/zarkmakerburg/baft/internal/agentjob	0.077s
+ok  	github.com/zarkmakerburg/baft/internal/bcc	159.693s
+ok  	github.com/zarkmakerburg/baft/internal/carrier/h2	0.405s
+ok  	github.com/zarkmakerburg/baft/internal/carrier/utlsdial	0.129s
+ok  	github.com/zarkmakerburg/baft/internal/carrier/ws	0.400s
+ok  	github.com/zarkmakerburg/baft/internal/cluster	5.394s
+ok  	github.com/zarkmakerburg/baft/internal/clustersync	0.449s
+ok  	github.com/zarkmakerburg/baft/internal/config	0.056s
+ok  	github.com/zarkmakerburg/baft/internal/failover	0.044s
+ok  	github.com/zarkmakerburg/baft/internal/geoip	0.211s
+ok  	github.com/zarkmakerburg/baft/internal/identity	0.021s
+?   	github.com/zarkmakerburg/baft/internal/mesh	[no test files]
+ok  	github.com/zarkmakerburg/baft/internal/metrics	0.048s
+ok  	github.com/zarkmakerburg/baft/internal/node	0.167s
+ok  	github.com/zarkmakerburg/baft/internal/protocol	0.057s
+ok  	github.com/zarkmakerburg/baft/internal/recordshape	0.209s
+ok  	github.com/zarkmakerburg/baft/internal/recovery	1.219s
+ok  	github.com/zarkmakerburg/baft/internal/release	0.168s
+ok  	github.com/zarkmakerburg/baft/internal/resources	0.043s
+ok  	github.com/zarkmakerburg/baft/internal/routes	0.049s
+ok  	github.com/zarkmakerburg/baft/internal/scheduler	0.206s
+ok  	github.com/zarkmakerburg/baft/internal/securityinternal	0.152s
+ok  	github.com/zarkmakerburg/baft/internal/session	0.231s
+ok  	github.com/zarkmakerburg/baft/internal/sshboot	0.094s
+ok  	github.com/zarkmakerburg/baft/internal/sshmigrate	0.021s
+ok  	github.com/zarkmakerburg/baft/internal/telemetry	1.044s
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	109.739s
+ok  	github.com/zarkmakerburg/baft/internal/uninstall	10.404s
+?   	github.com/zarkmakerburg/baft/internal/verification	[no test files]
+ok  	github.com/zarkmakerburg/baft/tests/camouflage	0.163s
+ok  	github.com/zarkmakerburg/baft/tests/correctness	0.069s
+ok  	github.com/zarkmakerburg/baft/tests/docs	0.303s
+ok  	github.com/zarkmakerburg/baft/tests/installer	24.454s
+ok  	github.com/zarkmakerburg/baft/tests/integration	108.242s
+ok  	github.com/zarkmakerburg/baft/tests/release	6.265s
+ok  	github.com/zarkmakerburg/baft/tests/uninstall	0.266s
+?   	github.com/zarkmakerburg/baft/web	[no test files]
+FAIL

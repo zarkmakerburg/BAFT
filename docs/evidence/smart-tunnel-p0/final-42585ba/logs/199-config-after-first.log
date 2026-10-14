@@ -1,0 +1,4 @@
+# github.com/zarkmakerburg/baft/internal/tunnelnode [github.com/zarkmakerburg/baft/internal/tunnelnode.test]
+internal/tunnelnode/tunnelnode.go:638:16: undefined: staged
+FAIL	github.com/zarkmakerburg/baft/internal/tunnelnode [build failed]
+FAIL

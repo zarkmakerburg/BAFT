@@ -1,0 +1,32 @@
+=== RUN   TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle
+    multi_instance_proc_test.go:86: environment cannot inspect controlled child process namespace/FD ownership: service network namespace unavailable: readlink /proc/166/ns/net: no such file or directory
+--- SKIP: TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle (0.01s)
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/missing-backup
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-backup
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-live
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/extra-live-file
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/symlink-backup
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/symlink-live-file
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-live-mode
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-live-owner
+    pki_rollback_test.go:104: environment cannot change uid/gid: chown /tmp/TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState3010707540/001/etc/pki/server.key: invalid argument
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/missing-identity
+--- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState (9.25s)
+    --- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/missing-backup (1.17s)
+    --- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-backup (1.48s)
+    --- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-live (1.26s)
+    --- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/extra-live-file (0.74s)
+    --- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/symlink-backup (1.11s)
+    --- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/symlink-live-file (0.80s)
+    --- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-live-mode (0.94s)
+    --- SKIP: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-live-owner (0.94s)
+    --- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/missing-identity (0.81s)
+=== RUN   TestResourcePreflightDoesNotUnlinkAnUnrelatedUnixSocket
+    resource_preflight_test.go:211: environment cannot create Unix sockets: listen unix /tmp/TestResourcePreflightDoesNotUnlinkAnUnrelatedUnixSocket4167050421/001/state/admin.sock: socket: operation not permitted
+--- SKIP: TestResourcePreflightDoesNotUnlinkAnUnrelatedUnixSocket (0.00s)
+=== RUN   TestResourceUnixListenerEvidenceWithActiveManagementClient
+    resource_proc_test.go:148: environment cannot create Unix sockets: listen unix /tmp/TestResourceUnixListenerEvidenceWithActiveManagementClient995941605/001/admin.sock: socket: operation not permitted
+--- SKIP: TestResourceUnixListenerEvidenceWithActiveManagementClient (0.00s)
+PASS
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	16.228s

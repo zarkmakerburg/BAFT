@@ -1,0 +1,74 @@
+=== RUN   TestPreparedIRRestoredCandidateCanBeExplicitlyRetried
+--- PASS: TestPreparedIRRestoredCandidateCanBeExplicitlyRetried (1.00s)
+=== RUN   TestPreparedIRRetainsOlderReceiptContract
+--- PASS: TestPreparedIRRetainsOlderReceiptContract (0.70s)
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/valid-config-edit
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/invalid-config
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/noise-key-edit
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/peer-ca-edit
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/config-symlink
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/config-mode
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/key-mode
+--- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation (2.54s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/valid-config-edit (0.30s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/invalid-config (0.28s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/noise-key-edit (0.49s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/peer-ca-edit (0.37s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/config-symlink (0.34s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/config-mode (0.30s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/key-mode (0.45s)
+=== RUN   TestPreparedEXParamsDriftRefusedBeforeReplyConsumption
+--- PASS: TestPreparedEXParamsDriftRefusedBeforeReplyConsumption (0.51s)
+=== RUN   TestPreparedValidationDriftRefusedBeforePKIActivation
+--- PASS: TestPreparedValidationDriftRefusedBeforePKIActivation (0.38s)
+=== RUN   TestPreparedIRRestoredCandidateCanBeExplicitlyRetried
+--- PASS: TestPreparedIRRestoredCandidateCanBeExplicitlyRetried (0.41s)
+=== RUN   TestPreparedIRRetainsOlderReceiptContract
+--- PASS: TestPreparedIRRetainsOlderReceiptContract (0.40s)
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/valid-config-edit
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/invalid-config
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/noise-key-edit
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/peer-ca-edit
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/config-symlink
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/config-mode
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/key-mode
+--- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation (3.06s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/valid-config-edit (0.33s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/invalid-config (0.68s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/noise-key-edit (0.36s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/peer-ca-edit (0.35s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/config-symlink (0.32s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/config-mode (0.42s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/key-mode (0.59s)
+=== RUN   TestPreparedEXParamsDriftRefusedBeforeReplyConsumption
+--- PASS: TestPreparedEXParamsDriftRefusedBeforeReplyConsumption (0.41s)
+=== RUN   TestPreparedValidationDriftRefusedBeforePKIActivation
+--- PASS: TestPreparedValidationDriftRefusedBeforePKIActivation (0.55s)
+=== RUN   TestPreparedIRRestoredCandidateCanBeExplicitlyRetried
+--- PASS: TestPreparedIRRestoredCandidateCanBeExplicitlyRetried (0.45s)
+=== RUN   TestPreparedIRRetainsOlderReceiptContract
+--- PASS: TestPreparedIRRetainsOlderReceiptContract (0.68s)
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/valid-config-edit
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/invalid-config
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/noise-key-edit
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/peer-ca-edit
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/config-symlink
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/config-mode
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/key-mode
+--- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation (4.55s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/valid-config-edit (0.52s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/invalid-config (0.49s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/noise-key-edit (0.34s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/peer-ca-edit (0.45s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/config-symlink (0.38s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/config-mode (0.50s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/key-mode (1.88s)
+=== RUN   TestPreparedEXParamsDriftRefusedBeforeReplyConsumption
+--- PASS: TestPreparedEXParamsDriftRefusedBeforeReplyConsumption (0.49s)
+=== RUN   TestPreparedValidationDriftRefusedBeforePKIActivation
+--- PASS: TestPreparedValidationDriftRefusedBeforePKIActivation (2.01s)
+PASS
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	23.002s

@@ -1,0 +1,15 @@
+=== RUN   TestPreparedEXParamsDriftRefusedBeforeReplyConsumption
+    config_preparation_test.go:103: changed candidate was accepted
+    config_preparation_test.go:103: refusal changed live artifact: baft.yaml
+    config_preparation_test.go:103: refusal changed live artifact: baft.service
+    config_preparation_test.go:103: refusal changed live artifact: baft.managed.json
+    config_preparation_test.go:103: refusal changed live artifact: generation
+    config_preparation_test.go:103: refusal touched service: daemon-reload
+    config_preparation_test.go:103: refusal touched service: enable baft
+    config_preparation_test.go:103: refusal touched service: restart baft
+    config_preparation_test.go:106: refusal consumed pairing material: pending.json
+    config_preparation_test.go:106: refusal consumed pairing material: psk
+--- FAIL: TestPreparedEXParamsDriftRefusedBeforeReplyConsumption (0.35s)
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/tunnelnode	3.215s
+FAIL

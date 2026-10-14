@@ -1,0 +1,87 @@
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/valid-config-edit
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/invalid-config
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/noise-key-edit
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/peer-ca-edit
+=== RUN   TestPreparedIRConfigDriftRefusedBeforeLiveMutation/config-symlink
+--- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation (1.72s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/valid-config-edit (0.37s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/invalid-config (0.35s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/noise-key-edit (0.30s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/peer-ca-edit (0.35s)
+    --- PASS: TestPreparedIRConfigDriftRefusedBeforeLiveMutation/config-symlink (0.35s)
+=== RUN   TestPreparedEXParamsDriftRefusedBeforeReplyConsumption
+--- PASS: TestPreparedEXParamsDriftRefusedBeforeReplyConsumption (0.34s)
+=== RUN   TestPKIRollbackRestoresPreviousCertificateBeforeRestart
+--- PASS: TestPKIRollbackRestoresPreviousCertificateBeforeRestart (0.55s)
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/missing-backup
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-backup
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-live
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/extra-live-file
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/symlink-backup
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/symlink-live-file
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-live-mode
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-live-owner
+    pki_rollback_test.go:104: environment cannot change uid/gid: chown /tmp/TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState4217981504/001/etc/pki/server.key: invalid argument
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/missing-identity
+--- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState (4.45s)
+    --- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/missing-backup (0.66s)
+    --- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-backup (0.44s)
+    --- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-live (0.43s)
+    --- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/extra-live-file (0.40s)
+    --- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/symlink-backup (0.54s)
+    --- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/symlink-live-file (0.60s)
+    --- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-live-mode (0.43s)
+    --- SKIP: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-live-owner (0.45s)
+    --- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/missing-identity (0.50s)
+=== RUN   TestPKIRollbackRetriesAfterInterruptedExchangeWithoutBackup
+--- PASS: TestPKIRollbackRetriesAfterInterruptedExchangeWithoutBackup (0.44s)
+=== RUN   TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort
+=== RUN   TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort/absent
+=== RUN   TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort/partial
+=== RUN   TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort/generated
+=== RUN   TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort/changed-live
+--- PASS: TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort (0.80s)
+    --- PASS: TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort/absent (0.18s)
+    --- PASS: TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort/partial (0.21s)
+    --- PASS: TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort/generated (0.22s)
+    --- PASS: TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort/changed-live (0.19s)
+=== RUN   TestPKIPrepareRefusesOccupiedBackupPath
+--- PASS: TestPKIPrepareRefusesOccupiedBackupPath (0.18s)
+=== RUN   TestPKIRollbackDoesNotCompleteIfCertificatesChangeDuringRestart
+--- PASS: TestPKIRollbackDoesNotCompleteIfCertificatesChangeDuringRestart (0.43s)
+=== RUN   TestPKIRollbackRetriesAfterRestorationAndRestartFailure
+--- PASS: TestPKIRollbackRetriesAfterRestorationAndRestartFailure (0.47s)
+=== RUN   TestPKIPrepareKeepsActiveMaterial
+--- PASS: TestPKIPrepareKeepsActiveMaterial (0.24s)
+=== RUN   TestPKIExplicitRollbackAfterInterruptedActivation
+=== RUN   TestPKIExplicitRollbackAfterInterruptedActivation/tunnel-commit:after-pki-exchange
+=== RUN   TestPKIExplicitRollbackAfterInterruptedActivation/tunnel-commit:after-pki-activation
+=== RUN   TestPKIExplicitRollbackAfterInterruptedActivation/initial-activation
+--- PASS: TestPKIExplicitRollbackAfterInterruptedActivation (0.78s)
+    --- PASS: TestPKIExplicitRollbackAfterInterruptedActivation/tunnel-commit:after-pki-exchange (0.31s)
+    --- PASS: TestPKIExplicitRollbackAfterInterruptedActivation/tunnel-commit:after-pki-activation (0.39s)
+    --- PASS: TestPKIExplicitRollbackAfterInterruptedActivation/initial-activation (0.08s)
+=== RUN   TestPKIPrepareRejectsInvalidGeneratedCertificateBeforeCutover
+=== RUN   TestPKIPrepareRejectsInvalidGeneratedCertificateBeforeCutover/wrong-host
+=== RUN   TestPKIPrepareRejectsInvalidGeneratedCertificateBeforeCutover/bad-key
+--- PASS: TestPKIPrepareRejectsInvalidGeneratedCertificateBeforeCutover (0.59s)
+    --- PASS: TestPKIPrepareRejectsInvalidGeneratedCertificateBeforeCutover/wrong-host (0.22s)
+    --- PASS: TestPKIPrepareRejectsInvalidGeneratedCertificateBeforeCutover/bad-key (0.36s)
+=== RUN   TestPKIFinalizeRetainsBackupsOnCertificateDrift
+--- PASS: TestPKIFinalizeRetainsBackupsOnCertificateDrift (0.42s)
+=== RUN   TestPKIRollbackRetainsOlderCommittedReceiptContract
+--- PASS: TestPKIRollbackRetainsOlderCommittedReceiptContract (0.39s)
+=== RUN   TestPKIPrepareInitialDoesNotInstallLiveMaterial
+--- PASS: TestPKIPrepareInitialDoesNotInstallLiveMaterial (0.03s)
+=== RUN   TestPKICommitRefusesChangedPreparedOrLiveMaterial
+=== RUN   TestPKICommitRefusesChangedPreparedOrLiveMaterial/candidate
+=== RUN   TestPKICommitRefusesChangedPreparedOrLiveMaterial/live
+=== RUN   TestPKICommitRefusesChangedPreparedOrLiveMaterial/reuse
+--- PASS: TestPKICommitRefusesChangedPreparedOrLiveMaterial (0.72s)
+    --- PASS: TestPKICommitRefusesChangedPreparedOrLiveMaterial/candidate (0.24s)
+    --- PASS: TestPKICommitRefusesChangedPreparedOrLiveMaterial/live (0.25s)
+    --- PASS: TestPKICommitRefusesChangedPreparedOrLiveMaterial/reuse (0.23s)
+PASS
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	17.487s

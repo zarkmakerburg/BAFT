@@ -1,0 +1,14 @@
+=== RUN   TestPreparedValidationDriftRefusedBeforePKIActivation
+    config_validation_drift_test.go:44: changed candidate was accepted
+    config_validation_drift_test.go:44: refusal changed live artifact: baft.yaml
+    config_validation_drift_test.go:44: refusal changed live artifact: baft.service
+    config_validation_drift_test.go:44: refusal changed live artifact: baft.managed.json
+    config_validation_drift_test.go:44: refusal changed live artifact: generation
+    config_validation_drift_test.go:44: refusal touched service: daemon-reload
+    config_validation_drift_test.go:44: refusal touched service: enable baft
+    config_validation_drift_test.go:44: refusal touched service: restart baft
+    config_validation_drift_test.go:44: refusal changed live certificates
+--- FAIL: TestPreparedValidationDriftRefusedBeforePKIActivation (0.36s)
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/tunnelnode	2.851s
+FAIL

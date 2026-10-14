@@ -1,0 +1,14 @@
+go: downloading modernc.org/sqlite v1.60.1
+go: downloading modernc.org/libc v1.77.1
+go: downloading github.com/dustin/go-humanize v1.0.1
+go: downloading github.com/google/uuid v1.6.0
+go: downloading modernc.org/memory v1.12.1
+go: downloading modernc.org/mathutil v1.7.1
+go: downloading github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	141.101s
+--- FAIL: TestTunnelPrepareReturnsTheSecretOnlyAsOutput (0.15s)
+    tunnel_test.go:43: prepared material is missing, unreadable or a symlink
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/agent	163.955s
+ok  	github.com/zarkmakerburg/baft/internal/agentjob	1.364s
+FAIL

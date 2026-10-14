@@ -119,6 +119,10 @@ func TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle(t *testing.T) {
 	deTarget, bgTarget := "127.0.0.1:"+strconv.Itoa(echo(t)), "127.0.0.1:"+strconv.Itoa(echo(t))
 	var checkGermany func(string)
 	build := func(ex, ir *Manager, id, public string, listen int, route, target string, wantFailure bool) {
+		previousPKI, err := snapshotPKI(ex.pkiDir())
+		if err != nil {
+			t.Fatal(err)
+		}
 		check := func(step string) {
 			if checkGermany != nil {
 				checkGermany(id + ": " + step)
@@ -134,6 +138,13 @@ func TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle(t *testing.T) {
 			t.Fatal(err)
 		}
 		check("prepare IR")
+		if len(previousPKI) > 0 {
+			livePKI, err := snapshotPKI(ex.pkiDir())
+			if err != nil || !sameDigests(previousPKI, livePKI) {
+				t.Fatal("preparation changed certificates used by the running tunnel")
+			}
+			through(t, route, "old route during staged preparation: "+id)
+		}
 		if _, err := ex.CommitEX(ctx, id, reply); err != nil {
 			t.Fatal(err)
 		}

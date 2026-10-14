@@ -116,8 +116,13 @@ type Txn struct {
 	// Complete PKI tree identities, including modes and owners, protect both the
 	// previous backup and operator edits. They also identify an already
 	// restored tree when rollback must be retried after a later failure.
-	PreviousPKI          map[string]string   `json:"previous_pki,omitempty"`
-	InstalledPKI         map[string]string   `json:"installed_pki,omitempty"`
+	PreviousPKI  map[string]string `json:"previous_pki,omitempty"`
+	InstalledPKI map[string]string `json:"installed_pki,omitempty"`
+	// PKIHost opts into staged preparation. Empty preserves the rollback
+	// contract for older in-flight transactions; PKIStaged distinguishes a
+	// generated candidate from reuse of an unchanged live certificate tree.
+	PKIHost              string              `json:"pki_host,omitempty"`
+	PKIStaged            bool                `json:"pki_staged,omitempty"`
 	VerificationRequired bool                `json:"verification_required,omitempty"`
 	ReadyProof           *verification.Proof `json:"ready_proof,omitempty"`
 
@@ -377,7 +382,7 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 		}
 		identity := "urn:baft:node:ex-" + randomHex(6)
 		args := []string{"ex-code", "--key", m.noiseKey(), "--address", net.JoinHostPort(p.PublicAddress, strconv.Itoa(p.Port)),
-			"--server-name", p.PublicAddress, "--identity", identity, "--ca-file", filepath.Join(m.pkiDir(), "ca.pem"),
+			"--server-name", p.PublicAddress, "--identity", identity, "--ca-file", filepath.Join(m.preparedPKIDir(t), "ca.pem"),
 			"--psk-out", filepath.Join(m.stage(id), "psk"), "--pending-out", filepath.Join(m.stage(id), "pending.json"),
 			"--ttl", "15m"}
 		if p.RecordShaping {
@@ -459,6 +464,12 @@ func (m *Manager) CommitEX(ctx context.Context, id, reply string) (string, error
 	if err := readJSON(filepath.Join(m.stage(id), "ex-params.json"), &p); err != nil {
 		return "", fmt.Errorf("prepare state missing: %w", err)
 	}
+	if t.PKIHost != "" && t.PKIHost != p.PublicAddress {
+		return "", errors.New("prepare state does not match the certificate host")
+	}
+	if err := m.verifyPreparedPKI(t); err != nil {
+		return "", err
+	}
 	stage := m.stage(id)
 	out, err := m.System.Run(ctx, m.PairBin, "ex-accept", "--reply", reply, "--pending", filepath.Join(stage, "pending.json"),
 		"--psk-file", filepath.Join(stage, "psk"), "--key", m.noiseKey(), "--listen", "0.0.0.0:"+strconv.Itoa(p.Port),
@@ -530,6 +541,15 @@ func (m *Manager) install(ctx context.Context, t Txn, port int) (string, error) 
 	want := m.ManagedUnit(port, t.ID, t.Generation)
 	t.InstalledUnitSHA = shaHex([]byte(want))
 	t.InstalledConfigSHA = shaHex(staged2)
+	// All preparation and certificate checks finish before any live file is
+	// changed. The persisted prepared receipt already identifies both trees,
+	// including the exchange window, for an explicit rollback after failure.
+	if err := m.writeTxn(t); err != nil {
+		return "", err
+	}
+	if err := m.activatePreparedPKI(t); err != nil {
+		return "", err
+	}
 	t.Phase = PhaseCommitted
 	t.ConfigWritten = true
 	t.UnitChanged = true
@@ -655,6 +675,9 @@ func (m *Manager) Finalize(ctx context.Context, id string) (string, error) {
 	}
 	if t.Phase != PhaseCommitted {
 		return "", fmt.Errorf("tunnel change %s is %s, not committed", id, t.Phase)
+	}
+	if err := m.verifyPKIFinalization(t); err != nil {
+		return "", err
 	}
 	t.Phase = PhaseFinalized
 	if err := m.writeTxn(t); err != nil {
@@ -906,8 +929,8 @@ func (m *Manager) ensureNoiseKey(ctx context.Context) error {
 	return m.chownTo(m.noiseKey(), m.User, m.User)
 }
 
-// ensurePKI creates the EX's outer TLS material for host, replacing (and
-// keeping aside for rollback) material made for another name.
+// ensurePKI creates and verifies the EX's outer TLS material in an independent
+// candidate directory. Preparation never moves or changes the live tree.
 func (m *Manager) ensurePKI(ctx context.Context, t *Txn, host string) (err error) {
 	previous, err := snapshotPKI(m.pkiDir())
 	if err != nil {
@@ -915,47 +938,50 @@ func (m *Manager) ensurePKI(ctx context.Context, t *Txn, host string) (err error
 	}
 	marker := filepath.Join(m.pkiDir(), "host")
 	if b, err := os.ReadFile(marker); err == nil && strings.TrimSpace(string(b)) == host {
-		return nil
-	}
-	if len(previous) > 0 {
-		before := m.pkiDir() + ".before-" + t.ID
-		if _, err := os.Lstat(before); !errors.Is(err, os.ErrNotExist) {
-			return errors.New("PKI backup path is already occupied or unreadable")
-		}
-		t.PKIReplaced, t.PreviousPKI = true, previous
-		// Persist the old identity before moving its directory. A failed
-		// replacement can then be refused or retried using durable evidence.
-		if err := m.writeTxn(*t); err != nil {
+		if err := m.validatePreparedCertificate(m.pkiDir(), host); err != nil {
 			return err
 		}
-		defer func() {
-			current, snapshotErr := snapshotPKI(m.pkiDir())
-			if snapshotErr != nil {
-				err = errors.Join(err, fmt.Errorf("cannot record installed PKI: %w", snapshotErr))
-				return
-			}
-			t.InstalledPKI = current
-			err = errors.Join(err, m.writeTxn(*t))
-		}()
-		if err := renameDurable(m.pkiDir(), before); err != nil {
-			return err
+		t.PKIHost, t.PreviousPKI, t.InstalledPKI = host, previous, previous
+		return m.writeTxn(*t)
+	}
+	next := m.pkiNext(t.ID)
+	for _, path := range []string{next, m.pkiDir() + ".before-" + t.ID} {
+		if _, err := os.Lstat(path); !errors.Is(err, os.ErrNotExist) {
+			return errors.New("PKI candidate or backup path is already occupied or unreadable")
 		}
 	}
+	t.PKIHost, t.PKIStaged, t.PKIReplaced, t.PreviousPKI = host, true, len(previous) > 0, previous
+	if err := m.writeTxn(*t); err != nil {
+		return err
+	}
+	defer func() {
+		current, snapshotErr := snapshotPKI(next)
+		if snapshotErr != nil {
+			err = errors.Join(err, fmt.Errorf("cannot record prepared PKI: %w", snapshotErr))
+			return
+		}
+		t.InstalledPKI = current
+		err = errors.Join(err, m.writeTxn(*t))
+	}()
 	if err := os.MkdirAll(m.ConfigDir, 0o750); err != nil {
 		return err
 	}
-	if out, err := m.System.Run(ctx, m.PairBin, "pki", "--dir", m.pkiDir(), "--host", host); err != nil {
+	if out, err := m.System.Run(ctx, m.PairBin, "pki", "--dir", next, "--host", host); err != nil {
 		return fmt.Errorf("baft-pair pki: %v: %s", err, tailOf(out))
 	}
-	if err := writeFile(marker, []byte(host+"\n"), 0o644); err != nil {
+	// Refuse symlinks/special files before chmod/chown or certificate reads.
+	if _, err := snapshotPKI(next); err != nil {
+		return err
+	}
+	if err := writeFile(filepath.Join(next, "host"), []byte(host+"\n"), 0o644); err != nil {
 		return err
 	}
 	// Same modes/ownership as install.sh, but verified and synced before the
 	// PKI tree can become live.
-	if err := m.securePKI(m.pkiDir()); err != nil {
+	if err := m.securePKI(next); err != nil {
 		return err
 	}
-	return nil
+	return m.validatePreparedCertificate(next, host)
 }
 
 // writeConfig installs b as the live config, root-owned and group-readable

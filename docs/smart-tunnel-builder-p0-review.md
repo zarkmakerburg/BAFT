@@ -128,10 +128,10 @@ mapped uid/gid. It skips in this container (chown returns EINVAL) and on
 unprivileged runners. That case is not counted as live ownership acceptance;
 the failed environment attempt is retained alongside the guarded retry.
 
-This does not add automatic recovery after process restart, a general deployment
-payload gate, a host-wide lock, or a staged certificate cutover. The existing EX
-prepare path still replaces disk material before commit; fully staging that
-material and proving coordinated cutover remains a separate P0 design task.
+That rollback slice did not add automatic recovery after process restart, a
+general deployment payload gate, a host-wide lock, or staged certificate cutover.
+The later sections describe the data gate and staged PKI follow-ups; coordinated
+pre-cutover payload verification remains open.
 
 ## Fresh instance evidence and data-gated finalization follow-up
 
@@ -181,8 +181,8 @@ This proves bounded recent bidirectional DATA delivery through the sole
 configured/authenticated route. It does not prove application semantics, one
 specific challenge flow, future availability, zero downtime, a measured browser
 fingerprint, or field resistance to blocking. Verification happens AFTER commit
-but BEFORE destructive backup release. Fully staged pre-cutover payload/PKI
-verification remains open. Direct/manual legacy Manager transactions keep their
+but BEFORE destructive backup release. Pre-cutover payload verification remains
+open; PKI artifact staging is described below. Direct/manual legacy Manager transactions keep their
 older contract unless explicitly opted in; BCC-created transactions opt in.
 
 Unit fixtures model BCC signing/lifecycle and Agent adapters; their synthetic
@@ -190,6 +190,65 @@ proof counters are not field evidence. The separate two-real-process fixture
 checks actual echo bytes, idle rejection and fresh proofs before both seals.
 Local service control remains simulated. Final exact-head evidence is linked
 from PR #200 and HQ #67, including failed development attempts.
+
+## Staged PKI preparation follow-up
+
+Baseline: PR #200 at `d8bb3b69decfba2ba57430bcfe61eab64a6ba3cc`.
+Two focused regressions failed on that baseline: changed-host preparation
+replaced the live certificate tree, and initial preparation installed live
+material before commit.
+
+EX preparation now generates a candidate in the same instance's `pki.next-ID`
+directory. It leaves live certificates, config, service, generation, unit and
+marker unchanged. The pairing code uses the candidate CA. Preparation verifies
+the CA, hostname, validity window and both certificate/private-key pairs, applies
+the existing protected modes/ownership and records the complete tree identity.
+Unchanged-host reuse records and rechecks the live identity without rewriting it.
+
+Commit rechecks both previous and candidate identities before accepting the
+reply and before changing live artifacts. Its final staged config already uses
+the permanent PKI paths; config syntax and certificate material are checked
+separately. Existing PKI is exchanged atomically with the candidate on Linux,
+then retained at `pki.before-ID`. First installation renames the candidate into
+the previously absent live path. Explicit rollback recognizes either location
+of the previous tree if interruption occurred between exchange and rename.
+Cancellation never restarts the service and removes only recorded generated
+material. Unknown manual edits, missing backups and invalid certificates are
+refused while retaining the active claim. Finalization checks the installed PKI
+identity before deleting rollback material.
+
+Tests cover initial/changed-host prepare and cancellation, candidate/live/reuse
+drift, invalid generated hostname/key, interrupted first activation and both
+exchange windows, rollback after restart failure, and finalization after PKI
+drift. The real-process sibling fixture also sends an echo payload through the
+previous Bulgaria route while its replacement is still prepared. This checks
+the old route's continued usability; it is not a payload test of the candidate.
+
+The change is PKI artifact staging, not full coordinated pre-cutover handshake
+and application verification. Candidate config generation still completes in
+CommitEX after the IR reply; payload evidence still comes after commit. This
+does not promise zero downtime, introduce a host-wide reservation or enable
+automatic process-restart recovery. Older in-flight transactions retain their
+previous PKI rollback contract when the new preparation fields are absent.
+
+## iMonitor ideas integrated into the existing roadmap
+
+The current `imonitor-for-baft-analysis-20261014.md` report was read. It reviewed
+iMonitor at `5f39fe2c9da144dc83e5c5bb666665836fbcc4e6` and distinguishes design
+ideas from runtime acceptance. No iMonitor source is copied into this slice.
+
+| Useful idea | BAFT execution path and evidence limit |
+| --- | --- |
+| Separate connectivity from delivered data | Doctor v2 and the scoped two-node delivery gate above; unknown remains unassessed |
+| Real interface/address/route/socket inventory | Next P0: read-only host preflight on BOTH agents, ownership and IPv4/IPv6 conflict checks; inventory alone is not reservation |
+| Bounded authenticated upload/download | Reuse path-probe and selected-instance evidence; volume, duration, concurrency, cancellation and receiver-confirmed bytes must be bounded |
+| Persian step-by-step guidance | Extend the current builder and SSH enrollment rather than introducing a second panel |
+| Explain encryption and profiles | Describe verified inner/outer encryption and supported tunables; no unmeasured browser or blocking claim |
+| Layered resources/history and ownership | Keep host, agent, service and tunnel observations separate, preserve gaps and sibling resources; monitoring-only edits must not restart a tunnel |
+
+The report's current-license conflict, insecure SSH host-key examples,
+overbroad blocked-region classification and unverified notification delivery are
+not adopted. Existing #145/#146/#147, #74 and #197 remain the integration points.
 
 ## Two-live-instance laboratory regression
 
@@ -243,11 +302,11 @@ is recorded in the PR and #67, including failed/repeated/race attempts.
    error aggregation still need broader injected-fault coverage.
 8. **Live acceptance:** the container fixture is not a two-VPS systemd/agent/BCC
    rollout. That gate needs a separately authorized isolated live laboratory.
-9. **PKI cutover:** rollback ordering and backup/live identity now have
-   changed-host/fault regressions in the follow-up slice. The prepare path still
-   replaces existing live disk PKI before activation; fully staged, coordinated
-   cutover and served-certificate/payload evidence are still required. Identity
-   checks do not prove an atomic host-wide reservation against concurrent writers.
+9. **PKI cutover:** preparation now stages and validates candidate PKI without
+   changing live material; explicit interruption/cancellation regressions and
+   previous-route payload evidence are recorded above. Coordinated candidate
+   handshake/payload before cutover and broader install/cleanup faults remain
+   open. Identity checks do not prove a host-wide reservation against concurrent writers.
 
 ## P1 and P2 implementation map
 

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -44,7 +45,7 @@ func (f *fakeSystem) Systemctl(_ context.Context, args ...string) (string, error
 	return "", nil
 }
 
-func (f *fakeSystem) Run(_ context.Context, name string, args ...string) (string, error) {
+func (f *fakeSystem) Run(ctx context.Context, name string, args ...string) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls = append(f.calls, filepath.Base(name)+" "+strings.Join(args, " "))
@@ -68,17 +69,11 @@ func (f *fakeSystem) Run(_ context.Context, name string, args ...string) (string
 				}
 			}
 		case "pki":
-			if dir := arg("--dir"); dir != "" {
-				if err := os.MkdirAll(dir, 0o750); err != nil {
-					return "", err
-				}
-				for file, mode := range map[string]os.FileMode{
-					"ca.key": 0o600, "server.key": 0o600, "ca.pem": 0o644, "server.pem": 0o644,
-				} {
-					if err := os.WriteFile(filepath.Join(dir, file), []byte("fake-"+file), mode); err != nil {
-						return "", err
-					}
-				}
+			// Tunnel preparation now validates actual certificate/key material.
+			// Reuse TestMain's real pair binary instead of non-PEM placeholders;
+			// service control and the one-time output remain fixture-only.
+			if out, err := exec.CommandContext(ctx, flowPair, args...).CombinedOutput(); err != nil {
+				return string(out), err
 			}
 		}
 	}

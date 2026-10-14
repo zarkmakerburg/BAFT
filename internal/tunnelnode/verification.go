@@ -204,6 +204,9 @@ func (m *Manager) finalizeVerified(t Txn) (string, error) {
 	if err := m.verifySealedArtifacts(t); err != nil {
 		return "", err
 	}
+	if err := m.verifyPKIFinalization(t); err != nil {
+		return "", err
+	}
 	if t.PKIReplaced {
 		backup, err := snapshotPKI(m.pkiDir() + ".before-" + t.ID)
 		if err != nil {

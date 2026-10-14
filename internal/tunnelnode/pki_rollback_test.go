@@ -179,20 +179,26 @@ func (s *pkiPrepareFailureSystem) Run(ctx context.Context, name string, args ...
 	if len(args) == 0 || args[0] != "pki" {
 		return s.System.Run(ctx, name, args...)
 	}
+	dir := s.dir
+	for i := 0; i+1 < len(args); i++ {
+		if args[i] == "--dir" {
+			dir = args[i+1]
+		}
+	}
 	switch s.mode {
 	case "partial":
-		if err := os.Mkdir(s.dir, 0750); err != nil {
+		if err := os.Mkdir(dir, 0750); err != nil {
 			return "", err
 		}
-		if err := os.WriteFile(filepath.Join(s.dir, "server.key"), []byte("partial generated fixture"), 0600); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, "server.key"), []byte("partial generated fixture"), 0600); err != nil {
 			return "", err
 		}
-	case "generated", "lost-backup":
+	case "generated", "changed-live":
 		if out, err := s.System.Run(ctx, name, args...); err != nil {
 			return out, err
 		}
-		if s.mode == "lost-backup" {
-			if err := os.RemoveAll(s.dir + ".before-prepare-fail"); err != nil {
+		if s.mode == "changed-live" {
+			if err := os.WriteFile(filepath.Join(s.dir, "host"), []byte("operator edit"), 0644); err != nil {
 				return "", err
 			}
 		}
@@ -201,7 +207,7 @@ func (s *pkiPrepareFailureSystem) Run(ctx context.Context, name string, args ...
 }
 
 func TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort(t *testing.T) {
-	for _, mode := range []string{"absent", "partial", "generated", "lost-backup"} {
+	for _, mode := range []string{"absent", "partial", "generated", "changed-live"} {
 		t.Run(mode, func(t *testing.T) {
 			p := newPair(t)
 			p.build(t, "old-host")
@@ -217,7 +223,7 @@ func TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort(t *testing
 			if err == nil || !strings.Contains(err.Error(), "injected PKI generation failure") {
 				t.Fatalf("prepare failure hidden: %v", err)
 			}
-			if mode == "lost-backup" {
+			if mode == "changed-live" {
 				if !strings.Contains(err.Error(), "rollback incomplete") || p.ex.activeID() != "prepare-fail" {
 					t.Fatal("failed abort hidden or its ownership released")
 				}

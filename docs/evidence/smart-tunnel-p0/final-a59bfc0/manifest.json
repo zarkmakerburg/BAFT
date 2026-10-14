@@ -12,7 +12,12 @@
   "11-exact-environment.log": "74fd767e839a39f5c943b7d3e9f22887a786c51901fd1af00bf5036e353155d3",
   "12-exact-policy.log": "9535551181d20402fde5b2ee52e2c08a58f250b5966c33eb34e0553c99b992d7",
   "13-fixed-bound-receipt.log": "668113b15037ee5ceaffc69e18286767b9fdfe6f5a4bc780c5081d6210879d18",
-  "14-attempt-ledger.md": "283b1a70ae67aec104fa84dacba6738de24a31add0db7c474865caf758924b28",
+  "14-attempt-ledger.md": "e7c5b7b2d82c3adacb4da9734f940e7038dab632b637d33522542380773dcfaa",
   "15-systemd.log": "8778e94827c6391ba93d34b0094085c9ee92657b4467f2504f274eb200eb89f8",
-  "README.md": "c9f29fafdc68dcd42f1d2171d7494d361d50d340040b38dbd507dec0cd3b5a0e"
+  "16-native-service-access.log": "1ce2e778f22f02a4d3eb6479e91ce494c41ecde3ce334a6f45fbbcd79e81640e",
+  "17-native-resources.log": "9745dce837b07587f41c8a1c63e6dca22caf54a045da0dfcb6d8c00e53f00f83",
+  "18-ci-complete.json": "08991ce074745f9762812601a80df07112f076c1b1ee38149fad05f488efed68",
+  "19-r3-complete.log": "b6363cbbbd64ef94800230f5c24b90fb34d74364ed38d262956caeb05da41d3d",
+  "20-publication-audit.md": "ad31892d80ac664ab26a80031ebd76b0c864c119bdc5969787e9502dd35b28c6",
+  "README.md": "f0e37dfbe50a27e0d62a1007e8c792dd194e5d5f3f32dd6d1a323b54929f6ec4"
 }

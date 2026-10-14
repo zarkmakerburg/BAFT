@@ -1,0 +1,185 @@
+
+2026-10-14T16:53:25.7989680Z ##[group]Run go test ./internal/tunnelnode -run '^(TestResource|TestProcTCP|TestPassiveInventory|TestTwoLiveInstances)' -count=3 -timeout=5m -v
+2026-10-14T16:53:25.7990635Z [36;1mgo test ./internal/tunnelnode -run '^(TestResource|TestProcTCP|TestPassiveInventory|TestTwoLiveInstances)' -count=3 -timeout=5m -v[0m
+2026-10-14T16:53:25.8030733Z shell: /usr/bin/bash -e {0}
+2026-10-14T16:53:25.8030998Z env:
+2026-10-14T16:53:25.8031475Z   GOTOOLCHAIN: local
+2026-10-14T16:53:25.8031710Z   BAFT_REQUIRE_RESOURCE_EVIDENCE: 1
+2026-10-14T16:53:25.8031964Z ##[endgroup]
+2026-10-14T16:53:26.8859406Z === RUN   TestResourceInstallerStandaloneUnitIsNotAdoptedByCandidate
+2026-10-14T16:53:26.8984040Z --- PASS: TestResourceInstallerStandaloneUnitIsNotAdoptedByCandidate (0.01s)
+2026-10-14T16:53:26.8984822Z === RUN   TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle
+2026-10-14T16:53:32.9924329Z     multi_instance_proc_test.go:291: Germany: same TCP flow, same IR PID/generation and unchanged config/unit/marker/keys across Bulgaria creation, address/port edit with PKI replacement, rollback, injected failure and retirement
+2026-10-14T16:53:32.9926238Z     multi_instance_proc_test.go:292: EX config staged and IR candidate/resource report validated before either commit; prior Bulgaria route continues through preparation. Candidate handshake/payload is exercised after commit, not claimed before cutover.
+2026-10-14T16:53:33.0025044Z --- PASS: TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle (6.10s)
+2026-10-14T16:53:33.0025961Z === RUN   TestResourceGateRefusesActualOccupiedBindBeforeMutation
+2026-10-14T16:53:33.0064782Z --- PASS: TestResourceGateRefusesActualOccupiedBindBeforeMutation (0.00s)
+2026-10-14T16:53:33.0065431Z === RUN   TestResourcePreflightUnknownInventoryRetainsUntouchedNode
+2026-10-14T16:53:33.0065927Z === RUN   TestResourcePreflightUnknownInventoryRetainsUntouchedNode/error
+2026-10-14T16:53:33.0066713Z === RUN   TestResourcePreflightUnknownInventoryRetainsUntouchedNode/malformed
+2026-10-14T16:53:33.0068659Z === RUN   TestResourcePreflightUnknownInventoryRetainsUntouchedNode/unbounded
+2026-10-14T16:53:33.0070635Z === RUN   TestResourcePreflightUnknownInventoryRetainsUntouchedNode/self-collision
+2026-10-14T16:53:33.0072403Z === RUN   TestResourcePreflightUnknownInventoryRetainsUntouchedNode/cancelled
+2026-10-14T16:53:33.0074172Z --- PASS: TestResourcePreflightUnknownInventoryRetainsUntouchedNode (0.00s)
+2026-10-14T16:53:33.0075134Z     --- PASS: TestResourcePreflightUnknownInventoryRetainsUntouchedNode/error (0.00s)
+2026-10-14T16:53:33.0075810Z     --- PASS: TestResourcePreflightUnknownInventoryRetainsUntouchedNode/malformed (0.00s)
+2026-10-14T16:53:33.0076481Z     --- PASS: TestResourcePreflightUnknownInventoryRetainsUntouchedNode/unbounded (0.00s)
+2026-10-14T16:53:33.0077176Z     --- PASS: TestResourcePreflightUnknownInventoryRetainsUntouchedNode/self-collision (0.00s)
+2026-10-14T16:53:33.0078074Z     --- PASS: TestResourcePreflightUnknownInventoryRetainsUntouchedNode/cancelled (0.00s)
+2026-10-14T16:53:33.0078847Z === RUN   TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces
+2026-10-14T16:53:33.0079557Z === RUN   TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/unmanaged-unit
+2026-10-14T16:53:33.0091323Z === RUN   TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/unmanaged-config
+2026-10-14T16:53:33.0102296Z === RUN   TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/symlink-config-parent
+2026-10-14T16:53:33.0104260Z === RUN   TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/corrupt-active
+2026-10-14T16:53:33.0115588Z === RUN   TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/missing-active-transaction
+2026-10-14T16:53:33.0126191Z === RUN   TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/unknown-admin-file
+2026-10-14T16:53:33.0138684Z --- PASS: TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces (0.01s)
+2026-10-14T16:53:33.0139786Z     --- PASS: TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/unmanaged-unit (0.00s)
+2026-10-14T16:53:33.0140923Z     --- PASS: TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/unmanaged-config (0.00s)
+2026-10-14T16:53:33.0143234Z     --- PASS: TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/symlink-config-parent (0.00s)
+2026-10-14T16:53:33.0144054Z     --- PASS: TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/corrupt-active (0.00s)
+2026-10-14T16:53:33.0144893Z     --- PASS: TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/missing-active-transaction (0.00s)
+2026-10-14T16:53:33.0145757Z     --- PASS: TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/unknown-admin-file (0.00s)
+2026-10-14T16:53:33.0146430Z === RUN   TestResourcePreflightRechecksPortBeforeCommitAndAllowsRetry
+2026-10-14T16:53:33.1308893Z --- PASS: TestResourcePreflightRechecksPortBeforeCommitAndAllowsRetry (0.12s)
+2026-10-14T16:53:33.1309931Z === RUN   TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof
+2026-10-14T16:53:33.1311192Z === RUN   TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/owned
+2026-10-14T16:53:33.2964073Z === RUN   TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/unknown-pid
+2026-10-14T16:53:33.4482036Z === RUN   TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/changed-unit
+2026-10-14T16:53:33.5978225Z === RUN   TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/changed-marker
+2026-10-14T16:53:33.7456955Z --- PASS: TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof (0.61s)
+2026-10-14T16:53:33.7457805Z     --- PASS: TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/owned (0.17s)
+2026-10-14T16:53:33.7458949Z     --- PASS: TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/unknown-pid (0.15s)
+2026-10-14T16:53:33.7460051Z     --- PASS: TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/changed-unit (0.15s)
+2026-10-14T16:53:33.7461498Z     --- PASS: TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/changed-marker (0.15s)
+2026-10-14T16:53:33.7462473Z === RUN   TestResourcePreflightDoesNotUnlinkAnUnrelatedUnixSocket
+2026-10-14T16:53:33.7462978Z --- PASS: TestResourcePreflightDoesNotUnlinkAnUnrelatedUnixSocket (0.00s)
+2026-10-14T16:53:33.7463428Z === RUN   TestProcTCPParsingDoesNotInferUnknownAsFree
+2026-10-14T16:53:33.7463829Z --- PASS: TestProcTCPParsingDoesNotInferUnknownAsFree (0.00s)
+2026-10-14T16:53:33.7464230Z === RUN   TestPassiveInventoryFindsLiveSocketAndExactOwner
+2026-10-14T16:53:33.7503978Z --- PASS: TestPassiveInventoryFindsLiveSocketAndExactOwner (0.00s)
+2026-10-14T16:53:33.7504822Z === RUN   TestResourceBindOverlapHandlesWildcardAndAddressFamilies
+2026-10-14T16:53:33.7505972Z --- PASS: TestResourceBindOverlapHandlesWildcardAndAddressFamilies (0.00s)
+2026-10-14T16:53:33.7506777Z === RUN   TestResourceUnixListenerDoesNotConfuseAcceptedClientsWithBindOwner
+2026-10-14T16:53:33.7507503Z --- PASS: TestResourceUnixListenerDoesNotConfuseAcceptedClientsWithBindOwner (0.00s)
+2026-10-14T16:53:33.7508171Z === RUN   TestResourceUnixListenerEvidenceWithActiveManagementClient
+2026-10-14T16:53:33.7510632Z --- PASS: TestResourceUnixListenerEvidenceWithActiveManagementClient (0.00s)
+2026-10-14T16:53:33.7511991Z === RUN   TestResourceInstallerStandaloneUnitIsNotAdoptedByCandidate
+2026-10-14T16:53:33.7534633Z --- PASS: TestResourceInstallerStandaloneUnitIsNotAdoptedByCandidate (0.00s)
+2026-10-14T16:53:33.7535509Z === RUN   TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle
+2026-10-14T16:53:39.8622446Z     multi_instance_proc_test.go:291: Germany: same TCP flow, same IR PID/generation and unchanged config/unit/marker/keys across Bulgaria creation, address/port edit with PKI replacement, rollback, injected failure and retirement
+2026-10-14T16:53:39.8624424Z     multi_instance_proc_test.go:292: EX config staged and IR candidate/resource report validated before either commit; prior Bulgaria route continues through preparation. Candidate handshake/payload is exercised after commit, not claimed before cutover.
+2026-10-14T16:53:39.8732825Z --- PASS: TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle (6.12s)
+2026-10-14T16:53:39.8733713Z === RUN   TestResourceGateRefusesActualOccupiedBindBeforeMutation
+2026-10-14T16:53:39.8770948Z --- PASS: TestResourceGateRefusesActualOccupiedBindBeforeMutation (0.00s)
+2026-10-14T16:53:39.8772460Z === RUN   TestResourcePreflightUnknownInventoryRetainsUntouchedNode
+2026-10-14T16:53:39.8773426Z === RUN   TestResourcePreflightUnknownInventoryRetainsUntouchedNode/error
+2026-10-14T16:53:39.8778182Z === RUN   TestResourcePreflightUnknownInventoryRetainsUntouchedNode/malformed
+2026-10-14T16:53:39.8781601Z === RUN   TestResourcePreflightUnknownInventoryRetainsUntouchedNode/unbounded
+2026-10-14T16:53:39.8783179Z === RUN   TestResourcePreflightUnknownInventoryRetainsUntouchedNode/self-collision
+2026-10-14T16:53:39.8785160Z === RUN   TestResourcePreflightUnknownInventoryRetainsUntouchedNode/cancelled
+2026-10-14T16:53:39.8786392Z --- PASS: TestResourcePreflightUnknownInventoryRetainsUntouchedNode (0.00s)
+2026-10-14T16:53:39.8787423Z     --- PASS: TestResourcePreflightUnknownInventoryRetainsUntouchedNode/error (0.00s)
+2026-10-14T16:53:39.8788252Z     --- PASS: TestResourcePreflightUnknownInventoryRetainsUntouchedNode/malformed (0.00s)
+2026-10-14T16:53:39.8788932Z     --- PASS: TestResourcePreflightUnknownInventoryRetainsUntouchedNode/unbounded (0.00s)
+2026-10-14T16:53:39.8789632Z     --- PASS: TestResourcePreflightUnknownInventoryRetainsUntouchedNode/self-collision (0.00s)
+2026-10-14T16:53:39.8790658Z     --- PASS: TestResourcePreflightUnknownInventoryRetainsUntouchedNode/cancelled (0.00s)
+2026-10-14T16:53:39.8791441Z === RUN   TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces
+2026-10-14T16:53:39.8791997Z === RUN   TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/unmanaged-unit
+2026-10-14T16:53:39.8803752Z === RUN   TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/unmanaged-config
+2026-10-14T16:53:39.8817685Z === RUN   TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/symlink-config-parent
+2026-10-14T16:53:39.8819812Z === RUN   TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/corrupt-active
+2026-10-14T16:53:39.8836129Z === RUN   TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/missing-active-transaction
+2026-10-14T16:53:39.8848831Z === RUN   TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/unknown-admin-file
+2026-10-14T16:53:39.8859742Z --- PASS: TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces (0.01s)
+2026-10-14T16:53:39.8860841Z     --- PASS: TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/unmanaged-unit (0.00s)
+2026-10-14T16:53:39.8862102Z     --- PASS: TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/unmanaged-config (0.00s)
+2026-10-14T16:53:39.8863013Z     --- PASS: TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/symlink-config-parent (0.00s)
+2026-10-14T16:53:39.8863768Z     --- PASS: TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/corrupt-active (0.00s)
+2026-10-14T16:53:39.8864561Z     --- PASS: TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/missing-active-transaction (0.00s)
+2026-10-14T16:53:39.8865335Z     --- PASS: TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/unknown-admin-file (0.00s)
+2026-10-14T16:53:39.8865923Z === RUN   TestResourcePreflightRechecksPortBeforeCommitAndAllowsRetry
+2026-10-14T16:53:40.0020527Z --- PASS: TestResourcePreflightRechecksPortBeforeCommitAndAllowsRetry (0.12s)
+2026-10-14T16:53:40.0021509Z === RUN   TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof
+2026-10-14T16:53:40.0022154Z === RUN   TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/owned
+2026-10-14T16:53:40.1653032Z === RUN   TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/unknown-pid
+2026-10-14T16:53:40.3181792Z === RUN   TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/changed-unit
+2026-10-14T16:53:40.4631492Z === RUN   TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/changed-marker
+2026-10-14T16:53:40.6095978Z --- PASS: TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof (0.61s)
+2026-10-14T16:53:40.6097305Z     --- PASS: TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/owned (0.16s)
+2026-10-14T16:53:40.6098399Z     --- PASS: TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/unknown-pid (0.15s)
+2026-10-14T16:53:40.6099240Z     --- PASS: TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/changed-unit (0.14s)
+2026-10-14T16:53:40.6099957Z     --- PASS: TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/changed-marker (0.15s)
+2026-10-14T16:53:40.6100527Z === RUN   TestResourcePreflightDoesNotUnlinkAnUnrelatedUnixSocket
+2026-10-14T16:53:40.6101224Z --- PASS: TestResourcePreflightDoesNotUnlinkAnUnrelatedUnixSocket (0.00s)
+2026-10-14T16:53:40.6101834Z === RUN   TestProcTCPParsingDoesNotInferUnknownAsFree
+2026-10-14T16:53:40.6102245Z --- PASS: TestProcTCPParsingDoesNotInferUnknownAsFree (0.00s)
+2026-10-14T16:53:40.6102653Z === RUN   TestPassiveInventoryFindsLiveSocketAndExactOwner
+2026-10-14T16:53:40.6132714Z --- PASS: TestPassiveInventoryFindsLiveSocketAndExactOwner (0.00s)
+2026-10-14T16:53:40.6133623Z === RUN   TestResourceBindOverlapHandlesWildcardAndAddressFamilies
+2026-10-14T16:53:40.6134663Z --- PASS: TestResourceBindOverlapHandlesWildcardAndAddressFamilies (0.00s)
+2026-10-14T16:53:40.6135402Z === RUN   TestResourceUnixListenerDoesNotConfuseAcceptedClientsWithBindOwner
+2026-10-14T16:53:40.6136009Z --- PASS: TestResourceUnixListenerDoesNotConfuseAcceptedClientsWithBindOwner (0.00s)
+2026-10-14T16:53:40.6136579Z === RUN   TestResourceUnixListenerEvidenceWithActiveManagementClient
+2026-10-14T16:53:40.6139825Z --- PASS: TestResourceUnixListenerEvidenceWithActiveManagementClient (0.00s)
+2026-10-14T16:53:40.6140670Z === RUN   TestResourceInstallerStandaloneUnitIsNotAdoptedByCandidate
+2026-10-14T16:53:40.6166529Z --- PASS: TestResourceInstallerStandaloneUnitIsNotAdoptedByCandidate (0.00s)
+2026-10-14T16:53:40.6167387Z === RUN   TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle
+2026-10-14T16:53:46.7037673Z     multi_instance_proc_test.go:291: Germany: same TCP flow, same IR PID/generation and unchanged config/unit/marker/keys across Bulgaria creation, address/port edit with PKI replacement, rollback, injected failure and retirement
+2026-10-14T16:53:46.7044600Z     multi_instance_proc_test.go:292: EX config staged and IR candidate/resource report validated before either commit; prior Bulgaria route continues through preparation. Candidate handshake/payload is exercised after commit, not claimed before cutover.
+2026-10-14T16:53:46.7142165Z --- PASS: TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle (6.10s)
+2026-10-14T16:53:46.7143094Z === RUN   TestResourceGateRefusesActualOccupiedBindBeforeMutation
+2026-10-14T16:53:46.7177454Z --- PASS: TestResourceGateRefusesActualOccupiedBindBeforeMutation (0.00s)
+2026-10-14T16:53:46.7178094Z === RUN   TestResourcePreflightUnknownInventoryRetainsUntouchedNode
+2026-10-14T16:53:46.7178645Z === RUN   TestResourcePreflightUnknownInventoryRetainsUntouchedNode/error
+2026-10-14T16:53:46.7179670Z === RUN   TestResourcePreflightUnknownInventoryRetainsUntouchedNode/malformed
+2026-10-14T16:53:46.7181708Z === RUN   TestResourcePreflightUnknownInventoryRetainsUntouchedNode/unbounded
+2026-10-14T16:53:46.7183732Z === RUN   TestResourcePreflightUnknownInventoryRetainsUntouchedNode/self-collision
+2026-10-14T16:53:46.7185908Z === RUN   TestResourcePreflightUnknownInventoryRetainsUntouchedNode/cancelled
+2026-10-14T16:53:46.7187176Z --- PASS: TestResourcePreflightUnknownInventoryRetainsUntouchedNode (0.00s)
+2026-10-14T16:53:46.7188233Z     --- PASS: TestResourcePreflightUnknownInventoryRetainsUntouchedNode/error (0.00s)
+2026-10-14T16:53:46.7188954Z     --- PASS: TestResourcePreflightUnknownInventoryRetainsUntouchedNode/malformed (0.00s)
+2026-10-14T16:53:46.7189651Z     --- PASS: TestResourcePreflightUnknownInventoryRetainsUntouchedNode/unbounded (0.00s)
+2026-10-14T16:53:46.7190390Z     --- PASS: TestResourcePreflightUnknownInventoryRetainsUntouchedNode/self-collision (0.00s)
+2026-10-14T16:53:46.7191653Z     --- PASS: TestResourcePreflightUnknownInventoryRetainsUntouchedNode/cancelled (0.00s)
+2026-10-14T16:53:46.7192234Z === RUN   TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces
+2026-10-14T16:53:46.7192774Z === RUN   TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/unmanaged-unit
+2026-10-14T16:53:46.7204730Z === RUN   TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/unmanaged-config
+2026-10-14T16:53:46.7216690Z === RUN   TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/symlink-config-parent
+2026-10-14T16:53:46.7218522Z === RUN   TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/corrupt-active
+2026-10-14T16:53:46.7230545Z === RUN   TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/missing-active-transaction
+2026-10-14T16:53:46.7242003Z === RUN   TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/unknown-admin-file
+2026-10-14T16:53:46.7255376Z --- PASS: TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces (0.01s)
+2026-10-14T16:53:46.7256681Z     --- PASS: TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/unmanaged-unit (0.00s)
+2026-10-14T16:53:46.7257626Z     --- PASS: TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/unmanaged-config (0.00s)
+2026-10-14T16:53:46.7258394Z     --- PASS: TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/symlink-config-parent (0.00s)
+2026-10-14T16:53:46.7259136Z     --- PASS: TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/corrupt-active (0.00s)
+2026-10-14T16:53:46.7259907Z     --- PASS: TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/missing-active-transaction (0.00s)
+2026-10-14T16:53:46.7260684Z     --- PASS: TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/unknown-admin-file (0.00s)
+2026-10-14T16:53:46.7261537Z === RUN   TestResourcePreflightRechecksPortBeforeCommitAndAllowsRetry
+2026-10-14T16:53:46.8413745Z --- PASS: TestResourcePreflightRechecksPortBeforeCommitAndAllowsRetry (0.12s)
+2026-10-14T16:53:46.8414654Z === RUN   TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof
+2026-10-14T16:53:46.8415688Z === RUN   TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/owned
+2026-10-14T16:53:47.0037034Z === RUN   TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/unknown-pid
+2026-10-14T16:53:47.1543070Z === RUN   TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/changed-unit
+2026-10-14T16:53:47.3026809Z === RUN   TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/changed-marker
+2026-10-14T16:53:47.4528980Z --- PASS: TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof (0.61s)
+2026-10-14T16:53:47.4529752Z     --- PASS: TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/owned (0.16s)
+2026-10-14T16:53:47.4530713Z     --- PASS: TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/unknown-pid (0.15s)
+2026-10-14T16:53:47.4532118Z     --- PASS: TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/changed-unit (0.15s)
+2026-10-14T16:53:47.4532847Z     --- PASS: TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/changed-marker (0.15s)
+2026-10-14T16:53:47.4533449Z === RUN   TestResourcePreflightDoesNotUnlinkAnUnrelatedUnixSocket
+2026-10-14T16:53:47.4533951Z --- PASS: TestResourcePreflightDoesNotUnlinkAnUnrelatedUnixSocket (0.00s)
+2026-10-14T16:53:47.4534404Z === RUN   TestProcTCPParsingDoesNotInferUnknownAsFree
+2026-10-14T16:53:47.4534805Z --- PASS: TestProcTCPParsingDoesNotInferUnknownAsFree (0.00s)
+2026-10-14T16:53:47.4535204Z === RUN   TestPassiveInventoryFindsLiveSocketAndExactOwner
+2026-10-14T16:53:47.4563808Z --- PASS: TestPassiveInventoryFindsLiveSocketAndExactOwner (0.00s)
+2026-10-14T16:53:47.4564599Z === RUN   TestResourceBindOverlapHandlesWildcardAndAddressFamilies
+2026-10-14T16:53:47.4565274Z --- PASS: TestResourceBindOverlapHandlesWildcardAndAddressFamilies (0.00s)
+2026-10-14T16:53:47.4565935Z === RUN   TestResourceUnixListenerDoesNotConfuseAcceptedClientsWithBindOwner
+2026-10-14T16:53:47.4566808Z --- PASS: TestResourceUnixListenerDoesNotConfuseAcceptedClientsWithBindOwner (0.00s)
+2026-10-14T16:53:47.4567747Z === RUN   TestResourceUnixListenerEvidenceWithActiveManagementClient
+2026-10-14T16:53:47.4570291Z --- PASS: TestResourceUnixListenerEvidenceWithActiveManagementClient (0.00s)
+2026-10-14T16:53:47.4570795Z PASS
+2026-10-14T16:53:47.4608144Z ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	21.353s
+2026-10-14T16:53:47.4715876Z 

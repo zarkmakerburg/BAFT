@@ -1,0 +1,16 @@
+
+2026-10-14T16:53:47.4715876Z ##[group]Run sudo env PATH="$PATH" GOMODCACHE="$(go env GOMODCACHE)" BAFT_REQUIRE_SERVICE_ACCESS_EVIDENCE=1 "$(command -v go)" test ./internal/tunnelnode -run '^TestServiceAccessRealCredentialSwitch$' -count=3 -timeout=3m -v
+2026-10-14T16:53:47.4717939Z [36;1msudo env PATH="$PATH" GOMODCACHE="$(go env GOMODCACHE)" BAFT_REQUIRE_SERVICE_ACCESS_EVIDENCE=1 "$(command -v go)" test ./internal/tunnelnode -run '^TestServiceAccessRealCredentialSwitch$' -count=3 -timeout=3m -v[0m
+2026-10-14T16:53:47.4771894Z shell: /usr/bin/bash -e {0}
+2026-10-14T16:53:47.4772160Z env:
+2026-10-14T16:53:47.4772376Z   GOTOOLCHAIN: local
+2026-10-14T16:53:47.4772635Z ##[endgroup]
+2026-10-14T16:54:07.9678526Z === RUN   TestServiceAccessRealCredentialSwitch
+2026-10-14T16:54:08.0341235Z --- PASS: TestServiceAccessRealCredentialSwitch (0.07s)
+2026-10-14T16:54:08.0341948Z === RUN   TestServiceAccessRealCredentialSwitch
+2026-10-14T16:54:08.0979725Z --- PASS: TestServiceAccessRealCredentialSwitch (0.06s)
+2026-10-14T16:54:08.1621806Z === RUN   TestServiceAccessRealCredentialSwitch
+2026-10-14T16:54:08.1622452Z --- PASS: TestServiceAccessRealCredentialSwitch (0.06s)
+2026-10-14T16:54:08.1622954Z PASS
+2026-10-14T16:54:08.1658135Z ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	5.253s
+2026-10-14T16:54:08.2145568Z 

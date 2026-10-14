@@ -1,0 +1,11 @@
+go: downloading golang.org/x/sys v0.48.0
+go: downloading go.yaml.in/yaml/v3 v3.0.5
+go: downloading github.com/flynn/noise v1.1.0
+go: downloading golang.org/x/crypto v0.57.0
+--- FAIL: TestPKIPrepareKeepsActiveMaterial (0.10s)
+    pki_staging_test.go:36: prepare changed the certificate tree used by the active service
+--- FAIL: TestPKIPrepareInitialDoesNotInstallLiveMaterial (0.01s)
+    pki_staging_test.go:59: prepare installed the new certificate tree before commit
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/tunnelnode	16.704s
+FAIL

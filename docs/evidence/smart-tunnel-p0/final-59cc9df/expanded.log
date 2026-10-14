@@ -1,0 +1,78 @@
+=== RUN   TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle
+    multi_instance_proc_test.go:277: Germany: same TCP flow, same IR PID/generation and unchanged config/unit/marker/keys across Bulgaria creation, address/port edit with PKI replacement, rollback, injected failure and retirement
+--- PASS: TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle (3.90s)
+=== RUN   TestPKIRollbackRestoresPreviousCertificateBeforeRestart
+--- PASS: TestPKIRollbackRestoresPreviousCertificateBeforeRestart (0.20s)
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/missing-backup
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-backup
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-live
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/extra-live-file
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/symlink-backup
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/symlink-live-file
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-live-mode
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-live-owner
+    pki_rollback_test.go:104: environment cannot change uid/gid: chown /tmp/TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState2398744761/001/etc/pki/server.key: invalid argument
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/missing-identity
+--- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState (1.79s)
+    --- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/missing-backup (0.19s)
+    --- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-backup (0.19s)
+    --- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-live (0.20s)
+    --- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/extra-live-file (0.20s)
+    --- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/symlink-backup (0.20s)
+    --- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/symlink-live-file (0.20s)
+    --- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-live-mode (0.20s)
+    --- SKIP: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-live-owner (0.20s)
+    --- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/missing-identity (0.21s)
+=== RUN   TestPKIRollbackRetriesAfterInterruptedExchangeWithoutBackup
+--- PASS: TestPKIRollbackRetriesAfterInterruptedExchangeWithoutBackup (0.21s)
+=== RUN   TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort
+=== RUN   TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort/absent
+=== RUN   TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort/partial
+=== RUN   TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort/generated
+=== RUN   TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort/changed-live
+--- PASS: TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort (0.42s)
+    --- PASS: TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort/absent (0.10s)
+    --- PASS: TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort/partial (0.10s)
+    --- PASS: TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort/generated (0.11s)
+    --- PASS: TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort/changed-live (0.11s)
+=== RUN   TestPKIPrepareRefusesOccupiedBackupPath
+--- PASS: TestPKIPrepareRefusesOccupiedBackupPath (0.11s)
+=== RUN   TestPKIRollbackDoesNotCompleteIfCertificatesChangeDuringRestart
+--- PASS: TestPKIRollbackDoesNotCompleteIfCertificatesChangeDuringRestart (0.20s)
+=== RUN   TestPKIRollbackRetriesAfterRestorationAndRestartFailure
+--- PASS: TestPKIRollbackRetriesAfterRestorationAndRestartFailure (0.21s)
+=== RUN   TestPKIPrepareKeepsActiveMaterial
+--- PASS: TestPKIPrepareKeepsActiveMaterial (0.11s)
+=== RUN   TestPKIExplicitRollbackAfterInterruptedActivation
+=== RUN   TestPKIExplicitRollbackAfterInterruptedActivation/tunnel-commit:after-pki-exchange
+    pki_staging_test.go:111: explicit rollback did not restore the pre-cutover tree without service mutation
+=== RUN   TestPKIExplicitRollbackAfterInterruptedActivation/tunnel-commit:after-pki-activation
+    pki_staging_test.go:111: explicit rollback did not restore the pre-cutover tree without service mutation
+=== RUN   TestPKIExplicitRollbackAfterInterruptedActivation/initial-activation
+    pki_staging_test.go:111: explicit rollback did not restore the pre-cutover tree without service mutation
+--- FAIL: TestPKIExplicitRollbackAfterInterruptedActivation (0.31s)
+    --- FAIL: TestPKIExplicitRollbackAfterInterruptedActivation/tunnel-commit:after-pki-exchange (0.14s)
+    --- FAIL: TestPKIExplicitRollbackAfterInterruptedActivation/tunnel-commit:after-pki-activation (0.14s)
+    --- FAIL: TestPKIExplicitRollbackAfterInterruptedActivation/initial-activation (0.03s)
+=== RUN   TestPKIPrepareRejectsInvalidGeneratedCertificateBeforeCutover
+=== RUN   TestPKIPrepareRejectsInvalidGeneratedCertificateBeforeCutover/wrong-host
+=== RUN   TestPKIPrepareRejectsInvalidGeneratedCertificateBeforeCutover/bad-key
+--- PASS: TestPKIPrepareRejectsInvalidGeneratedCertificateBeforeCutover (0.22s)
+    --- PASS: TestPKIPrepareRejectsInvalidGeneratedCertificateBeforeCutover/wrong-host (0.11s)
+    --- PASS: TestPKIPrepareRejectsInvalidGeneratedCertificateBeforeCutover/bad-key (0.10s)
+=== RUN   TestPKIFinalizeRetainsBackupsOnCertificateDrift
+--- PASS: TestPKIFinalizeRetainsBackupsOnCertificateDrift (0.19s)
+=== RUN   TestPKIPrepareInitialDoesNotInstallLiveMaterial
+--- PASS: TestPKIPrepareInitialDoesNotInstallLiveMaterial (0.01s)
+=== RUN   TestPKICommitRefusesChangedPreparedOrLiveMaterial
+=== RUN   TestPKICommitRefusesChangedPreparedOrLiveMaterial/candidate
+=== RUN   TestPKICommitRefusesChangedPreparedOrLiveMaterial/live
+=== RUN   TestPKICommitRefusesChangedPreparedOrLiveMaterial/reuse
+--- PASS: TestPKICommitRefusesChangedPreparedOrLiveMaterial (0.34s)
+    --- PASS: TestPKICommitRefusesChangedPreparedOrLiveMaterial/candidate (0.11s)
+    --- PASS: TestPKICommitRefusesChangedPreparedOrLiveMaterial/live (0.11s)
+    --- PASS: TestPKICommitRefusesChangedPreparedOrLiveMaterial/reuse (0.11s)
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/tunnelnode	9.017s
+FAIL

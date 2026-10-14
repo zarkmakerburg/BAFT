@@ -1,0 +1,158 @@
+2026-10-14T17:39:11.1535303Z ?   	github.com/zarkmakerburg/baft/cmd/baft-bcc-audit-verify	[no test files]
+2026-10-14T17:39:11.1535943Z ?   	github.com/zarkmakerburg/baft/cmd/baft-cluster-keygen	[no test files]
+2026-10-14T17:39:11.1536539Z ?   	github.com/zarkmakerburg/baft/cmd/baft-master	[no test files]
+2026-10-14T17:39:11.1537090Z ok  	github.com/zarkmakerburg/baft/cmd/baft-pair	1.297s
+2026-10-14T17:39:11.1537620Z ?   	github.com/zarkmakerburg/baft/cmd/baft-release	[no test files]
+2026-10-14T17:39:11.1538155Z ?   	github.com/zarkmakerburg/baft/cmd/baft-worker	[no test files]
+2026-10-14T17:41:40.7112860Z ok  	github.com/zarkmakerburg/baft/internal/agent	152.930s
+2026-10-14T17:41:40.7113897Z ok  	github.com/zarkmakerburg/baft/internal/agentjob	1.042s
+2026-10-14T17:49:10.1541614Z panic: test timed out after 10m0s
+2026-10-14T17:49:10.1541917Z 	running tests:
+2026-10-14T17:49:10.1542179Z 		TestUsernameLimiterBlocksBeforeAnyHashing (1s)
+2026-10-14T17:49:10.1542563Z 
+2026-10-14T17:49:10.1542652Z goroutine 82412 [running]:
+2026-10-14T17:49:10.1542864Z testing.(*M).startAlarm.func1()
+2026-10-14T17:49:10.1543226Z 	/opt/hostedtoolcache/go/1.27.1/x64/src/testing/testing.go:2959 +0x605
+2026-10-14T17:49:10.1543535Z created by time.goFunc
+2026-10-14T17:49:10.1543836Z 	/opt/hostedtoolcache/go/1.27.1/x64/src/time/sleep.go:182 +0x45
+2026-10-14T17:49:10.1544068Z 
+2026-10-14T17:49:10.1544152Z goroutine 1 [chan receive]:
+2026-10-14T17:49:10.1544421Z testing.(*T).Run(0xc000154b48, {0x15b018c, 0x29}, 0x20c4478)
+2026-10-14T17:49:10.1544783Z 	/opt/hostedtoolcache/go/1.27.1/x64/src/testing/testing.go:2266 +0xb3e
+2026-10-14T17:49:10.1545090Z testing.runTests.func1(0xc000154b48)
+2026-10-14T17:49:10.1545400Z 	/opt/hostedtoolcache/go/1.27.1/x64/src/testing/testing.go:2742 +0x85
+2026-10-14T17:49:10.1545699Z testing.tRunner(0xc000154b48, 0xc0002dfa40)
+2026-10-14T17:49:10.1546009Z 	/opt/hostedtoolcache/go/1.27.1/x64/src/testing/testing.go:2193 +0x21d
+2026-10-14T17:49:10.1546605Z testing.runTests({0x15a128d, 0x1d}, {0x15b1312, 0x2a}, 0xc000016408, {0x21eaf50, 0x153, 0x153}, {0xc2ac0e058661ab34, 0x8bb35e0eaf, ...})
+2026-10-14T17:49:10.1547145Z 	/opt/hostedtoolcache/go/1.27.1/x64/src/testing/testing.go:2740 +0x9ea
+2026-10-14T17:49:10.1547447Z testing.(*M).Run(0xc0002219a0)
+2026-10-14T17:49:10.1547733Z 	/opt/hostedtoolcache/go/1.27.1/x64/src/testing/testing.go:2600 +0xf45
+2026-10-14T17:49:10.1548258Z main.main()
+2026-10-14T17:49:10.1548442Z 	_testmain.go:724 +0x165
+2026-10-14T17:49:10.1548554Z 
+2026-10-14T17:49:10.1548645Z goroutine 82408 [runnable]:
+2026-10-14T17:49:10.1548978Z golang.org/x/crypto/argon2.processBlockSSE(0xc008f68400, 0xc008f68000, 0xc0085fb800, 0x1)
+2026-10-14T17:49:10.1549455Z 	/home/runner/go/pkg/mod/golang.org/x/crypto@v0.57.0/argon2/blamka_amd64.go:24 +0x34b
+2026-10-14T17:49:10.1549811Z golang.org/x/crypto/argon2.processBlockXOR(...)
+2026-10-14T17:49:10.1550161Z 	/home/runner/go/pkg/mod/golang.org/x/crypto@v0.57.0/argon2/blamka_amd64.go:59
+2026-10-14T17:49:10.1550571Z golang.org/x/crypto/argon2.processBlocks.func1(0x0, 0x3, 0x0, 0xc000b78140)
+2026-10-14T17:49:10.1550999Z 	/home/runner/go/pkg/mod/golang.org/x/crypto@v0.57.0/argon2/argon2.go:226 +0x270
+2026-10-14T17:49:10.1551391Z created by golang.org/x/crypto/argon2.processBlocks in goroutine 81884
+2026-10-14T17:49:10.1551791Z 	/home/runner/go/pkg/mod/golang.org/x/crypto@v0.57.0/argon2/argon2.go:237 +0x1d4
+2026-10-14T17:49:10.1552018Z 
+2026-10-14T17:49:10.1552116Z goroutine 81884 [sync.WaitGroup.Wait]:
+2026-10-14T17:49:10.1554002Z sync.runtime_SemacquireWaitGroup(0x4932df?, 0xb8?)
+2026-10-14T17:49:10.1554346Z 	/opt/hostedtoolcache/go/1.27.1/x64/src/runtime/sema.go:114 +0x2e
+2026-10-14T17:49:10.1554627Z sync.(*WaitGroup).Wait(0xc000b78140)
+2026-10-14T17:49:10.1554932Z 	/opt/hostedtoolcache/go/1.27.1/x64/src/sync/waitgroup.go:206 +0xc5
+2026-10-14T17:49:10.1555352Z golang.org/x/crypto/argon2.processBlocks({0xc007fac000, 0x10000, 0x10000}, 0x3, 0x10000, 0x4, 0x2)
+2026-10-14T17:49:10.1555811Z 	/home/runner/go/pkg/mod/golang.org/x/crypto@v0.57.0/argon2/argon2.go:239 +0x175
+2026-10-14T17:49:10.1556290Z golang.org/x/crypto/argon2.deriveKey(0x2, {0xc0000b7370, 0x5, 0x20}, {0xc000b78120, 0x10, 0x10}, {0x0, 0x0, 0x0}, ...)
+2026-10-14T17:49:10.1556771Z 	/home/runner/go/pkg/mod/golang.org/x/crypto@v0.57.0/argon2/argon2.go:119 +0x22c
+2026-10-14T17:49:10.1557083Z golang.org/x/crypto/argon2.IDKey(...)
+2026-10-14T17:49:10.1557403Z 	/home/runner/go/pkg/mod/golang.org/x/crypto@v0.57.0/argon2/argon2.go:102
+2026-10-14T17:49:10.1557867Z github.com/zarkmakerburg/baft/internal/bcc.verifyArgon2id({0xc000230540, 0x60}, {0xc004fc4189, 0x5})
+2026-10-14T17:49:10.1558315Z 	/home/runner/work/BAFT/BAFT/internal/bcc/access.go:143 +0x475
+2026-10-14T17:49:10.1558829Z github.com/zarkmakerburg/baft/internal/bcc.verifyPassword({0xc000230540, 0x60}, {0xc004fc4189, 0x5})
+2026-10-14T17:49:10.1559270Z 	/home/runner/work/BAFT/BAFT/internal/bcc/access.go:104 +0xc6
+2026-10-14T17:49:10.1559985Z github.com/zarkmakerburg/baft/internal/bcc.(*Server).login(0xc0001e4680, {0x20c1990, 0xc0007d2040}, 0xc00047e500, {0x1, 0x1, {0xc0003b7ce0, 0x20}, {0xc00449d263, 0xd}, ...}, ...)
+2026-10-14T17:49:10.1560624Z 	/home/runner/work/BAFT/BAFT/internal/bcc/access.go:554 +0xdbf
+2026-10-14T17:49:10.1561104Z github.com/zarkmakerburg/baft/internal/bcc.(*Server).accessHandler.func1({0x20c1990, 0xc0007d2040}, 0xc00047e500)
+2026-10-14T17:49:10.1561570Z 	/home/runner/work/BAFT/BAFT/internal/bcc/access.go:461 +0x686
+2026-10-14T17:49:10.1561974Z net/http.HandlerFunc.ServeHTTP(0xc0050bfaa0, {0x20c1990, 0xc0007d2040}, 0xc00047e500)
+2026-10-14T17:49:10.1562582Z 	/opt/hostedtoolcache/go/1.27.1/x64/src/net/http/server.go:2338 +0x48
+2026-10-14T17:49:10.1563075Z github.com/zarkmakerburg/baft/internal/bcc.(*IPGuard).middleware.func1({0x20c1990, 0xc0007d2040}, 0xc00047e500)
+2026-10-14T17:49:10.1563563Z 	/home/runner/work/BAFT/BAFT/internal/bcc/security.go:138 +0x147
+2026-10-14T17:49:10.1563953Z net/http.HandlerFunc.ServeHTTP(0xc0007d2640, {0x20c1990, 0xc0007d2040}, 0xc00047e500)
+2026-10-14T17:49:10.1564372Z 	/opt/hostedtoolcache/go/1.27.1/x64/src/net/http/server.go:2338 +0x48
+2026-10-14T17:49:10.1564828Z github.com/zarkmakerburg/baft/internal/bcc.(*Server).harden.func1({0x20c1990, 0xc0007d2040}, 0xc00047e3c0)
+2026-10-14T17:49:10.1565281Z 	/home/runner/work/BAFT/BAFT/internal/bcc/webharden.go:54 +0x325
+2026-10-14T17:49:10.1565659Z net/http.HandlerFunc.ServeHTTP(0xc0050bfac0, {0x20c1990, 0xc0007d2040}, 0xc00047e3c0)
+2026-10-14T17:49:10.1566165Z 	/opt/hostedtoolcache/go/1.27.1/x64/src/net/http/server.go:2338 +0x48
+2026-10-14T17:49:10.1566578Z github.com/zarkmakerburg/baft/internal/bcc.(*accessRig).do(0xc006502580, 0xc00047e3c0)
+2026-10-14T17:49:10.1566991Z 	/home/runner/work/BAFT/BAFT/internal/bcc/access_test.go:49 +0x150
+2026-10-14T17:49:10.1567524Z github.com/zarkmakerburg/baft/internal/bcc.(*accessRig).loginFrom(0xc006502580, {0xc000b780b3, 0xd}, {0xc00449d223, 0xd}, {0x1587f5a, 0x5})
+2026-10-14T17:49:10.1568056Z 	/home/runner/work/BAFT/BAFT/internal/bcc/webharden_test.go:23 +0x5b8
+2026-10-14T17:49:10.1568515Z github.com/zarkmakerburg/baft/internal/bcc.TestUsernameLimiterBlocksBeforeAnyHashing(0xc0001886c8)
+2026-10-14T17:49:10.1568985Z 	/home/runner/work/BAFT/BAFT/internal/bcc/webharden_test.go:158 +0x112
+2026-10-14T17:49:10.1569285Z testing.tRunner(0xc0001886c8, 0x20c4478)
+2026-10-14T17:49:10.1569597Z 	/opt/hostedtoolcache/go/1.27.1/x64/src/testing/testing.go:2193 +0x21d
+2026-10-14T17:49:10.1569901Z created by testing.(*T).Run in goroutine 1
+2026-10-14T17:49:10.1570324Z 	/opt/hostedtoolcache/go/1.27.1/x64/src/testing/testing.go:2258 +0xb13
+2026-10-14T17:49:10.1570536Z 
+2026-10-14T17:49:10.1570621Z goroutine 82411 [runnable]:
+2026-10-14T17:49:10.1570961Z golang.org/x/crypto/argon2.processBlockSSE(0xc00bfa2c00, 0xc00bfa2800, 0xc00a4e1c00, 0x1)
+2026-10-14T17:49:10.1571444Z 	/home/runner/go/pkg/mod/golang.org/x/crypto@v0.57.0/argon2/blamka_amd64.go:24 +0x34b
+2026-10-14T17:49:10.1571798Z golang.org/x/crypto/argon2.processBlockXOR(...)
+2026-10-14T17:49:10.1572145Z 	/home/runner/go/pkg/mod/golang.org/x/crypto@v0.57.0/argon2/blamka_amd64.go:59
+2026-10-14T17:49:10.1572844Z golang.org/x/crypto/argon2.processBlocks.func1(0x0, 0x3, 0x3, 0xc000b78140)
+2026-10-14T17:49:10.1573503Z 	/home/runner/go/pkg/mod/golang.org/x/crypto@v0.57.0/argon2/argon2.go:226 +0x270
+2026-10-14T17:49:10.1573892Z created by golang.org/x/crypto/argon2.processBlocks in goroutine 81884
+2026-10-14T17:49:10.1574284Z 	/home/runner/go/pkg/mod/golang.org/x/crypto@v0.57.0/argon2/argon2.go:237 +0x1d4
+2026-10-14T17:49:10.1574513Z 
+2026-10-14T17:49:10.1574593Z goroutine 82410 [runnable]:
+2026-10-14T17:49:10.1574922Z golang.org/x/crypto/argon2.processBlockSSE(0xc00af94c00, 0xc00af94800, 0xc009afb800, 0x1)
+2026-10-14T17:49:10.1575375Z 	/home/runner/go/pkg/mod/golang.org/x/crypto@v0.57.0/argon2/blamka_amd64.go:24 +0x34b
+2026-10-14T17:49:10.1575793Z golang.org/x/crypto/argon2.processBlockXOR(...)
+2026-10-14T17:49:10.1576137Z 	/home/runner/go/pkg/mod/golang.org/x/crypto@v0.57.0/argon2/blamka_amd64.go:59
+2026-10-14T17:49:10.1576525Z golang.org/x/crypto/argon2.processBlocks.func1(0x0, 0x3, 0x2, 0xc000b78140)
+2026-10-14T17:49:10.1576924Z 	/home/runner/go/pkg/mod/golang.org/x/crypto@v0.57.0/argon2/argon2.go:226 +0x270
+2026-10-14T17:49:10.1577295Z created by golang.org/x/crypto/argon2.processBlocks in goroutine 81884
+2026-10-14T17:49:10.1577679Z 	/home/runner/go/pkg/mod/golang.org/x/crypto@v0.57.0/argon2/argon2.go:237 +0x1d4
+2026-10-14T17:49:10.1577900Z 
+2026-10-14T17:49:10.1577983Z goroutine 82409 [runnable]:
+2026-10-14T17:49:10.1578299Z golang.org/x/crypto/argon2.processBlockSSE(0xc009f93c00, 0xc009f93800, 0xc00ab8b000, 0x1)
+2026-10-14T17:49:10.1578746Z 	/home/runner/go/pkg/mod/golang.org/x/crypto@v0.57.0/argon2/blamka_amd64.go:24 +0x34b
+2026-10-14T17:49:10.1579080Z golang.org/x/crypto/argon2.processBlockXOR(...)
+2026-10-14T17:49:10.1579414Z 	/home/runner/go/pkg/mod/golang.org/x/crypto@v0.57.0/argon2/blamka_amd64.go:59
+2026-10-14T17:49:10.1579791Z golang.org/x/crypto/argon2.processBlocks.func1(0x0, 0x3, 0x1, 0xc000b78140)
+2026-10-14T17:49:10.1580185Z 	/home/runner/go/pkg/mod/golang.org/x/crypto@v0.57.0/argon2/argon2.go:226 +0x270
+2026-10-14T17:49:10.1580553Z created by golang.org/x/crypto/argon2.processBlocks in goroutine 81884
+2026-10-14T17:49:10.1580946Z 	/home/runner/go/pkg/mod/golang.org/x/crypto@v0.57.0/argon2/argon2.go:237 +0x1d4
+2026-10-14T17:49:10.1581303Z FAIL	github.com/zarkmakerburg/baft/internal/bcc	600.058s
+2026-10-14T17:49:10.1581618Z ok  	github.com/zarkmakerburg/baft/internal/carrier/h2	1.345s
+2026-10-14T17:49:10.1582028Z ok  	github.com/zarkmakerburg/baft/internal/carrier/utlsdial	1.120s
+2026-10-14T17:49:10.1582519Z ok  	github.com/zarkmakerburg/baft/internal/carrier/ws	1.373s
+2026-10-14T17:49:10.1582832Z ok  	github.com/zarkmakerburg/baft/internal/cluster	11.695s
+2026-10-14T17:49:10.1583148Z ok  	github.com/zarkmakerburg/baft/internal/clustersync	2.302s
+2026-10-14T17:49:10.1583462Z ok  	github.com/zarkmakerburg/baft/internal/config	1.083s
+2026-10-14T17:49:10.1583763Z ok  	github.com/zarkmakerburg/baft/internal/failover	1.021s
+2026-10-14T17:49:10.1584059Z ok  	github.com/zarkmakerburg/baft/internal/geoip	1.537s
+2026-10-14T17:49:10.1584349Z ok  	github.com/zarkmakerburg/baft/internal/identity	1.008s
+2026-10-14T17:49:10.1584658Z ?   	github.com/zarkmakerburg/baft/internal/mesh	[no test files]
+2026-10-14T17:49:10.1584973Z ok  	github.com/zarkmakerburg/baft/internal/metrics	1.010s
+2026-10-14T17:49:10.1585265Z ok  	github.com/zarkmakerburg/baft/internal/node	1.035s
+2026-10-14T17:49:10.1585557Z ok  	github.com/zarkmakerburg/baft/internal/protocol	1.029s
+2026-10-14T17:49:10.1586047Z ok  	github.com/zarkmakerburg/baft/internal/recordshape	1.463s
+2026-10-14T17:49:10.1586356Z ok  	github.com/zarkmakerburg/baft/internal/recovery	1.851s
+2026-10-14T17:49:10.1586655Z ok  	github.com/zarkmakerburg/baft/internal/release	1.182s
+2026-10-14T17:49:10.1586954Z ok  	github.com/zarkmakerburg/baft/internal/resources	1.034s
+2026-10-14T17:49:10.1587249Z ok  	github.com/zarkmakerburg/baft/internal/routes	1.007s
+2026-10-14T17:49:10.1587564Z ok  	github.com/zarkmakerburg/baft/internal/scheduler	1.243s
+2026-10-14T17:49:10.1587889Z ok  	github.com/zarkmakerburg/baft/internal/securityinternal	1.081s
+2026-10-14T17:49:10.1588207Z ok  	github.com/zarkmakerburg/baft/internal/session	1.195s
+2026-10-14T17:49:10.1588495Z ok  	github.com/zarkmakerburg/baft/internal/sshboot	1.068s
+2026-10-14T17:49:10.1588789Z ok  	github.com/zarkmakerburg/baft/internal/sshmigrate	1.009s
+2026-10-14T17:49:10.1589098Z ok  	github.com/zarkmakerburg/baft/internal/telemetry	3.056s
+2026-10-14T17:49:10.1589409Z ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	140.814s
+2026-10-14T17:49:10.1589721Z ok  	github.com/zarkmakerburg/baft/internal/uninstall	20.209s
+2026-10-14T17:49:10.1590059Z ?   	github.com/zarkmakerburg/baft/internal/verification	[no test files]
+2026-10-14T17:49:10.1590461Z ok  	github.com/zarkmakerburg/baft/tests/camouflage	1.012s
+2026-10-14T17:49:10.1590758Z ok  	github.com/zarkmakerburg/baft/tests/correctness	1.007s
+2026-10-14T17:49:10.1591050Z ok  	github.com/zarkmakerburg/baft/tests/docs	1.217s
+2026-10-14T17:49:10.1591345Z ok  	github.com/zarkmakerburg/baft/tests/installer	8.464s
+2026-10-14T17:49:10.1591643Z ok  	github.com/zarkmakerburg/baft/tests/integration	102.877s
+2026-10-14T17:49:10.1591944Z ok  	github.com/zarkmakerburg/baft/tests/release	3.380s
+2026-10-14T17:49:10.1592223Z ok  	github.com/zarkmakerburg/baft/tests/uninstall	1.532s
+2026-10-14T17:49:10.1592705Z ?   	github.com/zarkmakerburg/baft/web	[no test files]
+2026-10-14T17:49:10.1592947Z FAIL
+2026-10-14T17:49:10.2078681Z ##[error]Process completed with exit code 1.
+2026-10-14T17:49:10.2194635Z Post job cleanup.
+2026-10-14T17:49:10.2953242Z [command]/usr/bin/git version
+2026-10-14T17:49:10.2992723Z git version 2.55.0
+2026-10-14T17:49:10.3035141Z Temporarily overriding HOME='/home/runner/work/_temp/9c055ab1-ef0d-45fa-b481-ecb66199c424' before making global git config changes
+2026-10-14T17:49:10.3036151Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-14T17:49:10.3036879Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/BAFT/BAFT
+2026-10-14T17:49:10.3065122Z Removing SSH command configuration
+2026-10-14T17:49:10.3070918Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-14T17:49:10.3104164Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"

@@ -1,0 +1,11 @@
+{
+  "source_sha": "716bc37f6940b911564aa1b036013e017ea1de9e",
+  "job_id": 116000925189,
+  "run_id": 38607172698,
+  "original_name": "20-main-ci-failed.log",
+  "bytes": 3189972,
+  "sha256": "ec279b85c5e77d0fc7a537ec25869e606c484b844e05c937e6d9ca7dcf10e506",
+  "archive": "gzip/base64",
+  "archive_bytes": 382885,
+  "verified_round_trip": true
+}

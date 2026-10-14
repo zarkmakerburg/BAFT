@@ -1,0 +1,21 @@
+2026-10-14T17:34:20.2904090Z ##[group]Run sudo env PATH="$PATH" GOMODCACHE="$(go env GOMODCACHE)" BAFT_REQUIRE_SERVICE_ACCESS_EVIDENCE=1 "$(command -v go)" test ./internal/tunnelnode -run '^(TestServiceAccessRealCredentialSwitch|TestServiceIdentityIsSealedBeforeBothNodePreparations)$' -count=3 -timeout=3m -v
+2026-10-14T17:34:20.2905604Z [36;1msudo env PATH="$PATH" GOMODCACHE="$(go env GOMODCACHE)" BAFT_REQUIRE_SERVICE_ACCESS_EVIDENCE=1 "$(command -v go)" test ./internal/tunnelnode -run '^(TestServiceAccessRealCredentialSwitch|TestServiceIdentityIsSealedBeforeBothNodePreparations)$' -count=3 -timeout=3m -v[0m
+2026-10-14T17:34:20.2963419Z shell: /usr/bin/bash -e {0}
+2026-10-14T17:34:20.2963645Z env:
+2026-10-14T17:34:20.2963807Z   GOTOOLCHAIN: local
+2026-10-14T17:34:20.2963992Z ##[endgroup]
+2026-10-14T17:34:37.8865024Z === RUN   TestServiceAccessRealCredentialSwitch
+2026-10-14T17:34:38.0092000Z --- PASS: TestServiceAccessRealCredentialSwitch (0.12s)
+2026-10-14T17:34:38.0092858Z === RUN   TestServiceIdentityIsSealedBeforeBothNodePreparations
+2026-10-14T17:34:39.2647084Z --- PASS: TestServiceIdentityIsSealedBeforeBothNodePreparations (1.26s)
+2026-10-14T17:34:39.2647540Z === RUN   TestServiceAccessRealCredentialSwitch
+2026-10-14T17:34:39.3918967Z --- PASS: TestServiceAccessRealCredentialSwitch (0.13s)
+2026-10-14T17:34:39.3919592Z === RUN   TestServiceIdentityIsSealedBeforeBothNodePreparations
+2026-10-14T17:34:40.9448970Z --- PASS: TestServiceIdentityIsSealedBeforeBothNodePreparations (1.55s)
+2026-10-14T17:34:40.9449543Z === RUN   TestServiceAccessRealCredentialSwitch
+2026-10-14T17:34:41.0685620Z --- PASS: TestServiceAccessRealCredentialSwitch (0.12s)
+2026-10-14T17:34:41.0686435Z === RUN   TestServiceIdentityIsSealedBeforeBothNodePreparations
+2026-10-14T17:34:42.7626250Z --- PASS: TestServiceIdentityIsSealedBeforeBothNodePreparations (1.69s)
+2026-10-14T17:34:42.7626746Z PASS
+2026-10-14T17:34:42.7660535Z ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	9.226s
+

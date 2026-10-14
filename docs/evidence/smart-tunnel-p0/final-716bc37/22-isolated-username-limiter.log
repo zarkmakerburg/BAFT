@@ -1,0 +1,8 @@
+=== RUN   TestUsernameLimiterBlocksBeforeAnyHashing
+--- PASS: TestUsernameLimiterBlocksBeforeAnyHashing (7.63s)
+=== RUN   TestUsernameLimiterBlocksBeforeAnyHashing
+--- PASS: TestUsernameLimiterBlocksBeforeAnyHashing (6.75s)
+=== RUN   TestUsernameLimiterBlocksBeforeAnyHashing
+--- PASS: TestUsernameLimiterBlocksBeforeAnyHashing (6.98s)
+PASS
+ok  	github.com/zarkmakerburg/baft/internal/bcc	22.430s

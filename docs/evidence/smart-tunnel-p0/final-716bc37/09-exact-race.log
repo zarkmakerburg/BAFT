@@ -1,0 +1,4 @@
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	99.634s
+ok  	github.com/zarkmakerburg/baft/internal/agent	104.287s
+ok  	github.com/zarkmakerburg/baft/internal/agentjob	1.051s
+ok  	github.com/zarkmakerburg/baft/cmd/baft-agent	1.036s

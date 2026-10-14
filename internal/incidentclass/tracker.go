@@ -59,3 +59,23 @@ func (t *Tracker) LastFailure(instanceID string) (Status,time.Time,bool) {
  incident,ok:=t.active[instanceID]
  return incident.Status,incident.LastObservedAt,ok
 }
+
+// ObserveEvidence classifies a fresh observation using the current instance
+// status under one lock, then advances the lifecycle without a read/write race.
+// A missing or stale observation cannot close an incident.
+func (t *Tracker) ObserveEvidence(instanceID string, now time.Time, maxAge time.Duration, evidence Evidence) Result {
+ t.mu.Lock()
+ defer t.mu.Unlock()
+ previous:=Unknown
+ var current *Incident
+ if existing,ok:=t.active[instanceID];ok {
+  copy:=existing
+  current=&copy
+  previous=existing.Status
+ }
+ result:=Classify(now,maxAge,evidence,previous)
+ next,completed:=Advance(instanceID,current,result)
+ if next==nil {delete(t.active,instanceID)} else {t.active[instanceID]=*next}
+ if completed!=nil {t.history=AddCompleted(t.history,*completed)}
+ return result
+}

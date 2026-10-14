@@ -1,0 +1,13 @@
+=== RUN   TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle
+    multi_instance_proc_test.go:86: environment cannot inspect controlled child process namespace/FD ownership: service network namespace unavailable: readlink /proc/221/ns/net: permission denied
+--- SKIP: TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle (0.00s)
+=== RUN   TestResourceGateRefusesActualOccupiedBindBeforeMutation
+--- PASS: TestResourceGateRefusesActualOccupiedBindBeforeMutation (0.00s)
+=== RUN   TestProcTCPParsingDoesNotInferUnknownAsFree
+--- PASS: TestProcTCPParsingDoesNotInferUnknownAsFree (0.00s)
+=== RUN   TestPassiveInventoryFindsLiveSocketAndExactOwner
+--- PASS: TestPassiveInventoryFindsLiveSocketAndExactOwner (0.00s)
+=== RUN   TestResourceBindOverlapHandlesWildcardAndAddressFamilies
+--- PASS: TestResourceBindOverlapHandlesWildcardAndAddressFamilies (0.00s)
+PASS
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	1.248s

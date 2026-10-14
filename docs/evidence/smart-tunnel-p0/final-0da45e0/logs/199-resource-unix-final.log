@@ -1,0 +1,59 @@
+=== RUN   TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle
+    multi_instance_proc_test.go:86: environment cannot inspect controlled child process namespace/FD ownership: service network namespace unavailable: readlink /proc/196/ns/net: no such file or directory
+--- SKIP: TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle (0.00s)
+=== RUN   TestResourceGateRefusesActualOccupiedBindBeforeMutation
+--- PASS: TestResourceGateRefusesActualOccupiedBindBeforeMutation (0.00s)
+=== RUN   TestResourcePreflightUnknownInventoryRetainsUntouchedNode
+=== RUN   TestResourcePreflightUnknownInventoryRetainsUntouchedNode/error
+=== RUN   TestResourcePreflightUnknownInventoryRetainsUntouchedNode/malformed
+=== RUN   TestResourcePreflightUnknownInventoryRetainsUntouchedNode/unbounded
+=== RUN   TestResourcePreflightUnknownInventoryRetainsUntouchedNode/self-collision
+=== RUN   TestResourcePreflightUnknownInventoryRetainsUntouchedNode/cancelled
+--- PASS: TestResourcePreflightUnknownInventoryRetainsUntouchedNode (0.00s)
+    --- PASS: TestResourcePreflightUnknownInventoryRetainsUntouchedNode/error (0.00s)
+    --- PASS: TestResourcePreflightUnknownInventoryRetainsUntouchedNode/malformed (0.00s)
+    --- PASS: TestResourcePreflightUnknownInventoryRetainsUntouchedNode/unbounded (0.00s)
+    --- PASS: TestResourcePreflightUnknownInventoryRetainsUntouchedNode/self-collision (0.00s)
+    --- PASS: TestResourcePreflightUnknownInventoryRetainsUntouchedNode/cancelled (0.00s)
+=== RUN   TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces
+=== RUN   TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/unmanaged-unit
+=== RUN   TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/unmanaged-config
+=== RUN   TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/symlink-config-parent
+=== RUN   TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/corrupt-active
+=== RUN   TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/missing-active-transaction
+=== RUN   TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/unknown-admin-file
+--- PASS: TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces (0.00s)
+    --- PASS: TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/unmanaged-unit (0.00s)
+    --- PASS: TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/unmanaged-config (0.00s)
+    --- PASS: TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/symlink-config-parent (0.00s)
+    --- PASS: TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/corrupt-active (0.00s)
+    --- PASS: TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/missing-active-transaction (0.00s)
+    --- PASS: TestResourcePreflightProtectsUnmanagedAndCorruptNamespaces/unknown-admin-file (0.00s)
+=== RUN   TestResourcePreflightRechecksPortBeforeCommitAndAllowsRetry
+--- PASS: TestResourcePreflightRechecksPortBeforeCommitAndAllowsRetry (0.10s)
+=== RUN   TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof
+=== RUN   TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/owned
+=== RUN   TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/unknown-pid
+=== RUN   TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/changed-unit
+=== RUN   TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/changed-marker
+--- PASS: TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof (0.48s)
+    --- PASS: TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/owned (0.13s)
+    --- PASS: TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/unknown-pid (0.12s)
+    --- PASS: TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/changed-unit (0.11s)
+    --- PASS: TestResourcePreflightReuseNeedsArtifactAndSocketOwnerProof/changed-marker (0.12s)
+=== RUN   TestResourcePreflightDoesNotUnlinkAnUnrelatedUnixSocket
+    resource_preflight_test.go:211: environment cannot create Unix sockets: listen unix /tmp/TestResourcePreflightDoesNotUnlinkAnUnrelatedUnixSocket573454584/001/state/admin.sock: socket: operation not permitted
+--- SKIP: TestResourcePreflightDoesNotUnlinkAnUnrelatedUnixSocket (0.00s)
+=== RUN   TestProcTCPParsingDoesNotInferUnknownAsFree
+--- PASS: TestProcTCPParsingDoesNotInferUnknownAsFree (0.00s)
+=== RUN   TestPassiveInventoryFindsLiveSocketAndExactOwner
+--- PASS: TestPassiveInventoryFindsLiveSocketAndExactOwner (0.00s)
+=== RUN   TestResourceBindOverlapHandlesWildcardAndAddressFamilies
+--- PASS: TestResourceBindOverlapHandlesWildcardAndAddressFamilies (0.00s)
+=== RUN   TestResourceUnixListenerDoesNotConfuseAcceptedClientsWithBindOwner
+--- PASS: TestResourceUnixListenerDoesNotConfuseAcceptedClientsWithBindOwner (0.00s)
+=== RUN   TestResourceUnixListenerEvidenceWithActiveManagementClient
+    resource_proc_test.go:148: environment cannot create Unix sockets: listen unix /tmp/TestResourceUnixListenerEvidenceWithActiveManagementClient3007943544/001/admin.sock: socket: operation not permitted
+--- SKIP: TestResourceUnixListenerEvidenceWithActiveManagementClient (0.00s)
+PASS
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	2.498s

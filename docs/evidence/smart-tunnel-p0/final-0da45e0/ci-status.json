@@ -1,0 +1,46 @@
+{
+  "observed_at": "2026-10-14T07:23:45.796Z",
+  "workflow_runs": [
+    {
+      "id": 38527050336,
+      "name": "BCC UI tests",
+      "status": "completed",
+      "conclusion": "success",
+      "run_number": 209,
+      "jobs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38527050336/jobs",
+      "logs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38527050336/logs",
+      "workflow_id": 378490328
+    },
+    {
+      "id": 38527050350,
+      "name": "ci",
+      "status": "in_progress",
+      "conclusion": null,
+      "run_number": 1624,
+      "jobs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38527050350/jobs",
+      "logs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38527050350/logs",
+      "workflow_id": 368246822
+    },
+    {
+      "id": 38527050373,
+      "name": "r3.1-probabilistic-morphing",
+      "status": "in_progress",
+      "conclusion": null,
+      "run_number": 557,
+      "jobs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38527050373/jobs",
+      "logs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38527050373/logs",
+      "workflow_id": 368593926
+    },
+    {
+      "id": 38527050497,
+      "name": "static-analysis",
+      "status": "completed",
+      "conclusion": "success",
+      "run_number": 352,
+      "jobs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38527050497/jobs",
+      "logs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38527050497/logs",
+      "workflow_id": 374499129
+    }
+  ]
+}
+

@@ -1,0 +1,5 @@
+--- FAIL: TestResourceGateRefusesActualOccupiedBindBeforeMutation (0.02s)
+    resource_gate_test.go:26: prepare did not reject actual occupied listener before mutation: <nil>
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/tunnelnode	1.213s
+FAIL

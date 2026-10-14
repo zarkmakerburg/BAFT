@@ -1,0 +1,26 @@
+=== RUN   TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle
+    multi_instance_proc_test.go:133: preflight: current service socket ownership is unavailable: service is in another or unknown network namespace
+    multi_instance_proc_test.go:45: fixture baft-bulgaria runtime log:
+        starting BAFT node ex-0bf4a5c8867e (listener)
+        2026/10/14 08:47:59 baft listener startup: goroutine created configured=0.0.0.0:29277
+        2026/10/14 08:47:59 baft listener startup: acquire configured=0.0.0.0:29277
+        2026/10/14 08:47:59 baft listener startup: bind success configured=0.0.0.0:29277 actual=[::]:29277
+        2026/10/14 08:47:59 baft listener startup: serve started actual=[::]:29277
+        2026/10/14 08:47:59 baft carrier server error phase=tls_handshake sample=1
+    multi_instance_proc_test.go:45: fixture baft-germany runtime log:
+        starting BAFT node ex-9a91317f2fdc (listener)
+        2026/10/14 08:47:58 baft listener startup: goroutine created configured=0.0.0.0:25109
+        2026/10/14 08:47:58 baft listener startup: acquire configured=0.0.0.0:25109
+        2026/10/14 08:47:58 baft listener startup: bind success configured=0.0.0.0:25109 actual=[::]:25109
+        2026/10/14 08:47:58 baft listener startup: serve started actual=[::]:25109
+        2026/10/14 08:47:58 baft carrier server error phase=tls_handshake sample=1
+    multi_instance_proc_test.go:45: fixture baft-germany runtime log:
+        starting BAFT node ir-2ca29690ff3a (dialer)
+        node stopped: shard 1: unexpected EOF
+    multi_instance_proc_test.go:45: fixture baft-bulgaria runtime log:
+        starting BAFT node ir-fbe859286b38 (dialer)
+        node stopped: shard 3: unexpected EOF
+--- FAIL: TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle (0.58s)
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/tunnelnode	1.766s
+FAIL

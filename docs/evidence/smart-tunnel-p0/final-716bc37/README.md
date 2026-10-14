@@ -1,0 +1,15 @@
+# Service-account identity drift — exact source716bc37
+
+Source: `716bc37f6940b911564aa1b036013e017ea1de9e`, tree `a97e80ff1bb1386d5c3a894f4bd6bbeac0c1450c`, parent `a59bfc09755e875dc5135ff15b0ac1dadf3a322d`. Draft PR200 / epic199 / claim6174159218. Published seven paths with exact expected_sha=a59 and force=false; preserved prior history and local work. Fetched synthetic merge49533ec8 has identical tree. Installer197 unchanged/separate at fb1950b295442d891aa6a09481d030e49c507b24.
+
+New separate-candidate preparations seal the service account name and versioned effective UID/GID/normalized supplementary-group digest after credential switching. Unknown identity refuses before node claim; same-name drift refuses around config validation and immediately before PKI activation. Python -I prevents caller Python import path/environment pollution. The private credential seal does not appear in candidate reports. No account/permission repair or service operation by the helper. Older no-account/name-only receipts retain their contract.
+
+Baseline01 accepts changed identity on BOTH roles and changes live artifacts/service. Fixed focused02/boundary03 PASS; all five activation boundaries per role, persisted preparation, malformed output, old receipts, helper UID/GID/group changes and ordering/duplicate normalization. Controlled helper subprocess models NSS without editing host accounts; actual native switching is separate evidence. Full development04 PASS (72.840s/35.607s/0.013s/0.011s), vet05 and13-workflow policy06 PASS.
+
+Clean PUBLISHED SHA full08 PASS (tunnelnode73.050s/Agent37.516s/agentjob0.009s/CLI0.008s); vet10 and policy12 PASS. Environment11 records Go1.27.1 linux/amd64, Python3.12.14 and explicit real uid/groups switch SKIP in this isolated runtime. That is not native acceptance. Exact race and current GitHub native/global qualification remain IN PROGRESS in this historical snapshot; no all-green claim. Pending CI13 is retained immutably.
+
+CI requires THREE actual root credential-switch/stable-or-mismatched-seal tests and THREE persisted-preparation tests under BAFT_REQUIRE_SERVICE_ACCESS_EVIDENCE=1, plus existing mandatory node-resource/sibling acceptance under BAFT_REQUIRE_RESOURCE_EVIDENCE=1. Environment skips become failures. Full completed native account/resource/systemd/global output will be added after completion.
+
+Every attempt, including failed setup/read attempts and baseline failures, is recorded in07. MANIFEST.json seals this evidence snapshot. No production checks/timeouts were weakened. No production/server change, main merge, tag/release, transport/shaping/exit switching, restart-resume or standby resumption. #199 open; #200 draft.
+
+OPEN: account changes after the last check, atomic account/host reservations, full systemd credentials/confinement, executable provenance, installer/shared/mixed-version acceptance. Running-candidate TLS/Noise/application payload BEFORE either active service changes remains unimplemented; current actual delivery proof is AFTER commit and BEFORE destructive backup release. No zero-downtime, application-specific challenge, fingerprint/blockability or field acceptance.

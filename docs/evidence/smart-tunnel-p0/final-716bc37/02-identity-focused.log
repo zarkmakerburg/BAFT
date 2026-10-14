@@ -1,0 +1,19 @@
+=== RUN   TestOlderCandidateReceiptDoesNotAcquireExecutableGate
+--- PASS: TestOlderCandidateReceiptDoesNotAcquireExecutableGate (0.70s)
+=== RUN   TestCandidateServiceAccessRefusalKeepsBothActiveNodes
+--- PASS: TestCandidateServiceAccessRefusalKeepsBothActiveNodes (1.40s)
+=== RUN   TestServiceAccessUnavailableDoesNotClaimNode
+--- PASS: TestServiceAccessUnavailableDoesNotClaimNode (0.02s)
+=== RUN   TestOlderCandidateDoesNotAcquireServiceAccessGate
+--- PASS: TestOlderCandidateDoesNotAcquireServiceAccessGate (0.66s)
+=== RUN   TestServiceAccessRealCredentialSwitch
+    service_access_test.go:106: environment cannot switch service account/groups: candidate service account access is unavailable; verify account, groups and python3 before activation
+--- SKIP: TestServiceAccessRealCredentialSwitch (0.06s)
+=== RUN   TestCandidateRefusesSameNameAccountIdentityDrift
+=== RUN   TestCandidateRefusesSameNameAccountIdentityDrift/ex
+=== RUN   TestCandidateRefusesSameNameAccountIdentityDrift/ir
+--- PASS: TestCandidateRefusesSameNameAccountIdentityDrift (1.27s)
+    --- PASS: TestCandidateRefusesSameNameAccountIdentityDrift/ex (0.64s)
+    --- PASS: TestCandidateRefusesSameNameAccountIdentityDrift/ir (0.63s)
+PASS
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	7.660s

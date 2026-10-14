@@ -1,0 +1,13 @@
+=== RUN   TestCandidateRefusesSameNameAccountIdentityDrift
+=== RUN   TestCandidateRefusesSameNameAccountIdentityDrift/ex
+    service_identity_regression_test.go:58: same-name account identity drift accepted: artifacts_changed=true service_calls=[is-active baft is-enabled baft daemon-reload enable baft restart baft is-active baft is-active baft is-active baft is-active baft is-active baft is-active baft is-active baft]
+    service_identity_regression_test.go:61: account identity drift changed live artifacts or consumed preparation
+=== RUN   TestCandidateRefusesSameNameAccountIdentityDrift/ir
+    service_identity_regression_test.go:58: same-name account identity drift accepted: artifacts_changed=true service_calls=[is-active baft is-enabled baft daemon-reload enable baft restart baft is-active baft is-active baft is-active baft is-active baft is-active baft is-active baft is-active baft]
+    service_identity_regression_test.go:61: account identity drift changed live artifacts or consumed preparation
+--- FAIL: TestCandidateRefusesSameNameAccountIdentityDrift (1.77s)
+    --- FAIL: TestCandidateRefusesSameNameAccountIdentityDrift/ex (0.93s)
+    --- FAIL: TestCandidateRefusesSameNameAccountIdentityDrift/ir (0.84s)
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/tunnelnode	8.947s
+FAIL

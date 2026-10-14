@@ -1,0 +1,53 @@
+=== RUN   TestServiceAccessRealCredentialSwitch
+    service_access_test.go:106: environment cannot switch service account/groups: candidate service account access is unavailable; verify account, groups and python3 before activation
+--- SKIP: TestServiceAccessRealCredentialSwitch (0.05s)
+=== RUN   TestCandidateRefusesSameNameAccountIdentityDrift
+=== RUN   TestCandidateRefusesSameNameAccountIdentityDrift/ex
+=== RUN   TestCandidateRefusesSameNameAccountIdentityDrift/ir
+--- PASS: TestCandidateRefusesSameNameAccountIdentityDrift (1.32s)
+    --- PASS: TestCandidateRefusesSameNameAccountIdentityDrift/ex (0.65s)
+    --- PASS: TestCandidateRefusesSameNameAccountIdentityDrift/ir (0.67s)
+=== RUN   TestServiceIdentityIsSealedBeforeBothNodePreparations
+--- PASS: TestServiceIdentityIsSealedBeforeBothNodePreparations (0.99s)
+=== RUN   TestServiceIdentityDriftAtEachActivationBoundary
+=== RUN   TestServiceIdentityDriftAtEachActivationBoundary/ex/check-1
+=== RUN   TestServiceIdentityDriftAtEachActivationBoundary/ex/check-2
+=== RUN   TestServiceIdentityDriftAtEachActivationBoundary/ex/check-3
+=== RUN   TestServiceIdentityDriftAtEachActivationBoundary/ex/check-4
+=== RUN   TestServiceIdentityDriftAtEachActivationBoundary/ex/check-5
+=== RUN   TestServiceIdentityDriftAtEachActivationBoundary/ir/check-1
+=== RUN   TestServiceIdentityDriftAtEachActivationBoundary/ir/check-2
+=== RUN   TestServiceIdentityDriftAtEachActivationBoundary/ir/check-3
+=== RUN   TestServiceIdentityDriftAtEachActivationBoundary/ir/check-4
+=== RUN   TestServiceIdentityDriftAtEachActivationBoundary/ir/check-5
+--- PASS: TestServiceIdentityDriftAtEachActivationBoundary (9.14s)
+    --- PASS: TestServiceIdentityDriftAtEachActivationBoundary/ex/check-1 (0.65s)
+    --- PASS: TestServiceIdentityDriftAtEachActivationBoundary/ex/check-2 (0.95s)
+    --- PASS: TestServiceIdentityDriftAtEachActivationBoundary/ex/check-3 (1.11s)
+    --- PASS: TestServiceIdentityDriftAtEachActivationBoundary/ex/check-4 (0.99s)
+    --- PASS: TestServiceIdentityDriftAtEachActivationBoundary/ex/check-5 (0.99s)
+    --- PASS: TestServiceIdentityDriftAtEachActivationBoundary/ir/check-1 (0.70s)
+    --- PASS: TestServiceIdentityDriftAtEachActivationBoundary/ir/check-2 (0.83s)
+    --- PASS: TestServiceIdentityDriftAtEachActivationBoundary/ir/check-3 (0.84s)
+    --- PASS: TestServiceIdentityDriftAtEachActivationBoundary/ir/check-4 (0.96s)
+    --- PASS: TestServiceIdentityDriftAtEachActivationBoundary/ir/check-5 (1.12s)
+=== RUN   TestServiceIdentityUnknownRefusesBeforeNodeClaim
+--- PASS: TestServiceIdentityUnknownRefusesBeforeNodeClaim (0.23s)
+=== RUN   TestServiceIdentityOlderAccountReceiptKeepsAccessContract
+--- PASS: TestServiceIdentityOlderAccountReceiptKeepsAccessContract (0.94s)
+=== RUN   TestServiceIdentityHelperDetectsUIDGIDAndGroupChanges
+=== RUN   TestServiceIdentityHelperDetectsUIDGIDAndGroupChanges/same
+=== RUN   TestServiceIdentityHelperDetectsUIDGIDAndGroupChanges/group-order-and-duplicates
+=== RUN   TestServiceIdentityHelperDetectsUIDGIDAndGroupChanges/uid
+=== RUN   TestServiceIdentityHelperDetectsUIDGIDAndGroupChanges/gid
+=== RUN   TestServiceIdentityHelperDetectsUIDGIDAndGroupChanges/added-group
+=== RUN   TestServiceIdentityHelperDetectsUIDGIDAndGroupChanges/removed-group
+--- PASS: TestServiceIdentityHelperDetectsUIDGIDAndGroupChanges (0.38s)
+    --- PASS: TestServiceIdentityHelperDetectsUIDGIDAndGroupChanges/same (0.03s)
+    --- PASS: TestServiceIdentityHelperDetectsUIDGIDAndGroupChanges/group-order-and-duplicates (0.06s)
+    --- PASS: TestServiceIdentityHelperDetectsUIDGIDAndGroupChanges/uid (0.04s)
+    --- PASS: TestServiceIdentityHelperDetectsUIDGIDAndGroupChanges/gid (0.10s)
+    --- PASS: TestServiceIdentityHelperDetectsUIDGIDAndGroupChanges/added-group (0.10s)
+    --- PASS: TestServiceIdentityHelperDetectsUIDGIDAndGroupChanges/removed-group (0.04s)
+PASS
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	14.356s

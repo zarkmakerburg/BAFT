@@ -1,6 +1,7 @@
 package incidentclass
 
 import (
+ "fmt"
  "sync"
  "testing"
  "time"
@@ -53,4 +54,29 @@ func TestObserveEvidenceKeepsFailureUntilFreshRecovery(t *testing.T) {
  result=tracker.ObserveEvidence("one",now.Add(time.Minute),5*time.Minute,good)
  if result.Status!=Recovered {t.Fatal(result)}
  if len(tracker.Snapshot().History)!=1 {t.Fatal("recovery missing")}
+}
+
+func TestTrackerActiveCapacityDoesNotEvictExistingIncident(t *testing.T) {
+ now:=time.Now().UTC()
+ tracker,err:=NewTracker(Snapshot{})
+ if err!=nil {t.Fatal(err)}
+ for i:=0;i<MaxActive;i++ {
+  tracker.Observe(fmt.Sprintf("instance-%d",i),Result{Status:NodeOffline,ObservedAt:now})
+ }
+ if len(tracker.Snapshot().Active)!=MaxActive {t.Fatal("active capacity not reached")}
+ tracker.Observe("extra",Result{Status:NodeOffline,ObservedAt:now})
+ if len(tracker.Snapshot().Active)!=MaxActive {t.Fatal("capacity exceeded")}
+ if _,_,ok:=tracker.LastFailure("instance-0");!ok {t.Fatal("existing incident evicted")}
+ tracker.Observe("instance-0",Result{Status:Recovered,ObservedAt:now.Add(time.Second)})
+ tracker.Observe("extra",Result{Status:NodeOffline,ObservedAt:now.Add(2*time.Second)})
+ if _,_,ok:=tracker.LastFailure("extra");!ok {t.Fatal("capacity not released after recovery")}
+}
+func TestTrackerRejectsOversizedActiveSnapshot(t *testing.T) {
+ now:=time.Now().UTC()
+ active:=make(map[string]Incident)
+ for i:=0;i<=MaxActive;i++ {
+  id:=fmt.Sprintf("instance-%d",i)
+  active[id]=Incident{InstanceID:id,Status:NodeOffline,StartedAt:now,LastObservedAt:now,Observations:1}
+ }
+ if _,err:=NewTracker(Snapshot{Active:active});err==nil {t.Fatal("oversized active snapshot accepted")}
 }

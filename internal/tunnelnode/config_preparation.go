@@ -133,12 +133,18 @@ func (m *Manager) readPreparedConfig(t Txn) ([]byte, config.Config, map[string]s
 // The installer uses the returned immutable bytes rather than reading the path
 // again after validation. This is not an atomic host-wide filesystem lock.
 func (m *Manager) validatePreparedConfig(ctx context.Context, t Txn) ([]byte, config.Config, map[string]string, error) {
+	if err := m.verifyExecutables(ctx, t); err != nil {
+		return nil, config.Config{}, nil, err
+	}
 	b, cfg, inputs, err := m.readPreparedConfig(t)
 	if err != nil {
 		return nil, cfg, nil, err
 	}
 	if out, err := m.System.Run(ctx, m.BaftBin, "config", "validate", "--file", filepath.Join(m.stage(t.ID), "baft.new.yaml")); err != nil {
 		return nil, cfg, nil, fmt.Errorf("staged config is invalid: %v: %s", err, tailOf(out))
+	}
+	if err := m.verifyExecutables(ctx, t); err != nil {
+		return nil, cfg, nil, err
 	}
 	after, _, afterInputs, err := m.readPreparedConfig(t)
 	if err != nil || !bytes.Equal(b, after) || !sameDigests(inputs, afterInputs) {

@@ -24,6 +24,27 @@ main merge and release/tag gates from #67 have not been exercised.
 
 ## Confirmed and corrected in this slice
 
+### Shared installer executable drift gate
+
+New separate-candidate preparations seal actual `baft` and `baft-pair` bytes,
+absolute paths, file mode and UID/GID before claiming the instance. Both must
+be non-symlink executable regular files (maximum 128 MiB); hashing is streamed,
+cancellable and checks the open file and pathname identity around the read.
+Preparation, EX reply consumption, installed-binary configuration validation
+and the final pre-PKI-activation boundary repeat the identity checks. A binary
+replacement, permission change, path change, missing file or symlink refuses
+activation before live config/unit/marker/generation/certificates or service
+operations. Repair requires explicit rollback and a new preparation; it does
+not silently adopt the installer's new binary. Older in-flight receipts without
+executable identities retain their existing protocol.
+
+This covers a bounded drift risk from #197's shared binaries. It does not
+establish mixed-version interoperability, executable provenance, service-user
+readability or an atomic host-wide upgrade lock. Replacement after the final
+check remains a concurrency limitation; no candidate process/TLS/Noise/payload
+before cutover is claimed by this gate.
+
+
 ### Bind-resource preflight
 
 `tunnelResourceConflict` only compared fields with the same purpose and compared

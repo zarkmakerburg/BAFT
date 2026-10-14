@@ -138,6 +138,7 @@ type Txn struct {
 	PreparedPairingInputs  map[string]string `json:"prepared_pairing_inputs,omitempty"`
 	CandidateJobsRequired  bool              `json:"candidate_jobs_required,omitempty"`
 	PreparedReplySHA       string            `json:"prepared_reply_sha,omitempty"`
+	PreparedExecutables    map[string]string `json:"prepared_executables,omitempty"`
 
 	// Ownership: what this change installed, so rollback only ever restores or
 	// deletes files that are still exactly the ones BAFT wrote.
@@ -389,6 +390,10 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 			return "", err
 		}
 	}
+	executables, err := m.prepareExecutables(ctx, p.StageConfig)
+	if err != nil {
+		return "", err
+	}
 	t, err := m.begin(id, RoleEX)
 	if err != nil {
 		return "", err
@@ -397,6 +402,7 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 	t.VerificationRequired = p.VerifyData
 	t.ResourcesRequired = p.VerifyResources
 	t.CandidateJobsRequired = p.StageConfig
+	t.PreparedExecutables = executables
 	code, err := func() (string, error) {
 		if err := m.ensureNoiseKey(ctx); err != nil {
 			return "", err
@@ -419,6 +425,10 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 		return strings.TrimSpace(out), nil
 	}()
 	if err != nil {
+		_, rollbackErr := m.rollbackTxn(ctx, t)
+		return "", errors.Join(err, rollbackErr)
+	}
+	if err := m.verifyExecutables(ctx, t); err != nil {
 		_, rollbackErr := m.rollbackTxn(ctx, t)
 		return "", errors.Join(err, rollbackErr)
 	}
@@ -451,6 +461,10 @@ func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (s
 			return "", err
 		}
 	}
+	executables, err := m.prepareExecutables(ctx, p.StageConfig)
+	if err != nil {
+		return "", err
+	}
 	t, err := m.begin(id, RoleIR)
 	if err != nil {
 		return "", err
@@ -459,6 +473,7 @@ func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (s
 	t.VerificationRequired = p.VerifyData
 	t.ResourcesRequired = p.VerifyResources
 	t.CandidateJobsRequired = p.StageConfig
+	t.PreparedExecutables = executables
 	reply, err := func() (string, error) {
 		if err := m.ensureNoiseKey(ctx); err != nil {
 			return "", err
@@ -509,6 +524,9 @@ func (m *Manager) CommitEX(ctx context.Context, id, reply string) (string, error
 // configuration, PKI, unit or generation. Legacy CommitEX also uses it.
 func (m *Manager) completeEXConfig(ctx context.Context, t *Txn, reply string) error {
 	id := t.ID
+	if err := m.verifyExecutables(ctx, *t); err != nil {
+		return err
+	}
 	if err := m.verifyPairingInputs(*t); err != nil {
 		return err
 	}
@@ -619,6 +637,9 @@ func (m *Manager) install(ctx context.Context, t Txn, port int) (string, error) 
 	// changed. The persisted prepared receipt already identifies both trees,
 	// including the exchange window, for an explicit rollback after failure.
 	if err := m.writeTxn(t); err != nil {
+		return "", err
+	}
+	if err := m.verifyExecutables(ctx, t); err != nil {
 		return "", err
 	}
 	if err := m.activatePreparedPKI(t); err != nil {

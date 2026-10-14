@@ -38,6 +38,11 @@ jobs:
         run: |
           grep -E -- '^(--- FAIL|FAIL|panic:)|_test\.go:[0-9]+:' "$RUNNER_TEMP/go-test.log" | head -40 |
             sed 's/%/%25/g; s/^/::error title=go test::/' || true
+      - name: Node-local tunnel resource acceptance
+        env:
+          BAFT_REQUIRE_RESOURCE_EVIDENCE: "1"
+        run: |
+          go test ./internal/tunnelnode -run '^(TestResource|TestProcTCP|TestPassiveInventory|TestTwoLiveInstances)' -count=3 -timeout=5m -v
       - name: Step 1 stability evidence
         run: |
           go test ./tests/integration -run '^TestSixNodeNoiseMasterHandshakeRoundTrip$' -count=1 -v

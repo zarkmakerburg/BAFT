@@ -161,11 +161,12 @@ func exParams(p map[string]string, port int) tunnelnode.ExParams {
 		PublicAddress: p["public_address"], Port: port, Target: p["target"],
 		RouteID: p["route_id"], RecordShaping: p["record_shaping"] == "true", MetricsListen: p["metrics_listen"],
 		VerifyData: p["verify_data"] == "true",
+		VerifyResources: p["verify_resources"] == "true",
 	}
 }
 
 func irParams(p map[string]string) tunnelnode.IRParams {
-	return tunnelnode.IRParams{RouteListen: p["route_listen"], RouteID: p["route_id"], MetricsListen: p["metrics_listen"], VerifyData: p["verify_data"] == "true"}
+	return tunnelnode.IRParams{RouteListen: p["route_listen"], RouteID: p["route_id"], MetricsListen: p["metrics_listen"], VerifyData: p["verify_data"] == "true", VerifyResources: p["verify_resources"] == "true"}
 }
 
 // certRotation runs one step of a certificate rotation. Every step answers

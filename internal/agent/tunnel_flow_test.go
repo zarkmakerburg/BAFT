@@ -228,6 +228,10 @@ func (f *flow) addNode(t *testing.T, url string, jobKey ed25519.PublicKey, id, r
 		ConfigDir: n.etc, StateDir: filepath.Join(f.dir, id, "state"), UnitDir: filepath.Join(f.dir, id, "units"),
 		BaftBin: flowBaft, PairBin: flowPair, Settle: 20 * time.Millisecond, System: n.sys,
 		MetricsListen: proofServer.Listener.Addr().String(),
+		// These already-bound adapter listeners model installed services;
+		// this signing/lifecycle fixture is not physical-host resource evidence.
+		// Real procfs/ownership is exercised by tunnelnode's process fixture.
+		TCPInventory: func(context.Context) ([]tunnelnode.TCPBinding, error) { return nil, nil },
 	})
 	if err != nil {
 		t.Fatal(err)

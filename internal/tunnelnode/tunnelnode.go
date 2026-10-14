@@ -72,6 +72,9 @@ type Env struct {
 	// operation; an error stops the operation right there, without any
 	// cleanup, as if the process died (fault-injection tests only).
 	Fault func(point string) error
+	// TCPInventory overrides the passive host inventory in adapters/tests.
+	// Production leaves it nil and inspects the actual local network namespace.
+	TCPInventory func(context.Context) ([]TCPBinding, error)
 }
 
 const (
@@ -123,6 +126,7 @@ type Txn struct {
 	// generated candidate from reuse of an unchanged live certificate tree.
 	PKIHost              string              `json:"pki_host,omitempty"`
 	PKIStaged            bool                `json:"pki_staged,omitempty"`
+	ResourcesRequired    bool                `json:"resources_required,omitempty"`
 	VerificationRequired bool                `json:"verification_required,omitempty"`
 	ReadyProof           *verification.Proof `json:"ready_proof,omitempty"`
 
@@ -198,20 +202,22 @@ func (m *Manager) ForInstance(instance, metricsListen string) (*Manager, error) 
 // ---- parameters ----
 
 type ExParams struct {
-	PublicAddress string // host or IP the IR dials; also the certificate name
-	Port          int
-	Target        string // fixed IP:port the route exits to
-	RouteID       string
-	RecordShaping bool
-	MetricsListen string // default 127.0.0.1:9191
-	VerifyData    bool
+	PublicAddress   string // host or IP the IR dials; also the certificate name
+	Port            int
+	Target          string // fixed IP:port the route exits to
+	RouteID         string
+	RecordShaping   bool
+	MetricsListen   string // default 127.0.0.1:9191
+	VerifyData      bool
+	VerifyResources bool
 }
 
 type IRParams struct {
-	RouteListen   string // loopback address local clients connect to
-	RouteID       string
-	MetricsListen string
-	VerifyData    bool
+	RouteListen     string // loopback address local clients connect to
+	RouteID         string
+	MetricsListen   string
+	VerifyData      bool
+	VerifyResources bool
 }
 
 func validPort(p int) bool { return p >= 1 && p <= 65535 }
@@ -367,12 +373,18 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 	if p.MetricsListen == "" {
 		p.MetricsListen = m.MetricsListen
 	}
+	if p.VerifyResources {
+		if err := m.preflightResources(ctx, []string{net.JoinHostPort("0.0.0.0", strconv.Itoa(p.Port)), p.MetricsListen}); err != nil {
+			return "", err
+		}
+	}
 	t, err := m.begin(id, RoleEX)
 	if err != nil {
 		return "", err
 	}
 	t.Port = p.Port
 	t.VerificationRequired = p.VerifyData
+	t.ResourcesRequired = p.VerifyResources
 	code, err := func() (string, error) {
 		if err := m.ensureNoiseKey(ctx); err != nil {
 			return "", err
@@ -417,12 +429,18 @@ func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (s
 	if p.MetricsListen == "" {
 		p.MetricsListen = m.MetricsListen
 	}
+	if p.VerifyResources {
+		if err := m.preflightResources(ctx, []string{p.RouteListen, p.MetricsListen}); err != nil {
+			return "", err
+		}
+	}
 	t, err := m.begin(id, RoleIR)
 	if err != nil {
 		return "", err
 	}
 	t.RouteListen = p.RouteListen
 	t.VerificationRequired = p.VerifyData
+	t.ResourcesRequired = p.VerifyResources
 	reply, err := func() (string, error) {
 		if err := m.ensureNoiseKey(ctx); err != nil {
 			return "", err
@@ -470,6 +488,11 @@ func (m *Manager) CommitEX(ctx context.Context, id, reply string) (string, error
 	if err := m.verifyPreparedPKI(t); err != nil {
 		return "", err
 	}
+	if t.ResourcesRequired {
+		if err := m.preflightResources(ctx, []string{net.JoinHostPort("0.0.0.0", strconv.Itoa(p.Port)), p.MetricsListen}); err != nil {
+			return "", err
+		}
+	}
 	stage := m.stage(id)
 	out, err := m.System.Run(ctx, m.PairBin, "ex-accept", "--reply", reply, "--pending", filepath.Join(stage, "pending.json"),
 		"--psk-file", filepath.Join(stage, "psk"), "--key", m.noiseKey(), "--listen", "0.0.0.0:"+strconv.Itoa(p.Port),
@@ -505,6 +528,16 @@ func (m *Manager) install(ctx context.Context, t Txn, port int) (string, error) 
 	staged := filepath.Join(stage, "baft.new.yaml")
 	if _, err := os.Stat(staged); err != nil {
 		return "", errors.New("no staged config")
+	}
+	if t.ResourcesRequired {
+		cfg, err := config.LoadFile(staged)
+		if err != nil {
+			return "", err
+		}
+		binds := configurationBinds(cfg)
+		if err := m.preflightResources(ctx, binds); err != nil {
+			return "", err
+		}
 	}
 	if b, err := os.ReadFile(m.liveConfig()); err == nil {
 		t.HadConfig = true

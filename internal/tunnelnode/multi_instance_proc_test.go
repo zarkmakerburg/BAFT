@@ -83,6 +83,7 @@ func TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("real process fixture requires Linux")
 	}
+	requireProcessResourceEvidence(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	used := map[int]bool{}
@@ -128,12 +129,12 @@ func TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle(t *testing.T) {
 				checkGermany(id + ": " + step)
 			}
 		}
-		code, err := ex.PrepareEX(ctx, id, ExParams{PublicAddress: public, Port: listen, Target: target, RouteID: "service-main", VerifyData: true})
+		code, err := ex.PrepareEX(ctx, id, ExParams{PublicAddress: public, Port: listen, Target: target, RouteID: "service-main", VerifyData: true, VerifyResources: true})
 		if err != nil {
 			t.Fatal(err)
 		}
 		check("prepare EX")
-		reply, err := ir.PrepareIR(ctx, id, code, IRParams{RouteListen: route, RouteID: "service-main", VerifyData: true})
+		reply, err := ir.PrepareIR(ctx, id, code, IRParams{RouteListen: route, RouteID: "service-main", VerifyData: true, VerifyResources: true})
 		if err != nil {
 			t.Fatal(err)
 		}

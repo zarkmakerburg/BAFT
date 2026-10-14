@@ -173,6 +173,9 @@ func TestScopedTunnelJobsCarryInstanceIdentity(t *testing.T) {
 	if got := exJobs[0].Params["metrics_listen"]; got != req.EXMetricsListen {
 		t.Fatalf("EX metrics=%q", got)
 	}
+	if exJobs[0].Params["verify_resources"] != "true" {
+		t.Fatal("EX preparation omitted the explicit physical-resource gate")
+	}
 	if err := s.AckJobOutput("ex-1", "tok-ex-1", exJobs[0].ID, "succeeded", "pairing code issued", testPairCode); err != nil {
 		t.Fatal(err)
 	}
@@ -188,6 +191,9 @@ func TestScopedTunnelJobsCarryInstanceIdentity(t *testing.T) {
 	}
 	if got := irJobs[0].Params["metrics_listen"]; got != req.IRMetricsListen {
 		t.Fatalf("IR metrics=%q", got)
+	}
+	if irJobs[0].Params["verify_resources"] != "true" {
+		t.Fatal("IR preparation omitted the explicit physical-resource gate")
 	}
 }
 

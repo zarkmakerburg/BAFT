@@ -250,6 +250,53 @@ The report's current-license conflict, insecure SSH host-key examples,
 overbroad blocked-region classification and unverified notification delivery are
 not adopted. Existing #145/#146/#147, #74 and #197 remain the integration points.
 
+## Node-local resource preflight follow-up
+
+Baseline: `59cc9dfe719a535914b58e358d2760938fad2f37`. An actual listening
+socket reproduced a false-safe prepare on that baseline: it returned a pairing
+code without noticing the occupied port.
+
+New BCC prepare jobs explicitly require `verify_resources=true` on BOTH agents.
+The signed allowlist validates this field; older agents reject the unknown
+parameter rather than silently omitting the safety check. The transaction records
+the requirement for commit. Older/direct transactions keep their existing opt-in
+contract; this does not retrofit all in-flight work or add broad capability UI.
+
+Each node checks the actual local TCP4/TCP6 listener tables, with bounded reads
+and parsing. A missing/malformed/truncated table is unavailable evidence, never
+"free". Wildcard ports are conservatively treated as potentially dual-stack.
+The inspection does not open a candidate listener, scan external hosts, stop a
+service, alter firewall rules or disclose process arguments. It is repeated
+before accepting the EX reply and immediately before installing either node's
+staged config. A newly occupied port leaves the preparation claimed and intact
+for explicit retry/rollback; the EX pairing secret is not consumed by that refusal.
+
+Existing config/unit/marker/generation/instance identities must match; partial,
+unmanaged, symlinked, special-file or corrupt active ownership is refused. A
+colliding existing socket can be reused only if it was declared by that verified
+configuration and its inode belongs to the current systemd MainPID. The process
+start identity and network namespace are checked around bounded FD reads, and
+MainPID is rechecked afterward. The admin Unix socket also needs exact path,
+inode and service ownership; unrelated files/sockets are preserved.
+
+This is fresh node-local inspection, not an atomic reservation against another
+process. The remaining window between check and bind still relies on service
+startup failure/rollback and the existing data/finalization gate. Other network
+namespaces, absent procfs or unavailable FD ownership cannot be declared safe.
+General interfaces/routes, disk capacity, all shared installer resources and
+cross-process host locking remain open. Adapter fixtures explicitly model socket
+inventory; they do not count as real host acceptance.
+
+Local regression tests cover the real occupied bind, a new bind between prepare
+and commit with safe retry, unknown/malformed inventory, wildcard/address-family
+collisions, proof-bound reuse and changed/unmanaged namespace artifacts. This
+runtime cannot inspect another process's namespace and refuses AF_UNIX creation;
+the full two-process resource fixture and live Unix-socket subtest are explicitly
+SKIP, not PASS. CI's required `Node-local tunnel resource acceptance` runs these
+tests three times with `BAFT_REQUIRE_RESOURCE_EVIDENCE=1`, converting either
+environment skip into failure. Current-head Linux/real-systemd qualification must
+finish before acceptance; predecessor green checks do not satisfy this gate.
+
 ## Two-live-instance laboratory regression
 
 `TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle` uses real built
@@ -283,10 +330,11 @@ is recorded in the PR and #67, including failed/repeated/race attempts.
    have dedicated regressions and a schema-v2 contract. Stored observations
    expire; continuous instance-scoped refresh and broader measured diagnostics
    are still required. Old raw candidate probes never substitute for these.
-3. **Physical host preflight:** this slice protects BCC-declared binds. Fresh
-   local listener inventory, filesystem/unit namespace ownership still need checking on both agents. This slice
-   discovers only the narrow data-proof capability, not every host capability. Unknown external services
-   cannot be declared free solely from BCC's database.
+3. **Physical host preflight:** new explicit prepare jobs inspect local listener
+   and instance filesystem/unit ownership on both nodes and repeat the check at
+   commit. Native Linux/process/Unix acceptance is still pending as described
+   above. Interface/route inventory, general capabilities, shared installer
+   resources and atomic cross-process reservation remain open.
 4. **Installer coexistence:** compare #197's standalone instance namespaces and
    unit naming with the BCC-scoped namespaces, plus shared-binary upgrades,
    locking and rollback ownership. Keep that work coordinated with #197.

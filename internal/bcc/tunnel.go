@@ -543,6 +543,7 @@ func (t Tunnel) prepareEXParams() map[string]string {
 		"tunnel_id": t.ID, "public_address": t.PublicAddress, "port": strconv.Itoa(t.Port), "target": t.Target,
 		"route_id": t.RouteID, "record_shaping": strconv.FormatBool(t.RecordShaping),
 		"verify_data":"true",
+		"verify_resources":"true",
 	}
 	if t.InstanceID != "" {
 		p["instance_id"] = t.InstanceID
@@ -790,6 +791,7 @@ func (s *Store) advanceLocked(t *Tunnel, now time.Time) *TunnelEvent {
 		t.Phase = TunnelPreparingIR
 		params := map[string]string{"code": secret, "route_listen": t.RouteListen, "route_id": t.RouteID}
 		params["verify_data"]="true"
+		params["verify_resources"]="true"
 		if t.InstanceID != "" {
 			params["metrics_listen"] = t.IRMetricsListen
 		}

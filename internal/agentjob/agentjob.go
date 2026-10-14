@@ -151,8 +151,8 @@ var paramRules = map[string]map[string]*regexp.Regexp{
 // Legacy BCCs may omit these fields; new BCCs use them for multi-instance
 // tunnel isolation.
 var optionalParamRules = map[string]map[string]*regexp.Regexp{
-	ActionTunnelPrepareEX: {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR, "verify_data": boolRe},
-	ActionTunnelPrepareIR: {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR, "verify_data": boolRe},
+	ActionTunnelPrepareEX: {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR, "verify_data": boolRe, "verify_resources": boolRe},
+	ActionTunnelPrepareIR: {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR, "verify_data": boolRe, "verify_resources": boolRe},
 	ActionTunnelCommitEX:  {"instance_id": instanceIDRe},
 	ActionTunnelCommitIR:  {"instance_id": instanceIDRe},
 	ActionTunnelHealth:    {"instance_id": instanceIDRe},

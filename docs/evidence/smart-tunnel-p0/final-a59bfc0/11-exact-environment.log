@@ -1,0 +1,5 @@
+=== RUN   TestServiceAccessRealCredentialSwitch
+    service_access_test.go:106: environment cannot switch service account/groups: candidate service account access is unavailable; verify account, groups and python3 before activation
+--- SKIP: TestServiceAccessRealCredentialSwitch (0.02s)
+PASS
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	2.742s

@@ -1,0 +1,23 @@
+--- FAIL: TestServiceAccessBoundReceiptRefusesUncheckedActivation (1.22s)
+    service_access_regression_test.go:26: changed candidate was accepted
+    service_access_regression_test.go:27: changed candidate was accepted
+    service_access_regression_test.go:27: refusal changed live artifact: baft.service
+    service_access_regression_test.go:27: refusal changed live artifact: baft.managed.json
+    service_access_regression_test.go:27: refusal changed live artifact: generation
+    service_access_regression_test.go:27: refusal changed live artifact: baft.yaml
+    service_access_regression_test.go:27: refusal touched service: daemon-reload
+    service_access_regression_test.go:27: refusal touched service: enable baft
+    service_access_regression_test.go:27: refusal touched service: restart baft
+    service_access_regression_test.go:27: refusal changed live certificates
+    service_access_regression_test.go:26: changed candidate was accepted
+    service_access_regression_test.go:27: changed candidate was accepted
+    service_access_regression_test.go:27: refusal changed live artifact: baft.yaml
+    service_access_regression_test.go:27: refusal changed live artifact: baft.service
+    service_access_regression_test.go:27: refusal changed live artifact: baft.managed.json
+    service_access_regression_test.go:27: refusal changed live artifact: generation
+    service_access_regression_test.go:27: refusal touched service: daemon-reload
+    service_access_regression_test.go:27: refusal touched service: enable baft
+    service_access_regression_test.go:27: refusal touched service: restart baft
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/tunnelnode	4.167s
+FAIL

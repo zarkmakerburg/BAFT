@@ -132,14 +132,15 @@ type Txn struct {
 	ReadyProof           *verification.Proof `json:"ready_proof,omitempty"`
 	// New preparations bind the candidate and its private dependencies to
 	// this transaction. Empty fields preserve older in-flight receipts.
-	PreparedConfigSHA      string            `json:"prepared_config_sha,omitempty"`
-	PreparedConfigIdentity string            `json:"prepared_config_identity,omitempty"`
-	PreparedConfigInputs   map[string]string `json:"prepared_config_inputs,omitempty"`
-	PreparedPairingInputs  map[string]string `json:"prepared_pairing_inputs,omitempty"`
-	CandidateJobsRequired  bool              `json:"candidate_jobs_required,omitempty"`
-	PreparedReplySHA       string            `json:"prepared_reply_sha,omitempty"`
-	PreparedExecutables    map[string]string `json:"prepared_executables,omitempty"`
-	PreparedServiceUser    string            `json:"prepared_service_user,omitempty"`
+	PreparedConfigSHA       string            `json:"prepared_config_sha,omitempty"`
+	PreparedConfigIdentity  string            `json:"prepared_config_identity,omitempty"`
+	PreparedConfigInputs    map[string]string `json:"prepared_config_inputs,omitempty"`
+	PreparedPairingInputs   map[string]string `json:"prepared_pairing_inputs,omitempty"`
+	CandidateJobsRequired   bool              `json:"candidate_jobs_required,omitempty"`
+	PreparedReplySHA        string            `json:"prepared_reply_sha,omitempty"`
+	PreparedExecutables     map[string]string `json:"prepared_executables,omitempty"`
+	PreparedServiceUser     string            `json:"prepared_service_user,omitempty"`
+	PreparedServiceIdentity string            `json:"prepared_service_identity,omitempty"`
 
 	// Ownership: what this change installed, so rollback only ever restores or
 	// deletes files that are still exactly the ones BAFT wrote.
@@ -395,7 +396,7 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 	if err != nil {
 		return "", err
 	}
-	serviceUser, err := m.prepareServiceUser(ctx, p.StageConfig)
+	serviceUser, serviceIdentity, err := m.prepareServiceUser(ctx, p.StageConfig)
 	if err != nil {
 		return "", err
 	}
@@ -409,6 +410,7 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 	t.CandidateJobsRequired = p.StageConfig
 	t.PreparedExecutables = executables
 	t.PreparedServiceUser = serviceUser
+	t.PreparedServiceIdentity = serviceIdentity
 	code, err := func() (string, error) {
 		if err := m.ensureNoiseKey(ctx); err != nil {
 			return "", err
@@ -471,7 +473,7 @@ func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (s
 	if err != nil {
 		return "", err
 	}
-	serviceUser, err := m.prepareServiceUser(ctx, p.StageConfig)
+	serviceUser, serviceIdentity, err := m.prepareServiceUser(ctx, p.StageConfig)
 	if err != nil {
 		return "", err
 	}
@@ -485,6 +487,7 @@ func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (s
 	t.CandidateJobsRequired = p.StageConfig
 	t.PreparedExecutables = executables
 	t.PreparedServiceUser = serviceUser
+	t.PreparedServiceIdentity = serviceIdentity
 	reply, err := func() (string, error) {
 		if err := m.ensureNoiseKey(ctx); err != nil {
 			return "", err

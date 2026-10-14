@@ -53,7 +53,7 @@ func TestCandidateServiceAccessRefusalKeepsBothActiveNodes(t *testing.T) {
 				return err
 			})
 		}
-		if gate.calls != 2*side.count || len(gate.args) != 3+2*side.count {
+		if gate.calls != 2*side.count || len(gate.args) != 5+2*side.count {
 			t.Fatal("not every account-access check was exercised")
 		}
 		if side.n == p.ex && !strings.Contains(strings.Join(gate.args, " "), p.ex.preparedPKIDir(tx)) {
@@ -124,8 +124,22 @@ func TestServiceAccessRealCredentialSwitch(t *testing.T) {
 		t.Fatal(err)
 	}
 	m := newNode(t).Manager
-	if err := m.checkServiceAccess(context.Background(), "nobody", nil); err != nil {
+	identity, err := m.serviceAccountIdentity(context.Background(), "nobody", "", nil)
+	if err != nil {
 		unavailable("environment cannot switch service account/groups: " + err.Error())
+	}
+	if !validServiceIdentity(identity) {
+		t.Fatal("real switched credentials were not sealed")
+	}
+	if got, err := m.serviceAccountIdentity(context.Background(), "nobody", identity, nil); err != nil || got != identity {
+		t.Fatal("unchanged real credentials were refused", err)
+	}
+	wrong := strings.Repeat("a", 64)
+	if wrong == identity {
+		wrong = strings.Repeat("b", 64)
+	}
+	if _, err := m.serviceAccountIdentity(context.Background(), "nobody", wrong, nil); !errors.Is(err, errServiceIdentityChanged) {
+		t.Fatal("real helper accepted the wrong credential identity", err)
 	}
 	check := []serviceAccessCheck{{"r", path, "private key"}}
 	if err := m.checkServiceAccess(context.Background(), "nobody", check); err == nil {

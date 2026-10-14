@@ -41,8 +41,24 @@ adapters remain explicit; the production Agent CLI refuses an empty service
 account. CI adds mandatory root-run credential-switch acceptance with three
 repeats, alongside the existing two-node signed-release/systemd fixture.
 Local inability to switch uid/groups is recorded as SKIP, never as access PASS.
-This is DAC/ACL access evidence, not full systemd confinement, safe atomic host
-reservation or coordinated candidate handshake/payload before cutover.
+New preparations also privately seal a versioned digest of the actual switched
+UID, primary GID and normalized supplementary group set. Both roles persist it
+before their candidate artifacts are prepared, repeat it around validation and
+reject same-name account remapping or group additions/removals before PKI
+activation. Group ordering and duplicates do not create false drift. The Python
+interpreter runs with `-I` so caller-controlled Python paths and environment do
+not alter imported helper modules. Unknown/malformed identity output refuses
+preparation; arbitrary helper output and numeric credentials are not reported.
+Older account-name-only receipts retain access checks without silently acquiring
+the new identity contract. Mandatory root CI also tests persisted preparation
+seals; actual credential-switch acceptance checks stable and mismatched seals.
+
+This is DAC/ACL and credential-drift evidence, not full systemd confinement,
+atomic account/host reservation or coordinated candidate handshake/payload
+before cutover. Account changes after the last check remain a concurrency
+limitation. The installed Python interpreter and system account database remain
+trusted dependencies; this does not attest executable provenance or systemd's
+full effective credential/security settings.
 
 ### Shared installer executable drift gate
 

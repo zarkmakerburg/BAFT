@@ -10,7 +10,7 @@ PR #200 remains draft; #199 remains open. This evidence commit only adds docs.
 - `go test -race ./internal/tunnelnode ./internal/agent ./internal/agentjob -count=1 -timeout=15m`: PASS, exit 0; 38.949s / 46.922s / 1.044s.
 - `go test ./internal/tunnelnode -run TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle -count=3 -timeout=5m -v`: PASS 3/3, exit 0.
 - `go vet ./internal/tunnelnode ./internal/agent ./internal/agentjob`: PASS, exit 0.
-- Ownership mutation acceptance is reported verbatim in `baft-published-owner.log`; an environment skip is not a pass of the ownership change.
+- Ownership mutation test actually ran and PASSed in this privileged execution environment: `baft-published-owner.log`. This differs from the earlier run's environment SKIP; it is not production ownership acceptance.
 
 Tests use real BAFT/pair binaries and H2/TLS/Noise echo traffic, simulated systemd;
 no production node or field test. Go 1.27.1 installed in scratch. Published-source
@@ -22,8 +22,9 @@ R3 38522602492, static 38522602495, BCC UI 38522602498.
 ## Concurrent publication and preserved development attempts
 
 Initial read: `d8bb3b69decfba2ba57430bcfe61eab64a6ba3cc`, 524 #67 comments;
-no matching active claim observed. Later fresh read revealed claim 6162291939,
-which appeared after that initial read and was released by report 6162443280.
+no matching active claim appeared in the returned snapshot. Later fresh read
+revealed claim 6162291939, released by report 6162443280. The initial response
+was incomplete/stale for claim detection; claim absence was not established.
 The remote head advanced to 59cc9df before this run's publication check.
 It implements the same staged-PKI objective with additional same-host/finalization
 checks. No local runtime patch was pushed over it, merged, reset or rebased.

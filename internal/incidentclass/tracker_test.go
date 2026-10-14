@@ -80,3 +80,16 @@ func TestTrackerRejectsOversizedActiveSnapshot(t *testing.T) {
  }
  if _,err:=NewTracker(Snapshot{Active:active});err==nil {t.Fatal("oversized active snapshot accepted")}
 }
+
+func TestObserveEvidenceCapacityLimit(t *testing.T) {
+ now:=time.Now().UTC()
+ tracker,err:=NewTracker(Snapshot{})
+ if err!=nil {t.Fatal(err)}
+ for i:=0;i<MaxActive;i++ {
+  tracker.Observe(fmt.Sprintf("slot-%d",i),Result{Status:NodeOffline,ObservedAt:now})
+ }
+ evidence:=Evidence{ObservedAt:now.Add(time.Second),HeartbeatKnown:true,HeartbeatFresh:false}
+ result:=tracker.ObserveEvidence("overflow",now.Add(time.Second),time.Minute,evidence)
+ if result.Status!=Unknown {t.Fatalf("unexpected result: %+v",result)}
+ if len(tracker.Snapshot().Active)!=MaxActive {t.Fatal("overflow changed active count")}
+}

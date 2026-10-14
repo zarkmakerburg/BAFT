@@ -37,3 +37,20 @@ func TestTrackerRejectsInvalidCompletedHistory(t *testing.T) {
  _,err=NewTracker(Snapshot{History:[]Incident{{InstanceID:"a",StartedAt:now,LastObservedAt:end,RecoveredAt:&end}}})
  if err!=nil {t.Fatalf("rejected valid recovered incident: %v",err)}
 }
+
+func TestObserveEvidenceKeepsFailureUntilFreshRecovery(t *testing.T) {
+ tracker,err:=NewTracker(Snapshot{})
+ if err!=nil {t.Fatal(err)}
+ now:=time.Now().UTC()
+ bad:=Evidence{ObservedAt:now,HeartbeatKnown:true,HeartbeatFresh:true,ServiceKnown:true,ServiceRunning:true,HandshakeKnown:true,HandshakeOK:false,PathImpaired:true}
+ result:=tracker.ObserveEvidence("one",now,5*time.Minute,bad)
+ if result.Status!=NetworkPathFailure {t.Fatal(result)}
+ good:=Evidence{ObservedAt:now.Add(time.Minute),HeartbeatKnown:true,HeartbeatFresh:true,ServiceKnown:true,ServiceRunning:true,HandshakeKnown:true,HandshakeOK:true,DataPathKnown:true,DataPathOK:true}
+ stale:=good;stale.ObservedAt=now.Add(-time.Hour)
+ result=tracker.ObserveEvidence("one",now.Add(time.Minute),5*time.Minute,stale)
+ if result.Status!=Unknown {t.Fatal("stale evidence was accepted")}
+ if _,_,ok:=tracker.LastFailure("one");!ok {t.Fatal("stale evidence closed incident")}
+ result=tracker.ObserveEvidence("one",now.Add(time.Minute),5*time.Minute,good)
+ if result.Status!=Recovered {t.Fatal(result)}
+ if len(tracker.Snapshot().History)!=1 {t.Fatal("recovery missing")}
+}

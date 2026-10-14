@@ -114,14 +114,15 @@ drift_check() { # id -> prints the drift state once both nodes answered
   done
   echo "$out"; return 1
 }
-traffic() { # retry: the dialer reconnects within a few seconds of a restart
-  local i
+traffic_port() { # retry: the dialer reconnects within a few seconds of a restart
+  local port="$1" i
   for i in $(seq 1 15); do
-    python3 tests/e2e/echo.py send 1443 2 2 >"$WORK/traffic.log" 2>&1 && return 0
+    python3 tests/e2e/echo.py send "$port" 2 2 >"$WORK/traffic-$port.log" 2>&1 && return 0
     sleep 2
   done
   return 1
 }
+traffic() { traffic_port 1443; }
 
 log "BCC builds tunnel 1 (EX 18443 <-> IR 1443 -> target 2443)"
 REQ1='{"ex_node":"ex-e2e","ir_node":"ir-e2e","public_address":"127.0.0.1","port":18443}'
@@ -137,6 +138,15 @@ done
 [[ "$PLAN_OK" == "True" ]] || fail "the deployment plan never passed its gates: $PLAN"
 HASH1="$(printf '%s' "$PLAN" | jfield '["hash"]')"
 T1="$(api -d "${REQ1%\}},\"plan_hash\":\"$HASH1\"}" "$BCC/api/tunnels" | jfield '["id"]')"
+phase="$(wait_tunnel "$T1" 240 verifying_data_ir active rolled_back rollback_failed)" || true
+[[ "$phase" == "verifying_data_ir" ]] || fail "idle tunnel 1 bypassed its data gate or failed: '$phase'"
+python3 - "$(api "$BCC/api/tunnels?id=$T1")" <<'PY' || fail "idle tunnel released rollback material"
+import json, sys
+t = json.loads(sys.argv[1])
+assert not t.get("finalization_began"), t
+assert not any(e["step"] == "seal" and e["ok"] for e in t.get("evidence", [])), t
+PY
+traffic || fail "no test traffic through the committed tunnel before finalization"
 phase="$(wait_tunnel "$T1" 240 active rolled_back rollback_failed)" || true
 [[ "$phase" == "active" ]] || fail "tunnel 1 ended as '$phase'"
 systemctl is-active baft-ex baft-ir >/dev/null || fail "tunnel services are not running"
@@ -146,8 +156,14 @@ import json, sys
 t = json.loads(sys.argv[1])
 ev = t.get("evidence", [])
 assert t["plan_hash"] == sys.argv[2], "plan hash not recorded"
-assert sorted(e["step"] for e in ev) == ["health", "health", "observe", "observe"], ev
-assert all(e["ok"] for e in ev), ev
+expected = {(step, node) for step in ("health", "observe", "data", "seal") for node in ("ir-e2e", "ex-e2e")}
+assert {(e["step"], e["node"]) for e in ev if e["ok"]} == expected, ev
+assert t.get("finalization_began"), t
+for e in ev:
+    if e["step"] == "seal" and e["ok"]:
+        proof = json.loads(e["detail"])
+        assert proof["ready_to_finalize"] and proof["state"] == "PASS", proof
+        assert proof["runtime"]["delivered_bytes"] > 0, proof
 assert all('"generation":1' in e["detail"] for e in ev if e["step"] == "observe"), ev
 PY
 traffic || fail "no traffic through tunnel 1"
@@ -375,11 +391,15 @@ UNITS+=(baft-ex-slot-a baft-ir-slot-a baft-ex-slot-b baft-ir-slot-b)
 REQ_A='{"instance_id":"slot-a","ex_node":"ex-e2e","ir_node":"ir-e2e","public_address":"127.0.0.1","port":19443,"route_listen":"127.0.0.1:15443","route_id":"service-a","ex_metrics_listen":"127.0.0.1:9391","ir_metrics_listen":"127.0.0.1:9392"}'
 REQ_B='{"instance_id":"slot-b","ex_node":"ex-e2e","ir_node":"ir-e2e","public_address":"127.0.0.1","port":19444,"route_listen":"127.0.0.1:15444","route_id":"service-b","ex_metrics_listen":"127.0.0.1:9393","ir_metrics_listen":"127.0.0.1:9394"}'
 deploy_scoped() {
-  local req="$1" plan hash id phase
+  local req="$1" plan hash id phase route_port
   plan="$(api -d "$req" "$BCC/api/tunnels/plan")"
   [[ "$(printf '%s' "$plan" | jfield '["ok"]')" == "True" ]] || fail "scoped deployment plan blocked: $plan"
   hash="$(printf '%s' "$plan" | jfield '["hash"]')"
   id="$(api -d "${req%\}},\"plan_hash\":\"$hash\"}" "$BCC/api/tunnels" | jfield '["id"]')"
+  phase="$(wait_tunnel "$id" 240 verifying_data_ir active rolled_back rollback_failed)" || true
+  [[ "$phase" == "verifying_data_ir" ]] || fail "idle scoped tunnel $id bypassed its data gate or failed: '$phase'"
+  route_port="$(printf '%s' "$req" | jfield '["route_listen"].rsplit(":",1)[1]')"
+  traffic_port "$route_port" || fail "no test traffic through scoped tunnel $id before finalization"
   phase="$(wait_tunnel "$id" 240 active rolled_back rollback_failed)" || true
   [[ "$phase" == "active" ]] || fail "scoped tunnel $id ended as '$phase'"
   echo "$id"

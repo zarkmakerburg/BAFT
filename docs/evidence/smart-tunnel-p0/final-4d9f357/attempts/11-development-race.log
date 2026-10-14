@@ -1,0 +1,106 @@
+panic: test timed out after 10m0s
+	running tests:
+		TestCoveredAlertIsAnnouncedWhenTheIncidentEndsButItIsStillBad (12s)
+
+goroutine 27794 [running]:
+testing.(*M).startAlarm.func1()
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2959 +0x605
+created by time.goFunc
+	/workspace/scratch/0dc4d492ab5c/go/src/time/sleep.go:182 +0x45
+
+goroutine 1 [chan receive]:
+testing.(*T).Run(0xc00049e008, {0x15c0043, 0x3d}, 0x20c3128)
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2266 +0xb3e
+testing.runTests.func1(0xc00049e008)
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2742 +0x85
+testing.tRunner(0xc00049e008, 0xc00035fa40)
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2193 +0x21d
+testing.runTests({0x15a029f, 0x1d}, {0x15b0324, 0x2a}, 0xc000498000, {0x21e9f50, 0x153, 0x153}, {0xc2abfacf7763784a, 0x8bb530b1a3, ...})
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2740 +0x9ea
+testing.(*M).Run(0xc00011b180)
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2600 +0xf45
+main.main()
+	_testmain.go:724 +0x165
+
+goroutine 27628 [runnable]:
+modernc.org/sqlite.newResult(0xc0003d42a0)
+	/root/go/pkg/mod/modernc.org/sqlite@v1.60.1/result.go:13 +0x31
+modernc.org/sqlite.(*stmt).exec.func2(0xc000342438, {0x2210440, 0x0, 0x0}, 0xc000336148, 0xc000177f7c, {0x20c16b8, 0x2210440})
+	/root/go/pkg/mod/modernc.org/sqlite@v1.60.1/stmt.go:153 +0x2f5
+modernc.org/sqlite.(*stmt).exec(0xc000342438, {0x20c16b8, 0x2210440}, {0x2210440, 0x0, 0x0})
+	/root/go/pkg/mod/modernc.org/sqlite@v1.60.1/stmt.go:175 +0x29c
+modernc.org/sqlite.(*conn).exec(0xc0003d42a0, {0x20c16b8, 0x2210440}, {0xc000314df8, 0x13}, {0x2210440, 0x0, 0x0})
+	/root/go/pkg/mod/modernc.org/sqlite@v1.60.1/conn.go:1167 +0x17a
+modernc.org/sqlite.(*conn).ExecContext(0xc0003d42a0, {0x20c16b8, 0x2210440}, {0xc000314df8, 0x13}, {0x2210440, 0x0, 0x0})
+	/root/go/pkg/mod/modernc.org/sqlite@v1.60.1/conn.go:1426 +0x95
+database/sql.ctxDriverExec({0x20c16b8, 0x2210440}, {0x7fdd16bd4620, 0xc0003d42a0}, {0x0, 0x0}, {0xc000314df8, 0x13}, {0x2210440, 0x0, ...})
+	/workspace/scratch/0dc4d492ab5c/go/src/database/sql/ctxutil.go:31 +0xeb
+database/sql.(*DB).execDC.func2()
+	/workspace/scratch/0dc4d492ab5c/go/src/database/sql/sql.go:1718 +0x266
+database/sql.withLock({0x20c0018, 0xc0003da580}, 0xc000336758)
+	/workspace/scratch/0dc4d492ab5c/go/src/database/sql/sql.go:3621 +0xa3
+database/sql.(*DB).execDC(0x1?, {0x20c16b8, 0x2210440}, 0xc0003da580, 0xc000340720, {0xc000314df8, 0x13}, {0x0, 0x0, 0x0})
+	/workspace/scratch/0dc4d492ab5c/go/src/database/sql/sql.go:1713 +0x405
+database/sql.(*Tx).ExecContext(0xc000404990, {0x20c16b8, 0x2210440}, {0xc000314df8, 0x13}, {0x0, 0x0, 0x0})
+	/workspace/scratch/0dc4d492ab5c/go/src/database/sql/sql.go:2521 +0x129
+database/sql.(*Tx).Exec(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/database/sql/sql.go:2530
+github.com/zarkmakerburg/baft/internal/bcc.writeStateTx(_, {0xc000373e60, 0xc000373e90, 0xc000373ec0, 0xc0048a8000, 0xc0048a8030, {0x0, 0x0, 0x0}, 0x0, ...})
+	/workspace/scratch/0dc4d492ab5c/baft-candidate-jobs/internal/bcc/statedb.go:210 +0x17a
+github.com/zarkmakerburg/baft/internal/bcc.writeStateDB({_, _}, {0xc000373e60, 0xc000373e90, 0xc000373ec0, 0xc0048a8000, 0xc0048a8030, {0x0, 0x0, 0x0}, ...})
+	/workspace/scratch/0dc4d492ab5c/baft-candidate-jobs/internal/bcc/statedb.go:174 +0x15b
+github.com/zarkmakerburg/baft/internal/bcc.(*Store).saveLocked(0xc000318f20)
+	/workspace/scratch/0dc4d492ab5c/baft-candidate-jobs/internal/bcc/store.go:268 +0x16b
+github.com/zarkmakerburg/baft/internal/bcc.(*Store).EvaluateDistributions(0xc000318f20, {0x5?, 0x6fc23ac00?, 0x0?}, {0x5?, 0x6fc23ac00?, 0x29e8d60800?})
+	/workspace/scratch/0dc4d492ab5c/baft-candidate-jobs/internal/bcc/distribution_policy.go:141 +0x1ad7
+github.com/zarkmakerburg/baft/internal/bcc.(*Server).evaluateHealthAt(0xc0000d1860, {0xc000318f20?, 0x15860e5?, 0x0?})
+	/workspace/scratch/0dc4d492ab5c/baft-candidate-jobs/internal/bcc/health_engine.go:295 +0x13fb
+github.com/zarkmakerburg/baft/internal/bcc.(*alertRig).tick(0xc0001aecb0, {0x15860e5, 0x2}, {0x0, 0x0, 0x1, 0x0, 0x1, 0x0})
+	/workspace/scratch/0dc4d492ab5c/baft-candidate-jobs/internal/bcc/alert_hysteresis_test.go:108 +0x539
+github.com/zarkmakerburg/baft/internal/bcc.(*alertRig).ticks(...)
+	/workspace/scratch/0dc4d492ab5c/baft-candidate-jobs/internal/bcc/alert_hysteresis_test.go:117
+github.com/zarkmakerburg/baft/internal/bcc.TestCoveredAlertIsAnnouncedWhenTheIncidentEndsButItIsStillBad(0xc0000e1448)
+	/workspace/scratch/0dc4d492ab5c/baft-candidate-jobs/internal/bcc/alert_hysteresis_test.go:597 +0x165
+testing.tRunner(0xc0000e1448, 0x20c3128)
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2193 +0x21d
+created by testing.(*T).Run in goroutine 1
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2258 +0xb13
+
+goroutine 27615 [select]:
+database/sql.(*DB).connectionOpener(0xc0048e4d00, {0x20c1760, 0xc0051c8dc0})
+	/workspace/scratch/0dc4d492ab5c/go/src/database/sql/sql.go:1266 +0xed
+created by database/sql.OpenDB in goroutine 27628
+	/workspace/scratch/0dc4d492ab5c/go/src/database/sql/sql.go:846 +0x287
+
+goroutine 27616 [chan receive]:
+database/sql.(*Tx).awaitDone(0xc000404990)
+	/workspace/scratch/0dc4d492ab5c/go/src/database/sql/sql.go:2217 +0x4a
+created by database/sql.(*DB).beginDC in goroutine 27628
+	/workspace/scratch/0dc4d492ab5c/go/src/database/sql/sql.go:1930 +0x428
+
+goroutine 27629 [IO wait]:
+internal/poll.runtime_pollWait(0x7fdd6d174400, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc006784520, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Accept(0xc006784500)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:618 +0x4ea
+net.(*netFD).accept(0xc006784500)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_unix.go:149 +0x45
+net.(*TCPListener).accept(0xc005d26840)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/tcpsock_posix.go:159 +0x4e
+net.(*TCPListener).Accept(0xc005d26840)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/tcpsock.go:387 +0x65
+net/http.(*Server).Serve(0xc0004b5a40, {0x20c10e0, 0xc005d26840})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:3551 +0x6ad
+net/http/httptest.(*Server).goServe.func1()
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/httptest/server.go:586 +0xad
+created by net/http/httptest.(*Server).goServe in goroutine 27628
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/httptest/server.go:584 +0xeb
+FAIL	github.com/zarkmakerburg/baft/internal/bcc	600.790s
+ok  	github.com/zarkmakerburg/baft/internal/agent	257.278s
+ok  	github.com/zarkmakerburg/baft/internal/agentjob	1.082s
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	122.198s
+FAIL

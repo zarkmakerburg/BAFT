@@ -1,0 +1,8 @@
+ok  	github.com/zarkmakerburg/baft/internal/bcc	171.364s
+--- FAIL: TestBCCBuildsATunnelOnTwoServers (2.01s)
+    tunnel_flow_test.go:387: jobs run: [tunnel_finalize tunnel_finalize tunnel_seal tunnel_seal tunnel_data tunnel_data tunnel_observe tunnel_observe tunnel_health tunnel_health tunnel_commit_candidate tunnel_commit_candidate tunnel_validate_candidate tunnel_stage_ex tunnel_prepare_ir tunnel_prepare_ex]
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/agent	76.361s
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	101.831s
+ok  	github.com/zarkmakerburg/baft/internal/agentjob	0.022s
+FAIL

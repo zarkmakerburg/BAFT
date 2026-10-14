@@ -1,0 +1,99 @@
+{
+  "source": "fa6ac1bb0ca87b2c3d39dedb8233a85384744af1",
+  "workflows": {
+    "workflow_runs": [
+      {
+        "id": 38563198875,
+        "name": "BCC UI tests",
+        "status": "completed",
+        "conclusion": "success",
+        "run_number": 212,
+        "jobs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38563198875/jobs",
+        "logs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38563198875/logs",
+        "workflow_id": 378490328
+      },
+      {
+        "id": 38563197944,
+        "name": "static-analysis",
+        "status": "completed",
+        "conclusion": "success",
+        "run_number": 356,
+        "jobs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38563197944/jobs",
+        "logs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38563197944/logs",
+        "workflow_id": 374499129
+      },
+      {
+        "id": 38563198183,
+        "name": "ci",
+        "status": "completed",
+        "conclusion": "failure",
+        "run_number": 1627,
+        "jobs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38563198183/jobs",
+        "logs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38563198183/logs",
+        "workflow_id": 368246822
+      },
+      {
+        "id": 38563198177,
+        "name": "r3.1-probabilistic-morphing",
+        "status": "completed",
+        "conclusion": "success",
+        "run_number": 560,
+        "jobs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38563198177/jobs",
+        "logs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38563198177/logs",
+        "workflow_id": 368593926
+      }
+    ]
+  },
+  "localRace": "Aggregate failures preserved in attempts 11/16; scoped race and isolated checks PASS; native main full race/vet/fuzz SUCCESS. Aggregate CI failed only legacy systemd evidence-set assertion.",
+  "nativeExtract": "native-fa6.log: three two-live-instance passes, three installer-contract passes, no resource skips",
+  "launchFailure": {
+    "job": 115849194029,
+    "actualTunnel": "attempts/22-native-fa6-launch-active.json",
+    "reason": "old assertion omitted candidate_artifacts"
+  },
+  "finalSource": "4d9f357abcc2145f0e463664e7bbea9b366ea2a9",
+  "finalRuns": {
+    "workflow_runs": [
+      {
+        "id": 38564701055,
+        "name": "static-analysis",
+        "status": "in_progress",
+        "conclusion": null,
+        "run_number": 357,
+        "jobs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38564701055/jobs",
+        "logs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38564701055/logs",
+        "workflow_id": 374499129
+      },
+      {
+        "id": 38564700891,
+        "name": "r3.1-probabilistic-morphing",
+        "status": "in_progress",
+        "conclusion": null,
+        "run_number": 561,
+        "jobs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38564700891/jobs",
+        "logs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38564700891/logs",
+        "workflow_id": 368593926
+      },
+      {
+        "id": 38564701130,
+        "name": "ci",
+        "status": "in_progress",
+        "conclusion": null,
+        "run_number": 1628,
+        "jobs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38564701130/jobs",
+        "logs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38564701130/logs",
+        "workflow_id": 368246822
+      },
+      {
+        "id": 38564701042,
+        "name": "BCC UI tests",
+        "status": "completed",
+        "conclusion": "success",
+        "run_number": 213,
+        "jobs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38564701042/jobs",
+        "logs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38564701042/logs",
+        "workflow_id": 378490328
+      }
+    ]
+  }
+}

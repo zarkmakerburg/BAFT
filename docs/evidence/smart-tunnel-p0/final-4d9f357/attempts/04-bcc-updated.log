@@ -1,0 +1,5 @@
+--- FAIL: TestMatchingObservedStateActivatesAndRecordsTheGeneration (0.17s)
+    tunnel_test.go:397: active with 10 evidence entries
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/bcc	99.504s
+FAIL

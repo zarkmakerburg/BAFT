@@ -1,0 +1,11 @@
+4d9f357abcc2145f0e463664e7bbea9b366ea2a9 2e98dca8df1143736dfc15b8fda9605e066b0bdc fa6ac1bb0ca87b2c3d39dedb8233a85384744af1
+=== RUN   TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle
+    multi_instance_proc_test.go:86: environment cannot inspect controlled child process namespace/FD ownership: service network namespace unavailable: readlink /proc/167/ns/net: no such file or directory
+--- SKIP: TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle (0.02s)
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-live-owner
+    pki_rollback_test.go:104: environment cannot change uid/gid: chown /tmp/TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState1404528756/001/etc/pki/server.key: invalid argument
+--- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState (0.73s)
+    --- SKIP: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-live-owner (0.73s)
+PASS
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	5.095s

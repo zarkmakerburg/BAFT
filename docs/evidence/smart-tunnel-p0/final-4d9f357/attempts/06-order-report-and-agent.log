@@ -1,0 +1,9 @@
+--- FAIL: TestMatchingObservedStateActivatesAndRecordsTheGeneration (0.33s)
+    tunnel_test.go:397: active with 10 evidence entries
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/bcc	1.649s
+--- FAIL: TestBCCBuildsATunnelOnTwoServers (3.18s)
+    tunnel_flow_test.go:387: jobs run: [tunnel_finalize tunnel_finalize tunnel_seal tunnel_seal tunnel_data tunnel_data tunnel_observe tunnel_observe tunnel_health tunnel_health tunnel_commit_candidate tunnel_commit_candidate tunnel_validate_candidate tunnel_stage_ex tunnel_prepare_ir tunnel_prepare_ex]
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/agent	9.898s
+FAIL

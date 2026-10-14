@@ -1,0 +1,135 @@
+--- FAIL: TestDecommissionPlanIsReadOnlyAndApplyStartsWithIR (0.05s)
+    decommission_test.go:60: ir-1: expected one job, got []
+--- FAIL: TestDecommissionRequiresCurrentReviewedPlan (0.06s)
+    decommission_test.go:98: ir-1: expected one job, got []
+--- FAIL: TestDecommissionCompletesIRThenEX (0.03s)
+    decommission_test.go:129: ir-1: expected one job, got []
+--- FAIL: TestDecommissionPartialFailureRetriesOnlyPendingEX (0.04s)
+    decommission_test.go:170: ir-1: expected one job, got []
+--- FAIL: TestDecommissionStateSurvivesBCCRestart (0.03s)
+    decommission_test.go:213: ir-1: expected one job, got []
+--- FAIL: TestStaleAgentBlocksDecommissionPlan (0.03s)
+    decommission_test.go:237: ir-1: expected one job, got []
+--- FAIL: TestKnownDriftBlocksDecommissionPlan (0.03s)
+    decommission_test.go:264: ir-1: expected one job, got []
+--- FAIL: TestDecommissionFailedBlocksReplacementInSameManagedSlot (0.05s)
+    decommission_test.go:284: ir-1: expected one job, got []
+--- FAIL: TestDecommissionRequestAndOutcomeHaveDurableAuditIntents (0.05s)
+    decommission_test.go:299: ir-1: expected one job, got []
+--- FAIL: TestDecommissionAPIPlanApplyStatusAndAudit (0.05s)
+    decommission_test.go:360: ir-1: expected one job, got []
+--- FAIL: TestActivationStoresTheDigestsBCCVerified (0.04s)
+    drift_test.go:97: ir-1: expected one job, got []
+--- FAIL: TestDriftCheckReportsEachNodeAndTheWorstState (0.04s)
+    drift_test.go:124: ir-1: expected one job, got []
+--- FAIL: TestDriftCheckNeverClaimsWhatItDidNotSee (0.03s)
+    drift_test.go:160: ir-1: expected one job, got []
+--- FAIL: TestDriftCheckOnlyForActiveTunnelsAndAutomaticWhenEnabled (0.05s)
+    drift_test.go:190: ir-1: expected one job, got []
+--- FAIL: TestReplacementInSameSlotSupersedesOldTunnelOnlyWhenActive (0.10s)
+    tunnel_replace_test.go:68: ir-1: expected one job, got []
+--- FAIL: TestFailedReplacementLeavesOldTunnelActive (0.11s)
+    tunnel_replace_test.go:93: ir-1: expected one job, got []
+--- FAIL: TestSecondReplacementWaitsForTheFirst (0.05s)
+    tunnel_replace_test.go:115: ir-1: expected one job, got []
+--- FAIL: TestEditPlanNamesReplacedTunnelAndKeepsOtherFields (0.09s)
+    tunnel_replace_test.go:132: ir-1: expected one job, got []
+--- FAIL: TestSecretsAreHiddenFromListingsAndWipedAfterUse (0.04s)
+    tunnel_test.go:110: commit step: [{ID:job-00000003 Type:tunnel_stage_ex NodeID:ex-1 WorkerID: PublicKey: Version: Params:map[reply:BAFTREPLY1:BBBBBBBBBBBBBBBBBBBBBBBBBBBB tunnel_id:tun-efd0760d] Output: Status:dispatched Message: CreatedAt:2026-10-14 12:00:54.6661005 +0000 UTC UpdatedAt:2026-10-14 12:00:54.694571503 +0000 UTC}]
+--- FAIL: TestHealthIsRetriedThenGivesUp (0.05s)
+    tunnel_test.go:207: ir-1: expected one job, got []
+--- FAIL: TestMatchingObservedStateActivatesAndRecordsTheGeneration (0.05s)
+    tunnel_test.go:382: ir-1: expected one job, got []
+--- FAIL: TestObservedStateThatDiffersFromThePlanRollsBack (0.05s)
+    tunnel_test.go:424: ir-1: expected one job, got []
+--- FAIL: TestReviewedGenerationIsEnforcedAtObservation (0.04s)
+    tunnel_test.go:511: ir-1: expected one job, got []
+--- FAIL: TestBootstrapNodeNeedsOnlyLocalConsistency (0.04s)
+    tunnel_test.go:559: ir-1: expected one job, got []
+--- FAIL: TestDeliveryNoTrafficRetainsBackupsAndUsesBoundedRetries (0.52s)
+    verification_test.go:84: ir-1: expected one job, got []
+--- FAIL: TestDeliveryRejectsOtherInstanceMalformedCountersAndStalePayload (1.21s)
+    --- FAIL: TestDeliveryRejectsOtherInstanceMalformedCountersAndStalePayload/instance (0.07s)
+        verification_test.go:116: ir-1: expected one job, got []
+    --- FAIL: TestDeliveryRejectsOtherInstanceMalformedCountersAndStalePayload/generation (0.06s)
+        verification_test.go:116: ir-1: expected one job, got []
+    --- FAIL: TestDeliveryRejectsOtherInstanceMalformedCountersAndStalePayload/artifact (0.22s)
+        verification_test.go:116: ir-1: expected one job, got []
+    --- FAIL: TestDeliveryRejectsOtherInstanceMalformedCountersAndStalePayload/no-delivery (0.07s)
+        verification_test.go:116: ir-1: expected one job, got []
+    --- FAIL: TestDeliveryRejectsOtherInstanceMalformedCountersAndStalePayload/stale-payload (0.27s)
+        verification_test.go:116: ir-1: expected one job, got []
+    --- FAIL: TestDeliveryRejectsOtherInstanceMalformedCountersAndStalePayload/target (0.04s)
+        verification_test.go:116: ir-1: expected one job, got []
+    --- FAIL: TestDeliveryRejectsOtherInstanceMalformedCountersAndStalePayload/schema (0.47s)
+        verification_test.go:116: ir-1: expected one job, got []
+--- FAIL: TestDeliveryBothNodesMustSealBeforeAnyBackupRelease (0.19s)
+    verification_test.go:151: ir-1: expected one job, got []
+--- FAIL: TestDeliveryCleanupFailureIsHeldAndCannotClaimActiveOrRollback (0.14s)
+    verification_test.go:172: ir-1: expected one job, got []
+--- FAIL: TestDeliveryDelayedReceiptCannotRefreshOldPayload (0.13s)
+    verification_test.go:204: ir-1: expected one job, got []
+--- FAIL: TestDeliveryMismatchedJobCannotAdvanceVerification (0.06s)
+    verification_test.go:218: ir-1: expected one job, got []
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/bcc	104.472s
+--- FAIL: TestBCCRotatesATunnelCertificateEndToEnd (0.34s)
+    rotation_flow_test.go:233: ex-1 RunOnce: pull jobs: HTTP 500
+--- FAIL: TestRotationDisconnectAtEveryStep (1.69s)
+    --- FAIL: TestRotationDisconnectAtEveryStep/preparing (0.23s)
+        rotation_flow_test.go:334: ex-1 RunOnce: pull jobs: HTTP 500
+    --- FAIL: TestRotationDisconnectAtEveryStep/distributing (0.22s)
+        rotation_flow_test.go:334: ex-1 RunOnce: pull jobs: HTTP 500
+    --- FAIL: TestRotationDisconnectAtEveryStep/verifying_ir (0.19s)
+        rotation_flow_test.go:334: ex-1 RunOnce: pull jobs: HTTP 500
+    --- FAIL: TestRotationDisconnectAtEveryStep/verifying_ex (0.18s)
+        rotation_flow_test.go:334: ex-1 RunOnce: pull jobs: HTTP 500
+    --- FAIL: TestRotationDisconnectAtEveryStep/activating (0.20s)
+        rotation_flow_test.go:334: ex-1 RunOnce: pull jobs: HTTP 500
+    --- FAIL: TestRotationDisconnectAtEveryStep/confirming (0.20s)
+        rotation_flow_test.go:334: ex-1 RunOnce: pull jobs: HTTP 500
+    --- FAIL: TestRotationDisconnectAtEveryStep/retiring_ir (0.23s)
+        rotation_flow_test.go:334: ex-1 RunOnce: pull jobs: HTTP 500
+    --- FAIL: TestRotationDisconnectAtEveryStep/retiring_ex (0.22s)
+        rotation_flow_test.go:334: ex-1 RunOnce: pull jobs: HTTP 500
+--- FAIL: TestRotationCrashDuringActivateRollsBackSafely (0.20s)
+    rotation_flow_test.go:384: ex-1 RunOnce: pull jobs: HTTP 500
+--- FAIL: TestRotationSurvivesBCCRestart (0.16s)
+    rotation_flow_test.go:409: ex-1 RunOnce: pull jobs: HTTP 500
+--- FAIL: TestRotationCancelAndBounds (0.20s)
+    rotation_flow_test.go:431: ex-1 RunOnce: pull jobs: HTTP 500
+--- FAIL: TestBCCBuildsATunnelOnTwoServers (0.21s)
+    tunnel_flow_test.go:337: ex-1 RunOnce: pull jobs: HTTP 500
+--- FAIL: TestFailureOnOneSideRollsBothSidesBack (0.20s)
+    tunnel_flow_test.go:401: ex-1 RunOnce: pull jobs: HTTP 500
+--- FAIL: TestFailedChangeRestoresTheWorkingTunnel (0.22s)
+    tunnel_flow_test.go:423: ex-1 RunOnce: pull jobs: HTTP 500
+--- FAIL: TestNewTunnelSupersedesTheOldOne (0.19s)
+    tunnel_flow_test.go:451: ex-1 RunOnce: pull jobs: HTTP 500
+--- FAIL: TestPlanIsReviewedThenDeployedByItsHash (0.26s)
+    tunnel_flow_test.go:604: ex-1 RunOnce: pull jobs: HTTP 500
+--- FAIL: TestDiscoveryThroughSignedJobsIsReadOnlyAndFollowsBCCsInventory (0.26s)
+    tunnel_flow_test.go:678: ex-1 RunOnce: pull jobs: HTTP 500
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/agent	7.933s
+--- FAIL: TestCandidateStagingPreservesActiveStateAndCommitsSealedBytes (0.23s)
+panic: assignment to entry in nil map [recovered, repanicked]
+
+goroutine 18 [running]:
+testing.tRunner.func1.2({0xcbb8c8, 0xd62270})
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2123 +0x232
+testing.tRunner.func1()
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2126 +0x329
+panic({0xcbb8c8?, 0xd62270?})
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/panic.go:859 +0x125
+github.com/zarkmakerburg/baft/internal/tunnelnode.liveArtifacts(0x3f1cc3728248, 0x3f1cc372e040)
+	/workspace/scratch/0dc4d492ab5c/baft-candidate-jobs/internal/tunnelnode/candidate_test.go:47 +0x3ea
+github.com/zarkmakerburg/baft/internal/tunnelnode.TestCandidateStagingPreservesActiveStateAndCommitsSealedBytes(0x3f1cc3728248)
+	/workspace/scratch/0dc4d492ab5c/baft-candidate-jobs/internal/tunnelnode/candidate_test.go:55 +0x6e
+testing.tRunner(0x3f1cc3728248, 0xd14150)
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2193 +0xea
+created by testing.(*T).Run in goroutine 1
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2258 +0x4d4
+FAIL	github.com/zarkmakerburg/baft/internal/tunnelnode	3.184s
+ok  	github.com/zarkmakerburg/baft/internal/agentjob	0.012s
+FAIL

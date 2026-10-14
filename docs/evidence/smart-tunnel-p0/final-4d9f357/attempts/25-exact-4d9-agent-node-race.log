@@ -1,0 +1,4 @@
+4d9f357abcc2145f0e463664e7bbea9b366ea2a9 2e98dca8df1143736dfc15b8fda9605e066b0bdc fa6ac1bb0ca87b2c3d39dedb8233a85384744af1
+ok  	github.com/zarkmakerburg/baft/internal/agent	218.213s
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	95.626s
+ok  	github.com/zarkmakerburg/baft/internal/agentjob	1.314s

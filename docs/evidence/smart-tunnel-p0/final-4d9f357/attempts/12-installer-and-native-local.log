@@ -1,0 +1,17 @@
+=== RUN   TestResourceInstallerStandaloneUnitIsNotAdoptedByCandidate
+--- PASS: TestResourceInstallerStandaloneUnitIsNotAdoptedByCandidate (0.00s)
+=== RUN   TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle
+    multi_instance_proc_test.go:86: environment cannot inspect controlled child process namespace/FD ownership: service network namespace unavailable: readlink /proc/189/ns/net: no such file or directory
+--- SKIP: TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle (0.00s)
+=== RUN   TestResourceInstallerStandaloneUnitIsNotAdoptedByCandidate
+--- PASS: TestResourceInstallerStandaloneUnitIsNotAdoptedByCandidate (0.00s)
+=== RUN   TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle
+    multi_instance_proc_test.go:86: environment cannot inspect controlled child process namespace/FD ownership: service network namespace unavailable: readlink /proc/190/ns/net: no such file or directory
+--- SKIP: TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle (0.04s)
+=== RUN   TestResourceInstallerStandaloneUnitIsNotAdoptedByCandidate
+--- PASS: TestResourceInstallerStandaloneUnitIsNotAdoptedByCandidate (0.00s)
+=== RUN   TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle
+    multi_instance_proc_test.go:86: environment cannot inspect controlled child process namespace/FD ownership: service network namespace unavailable: readlink /proc/191/ns/net: no such file or directory
+--- SKIP: TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle (0.01s)
+PASS
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	5.326s

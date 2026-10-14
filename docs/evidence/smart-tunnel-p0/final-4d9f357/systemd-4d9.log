@@ -1,0 +1,10 @@
+2026-10-14T12:37:31.9166406Z [launch1] traffic passes through tunnel 1
+2026-10-14T12:38:34.0997626Z [launch1] rotation complete: new certificate served and trusted alone; traffic passes
+2026-10-14T12:39:19.8961168Z [launch1] cancelled rotation rolled back; traffic passes
+2026-10-14T12:39:24.2121209Z [launch1] M-018C: decommission the legacy test tunnel before the scoped-instance lifecycle test
+2026-10-14T12:39:28.3718907Z [launch1] M-018C: two instance-scoped sibling tunnels carry traffic independently
+2026-10-14T12:40:39.8153658Z [launch1] M-018C: external edit must fail closed before any retirement
+2026-10-14T12:40:41.9890410Z [launch1] M-018C: edited material restored; retry decommission from explicit failed state
+2026-10-14T12:40:41.9891806Z [launch1] M-018C: decommission slot-a only; slot-b must remain live
+2026-10-14T12:40:46.2928286Z [launch1] M-018C decommission PASS: selected route/listener gone; sibling traffic still passes
+2026-10-14T12:40:46.2970319Z [launch1] PASS

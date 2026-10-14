@@ -1,0 +1,6 @@
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	6.437s
+--- FAIL: TestBCCBuildsATunnelOnTwoServers (0.38s)
+    tunnel_flow_test.go:339: tunnel ended rolled_back: candidate preparation refused: candidate parameters or resource check differ from the reviewed plan
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/agent	3.064s
+FAIL

@@ -1,0 +1,178 @@
+{
+  "id": "tun-70b237c2",
+  "ex_node": "ex-e2e",
+  "ir_node": "ir-e2e",
+  "public_address": "127.0.0.1",
+  "port": 18443,
+  "target": "127.0.0.1:2443",
+  "route_id": "service-main",
+  "route_listen": "127.0.0.1:1443",
+  "candidate_preparation": true,
+  "candidates": {
+    "ex-e2e": {
+      "version": 1,
+      "tunnel_id": "tun-70b237c2",
+      "instance_id": "",
+      "role": "ex",
+      "generation": 0,
+      "config_sha256": "f187b4b95d34c13ef4a40cb2cc84426174d24066f330eca7acd95406d85d83fa",
+      "resources": true,
+      "observed_at": "2026-10-14T12:26:44.344398324Z",
+      "listen": "0.0.0.0:18443",
+      "target": "127.0.0.1:2443",
+      "route_id": "service-main",
+      "metrics_listen": "127.0.0.1:9291",
+      "record_shaping": false
+    },
+    "ir-e2e": {
+      "version": 1,
+      "tunnel_id": "tun-70b237c2",
+      "instance_id": "",
+      "role": "ir",
+      "generation": 0,
+      "config_sha256": "50efcebb2274a3819b9d72942738745ba447259c31a77c6bc13192ef7a854b13",
+      "resources": true,
+      "observed_at": "2026-10-14T12:26:46.184242053Z",
+      "peer_address": "127.0.0.1:18443",
+      "route_id": "service-main",
+      "route_listen": "127.0.0.1:1443",
+      "metrics_listen": "127.0.0.1:9292",
+      "record_shaping": false
+    }
+  },
+  "plan_hash": "082ecffa64b68d5d9e6a6fe6b1e608dc2a3dfc63a194d90566c44e8aef025ac2",
+  "evidence": [
+    {
+      "step": "candidate_artifacts",
+      "node": "ex-e2e",
+      "at": "2026-10-14T12:26:44.348048819Z",
+      "ok": true,
+      "detail": "{\"version\":1,\"tunnel_id\":\"tun-70b237c2\",\"instance_id\":\"\",\"role\":\"ex\",\"generation\":0,\"config_sha256\":\"f187b4b95d34c13ef4a40cb2cc84426174d24066f330eca7acd95406d85d83fa\",\"resources\":true,\"observed_at\":\"2026-10-14T12:26:44.344398324Z\",\"listen\":\"0.0.0.0:18443\",\"target\":\"127.0.0.1:2443\",\"route_id\":\"service-main\",\"metrics_listen\":\"127.0.0.1:9291\",\"record_shaping\":false}"
+    },
+    {
+      "step": "candidate_artifacts",
+      "node": "ir-e2e",
+      "at": "2026-10-14T12:26:46.18748671Z",
+      "ok": true,
+      "detail": "{\"version\":1,\"tunnel_id\":\"tun-70b237c2\",\"instance_id\":\"\",\"role\":\"ir\",\"generation\":0,\"config_sha256\":\"50efcebb2274a3819b9d72942738745ba447259c31a77c6bc13192ef7a854b13\",\"resources\":true,\"observed_at\":\"2026-10-14T12:26:46.184242053Z\",\"peer_address\":\"127.0.0.1:18443\",\"route_id\":\"service-main\",\"route_listen\":\"127.0.0.1:1443\",\"metrics_listen\":\"127.0.0.1:9292\",\"record_shaping\":false}"
+    },
+    {
+      "step": "health",
+      "node": "ir-e2e",
+      "at": "2026-10-14T12:27:16.944310271Z",
+      "ok": true,
+      "detail": "baft-ir healthy: active, 0 restarts, 127.0.0.1:1443 accepting"
+    },
+    {
+      "step": "health",
+      "node": "ex-e2e",
+      "at": "2026-10-14T12:27:29.282803908Z",
+      "ok": true,
+      "detail": "baft-ex healthy: active, 0 restarts, 127.0.0.1:18443 accepting"
+    },
+    {
+      "step": "observe",
+      "node": "ir-e2e",
+      "at": "2026-10-14T12:27:30.164844851Z",
+      "ok": true,
+      "detail": "{\"tunnel_id\":\"tun-70b237c2\",\"role\":\"ir\",\"phase\":\"committed\",\"generation\":1,\"previous_generation\":0,\"node_generation\":1,\"service_active\":true,\"restarts\":\"0\",\"config_sha256\":\"50efcebb2274a3819b9d72942738745ba447259c31a77c6bc13192ef7a854b13\",\"config_role\":\"dialer\",\"route_id\":\"service-main\",\"route_listen\":\"127.0.0.1:1443\",\"peer_address\":\"127.0.0.1:18443\",\"unit_matches\":true,\"managed\":true,\"marker_tunnel_id\":\"tun-70b237c2\",\"marker_generation\":1,\"marker_config_matches\":true,\"marker_unit_matches\":true,\"unit_sha256\":\"1394ddbb2d931a504c5302e64be1a4817d9274710547f97334fae06658b51bf1\",\"marker_sha256\":\"76347dbbefac523b23057043719d571ea1c04044a879af6a720c5cad5479d9ae\"}"
+    },
+    {
+      "step": "observe",
+      "node": "ex-e2e",
+      "at": "2026-10-14T12:27:39.320473225Z",
+      "ok": true,
+      "detail": "{\"tunnel_id\":\"tun-70b237c2\",\"role\":\"ex\",\"phase\":\"committed\",\"generation\":1,\"previous_generation\":0,\"node_generation\":1,\"service_active\":true,\"restarts\":\"0\",\"config_sha256\":\"f187b4b95d34c13ef4a40cb2cc84426174d24066f330eca7acd95406d85d83fa\",\"config_role\":\"listener\",\"listen\":\"0.0.0.0:18443\",\"route_id\":\"service-main\",\"target\":\"127.0.0.1:2443\",\"unit_matches\":true,\"managed\":true,\"marker_tunnel_id\":\"tun-70b237c2\",\"marker_generation\":1,\"marker_config_matches\":true,\"marker_unit_matches\":true,\"unit_sha256\":\"3c3c70f298504f6500905147119cdb662972f6951c997bf32693cf2f0304b321\",\"marker_sha256\":\"c99ecb124539eba11868d58ed902f8a50964ebcc68fbef525735c30fc5968207\"}"
+    },
+    {
+      "step": "data",
+      "node": "ir-e2e",
+      "at": "2026-10-14T12:27:40.171482593Z",
+      "ok": true,
+      "detail": "{\"version\":1,\"tunnel_id\":\"tun-70b237c2\",\"role\":\"ir\",\"generation\":1,\"config_sha256\":\"50efcebb2274a3819b9d72942738745ba447259c31a77c6bc13192ef7a854b13\",\"unit_sha256\":\"1394ddbb2d931a504c5302e64be1a4817d9274710547f97334fae06658b51bf1\",\"marker_sha256\":\"76347dbbefac523b23057043719d571ea1c04044a879af6a720c5cad5479d9ae\",\"state\":\"PASS\",\"ready_to_finalize\":false,\"data_age_ms\":530,\"target_reachable\":false,\"at\":\"2026-10-14T12:27:40.167183264Z\",\"runtime\":{\"version\":1,\"config_digest\":\"e9d4558bb5195764d69dd8b3cbb9d7d55713cb35bed01f2091827afc09246805\",\"boot_id\":\"825e995f2f4e325daab7d559a92263ea\",\"supported\":true,\"generated_at\":\"2026-10-14T12:27:40.166891305Z\",\"authenticated_peers\":4,\"received_bytes\":4194304,\"delivered_bytes\":4194304,\"last_delivered_at\":\"2026-10-14T12:27:39.637168022Z\"}}"
+    },
+    {
+      "step": "data",
+      "node": "ex-e2e",
+      "at": "2026-10-14T12:27:49.371168198Z",
+      "ok": true,
+      "detail": "{\"version\":1,\"tunnel_id\":\"tun-70b237c2\",\"role\":\"ex\",\"generation\":1,\"config_sha256\":\"f187b4b95d34c13ef4a40cb2cc84426174d24066f330eca7acd95406d85d83fa\",\"unit_sha256\":\"3c3c70f298504f6500905147119cdb662972f6951c997bf32693cf2f0304b321\",\"marker_sha256\":\"c99ecb124539eba11868d58ed902f8a50964ebcc68fbef525735c30fc5968207\",\"state\":\"PASS\",\"ready_to_finalize\":false,\"data_age_ms\":9736,\"target_reachable\":true,\"at\":\"2026-10-14T12:27:49.366230295Z\",\"runtime\":{\"version\":1,\"config_digest\":\"b64a02d0abb2b639b7411d43b25bb0fce7d535ea55c4144e443b2c571ae4f95a\",\"boot_id\":\"2a9f1c7a71786df80b64a2c6f9bd6a14\",\"supported\":true,\"generated_at\":\"2026-10-14T12:27:49.365809718Z\",\"authenticated_peers\":4,\"received_bytes\":4194304,\"delivered_bytes\":4194304,\"last_delivered_at\":\"2026-10-14T12:27:39.629828242Z\"}}"
+    },
+    {
+      "step": "seal",
+      "node": "ir-e2e",
+      "at": "2026-10-14T12:27:50.171493331Z",
+      "ok": true,
+      "detail": "{\"version\":1,\"tunnel_id\":\"tun-70b237c2\",\"role\":\"ir\",\"generation\":1,\"config_sha256\":\"50efcebb2274a3819b9d72942738745ba447259c31a77c6bc13192ef7a854b13\",\"unit_sha256\":\"1394ddbb2d931a504c5302e64be1a4817d9274710547f97334fae06658b51bf1\",\"marker_sha256\":\"76347dbbefac523b23057043719d571ea1c04044a879af6a720c5cad5479d9ae\",\"state\":\"PASS\",\"ready_to_finalize\":true,\"data_age_ms\":10529,\"target_reachable\":false,\"at\":\"2026-10-14T12:27:50.166498203Z\",\"runtime\":{\"version\":1,\"config_digest\":\"e9d4558bb5195764d69dd8b3cbb9d7d55713cb35bed01f2091827afc09246805\",\"boot_id\":\"825e995f2f4e325daab7d559a92263ea\",\"supported\":true,\"generated_at\":\"2026-10-14T12:27:50.166337611Z\",\"authenticated_peers\":4,\"received_bytes\":4194304,\"delivered_bytes\":4194304,\"last_delivered_at\":\"2026-10-14T12:27:39.637168022Z\"}}"
+    },
+    {
+      "step": "seal",
+      "node": "ex-e2e",
+      "at": "2026-10-14T12:27:50.259055686Z",
+      "ok": true,
+      "detail": "{\"version\":1,\"tunnel_id\":\"tun-70b237c2\",\"role\":\"ex\",\"generation\":1,\"config_sha256\":\"f187b4b95d34c13ef4a40cb2cc84426174d24066f330eca7acd95406d85d83fa\",\"unit_sha256\":\"3c3c70f298504f6500905147119cdb662972f6951c997bf32693cf2f0304b321\",\"marker_sha256\":\"c99ecb124539eba11868d58ed902f8a50964ebcc68fbef525735c30fc5968207\",\"state\":\"PASS\",\"ready_to_finalize\":true,\"data_age_ms\":10623,\"target_reachable\":true,\"at\":\"2026-10-14T12:27:50.25371121Z\",\"runtime\":{\"version\":1,\"config_digest\":\"b64a02d0abb2b639b7411d43b25bb0fce7d535ea55c4144e443b2c571ae4f95a\",\"boot_id\":\"2a9f1c7a71786df80b64a2c6f9bd6a14\",\"supported\":true,\"generated_at\":\"2026-10-14T12:27:50.253327349Z\",\"authenticated_peers\":4,\"received_bytes\":4194304,\"delivered_bytes\":4194304,\"last_delivered_at\":\"2026-10-14T12:27:39.629828242Z\"}}"
+    }
+  ],
+  "expected_generation": {
+    "ex-e2e": {
+      "from": 0,
+      "to": 1,
+      "bootstrap": true
+    },
+    "ir-e2e": {
+      "from": 0,
+      "to": 1,
+      "bootstrap": true
+    }
+  },
+  "observed_generation": {
+    "ex-e2e": 1,
+    "ir-e2e": 1
+  },
+  "digests": {
+    "ex-e2e": {
+      "config": "f187b4b95d34c13ef4a40cb2cc84426174d24066f330eca7acd95406d85d83fa",
+      "unit": "3c3c70f298504f6500905147119cdb662972f6951c997bf32693cf2f0304b321",
+      "marker": "c99ecb124539eba11868d58ed902f8a50964ebcc68fbef525735c30fc5968207"
+    },
+    "ir-e2e": {
+      "config": "50efcebb2274a3819b9d72942738745ba447259c31a77c6bc13192ef7a854b13",
+      "unit": "1394ddbb2d931a504c5302e64be1a4817d9274710547f97334fae06658b51bf1",
+      "marker": "76347dbbefac523b23057043719d571ea1c04044a879af6a720c5cad5479d9ae"
+    }
+  },
+  "drift_jobs": [
+    "job-00000061",
+    "job-00000062"
+  ],
+  "drift_started": "2026-10-14T12:27:53.708712369Z",
+  "phase": "active",
+  "jobs": [
+    "job-00000011",
+    "job-00000016",
+    "job-00000020",
+    "job-00000024",
+    "job-00000027",
+    "job-00000030",
+    "job-00000038",
+    "job-00000042",
+    "job-00000048",
+    "job-00000050",
+    "job-00000052",
+    "job-00000054",
+    "job-00000056",
+    "job-00000058",
+    "job-00000059",
+    "job-00000060"
+  ],
+  "touched": [
+    "ex-e2e",
+    "ir-e2e"
+  ],
+  "verification_started": "2026-10-14T12:27:39.320473225Z",
+  "verification_retry_at": "0001-01-01T00:00:00Z",
+  "finalization_began": true,
+  "step_started": "2026-10-14T12:27:52.152110866Z",
+  "created_at": "2026-10-14T12:26:22.507258043Z",
+  "updated_at": "2026-10-14T12:27:52.237112748Z"
+}

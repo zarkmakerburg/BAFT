@@ -1,0 +1,5 @@
+--- FAIL: TestCandidateJobsStageEXBeforeAnyCommit (0.07s)
+    candidate_jobs_test.go:23: configuration must complete in a separate EX staging job before any commit: {ID:job-00000003 Type:tunnel_commit_ex NodeID:ex-1 WorkerID: PublicKey: Version: Params:map[reply:BAFTREPLY1:BBBBBBBBBBBBBBBBBBBBBBBBBBBB tunnel_id:tun-b3f9ff2f] Output: Status:dispatched Message: CreatedAt:2026-10-14 11:55:26.731194091 +0000 UTC UpdatedAt:2026-10-14 11:55:26.780906086 +0000 UTC}
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/bcc	0.086s
+FAIL

@@ -1,0 +1,207 @@
+fa6ac1bb0ca87b2c3d39dedb8233a85384744af1 97bf43d02dfdffdf87c7d34de370c4b0481eba4a 42585baa9e5967abac2977c028cd2406409ccf31
+CI supply-chain policy: PASS (13 workflows); release secrets absent
+✔ Persian and English carry the same strings (8.34088ms)
+✔ every translated element in the page has a string (0.636933ms)
+✔ the country list matches the server (0.728369ms)
+✔ every menu route has a page and a name (1.087431ms)
+✔ demo numbers appear only in the labelled preview (2.099944ms)
+✔ text from the server is escaped before it reaches the page (4.676393ms)
+✔ the page only loads files that BCC embeds (1.087538ms)
+✔ theme and language are applied before the first paint (0.22685ms)
+✔ BCC dashboard keeps all existing operational sections (3.469813ms)
+✔ BCC visual tokens and focus states are present (0.496647ms)
+✔ BCC dashboard remains wired to existing operational loaders (1.312092ms)
+✔ operational dashboard includes focus-visible and disabled control styles (0.94095ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 823.007881
+=== RUN   TestCandidateStagingPreservesActiveStateAndCommitsSealedBytes
+--- PASS: TestCandidateStagingPreservesActiveStateAndCommitsSealedBytes (2.37s)
+=== RUN   TestCandidateCommitRefusesPostReportDrift
+=== RUN   TestCandidateCommitRefusesPostReportDrift/ex-config
+=== RUN   TestCandidateCommitRefusesPostReportDrift/ex-params
+=== RUN   TestCandidateCommitRefusesPostReportDrift/ex-key
+=== RUN   TestCandidateCommitRefusesPostReportDrift/ex-pki
+=== RUN   TestCandidateCommitRefusesPostReportDrift/ir-ca
+=== RUN   TestCandidateCommitRefusesPostReportDrift/wrong-reply
+--- PASS: TestCandidateCommitRefusesPostReportDrift (7.49s)
+    --- PASS: TestCandidateCommitRefusesPostReportDrift/ex-config (1.64s)
+    --- PASS: TestCandidateCommitRefusesPostReportDrift/ex-params (0.91s)
+    --- PASS: TestCandidateCommitRefusesPostReportDrift/ex-key (1.11s)
+    --- PASS: TestCandidateCommitRefusesPostReportDrift/ex-pki (1.34s)
+    --- PASS: TestCandidateCommitRefusesPostReportDrift/ir-ca (1.56s)
+    --- PASS: TestCandidateCommitRefusesPostReportDrift/wrong-reply (0.93s)
+=== RUN   TestResourceInstallerStandaloneUnitIsNotAdoptedByCandidate
+--- PASS: TestResourceInstallerStandaloneUnitIsNotAdoptedByCandidate (0.00s)
+=== RUN   TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle
+    multi_instance_proc_test.go:86: environment cannot inspect controlled child process namespace/FD ownership: service network namespace unavailable: readlink /proc/1631/ns/net: no such file or directory
+--- SKIP: TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle (0.00s)
+=== RUN   TestCandidateStagingPreservesActiveStateAndCommitsSealedBytes
+--- PASS: TestCandidateStagingPreservesActiveStateAndCommitsSealedBytes (1.70s)
+=== RUN   TestCandidateCommitRefusesPostReportDrift
+=== RUN   TestCandidateCommitRefusesPostReportDrift/ex-config
+=== RUN   TestCandidateCommitRefusesPostReportDrift/ex-params
+=== RUN   TestCandidateCommitRefusesPostReportDrift/ex-key
+=== RUN   TestCandidateCommitRefusesPostReportDrift/ex-pki
+=== RUN   TestCandidateCommitRefusesPostReportDrift/ir-ca
+=== RUN   TestCandidateCommitRefusesPostReportDrift/wrong-reply
+--- PASS: TestCandidateCommitRefusesPostReportDrift (8.63s)
+    --- PASS: TestCandidateCommitRefusesPostReportDrift/ex-config (0.86s)
+    --- PASS: TestCandidateCommitRefusesPostReportDrift/ex-params (3.44s)
+    --- PASS: TestCandidateCommitRefusesPostReportDrift/ex-key (1.22s)
+    --- PASS: TestCandidateCommitRefusesPostReportDrift/ex-pki (1.33s)
+    --- PASS: TestCandidateCommitRefusesPostReportDrift/ir-ca (1.08s)
+    --- PASS: TestCandidateCommitRefusesPostReportDrift/wrong-reply (0.71s)
+=== RUN   TestResourceInstallerStandaloneUnitIsNotAdoptedByCandidate
+--- PASS: TestResourceInstallerStandaloneUnitIsNotAdoptedByCandidate (0.00s)
+=== RUN   TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle
+    multi_instance_proc_test.go:86: environment cannot inspect controlled child process namespace/FD ownership: service network namespace unavailable: readlink /proc/3211/ns/net: no such file or directory
+--- SKIP: TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle (0.01s)
+=== RUN   TestCandidateStagingPreservesActiveStateAndCommitsSealedBytes
+--- PASS: TestCandidateStagingPreservesActiveStateAndCommitsSealedBytes (2.58s)
+=== RUN   TestCandidateCommitRefusesPostReportDrift
+=== RUN   TestCandidateCommitRefusesPostReportDrift/ex-config
+=== RUN   TestCandidateCommitRefusesPostReportDrift/ex-params
+=== RUN   TestCandidateCommitRefusesPostReportDrift/ex-key
+=== RUN   TestCandidateCommitRefusesPostReportDrift/ex-pki
+=== RUN   TestCandidateCommitRefusesPostReportDrift/ir-ca
+=== RUN   TestCandidateCommitRefusesPostReportDrift/wrong-reply
+--- PASS: TestCandidateCommitRefusesPostReportDrift (7.54s)
+    --- PASS: TestCandidateCommitRefusesPostReportDrift/ex-config (1.71s)
+    --- PASS: TestCandidateCommitRefusesPostReportDrift/ex-params (1.17s)
+    --- PASS: TestCandidateCommitRefusesPostReportDrift/ex-key (1.79s)
+    --- PASS: TestCandidateCommitRefusesPostReportDrift/ex-pki (1.03s)
+    --- PASS: TestCandidateCommitRefusesPostReportDrift/ir-ca (0.95s)
+    --- PASS: TestCandidateCommitRefusesPostReportDrift/wrong-reply (0.90s)
+=== RUN   TestResourceInstallerStandaloneUnitIsNotAdoptedByCandidate
+--- PASS: TestResourceInstallerStandaloneUnitIsNotAdoptedByCandidate (0.01s)
+=== RUN   TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle
+    multi_instance_proc_test.go:86: environment cannot inspect controlled child process namespace/FD ownership: service network namespace unavailable: readlink /proc/4675/ns/net: no such file or directory
+--- SKIP: TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle (0.01s)
+PASS
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	41.613s
+=== RUN   TestCandidateJobsStageEXBeforeAnyCommit
+--- PASS: TestCandidateJobsStageEXBeforeAnyCommit (0.21s)
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/plain-success
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-tunnel
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-instance
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-role
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/missing-digest
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/stale
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/future
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-route
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-metrics
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/no-resources
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-generation
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/trailing-json
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/unknown-field
+--- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess (2.64s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/plain-success (0.17s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-tunnel (0.70s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-instance (0.23s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-role (0.15s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/missing-digest (0.19s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/stale (0.17s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/future (0.15s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-route (0.15s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-metrics (0.13s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/no-resources (0.12s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-generation (0.19s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/trailing-json (0.16s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/unknown-field (0.11s)
+=== RUN   TestCandidateCommitUsesBothReportsAndRefusesLaterStaleness
+--- PASS: TestCandidateCommitUsesBothReportsAndRefusesLaterStaleness (0.24s)
+=== RUN   TestOlderInflightTunnelKeepsItsExistingCommitProtocol
+--- PASS: TestOlderInflightTunnelKeepsItsExistingCommitProtocol (0.37s)
+=== RUN   TestCandidateJobsStageEXBeforeAnyCommit
+--- PASS: TestCandidateJobsStageEXBeforeAnyCommit (0.20s)
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/plain-success
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-tunnel
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-instance
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-role
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/missing-digest
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/stale
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/future
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-route
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-metrics
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/no-resources
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-generation
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/trailing-json
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/unknown-field
+--- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess (2.93s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/plain-success (0.22s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-tunnel (0.35s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-instance (0.24s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-role (0.10s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/missing-digest (0.26s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/stale (0.29s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/future (0.17s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-route (0.58s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-metrics (0.17s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/no-resources (0.17s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-generation (0.12s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/trailing-json (0.15s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/unknown-field (0.11s)
+=== RUN   TestCandidateCommitUsesBothReportsAndRefusesLaterStaleness
+--- PASS: TestCandidateCommitUsesBothReportsAndRefusesLaterStaleness (0.24s)
+=== RUN   TestOlderInflightTunnelKeepsItsExistingCommitProtocol
+--- PASS: TestOlderInflightTunnelKeepsItsExistingCommitProtocol (0.10s)
+=== RUN   TestCandidateJobsStageEXBeforeAnyCommit
+--- PASS: TestCandidateJobsStageEXBeforeAnyCommit (0.09s)
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/plain-success
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-tunnel
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-instance
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-role
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/missing-digest
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/stale
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/future
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-route
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-metrics
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/no-resources
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-generation
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/trailing-json
+=== RUN   TestCandidateReportsRefuseUnscopedOrStaleSuccess/unknown-field
+--- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess (1.70s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/plain-success (0.06s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-tunnel (0.14s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-instance (0.06s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-role (0.10s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/missing-digest (0.06s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/stale (0.10s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/future (0.10s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-route (0.25s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-metrics (0.30s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/no-resources (0.16s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/wrong-generation (0.13s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/trailing-json (0.14s)
+    --- PASS: TestCandidateReportsRefuseUnscopedOrStaleSuccess/unknown-field (0.11s)
+=== RUN   TestCandidateCommitUsesBothReportsAndRefusesLaterStaleness
+--- PASS: TestCandidateCommitUsesBothReportsAndRefusesLaterStaleness (0.11s)
+=== RUN   TestOlderInflightTunnelKeepsItsExistingCommitProtocol
+--- PASS: TestOlderInflightTunnelKeepsItsExistingCommitProtocol (0.08s)
+PASS
+ok  	github.com/zarkmakerburg/baft/internal/bcc	9.261s
+=== RUN   TestSignedCandidateIRFailurePreventsEitherServiceCutover
+--- PASS: TestSignedCandidateIRFailurePreventsEitherServiceCutover (5.72s)
+=== RUN   TestSignedCandidateIRFailurePreventsEitherServiceCutover
+--- PASS: TestSignedCandidateIRFailurePreventsEitherServiceCutover (5.31s)
+=== RUN   TestSignedCandidateIRFailurePreventsEitherServiceCutover
+--- PASS: TestSignedCandidateIRFailurePreventsEitherServiceCutover (5.05s)
+PASS
+ok  	github.com/zarkmakerburg/baft/internal/agent	25.187s
+=== RUN   TestSignedCandidateActivationBindsDigestAndGeneration
+--- PASS: TestSignedCandidateActivationBindsDigestAndGeneration (0.02s)
+=== RUN   TestSignedCandidateActivationBindsDigestAndGeneration
+--- PASS: TestSignedCandidateActivationBindsDigestAndGeneration (0.00s)
+=== RUN   TestSignedCandidateActivationBindsDigestAndGeneration
+--- PASS: TestSignedCandidateActivationBindsDigestAndGeneration (0.01s)
+PASS
+ok  	github.com/zarkmakerburg/baft/internal/agentjob	0.117s

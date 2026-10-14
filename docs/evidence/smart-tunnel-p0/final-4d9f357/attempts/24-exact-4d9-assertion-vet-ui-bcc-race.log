@@ -1,0 +1,24 @@
+4d9f357abcc2145f0e463664e7bbea9b366ea2a9 2e98dca8df1143736dfc15b8fda9605e066b0bdc fa6ac1bb0ca87b2c3d39dedb8233a85384744af1
+Exact 4d9 e2e assertion PASS on actual fa6 active-tunnel evidence; this is assertion validation, not local systemd execution.
+CI supply-chain policy: PASS (13 workflows); release secrets absent
+✔ Persian and English carry the same strings (10.737539ms)
+✔ every translated element in the page has a string (0.737602ms)
+✔ the country list matches the server (1.254414ms)
+✔ every menu route has a page and a name (0.566214ms)
+✔ demo numbers appear only in the labelled preview (2.226129ms)
+✔ text from the server is escaped before it reaches the page (1.356822ms)
+✔ the page only loads files that BCC embeds (2.118394ms)
+✔ theme and language are applied before the first paint (3.971587ms)
+✔ BCC dashboard keeps all existing operational sections (1.982979ms)
+✔ BCC visual tokens and focus states are present (0.344398ms)
+✔ BCC dashboard remains wired to existing operational loaders (0.360567ms)
+✔ operational dashboard includes focus-visible and disabled control styles (0.397258ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 640.585806
+ok  	github.com/zarkmakerburg/baft/internal/bcc	25.032s

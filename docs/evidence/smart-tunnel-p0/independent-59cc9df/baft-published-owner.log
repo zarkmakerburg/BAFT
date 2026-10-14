@@ -1,0 +1,6 @@
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-live-owner
+--- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState (0.22s)
+    --- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-live-owner (0.22s)
+PASS
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	1.082s

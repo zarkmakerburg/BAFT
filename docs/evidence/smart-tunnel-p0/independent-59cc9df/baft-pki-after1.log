@@ -1,0 +1,43 @@
+--- FAIL: TestPKIRollbackRestoresPreviousCertificateBeforeRestart (0.04s)
+    pki_rollback_test.go:32: CommitEX: live PKI changed since preparation; cutover refused
+--- FAIL: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState (0.33s)
+    --- FAIL: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/missing-backup (0.04s)
+        pki_rollback_test.go:63: CommitEX: live PKI changed since preparation; cutover refused
+    --- FAIL: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-backup (0.04s)
+        pki_rollback_test.go:63: CommitEX: live PKI changed since preparation; cutover refused
+    --- FAIL: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-live (0.04s)
+        pki_rollback_test.go:63: CommitEX: live PKI changed since preparation; cutover refused
+    --- FAIL: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/extra-live-file (0.04s)
+        pki_rollback_test.go:63: CommitEX: live PKI changed since preparation; cutover refused
+    --- FAIL: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/symlink-backup (0.03s)
+        pki_rollback_test.go:63: CommitEX: live PKI changed since preparation; cutover refused
+    --- FAIL: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/symlink-live-file (0.04s)
+        pki_rollback_test.go:63: CommitEX: live PKI changed since preparation; cutover refused
+    --- FAIL: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-live-mode (0.03s)
+        pki_rollback_test.go:63: CommitEX: live PKI changed since preparation; cutover refused
+    --- FAIL: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-live-owner (0.03s)
+        pki_rollback_test.go:63: CommitEX: live PKI changed since preparation; cutover refused
+    --- FAIL: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/missing-identity (0.03s)
+        pki_rollback_test.go:63: CommitEX: live PKI changed since preparation; cutover refused
+--- FAIL: TestPKIRollbackRetriesAfterInterruptedExchangeWithoutBackup (0.04s)
+    pki_rollback_test.go:144: CommitEX: live PKI changed since preparation; cutover refused
+--- FAIL: TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort (0.13s)
+    --- FAIL: TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort/absent (0.04s)
+        pki_rollback_test.go:207: CommitEX: live PKI changed since preparation; cutover refused
+    --- FAIL: TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort/partial (0.03s)
+        pki_rollback_test.go:207: CommitEX: live PKI changed since preparation; cutover refused
+    --- FAIL: TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort/generated (0.03s)
+        pki_rollback_test.go:207: CommitEX: live PKI changed since preparation; cutover refused
+    --- FAIL: TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort/lost-backup (0.03s)
+        pki_rollback_test.go:207: CommitEX: live PKI changed since preparation; cutover refused
+--- FAIL: TestPKIPrepareRefusesOccupiedBackupPath (0.03s)
+    pki_rollback_test.go:233: CommitEX: live PKI changed since preparation; cutover refused
+--- FAIL: TestPKIRollbackDoesNotCompleteIfCertificatesChangeDuringRestart (0.03s)
+    pki_rollback_test.go:255: CommitEX: live PKI changed since preparation; cutover refused
+--- FAIL: TestPKIRollbackRetriesAfterRestorationAndRestartFailure (0.04s)
+    pki_rollback_test.go:275: CommitEX: live PKI changed since preparation; cutover refused
+--- FAIL: TestPrepareChangedHostPreservesLivePKI (0.03s)
+    pki_stage_test.go:11: CommitEX: live PKI changed since preparation; cutover refused
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/tunnelnode	1.975s
+FAIL

@@ -1,0 +1,8 @@
+--- FAIL: TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort (0.45s)
+    --- FAIL: TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort/partial (0.11s)
+        pki_rollback_test.go:218: prepare failure hidden: baft-pair pki: mkdir /tmp/TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort388025372/001/etc/pki: file exists: 
+    --- FAIL: TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort/lost-backup (0.11s)
+        pki_rollback_test.go:222: failed abort hidden or its ownership released
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/tunnelnode	4.733s
+FAIL

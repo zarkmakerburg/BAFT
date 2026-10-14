@@ -1,0 +1,651 @@
+diff --git a/docs/imonitor-integration-plan.md b/docs/imonitor-integration-plan.md
+new file mode 100644
+index 0000000..d23bcf9
+--- /dev/null
++++ b/docs/imonitor-integration-plan.md
+@@ -0,0 +1,43 @@
++# iMonitor ideas integrated into the BAFT roadmap
++
++Owner requested independent use of useful iMonitor ideas on 2026-10-14.
++Reference reviewed: `iranmonitor/imonitor@5f39fe2c9da144dc83e5c5bb666665836fbcc4e6`.
++BAFT starting point: `codex/smart-tunnel-p0@d8bb3b69decfba2ba57430bcfe61eab64a6ba3cc`, draft #200, epic #199.
++This is a requirements mapping and source review, not a runtime comparison.
++No upstream code, test protocol, transport or dependency is imported.
++
++| Priority | Useful behavior | BAFT integration and acceptance |
++| --- | --- | --- |
++| P0 | Separate connection acceptance from delivery | Doctor v2 and signed data/seal jobs already exist in #200. Missing, stale, different-instance or different-generation evidence stays NOT_ASSESSED. Do not implement a parallel health engine. |
++| P0 | Inventory interfaces, addresses, routes and sockets | Extend authenticated agent preflight on BOTH nodes using existing discovery jobs. Record observation time, namespace, completeness, bind address/protocol/port, conflicting service and ownership. Missing or truncated inventory cannot establish availability. Recheck/reserve at commit; an earlier snapshot alone cannot prevent a competing bind. |
++| P0 | Explain resource ownership | Prepare candidate certificates separately; verify identity and complete file trees before cutover and cleanup. Show impact on the selected instance and retain unrelated tunnel resources. This slice implements staged EX PKI, not pre-cutover payload verification. |
++| P1 | Bounded upload/download measurement | Extend #145/#146/#147 with an explicitly selected tunnel/route and generation. Proposed initial lab budget: 10s per direction, 64 MiB TOTAL across both directions, one active test per instance/node pair, cancellation and deadline. These are proposed safe ceilings, not accepted performance defaults. |
++| P1 | Receiver-confirmed throughput | Store sender attempted bytes separately from receiver-confirmed bytes, elapsed time, direction, route identity, node identities, config digest, completion/error and measurement method. No direct-path substitute. TCP retransmissions are not measured UDP loss. |
++| P1 | Guided Persian UI | Reuse #194 enrollment/offline IP-country and current builder. Explicit Add vs Edit/Replace, basic vs expert, effective-config preview, impact/rollback summary and actionable unknown/error labels. Preserve manual location choice; geographic location is not node identity. |
++| P1 | Explain observable traffic | Describe outer TLS, inner Noise, authentication, exposed endpoints/metadata and observed transport family. No inferred browser/YouTube fingerprint or blocking percentage. Reuse #74 field evidence. |
++| P1 | Resource and check history | Reuse BCC health/telemetry storage; show source timestamp and gaps per node and tunnel. An external probe is a separate viewpoint, not proof of IR-to-EX delivery. |
++| P2 | Reliable notifications/public status | Reuse incident and alert state. Separate incident creation from recipient delivery; durable outbox, bounded retry/backoff, idempotent receipt and sanitized optional public output. |
++
++## Verified upstream reference points
++
++- [speedtest.rs](https://github.com/iranmonitor/imonitor/blob/5f39fe2c9da144dc83e5c5bb666665836fbcc4e6/src/speedtest.rs): explicit duration/stream/byte bounds, token challenge and receiver result. Its 32 GiB byte ceiling is not adopted as a BAFT default.
++- [runner.rs](https://github.com/iranmonitor/imonitor/blob/5f39fe2c9da144dc83e5c5bb666665836fbcc4e6/src/runner.rs): distinguish what each probe actually observes; runtime fingerprint/resource ownership ideas.
++- [app.rs](https://github.com/iranmonitor/imonitor/blob/5f39fe2c9da144dc83e5c5bb666665836fbcc4e6/src/app.rs): external-region reports and alert bookkeeping. Mapping every unsuccessful external check to a blocked region, or setting notified before delivery, is not adopted.
++- [workspace.js](https://github.com/iranmonitor/imonitor/blob/5f39fe2c9da144dc83e5c5bb666665836fbcc4e6/src/ui/workspace.js): guided form/help as product inspiration, implemented independently in BCC.
++
++The supplied Persian analysis also describes inconsistent public open-source
++announcements and repository licensing. This slice needs no copied code and
++makes no new legal determination. SSH host identity checks, signed agent jobs,
++BAFT backup consistency and existing health hysteresis remain required.
++
++## Execution order and remaining gates
++
++1. Staged PKI/config preparation and safe rollback in #200; actual payload still verified after commit and before backup destruction. A separate isolated pre-cutover probe route is not implemented.
++2. Physical-host inventory, ownership and reservation; #197 installer/shared-binary coexistence. Do not upgrade a binary used by sibling services without explicit compatibility evidence.
++3. Enrollment/Doctor UX on the existing backend, followed by bounded measurement.
++4. Lab profile comparison, history, notification delivery and public status.
++
++No production deploy, main merge, tag/release, new transport/shaping, EX pool,
++automatic exit replacement or process-restart resume is authorized by this document.
++New staged transactions must be completed/rolled back with the same new binary;
++old-binary downgrade during an in-flight staged transaction is not supported or tested.
+diff --git a/docs/smart-tunnel-builder-p0-review.md b/docs/smart-tunnel-builder-p0-review.md
+index 0ac4d84..5e84a13 100644
+--- a/docs/smart-tunnel-builder-p0-review.md
++++ b/docs/smart-tunnel-builder-p0-review.md
+@@ -129,9 +129,9 @@ unprivileged runners. That case is not counted as live ownership acceptance;
+ the failed environment attempt is retained alongside the guarded retry.
+ 
+ This does not add automatic recovery after process restart, a general deployment
+-payload gate, a host-wide lock, or a staged certificate cutover. The existing EX
+-prepare path still replaces disk material before commit; fully staging that
+-material and proving coordinated cutover remains a separate P0 design task.
++payload gate, a host-wide lock, or a staged certificate cutover. At that slice, EX
++prepare still replaced disk material before commit. The staged-PKI follow-up
++below corrects preparation; coordinated pre-cutover payload remains open.
+ 
+ ## Fresh instance evidence and data-gated finalization follow-up
+ 
+@@ -182,7 +182,7 @@ configured/authenticated route. It does not prove application semantics, one
+ specific challenge flow, future availability, zero downtime, a measured browser
+ fingerprint, or field resistance to blocking. Verification happens AFTER commit
+ but BEFORE destructive backup release. Fully staged pre-cutover payload/PKI
+-verification remains open. Direct/manual legacy Manager transactions keep their
++verification remains open (local EX PKI staging is now implemented below). Direct/manual legacy Manager transactions keep their
+ older contract unless explicitly opted in; BCC-created transactions opt in.
+ 
+ Unit fixtures model BCC signing/lifecycle and Agent adapters; their synthetic
+@@ -244,9 +244,8 @@ is recorded in the PR and #67, including failed/repeated/race attempts.
+ 8. **Live acceptance:** the container fixture is not a two-VPS systemd/agent/BCC
+    rollout. That gate needs a separately authorized isolated live laboratory.
+ 9. **PKI cutover:** rollback ordering and backup/live identity now have
+-   changed-host/fault regressions in the follow-up slice. The prepare path still
+-   replaces existing live disk PKI before activation; fully staged, coordinated
+-   cutover and served-certificate/payload evidence are still required. Identity
++   changed-host/fault regressions and separate EX candidate preparation.
++   Coordinated pre-cutover served-certificate/payload evidence remains required. Identity
+    checks do not prove an atomic host-wide reservation against concurrent writers.
+ 
+ ## P1 and P2 implementation map
+@@ -265,3 +264,36 @@ is recorded in the PR and #67, including failed/repeated/race attempts.
+ 
+ No new transport, shaping change, EX failover, restart-resume feature, browser
+ impersonation claim or numerical blocking probability is introduced here.
++
++## Staged EX PKI and iMonitor requirements follow-up
++
++PrepareEX generates changed-host/new-install certificates in an instance-scoped
++candidate directory beside the live PKI on the same filesystem. Pairing reads
++the candidate CA; existing live config, PKI and service remain untouched. The
++candidate certificate/key, CA chain, hostname and validity time are checked
++before returning the pairing code and again before activation.
++
++Commit persists previous/candidate identities and exchange intent before moving
++trees. Existing live material and candidate are rechecked, including after the
++candidate moves to the reserved backup path. Atomic directory exchange retains
++the complete old certificate set; initial installs use a durable rename. Errors
++before/after exchange restore the verified old tree or report incomplete abort,
++without guessing the ownership of changed files. Candidate cleanup also checks
++identity; first-install absence is distinct from missing prior identity.
++
++The reproduced baseline regression failed because Prepare changed live PKI.
++Added tests cover prepared abort, candidate/live edits, symlinks, occupied backup,
++first install and injected failures before/after exchange. The real-process sibling
++fixture also sends new Bulgaria echo traffic while its replacement CA is still
++prepared, before either side commits. Exact-SHA validation is recorded separately.
++
++This closes local certificate preparation isolation, not fully staged two-node
++payload verification or atomic config/unit/PKI cutover. Noise-key creation on a
++new unconfigured instance retains its prior behavior. Old in-flight transactions
++retain their recorded layout; downgrading the binary during a NEW staged transaction
++has not been validated and is not supported. Host-wide reservation, #197 shared
++binary compatibility, real systemd deployment and authorized field gates remain.
++
++[iMonitor integration plan](imonitor-integration-plan.md) maps independently
++reviewed requirements to existing BAFT work, with explicit measurement budgets
++and acceptance criteria. No upstream source or test protocol is copied.
+diff --git a/internal/agent/agent_test.go b/internal/agent/agent_test.go
+index f9e94f6..97e4fd4 100644
+--- a/internal/agent/agent_test.go
++++ b/internal/agent/agent_test.go
+@@ -7,6 +7,7 @@ import (
+ 	"net/http"
+ 	"net/http/httptest"
+ 	"os"
++	"os/exec"
+ 	"path/filepath"
+ 	"strings"
+ 	"sync"
+@@ -44,7 +45,7 @@ func (f *fakeSystem) Systemctl(_ context.Context, args ...string) (string, error
+ 	return "", nil
+ }
+ 
+-func (f *fakeSystem) Run(_ context.Context, name string, args ...string) (string, error) {
++func (f *fakeSystem) Run(ctx context.Context, name string, args ...string) (string, error) {
+ 	f.mu.Lock()
+ 	defer f.mu.Unlock()
+ 	f.calls = append(f.calls, filepath.Base(name)+" "+strings.Join(args, " "))
+@@ -68,17 +69,10 @@ func (f *fakeSystem) Run(_ context.Context, name string, args ...string) (string
+ 				}
+ 			}
+ 		case "pki":
+-			if dir := arg("--dir"); dir != "" {
+-				if err := os.MkdirAll(dir, 0o750); err != nil {
+-					return "", err
+-				}
+-				for file, mode := range map[string]os.FileMode{
+-					"ca.key": 0o600, "server.key": 0o600, "ca.pem": 0o644, "server.pem": 0o644,
+-				} {
+-					if err := os.WriteFile(filepath.Join(dir, file), []byte("fake-"+file), mode); err != nil {
+-						return "", err
+-					}
+-				}
++			// Preparation now verifies the certificate/key and CA chain.
++			// Use the real fixture binary rather than arbitrary non-PEM bytes.
++			if out, err := exec.CommandContext(ctx, flowPair, args...).CombinedOutput(); err != nil {
++				return string(out), err
+ 			}
+ 		}
+ 	}
+diff --git a/internal/tunnelnode/multi_instance_proc_test.go b/internal/tunnelnode/multi_instance_proc_test.go
+index 168f3a3..42b72d1 100644
+--- a/internal/tunnelnode/multi_instance_proc_test.go
++++ b/internal/tunnelnode/multi_instance_proc_test.go
+@@ -129,6 +129,14 @@ func TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle(t *testing.T) {
+ 			t.Fatal(err)
+ 		}
+ 		check("prepare EX")
++		if id == "bg-port-edit" {
++			// An independent connection must still traverse the old Bulgaria
++			// service while its new CA remains prepared, before either commit.
++			through(t, route, "Bulgaria during candidate preparation")
++			if _, err := os.Stat(ex.pkiDir() + ".before-" + id); !os.IsNotExist(err) {
++				t.Fatal("preparation moved live PKI into a rollback backup")
++			}
++		}
+ 		reply, err := ir.PrepareIR(ctx, id, code, IRParams{RouteListen: route, RouteID: "service-main", VerifyData: true})
+ 		if err != nil {
+ 			t.Fatal(err)
+diff --git a/internal/tunnelnode/pki_rollback_test.go b/internal/tunnelnode/pki_rollback_test.go
+index 2eeff53..d984b0f 100644
+--- a/internal/tunnelnode/pki_rollback_test.go
++++ b/internal/tunnelnode/pki_rollback_test.go
+@@ -211,18 +211,16 @@ func TestPKIPrepareFailureRestoresOldMaterialOrReportsIncompleteAbort(t *testing
+ 				}
+ 			}
+ 			old := pkiDigests(p.ex.pkiDir())
+-			p.ex.System = &pkiPrepareFailureSystem{System: p.ex.System, dir: p.ex.pkiDir(), mode: mode}
++			p.ex.System = &pkiPrepareFailureSystem{System: p.ex.System, dir: p.ex.candidatePKIDir("prepare-fail"), mode: mode}
+ 			p.exp.PublicAddress = "127.0.0.2"
+ 			_, err := p.ex.PrepareEX(context.Background(), "prepare-fail", p.exp)
+ 			if err == nil || !strings.Contains(err.Error(), "injected PKI generation failure") {
+ 				t.Fatalf("prepare failure hidden: %v", err)
+ 			}
+-			if mode == "lost-backup" {
+-				if !strings.Contains(err.Error(), "rollback incomplete") || p.ex.activeID() != "prepare-fail" {
+-					t.Fatal("failed abort hidden or its ownership released")
+-				}
+-			} else if !sameDigests(pkiDigests(p.ex.pkiDir()), old) || p.ex.activeID() != "" {
+-				t.Fatal("failed preparation did not restore the old material and release the change")
++			// Preparation no longer creates a backup or touches the old tree.
++			// A failed generator cannot lose rollback material that was not moved.
++			if !sameDigests(pkiDigests(p.ex.pkiDir()), old) || p.ex.activeID() != "" {
++				t.Fatal("failed preparation disturbed the old material or retained its change")
+ 			}
+ 		})
+ 	}
+diff --git a/internal/tunnelnode/pki_stage.go b/internal/tunnelnode/pki_stage.go
+new file mode 100644
+index 0000000..c60848c
+--- /dev/null
++++ b/internal/tunnelnode/pki_stage.go
+@@ -0,0 +1,121 @@
++package tunnelnode
++
++import (
++	"crypto/tls"
++	"crypto/x509"
++	"errors"
++	"fmt"
++	"os"
++	"path/filepath"
++	"strings"
++	"time"
++)
++
++func (m *Manager) candidatePKIDir(id string) string { return m.pkiDir() + ".candidate-" + id }
++
++func (m *Manager) preparedPKIDir(t Txn) string {
++	if t.PKIStaged && !t.PKIReplaced {
++		return m.candidatePKIDir(t.ID)
++	}
++	return m.pkiDir()
++}
++
++// Parsing the config alone does not load or verify TLS certificates.
++func validatePreparedPKI(dir, host string, now time.Time) error {
++	if _, err := snapshotPKI(dir); err != nil {
++		return err
++	}
++	cert, err := tls.LoadX509KeyPair(filepath.Join(dir, "server.pem"), filepath.Join(dir, "server.key"))
++	if err != nil {
++		return fmt.Errorf("candidate server certificate/key invalid: %w", err)
++	}
++	leaf, err := x509.ParseCertificate(cert.Certificate[0])
++	if err != nil {
++		return err
++	}
++	ca, err := os.ReadFile(filepath.Join(dir, "ca.pem"))
++	if err != nil {
++		return err
++	}
++	roots := x509.NewCertPool()
++	if !roots.AppendCertsFromPEM(ca) {
++		return errors.New("candidate CA invalid")
++	}
++	if _, err := leaf.Verify(x509.VerifyOptions{Roots: roots, DNSName: host, CurrentTime: now, KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}}); err != nil {
++		return fmt.Errorf("candidate certificate verification failed: %w", err)
++	}
++	return nil
++}
++
++// Persist intent before moving anything. Before exchange, restorePKI recognizes
++// the old live identity; after exchange, it recognizes the old backup identity.
++func (m *Manager) activatePreparedPKI(t *Txn) error {
++	if !t.PKIStaged || t.PKIReplaced {
++		return nil
++	}
++	live, err := snapshotPKI(m.pkiDir())
++	if err != nil || (t.HadPKI && !sameDigests(live, t.PreviousPKI)) || (!t.HadPKI && len(live) != 0) {
++		return errors.New("live PKI changed since preparation; cutover refused")
++	}
++	candidate := m.candidatePKIDir(t.ID)
++	next, err := snapshotPKI(candidate)
++	if err != nil || len(next) == 0 || !sameDigests(next, t.InstalledPKI) {
++		return errors.New("candidate PKI missing or changed; cutover refused")
++	}
++	host, err := os.ReadFile(filepath.Join(candidate, "host"))
++	if err != nil {
++		return err
++	}
++	if err := validatePreparedPKI(candidate, strings.TrimSpace(string(host)), m.Now()); err != nil {
++		return err
++	}
++	before := m.pkiDir() + ".before-" + t.ID
++	if _, err := os.Lstat(before); !errors.Is(err, os.ErrNotExist) {
++		return errors.New("PKI backup path occupied; cutover refused")
++	}
++	t.PKIReplaced = true
++	if err := m.writeTxn(*t); err != nil {
++		return err
++	}
++	if err := renameDurable(candidate, before); err != nil {
++		return err
++	}
++	if err := m.fault("tunnel-cutover:before-pki-exchange"); err != nil {
++		return err
++	}
++	current, err := snapshotPKI(m.pkiDir())
++	if err != nil || (t.HadPKI && !sameDigests(current, t.PreviousPKI)) || (!t.HadPKI && len(current) != 0) {
++		return errors.New("live PKI changed before exchange; cutover refused")
++	}
++	prepared, err := snapshotPKI(before)
++	if err != nil || !sameDigests(prepared, t.InstalledPKI) {
++		return errors.New("candidate PKI changed before exchange; cutover refused")
++	}
++	if len(live) == 0 {
++		err = renameDurable(before, m.pkiDir())
++	} else {
++		err = exchangeDirs(m.pkiDir(), before)
++	}
++	if err != nil {
++		return err
++	}
++	return m.fault("tunnel-cutover:after-pki-exchange")
++}
++
++func (m *Manager) cleanupCandidatePKI(t Txn) error {
++	if !t.PKIStaged {
++		return nil
++	}
++	dir := m.candidatePKIDir(t.ID)
++	got, err := snapshotPKI(dir)
++	if err != nil {
++		return err
++	}
++	if len(got) == 0 {
++		return nil
++	}
++	if !sameDigests(got, t.InstalledPKI) {
++		return errors.New("candidate PKI changed; cleanup refused")
++	}
++	return removeAllDurable(dir)
++}
+diff --git a/internal/tunnelnode/pki_stage_test.go b/internal/tunnelnode/pki_stage_test.go
+new file mode 100644
+index 0000000..6cf0a1e
+--- /dev/null
++++ b/internal/tunnelnode/pki_stage_test.go
+@@ -0,0 +1,148 @@
++package tunnelnode
++
++import (
++	"context"
++	"errors"
++	"os"
++	"path/filepath"
++	"strings"
++	"testing"
++)
++
++func TestPrepareChangedHostPreservesLivePKI(t *testing.T) {
++	p := newPair(t)
++	p.build(t, "old-host")
++	for _, n := range []*node{p.ex, p.ir} {
++		if _, err := n.Finalize(context.Background(), "old-host"); err != nil {
++			t.Fatal(err)
++		}
++	}
++	old, err := snapshotPKI(p.ex.pkiDir())
++	if err != nil {
++		t.Fatal(err)
++	}
++	config, _ := os.ReadFile(p.ex.liveConfig())
++	calls := len(p.ex.host.calls)
++	p.exp.PublicAddress = "127.0.0.2"
++	if _, err := p.ex.PrepareEX(context.Background(), "candidate", p.exp); err != nil {
++		t.Fatal(err)
++	}
++	now, err := snapshotPKI(p.ex.pkiDir())
++	if err != nil || !sameDigests(old, now) {
++		t.Fatal("prepare changed live certificate material")
++	}
++	if b, _ := os.ReadFile(p.ex.liveConfig()); string(b) != string(config) || len(p.ex.host.calls) != calls {
++		t.Fatal("prepare changed the live config or service")
++	}
++	if _, err := p.ex.Rollback(context.Background(), "candidate"); err != nil {
++		t.Fatal(err)
++	}
++	now, err = snapshotPKI(p.ex.pkiDir())
++	if err != nil || !sameDigests(old, now) || len(p.ex.host.calls) != calls {
++		t.Fatal("prepared abort disturbed live service")
++	}
++}
++
++func TestStagedPKICutoverFailureRestoresLiveIdentity(t *testing.T) {
++	for _, first := range []bool{false, true} {
++		for _, point := range []string{"tunnel-cutover:before-pki-exchange", "tunnel-cutover:after-pki-exchange"} {
++			t.Run(point+map[bool]string{true: "-first", false: "-edit"}[first], func(t *testing.T) {
++				p := newPair(t)
++				if !first {
++					p.build(t, "old")
++					for _, n := range []*node{p.ex, p.ir} {
++						if _, err := n.Finalize(context.Background(), "old"); err != nil {
++							t.Fatal(err)
++						}
++					}
++				}
++				old, err := snapshotPKI(p.ex.pkiDir())
++				if err != nil {
++					t.Fatal(err)
++				}
++				p.exp.PublicAddress = "127.0.0.2"
++				code, err := p.ex.PrepareEX(context.Background(), "next", p.exp)
++				if err != nil {
++					t.Fatal(err)
++				}
++				reply, err := p.ir.PrepareIR(context.Background(), "next", code, p.irp)
++				if err != nil {
++					t.Fatal(err)
++				}
++				p.ex.Fault = func(at string) error {
++					if at == point {
++						return errors.New("injected cutover failure")
++					}
++					return nil
++				}
++				if _, err := p.ex.CommitEX(context.Background(), "next", reply); err == nil {
++					t.Fatal("cutover failure acknowledged")
++				}
++				now, err := snapshotPKI(p.ex.pkiDir())
++				if err != nil || (first && len(now) != 0) || (!first && !sameDigests(old, now)) {
++					t.Fatal("failed cutover lost previous PKI")
++				}
++				if p.ex.activeID() != "" {
++					t.Fatal("successful abort retained claim")
++				}
++			})
++		}
++	}
++}
++
++func TestStagedPKIRefusesChangedMaterialBeforeLiveMutation(t *testing.T) {
++	for _, target := range []string{"candidate", "live", "symlink", "backup"} {
++		t.Run(target, func(t *testing.T) {
++			p := newPair(t)
++			p.build(t, "old")
++			for _, n := range []*node{p.ex, p.ir} {
++				if _, err := n.Finalize(context.Background(), "old"); err != nil {
++					t.Fatal(err)
++				}
++			}
++			p.exp.PublicAddress = "127.0.0.2"
++			code, err := p.ex.PrepareEX(context.Background(), "next", p.exp)
++			if err != nil {
++				t.Fatal(err)
++			}
++			reply, err := p.ir.PrepareIR(context.Background(), "next", code, p.irp)
++			if err != nil {
++				t.Fatal(err)
++			}
++			path := filepath.Join(p.ex.candidatePKIDir("next"), "server.pem")
++			if target == "live" {
++				path = filepath.Join(p.ex.pkiDir(), "server.pem")
++			}
++			if target == "backup" {
++				err = os.Mkdir(p.ex.pkiDir()+".before-next", 0700)
++			} else if target == "symlink" {
++				if err = os.Remove(path); err == nil {
++					err = os.Symlink(filepath.Join(p.ex.pkiDir(), "server.pem"), path)
++				}
++			} else {
++				err = os.WriteFile(path, []byte("operator edit"), 0644)
++			}
++			if err != nil {
++				t.Fatal(err)
++			}
++			before, _ := snapshotPKI(p.ex.pkiDir())
++			calls := len(p.ex.host.calls)
++			cfg, _ := os.ReadFile(p.ex.liveConfig())
++			if _, err := p.ex.CommitEX(context.Background(), "next", reply); err == nil {
++				t.Fatal("changed material accepted")
++			}
++			after, err := snapshotPKI(p.ex.pkiDir())
++			if err != nil || !sameDigests(before, after) {
++				t.Fatal("refused cutover disturbed live tree/service")
++			}
++			for _, call := range p.ex.host.calls[calls:] {
++				if !strings.HasPrefix(call, "is-active ") && !strings.HasPrefix(call, "is-enabled ") {
++					t.Fatalf("refused cutover changed service: %s", call)
++				}
++			}
++			if b, _ := os.ReadFile(p.ex.liveConfig()); string(b) != string(cfg) {
++				t.Fatal("refused cutover changed config")
++			}
++		})
++	}
++}
+diff --git a/internal/tunnelnode/tunnel_pki.go b/internal/tunnelnode/tunnel_pki.go
+index 2e7a9be..c3fe521 100644
+--- a/internal/tunnelnode/tunnel_pki.go
++++ b/internal/tunnelnode/tunnel_pki.go
+@@ -76,6 +76,19 @@ func (m *Manager) restorePKI(t Txn) error {
+ 		return nil
+ 	}
+ 	if len(t.PreviousPKI) == 0 {
++		if t.PKIStaged && !t.HadPKI {
++			live, err := snapshotPKI(m.pkiDir())
++			if err != nil {
++				return err
++			}
++			if len(live) > 0 {
++				if !sameDigests(live, t.InstalledPKI) {
++					return errors.New("new live PKI changed; rollback refused")
++				}
++				return removeAllDurable(m.pkiDir())
++			}
++			return nil
++		}
+ 		return errors.New("rollback refused: previous PKI identity was not recorded")
+ 	}
+ 	live, err := snapshotPKI(m.pkiDir())
+@@ -126,7 +139,7 @@ func (m *Manager) cleanupPKIBackup(t Txn) error {
+ 	if err != nil {
+ 		return fmt.Errorf("cannot verify restored PKI before cleanup: %w", err)
+ 	}
+-	if !sameDigests(live, t.PreviousPKI) {
++	if !(t.PKIStaged && !t.HadPKI && len(live) == 0) && !sameDigests(live, t.PreviousPKI) {
+ 		return errors.New("rollback refused: restored PKI changed before cleanup")
+ 	}
+ 	before := m.pkiDir() + ".before-" + t.ID
+diff --git a/internal/tunnelnode/tunnelnode.go b/internal/tunnelnode/tunnelnode.go
+index 85d9e52..07c3585 100644
+--- a/internal/tunnelnode/tunnelnode.go
++++ b/internal/tunnelnode/tunnelnode.go
+@@ -116,6 +116,8 @@ type Txn struct {
+ 	// Complete PKI tree identities, including modes and owners, protect both the
+ 	// previous backup and operator edits. They also identify an already
+ 	// restored tree when rollback must be retried after a later failure.
++	HadPKI               bool                `json:"had_pki,omitempty"`
++	PKIStaged            bool                `json:"pki_staged,omitempty"`
+ 	PreviousPKI          map[string]string   `json:"previous_pki,omitempty"`
+ 	InstalledPKI         map[string]string   `json:"installed_pki,omitempty"`
+ 	VerificationRequired bool                `json:"verification_required,omitempty"`
+@@ -377,7 +379,7 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
+ 		}
+ 		identity := "urn:baft:node:ex-" + randomHex(6)
+ 		args := []string{"ex-code", "--key", m.noiseKey(), "--address", net.JoinHostPort(p.PublicAddress, strconv.Itoa(p.Port)),
+-			"--server-name", p.PublicAddress, "--identity", identity, "--ca-file", filepath.Join(m.pkiDir(), "ca.pem"),
++			"--server-name", p.PublicAddress, "--identity", identity, "--ca-file", filepath.Join(m.preparedPKIDir(t), "ca.pem"),
+ 			"--psk-out", filepath.Join(m.stage(id), "psk"), "--pending-out", filepath.Join(m.stage(id), "pending.json"),
+ 			"--ttl", "15m"}
+ 		if p.RecordShaping {
+@@ -530,6 +532,10 @@ func (m *Manager) install(ctx context.Context, t Txn, port int) (string, error)
+ 	want := m.ManagedUnit(port, t.ID, t.Generation)
+ 	t.InstalledUnitSHA = shaHex([]byte(want))
+ 	t.InstalledConfigSHA = shaHex(staged2)
++	if err := m.activatePreparedPKI(&t); err != nil {
++		_, rollbackErr := m.rollbackTxn(ctx, t)
++		return "", errors.Join(err, rollbackErr)
++	}
+ 	t.Phase = PhaseCommitted
+ 	t.ConfigWritten = true
+ 	t.UnitChanged = true
+@@ -808,6 +814,7 @@ func (m *Manager) rollbackTxn(ctx context.Context, t Txn) (string, error) {
+ 		return "rollback incomplete: " + strings.Join(errs, "; "), errors.New("rollback incomplete: " + strings.Join(errs, "; "))
+ 	}
+ 	note(m.cleanupPKIBackup(t))
++	note(m.cleanupCandidatePKI(t))
+ 	for _, f := range []string{"psk", "pending.json", "pairing.pending.json", "ex-params.json", "baft.new.yaml"} {
+ 		note(removeIfExists(filepath.Join(m.stage(t.ID), f)))
+ 	}
+@@ -906,56 +913,48 @@ func (m *Manager) ensureNoiseKey(ctx context.Context) error {
+ 	return m.chownTo(m.noiseKey(), m.User, m.User)
+ }
+ 
+-// ensurePKI creates the EX's outer TLS material for host, replacing (and
+-// keeping aside for rollback) material made for another name.
++// ensurePKI prepares new material beside the live tree on the same filesystem.
++// No live certificate or rollback backup is moved during preparation.
+ func (m *Manager) ensurePKI(ctx context.Context, t *Txn, host string) (err error) {
+ 	previous, err := snapshotPKI(m.pkiDir())
+ 	if err != nil {
+ 		return fmt.Errorf("cannot verify previous PKI: %w", err)
+ 	}
+-	marker := filepath.Join(m.pkiDir(), "host")
+-	if b, err := os.ReadFile(marker); err == nil && strings.TrimSpace(string(b)) == host {
+-		return nil
++	if b, err := os.ReadFile(filepath.Join(m.pkiDir(), "host")); err == nil && strings.TrimSpace(string(b)) == host {
++		return validatePreparedPKI(m.pkiDir(), host, m.Now())
+ 	}
+-	if len(previous) > 0 {
+-		before := m.pkiDir() + ".before-" + t.ID
+-		if _, err := os.Lstat(before); !errors.Is(err, os.ErrNotExist) {
+-			return errors.New("PKI backup path is already occupied or unreadable")
+-		}
+-		t.PKIReplaced, t.PreviousPKI = true, previous
+-		// Persist the old identity before moving its directory. A failed
+-		// replacement can then be refused or retried using durable evidence.
+-		if err := m.writeTxn(*t); err != nil {
+-			return err
+-		}
+-		defer func() {
+-			current, snapshotErr := snapshotPKI(m.pkiDir())
+-			if snapshotErr != nil {
+-				err = errors.Join(err, fmt.Errorf("cannot record installed PKI: %w", snapshotErr))
+-				return
+-			}
+-			t.InstalledPKI = current
+-			err = errors.Join(err, m.writeTxn(*t))
+-		}()
+-		if err := renameDurable(m.pkiDir(), before); err != nil {
+-			return err
++	for _, path := range []string{m.candidatePKIDir(t.ID), m.pkiDir() + ".before-" + t.ID} {
++		if _, err := os.Lstat(path); !errors.Is(err, os.ErrNotExist) {
++			return errors.New("PKI candidate or backup path is already occupied or unreadable")
+ 		}
+ 	}
++	t.PKIStaged, t.HadPKI, t.PreviousPKI = true, len(previous) > 0, previous
++	if err := m.writeTxn(*t); err != nil {
++		return err
++	}
++	defer func() {
++		current, snapshotErr := snapshotPKI(m.candidatePKIDir(t.ID))
++		if snapshotErr != nil {
++			err = errors.Join(err, fmt.Errorf("cannot record candidate PKI: %w", snapshotErr))
++			return
++		}
++		t.InstalledPKI = current
++		err = errors.Join(err, m.writeTxn(*t))
++	}()
+ 	if err := os.MkdirAll(m.ConfigDir, 0o750); err != nil {
+ 		return err
+ 	}
+-	if out, err := m.System.Run(ctx, m.PairBin, "pki", "--dir", m.pkiDir(), "--host", host); err != nil {
++	dir := m.candidatePKIDir(t.ID)
++	if out, err := m.System.Run(ctx, m.PairBin, "pki", "--dir", dir, "--host", host); err != nil {
+ 		return fmt.Errorf("baft-pair pki: %v: %s", err, tailOf(out))
+ 	}
+-	if err := writeFile(marker, []byte(host+"\n"), 0o644); err != nil {
++	if err := writeFile(filepath.Join(dir, "host"), []byte(host+"\n"), 0o644); err != nil {
+ 		return err
+ 	}
+-	// Same modes/ownership as install.sh, but verified and synced before the
+-	// PKI tree can become live.
+-	if err := m.securePKI(m.pkiDir()); err != nil {
++	if err := m.securePKI(dir); err != nil {
+ 		return err
+ 	}
+-	return nil
++	return validatePreparedPKI(dir, host, m.Now())
+ }
+ 
+ // writeConfig installs b as the live config, root-owned and group-readable

@@ -1,0 +1,5 @@
+--- FAIL: TestPrepareChangedHostPreservesLivePKI (0.13s)
+    pki_stage_test.go:22: prepare changed live certificate material
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/tunnelnode	2.201s
+FAIL

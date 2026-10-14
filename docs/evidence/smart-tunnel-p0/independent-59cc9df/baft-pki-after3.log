@@ -1,0 +1,12 @@
+--- FAIL: TestStagedPKIRefusesChangedMaterialBeforeLiveMutation (0.55s)
+    --- FAIL: TestStagedPKIRefusesChangedMaterialBeforeLiveMutation/candidate (0.14s)
+        pki_stage_test.go:135: refused cutover disturbed live tree/service
+    --- FAIL: TestStagedPKIRefusesChangedMaterialBeforeLiveMutation/live (0.14s)
+        pki_stage_test.go:135: refused cutover disturbed live tree/service
+    --- FAIL: TestStagedPKIRefusesChangedMaterialBeforeLiveMutation/symlink (0.14s)
+        pki_stage_test.go:135: refused cutover disturbed live tree/service
+    --- FAIL: TestStagedPKIRefusesChangedMaterialBeforeLiveMutation/backup (0.14s)
+        pki_stage_test.go:135: refused cutover disturbed live tree/service
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/tunnelnode	5.309s
+FAIL

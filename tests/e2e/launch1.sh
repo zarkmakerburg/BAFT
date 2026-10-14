@@ -156,8 +156,19 @@ import json, sys
 t = json.loads(sys.argv[1])
 ev = t.get("evidence", [])
 assert t["plan_hash"] == sys.argv[2], "plan hash not recorded"
-expected = {(step, node) for step in ("health", "observe", "data", "seal") for node in ("ir-e2e", "ex-e2e")}
+expected = {(step, node) for step in ("candidate_artifacts", "health", "observe", "data", "seal") for node in ("ir-e2e", "ex-e2e")}
 assert {(e["step"], e["node"]) for e in ev if e["ok"]} == expected, ev
+assert t.get("candidate_preparation"), t
+assert set(t.get("candidates", {})) == {"ir-e2e", "ex-e2e"}, t
+for e in ev:
+    if e["step"] == "candidate_artifacts" and e["ok"]:
+        candidate = json.loads(e["detail"])
+        assert candidate == t["candidates"][e["node"]], candidate
+        assert candidate["version"] == 1 and candidate["tunnel_id"] == t["id"], candidate
+        assert candidate["instance_id"] == t.get("instance_id", ""), candidate
+        assert candidate["role"] == {"ir-e2e": "ir", "ex-e2e": "ex"}[e["node"]], candidate
+        assert candidate["resources"] and candidate["generation"] == 0, candidate
+        assert candidate["config_sha256"] == t["digests"][e["node"]]["config"], candidate
 assert t.get("finalization_began"), t
 for e in ev:
     if e["step"] == "seal" and e["ok"]:

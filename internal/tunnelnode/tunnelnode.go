@@ -136,6 +136,8 @@ type Txn struct {
 	PreparedConfigIdentity string            `json:"prepared_config_identity,omitempty"`
 	PreparedConfigInputs   map[string]string `json:"prepared_config_inputs,omitempty"`
 	PreparedPairingInputs  map[string]string `json:"prepared_pairing_inputs,omitempty"`
+	CandidateJobsRequired  bool              `json:"candidate_jobs_required,omitempty"`
+	PreparedReplySHA       string            `json:"prepared_reply_sha,omitempty"`
 
 	// Ownership: what this change installed, so rollback only ever restores or
 	// deletes files that are still exactly the ones BAFT wrote.
@@ -217,6 +219,7 @@ type ExParams struct {
 	MetricsListen   string // default 127.0.0.1:9191
 	VerifyData      bool
 	VerifyResources bool
+	StageConfig     bool
 }
 
 type IRParams struct {
@@ -225,6 +228,7 @@ type IRParams struct {
 	MetricsListen   string
 	VerifyData      bool
 	VerifyResources bool
+	StageConfig     bool
 }
 
 func validPort(p int) bool { return p >= 1 && p <= 65535 }
@@ -392,6 +396,7 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 	t.Port = p.Port
 	t.VerificationRequired = p.VerifyData
 	t.ResourcesRequired = p.VerifyResources
+	t.CandidateJobsRequired = p.StageConfig
 	code, err := func() (string, error) {
 		if err := m.ensureNoiseKey(ctx); err != nil {
 			return "", err
@@ -453,6 +458,7 @@ func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (s
 	t.RouteListen = p.RouteListen
 	t.VerificationRequired = p.VerifyData
 	t.ResourcesRequired = p.VerifyResources
+	t.CandidateJobsRequired = p.StageConfig
 	reply, err := func() (string, error) {
 		if err := m.ensureNoiseKey(ctx); err != nil {
 			return "", err
@@ -490,33 +496,46 @@ func (m *Manager) CommitEX(ctx context.Context, id, reply string) (string, error
 	if err != nil {
 		return "", err
 	}
-	if err := m.verifyPairingInputs(t); err != nil {
+	if t.CandidateJobsRequired {
+		return "", errors.New("candidate must be staged and activated with its reviewed digest")
+	}
+	if err := m.completeEXConfig(ctx, &t, reply); err != nil {
 		return "", err
+	}
+	return m.install(ctx, t, t.Port)
+}
+
+// completeEXConfig consumes the pairing reply but changes no live service,
+// configuration, PKI, unit or generation. Legacy CommitEX also uses it.
+func (m *Manager) completeEXConfig(ctx context.Context, t *Txn, reply string) error {
+	id := t.ID
+	if err := m.verifyPairingInputs(*t); err != nil {
+		return err
 	}
 	var p ExParams
 	paramPath := filepath.Join(m.stage(id), "ex-params.json")
 	paramBytes, paramDigest, err := preparedMaterial(paramPath)
 	if err != nil {
-		return "", fmt.Errorf("prepare state missing: %w", err)
+		return fmt.Errorf("prepare state missing: %w", err)
 	}
 	if len(t.PreparedPairingInputs) > 0 && paramDigest != t.PreparedPairingInputs[paramPath] {
-		return "", errors.New("commit refused: prepared EX parameters changed")
+		return errors.New("commit refused: prepared EX parameters changed")
 	}
 	if err := json.Unmarshal(paramBytes, &p); err != nil {
-		return "", fmt.Errorf("prepare state invalid: %w", err)
+		return fmt.Errorf("prepare state invalid: %w", err)
 	}
 	if err := p.validate(); err != nil {
-		return "", err
+		return err
 	}
 	if t.PKIHost != "" && t.PKIHost != p.PublicAddress {
-		return "", errors.New("prepare state does not match the certificate host")
+		return errors.New("prepare state does not match the certificate host")
 	}
-	if err := m.verifyPreparedPKI(t); err != nil {
-		return "", err
+	if err := m.verifyPreparedPKI(*t); err != nil {
+		return err
 	}
 	if t.ResourcesRequired {
 		if err := m.preflightResources(ctx, []string{net.JoinHostPort("0.0.0.0", strconv.Itoa(p.Port)), p.MetricsListen}); err != nil {
-			return "", err
+			return err
 		}
 	}
 	stage := m.stage(id)
@@ -528,12 +547,10 @@ func (m *Manager) CommitEX(ctx context.Context, id, reply string) (string, error
 		"--config-out", filepath.Join(stage, "baft.new.yaml"))
 	if err != nil {
 		// Nothing live was touched; the transaction stays prepared so BCC can roll it back.
-		return "", fmt.Errorf("baft-pair ex-accept: %v: %s", err, redact(tailOf(out), reply))
+		return fmt.Errorf("baft-pair ex-accept: %v: %s", err, redact(tailOf(out), reply))
 	}
-	if err := m.recordPreparedConfig(ctx, &t); err != nil {
-		return "", err
-	}
-	return m.install(ctx, t, p.Port)
+	t.PreparedReplySHA = shaHex([]byte(reply))
+	return m.recordPreparedConfig(ctx, t)
 }
 
 // CommitIR installs the staged dialer config and starts the service.
@@ -543,6 +560,9 @@ func (m *Manager) CommitIR(ctx context.Context, id string) (string, error) {
 	t, err := m.requirePhase(id, RoleIR, PhasePrepared)
 	if err != nil {
 		return "", err
+	}
+	if t.CandidateJobsRequired {
+		return "", errors.New("candidate must be activated with its reviewed digest")
 	}
 	return m.install(ctx, t, 0)
 }

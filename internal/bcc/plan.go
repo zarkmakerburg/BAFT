@@ -123,10 +123,14 @@ func (s *Store) buildPlanLocked(req TunnelRequest, now time.Time) (Plan, error) 
 			}},
 		},
 		Steps: []string{
-			"prepare EX (PKI disk material may change; live service is not restarted)", "prepare IR (nothing live changes)", "commit EX", "commit IR",
+			"prepare EX (candidate PKI is staged; live artifacts and service stay unchanged)", "prepare IR (nothing live changes)",
+			"complete and validate EX config without changing its active service", "revalidate IR candidate and require fresh scoped artifact/resource reports from BOTH nodes",
+			"commit the reviewed EX config digest/generation", "commit the reviewed IR config digest/generation",
 			"health check IR then EX", "observe both nodes and compare with this plan", "wait for actual application data delivery on IR and EX", "seal both nodes while retaining backups", "finalize IR then EX (backups and one-time secrets deleted)",
 		},
 		Verify: []string{
+			"both candidate configs and their private dependencies validate before either service changes; signed commit jobs bind the config digests and generations",
+			"candidate artifact reports are scoped and fresh; they do not prove pre-cutover TLS/Noise handshake or application payload",
 			"service active and not restarting for a settle window",
 			"instance identity and instance-scoped config/state/service ownership match this plan",
 			"EX listener and IR local route accept connections",

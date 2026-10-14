@@ -106,7 +106,7 @@ func TestSecretsAreHiddenFromListingsAndWipedAfterUse(t *testing.T) {
 	}
 	s.AdvanceTunnels(now)
 	ex := pullAll(t, s, "ex-1")
-	if len(ex) != 1 || ex[0].Type != JobTunnelCommitEX || ex[0].Params["reply"] != testReplyCode {
+	if len(ex) != 1 || ex[0].Type != JobTunnelStageEX || ex[0].Params["reply"] != testReplyCode {
 		t.Fatalf("commit step: %+v", ex)
 	}
 	s.AckJobOutput("ex-1", "tok-ex-1", ex[0].ID, "succeeded", "ok", "")
@@ -201,6 +201,7 @@ func TestHealthIsRetriedThenGivesUp(t *testing.T) {
 	}
 	step("ex-1", "succeeded", testPairCode)
 	step("ir-1", "succeeded", testReplyCode)
+	completeCandidateStages(t, s, tn.ID, now)
 	step("ex-1", "succeeded", "")
 	step("ir-1", "succeeded", "")
 	for i := 0; i < tunnelHealthAttempts-1; i++ {
@@ -312,6 +313,7 @@ func driveToObserve(t *testing.T, s *Store, now time.Time) Tunnel {
 	}
 	step("ex-1", testPairCode)
 	step("ir-1", testReplyCode)
+	completeCandidateStages(t, s, tn.ID, now)
 	step("ex-1", "")
 	step("ir-1", "")
 	step("ir-1", "")
@@ -391,7 +393,7 @@ func TestMatchingObservedStateActivatesAndRecordsTheGeneration(t *testing.T) {
 		s.AdvanceTunnels(now)
 	}
 	got, _ := s.GetTunnel(tn.ID)
-	if got.Phase != TunnelActive || len(got.Evidence) != 8 {
+	if got.Phase != TunnelActive || len(got.Evidence) != 10 {
 		t.Fatalf("%s with %d evidence entries", got.Phase, len(got.Evidence))
 	}
 	for _, id := range []string{"ex-1", "ir-1"} {

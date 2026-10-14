@@ -383,7 +383,7 @@ func TestBCCBuildsATunnelOnTwoServers(t *testing.T) {
 	for _, j := range st {
 		types = append(types, j.Type)
 	}
-	if len(types) != 14 {
+	if len(types) != 16 {
 		t.Fatalf("jobs run: %v", types)
 	}
 	entries, _ := os.ReadFile(f.store.Path() + ".audit.jsonl")

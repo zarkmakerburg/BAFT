@@ -129,16 +129,29 @@ func TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle(t *testing.T) {
 				checkGermany(id + ": " + step)
 			}
 		}
-		code, err := ex.PrepareEX(ctx, id, ExParams{PublicAddress: public, Port: listen, Target: target, RouteID: "service-main", VerifyData: true, VerifyResources: true})
+		code, err := ex.PrepareEX(ctx, id, ExParams{PublicAddress: public, Port: listen, Target: target, RouteID: "service-main", VerifyData: true, VerifyResources: true, StageConfig: true})
 		if err != nil {
 			t.Fatal(err)
 		}
 		check("prepare EX")
-		reply, err := ir.PrepareIR(ctx, id, code, IRParams{RouteListen: route, RouteID: "service-main", VerifyData: true, VerifyResources: true})
+		reply, err := ir.PrepareIR(ctx, id, code, IRParams{RouteListen: route, RouteID: "service-main", VerifyData: true, VerifyResources: true, StageConfig: true})
 		if err != nil {
 			t.Fatal(err)
 		}
 		check("prepare IR")
+		exCandidate, err := ex.StageEX(ctx, id, reply)
+		if err != nil {
+			t.Fatal(err)
+		}
+		check("stage EX config")
+		irCandidate, err := ir.ValidateCandidate(ctx, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		check("validate IR candidate")
+		if !exCandidate.Resources || !irCandidate.Resources || exCandidate.ConfigSHA256 == "" || irCandidate.ConfigSHA256 == "" {
+			t.Fatal("missing actual candidate/resource reports")
+		}
 		if len(previousPKI) > 0 {
 			livePKI, err := snapshotPKI(ex.pkiDir())
 			if err != nil || !sameDigests(previousPKI, livePKI) {
@@ -146,11 +159,11 @@ func TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle(t *testing.T) {
 			}
 			through(t, route, "old route during staged preparation: "+id)
 		}
-		if _, err := ex.CommitEX(ctx, id, reply); err != nil {
+		if _, err := ex.CommitCandidate(ctx, id, exCandidate.ConfigSHA256, exCandidate.Generation); err != nil {
 			t.Fatal(err)
 		}
 		check("commit EX")
-		_, err = ir.CommitIR(ctx, id)
+		_, err = ir.CommitCandidate(ctx, id, irCandidate.ConfigSHA256, irCandidate.Generation)
 		if wantFailure {
 			if err == nil {
 				t.Fatal("injected failure succeeded")
@@ -276,4 +289,5 @@ func TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle(t *testing.T) {
 	}
 	checkGermany("Bulgaria deleted")
 	t.Log("Germany: same TCP flow, same IR PID/generation and unchanged config/unit/marker/keys across Bulgaria creation, address/port edit with PKI replacement, rollback, injected failure and retirement")
+	t.Log("EX config staged and IR candidate/resource report validated before either commit; prior Bulgaria route continues through preparation. Candidate handshake/payload is exercised after commit, not claimed before cutover.")
 }

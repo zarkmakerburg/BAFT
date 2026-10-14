@@ -90,6 +90,14 @@ func (m *Manager) configInputs(t Txn, cfg config.Config) (map[string]string, err
 		}
 		// EX certificate bytes are verified separately against the candidate
 		// PKI identity; its permanent paths need not exist before activation.
+		if t.CandidateJobsRequired {
+			path := filepath.Join(m.stage(t.ID), "ex-params.json")
+			_, identity, err := preparedMaterial(path)
+			if err != nil || identity != t.PreparedPairingInputs[path] {
+				return nil, errors.New("prepared EX parameters changed after staging")
+			}
+			paths = append(paths, path)
+		}
 	default:
 		return nil, errors.New("unknown prepared role")
 	}

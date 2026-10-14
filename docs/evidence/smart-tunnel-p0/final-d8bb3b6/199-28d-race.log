@@ -1,0 +1,7 @@
+ok  	github.com/zarkmakerburg/baft/internal/carrier/h2	1.944s
+ok  	github.com/zarkmakerburg/baft/internal/bcc	612.990s
+ok  	github.com/zarkmakerburg/baft/internal/agent	86.268s
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	50.699s
+ok  	github.com/zarkmakerburg/baft/internal/node	1.194s
+ok  	github.com/zarkmakerburg/baft/internal/session	1.310s
+ok  	github.com/zarkmakerburg/baft/internal/agentjob	1.170s

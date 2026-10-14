@@ -1,0 +1,11 @@
+--- FAIL: TestTopologyReconcileIsIdempotentAndDisableIsNonDestructive (0.06s)
+    topology_test.go:122: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestTopologyRollbackFailedBlocksAutomaticRetry (0.07s)
+    topology_test.go:222: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestTopologyDecommissionedIsMissingAndDecommissionFailedIsBlocked (0.02s)
+    topology_test.go:260: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestAuditNamesTheJobsAnActionCreated (0.15s)
+    webharden_test.go:134: tunnel: 400 node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/bcc	0.524s
+FAIL

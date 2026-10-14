@@ -1,0 +1,11 @@
+--- FAIL: TestScopedTunnelsCanShareIRWithIndependentResources (0.01s)
+    multi_instance_test.go:38: sibling IR instance was blocked: node ex-2 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestScopedTunnelsCanShareEXWithIndependentResources (0.01s)
+    multi_instance_test.go:54: sibling EX instance was blocked: node ir-2 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestTunnelsSurviveARestartAndBackup (0.01s)
+    tunnel_test.go:233: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestMatchingObservedStateActivatesAndRecordsTheGeneration (0.09s)
+    tunnel_test.go:395: active with 8 evidence entries
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/bcc	2.778s
+FAIL

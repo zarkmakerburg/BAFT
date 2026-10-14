@@ -1,0 +1,20 @@
+--- FAIL: TestDoctorMissingEvidenceIsUnknownAndDoesNotScheduleListeners (0.01s)
+panic: assignment to entry in nil map [recovered, repanicked]
+
+goroutine 21 [running]:
+testing.tRunner.func1.2({0x15638b0, 0x16e1110})
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2123 +0x232
+testing.tRunner.func1()
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2126 +0x329
+panic({0x15638b0?, 0x16e1110?})
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/panic.go:859 +0x125
+github.com/zarkmakerburg/baft/internal/bcc.doctorStore(_, {_, _, _})
+	/workspace/scratch/0dc4d492ab5c/baft-smart-pki-verified/internal/bcc/route_doctor_evidence_test.go:32 +0xcd0
+github.com/zarkmakerburg/baft/internal/bcc.TestDoctorMissingEvidenceIsUnknownAndDoesNotScheduleListeners(0x1911733ead88)
+	/workspace/scratch/0dc4d492ab5c/baft-smart-pki-verified/internal/bcc/route_doctor_evidence_test.go:55 +0xe8
+testing.tRunner(0x1911733ead88, 0x15d51b8)
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2193 +0xea
+created by testing.(*T).Run in goroutine 1
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2258 +0x4d4
+FAIL	github.com/zarkmakerburg/baft/internal/bcc	0.022s
+FAIL

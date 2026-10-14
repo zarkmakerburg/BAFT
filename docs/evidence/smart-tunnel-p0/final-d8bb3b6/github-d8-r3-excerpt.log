@@ -1,0 +1,51 @@
+2026-10-14T01:07:29.3001446Z HEAD is now at edb9ccc Merge d8bb3b69decfba2ba57430bcfe61eab64a6ba3cc into b028fd580fb2c3f0ebffe2fbf1a52f6b577cbf5f
+2026-10-14T01:07:41.5878533Z ##[group]Run go test ./... -count=1
+2026-10-14T01:08:47.6822753Z ok  	github.com/zarkmakerburg/baft/internal/agent	22.373s
+2026-10-14T01:08:47.6823602Z ok  	github.com/zarkmakerburg/baft/internal/agentjob	0.009s
+2026-10-14T01:09:46.8057623Z ok  	github.com/zarkmakerburg/baft/internal/bcc	78.646s
+2026-10-14T01:09:46.8067671Z ok  	github.com/zarkmakerburg/baft/internal/node	0.021s
+2026-10-14T01:09:46.8073709Z ok  	github.com/zarkmakerburg/baft/internal/session	0.111s
+2026-10-14T01:09:46.8075670Z ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	34.008s
+2026-10-14T01:09:47.0046634Z ##[group]Run go test ./internal/recordshape -run 'Statistics1000|StatisticalGate' -count=1 -v
+2026-10-14T01:09:47.2101567Z --- PASS: TestMorphingStatistics1000 (0.04s)
+2026-10-14T01:09:47.2102383Z     --- PASS: TestMorphingStatistics1000/normal (0.02s)
+2026-10-14T01:09:47.2103086Z     --- PASS: TestMorphingStatistics1000/laplace (0.02s)
+2026-10-14T01:09:47.2105874Z --- PASS: TestStatisticalGateRejectsFixedBucketAndPeriodicMutants (0.00s)
+2026-10-14T01:09:47.2106984Z PASS
+2026-10-14T01:09:47.3601957Z --- PASS: TestEngineECRLF01ZombieCarrier (0.00s)
+2026-10-14T01:09:47.3604270Z --- PASS: TestEngineECRLF02DualCandidate (0.00s)
+2026-10-14T01:09:47.3605647Z --- PASS: TestEngineECRLF03LostACK (0.00s)
+2026-10-14T01:09:47.3606705Z --- PASS: TestEngineECRLF07PeerRestart (0.00s)
+2026-10-14T01:09:47.3608006Z --- PASS: TestEngineECRLF08InconsistentSnapshot (0.00s)
+2026-10-14T01:09:47.3616569Z --- PASS: TestEngineECRLF09DeterministicSnapshotSweep (0.00s)
+2026-10-14T01:09:47.3619319Z --- PASS: TestEngineAIdentityVectorFrozenAcrossPrepareCommit (0.00s)
+2026-10-14T01:09:47.3933632Z --- PASS: TestStage1DifferentialGenerated (0.03s)
+2026-10-14T01:09:47.3939644Z --- PASS: TestEngineCommitAtomicLateAuthorize (0.00s)
+2026-10-14T01:09:47.3941088Z --- PASS: TestEngineCommitAtomicNoMixedAuthority (0.00s)
+2026-10-14T01:09:47.3945478Z --- PASS: TestEngineConcurrentPrepareCommitInterleavings (0.00s)
+2026-10-14T01:09:47.3946540Z     --- PASS: TestEngineConcurrentPrepareCommitInterleavings/a-before-commit (0.00s)
+2026-10-14T01:09:47.3947448Z     --- PASS: TestEngineConcurrentPrepareCommitInterleavings/a-after-commit (0.00s)
+2026-10-14T01:09:47.3948417Z     --- PASS: TestEngineConcurrentPrepareCommitInterleavings/b-before-commit (0.00s)
+2026-10-14T01:09:47.3949092Z     --- PASS: TestEngineConcurrentPrepareCommitInterleavings/b-after-commit (0.00s)
+2026-10-14T01:09:47.3950160Z --- PASS: TestEngineRejectsForgedFINACKAcceptanceWithoutPeerSend (0.00s)
+2026-10-14T01:09:47.3957373Z --- PASS: TestEngineFINACKConfirmationIsSymmetricAndRequiresAcceptance (0.00s)
+2026-10-14T01:09:47.3959263Z     --- PASS: TestEngineFINACKConfirmationIsSymmetricAndRequiresAcceptance/local_write_without_peer_acceptance (0.00s)
+2026-10-14T01:09:47.3961063Z     --- PASS: TestEngineFINACKConfirmationIsSymmetricAndRequiresAcceptance/local_peer_acceptance (0.00s)
+2026-10-14T01:09:47.3962794Z     --- PASS: TestEngineFINACKConfirmationIsSymmetricAndRequiresAcceptance/local_already_confirmed (0.00s)
+2026-10-14T01:09:47.3964686Z     --- PASS: TestEngineFINACKConfirmationIsSymmetricAndRequiresAcceptance/peer_write_without_local_acceptance (0.00s)
+2026-10-14T01:09:47.3966479Z     --- PASS: TestEngineFINACKConfirmationIsSymmetricAndRequiresAcceptance/peer_local_acceptance (0.00s)
+2026-10-14T01:09:47.3968393Z     --- PASS: TestEngineFINACKConfirmationIsSymmetricAndRequiresAcceptance/peer_already_confirmed (0.00s)
+2026-10-14T01:09:47.3969357Z PASS
+2026-10-14T01:09:47.4038349Z ##[group]Run go test -race ./... -count=1
+2026-10-14T01:12:00.1896410Z ok  	github.com/zarkmakerburg/baft/internal/agent	72.164s
+2026-10-14T01:12:00.1900794Z ok  	github.com/zarkmakerburg/baft/internal/agentjob	1.036s
+2026-10-14T01:18:18.8416980Z ok  	github.com/zarkmakerburg/baft/internal/bcc	445.847s
+2026-10-14T01:18:18.8427386Z ok  	github.com/zarkmakerburg/baft/internal/node	1.050s
+2026-10-14T01:18:18.8438757Z ok  	github.com/zarkmakerburg/baft/internal/session	1.219s
+2026-10-14T01:18:18.8442413Z ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	42.063s
+2026-10-14T01:18:26.6320579Z ##[group]Run go test ./internal/recordshape -run '^$' -fuzz FuzzMorphingReadFrame -fuzztime=5s
+2026-10-14T01:18:36.6998478Z fuzz: elapsed: 0s, gathering baseline coverage: 0/1 completed
+2026-10-14T01:18:36.7034452Z fuzz: elapsed: 0s, gathering baseline coverage: 1/1 completed, now fuzzing with 4 workers
+2026-10-14T01:18:39.7026337Z fuzz: elapsed: 3s, execs: 260878 (86951/sec), new interesting: 9 (total: 10)
+2026-10-14T01:18:41.7871277Z fuzz: elapsed: 5s, execs: 443891 (87696/sec), new interesting: 9 (total: 10)
+2026-10-14T01:18:41.7871975Z PASS

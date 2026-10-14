@@ -1,0 +1,52 @@
+{
+  "observed_at": "2026-10-14T01:22:06.507Z",
+  "reviewed_head": "d8bb3b69decfba2ba57430bcfe61eab64a6ba3cc",
+  "code_tree": "189e4a189bbd4449608149f59aa9525e97b3acf8",
+  "ci_checkout": {
+    "sha": "edb9ccc8bc0542e4673c4b674acd92d0e305eb8a",
+    "tree": "189e4a189bbd4449608149f59aa9525e97b3acf8"
+  },
+  "workflows": [
+    {
+      "id": 38493973705,
+      "name": "BCC UI tests",
+      "head_sha": "d8bb3b69decfba2ba57430bcfe61eab64a6ba3cc",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/zarkmakerburg/BAFT/actions/runs/38493973705",
+      "updated_at": "2026-10-14T01:07:32Z"
+    },
+    {
+      "id": 38493973703,
+      "name": "ci",
+      "head_sha": "d8bb3b69decfba2ba57430bcfe61eab64a6ba3cc",
+      "status": "in_progress",
+      "conclusion": null,
+      "url": "https://github.com/zarkmakerburg/BAFT/actions/runs/38493973703",
+      "updated_at": "2026-10-14T01:07:36Z"
+    },
+    {
+      "id": 38493973702,
+      "name": "static-analysis",
+      "head_sha": "d8bb3b69decfba2ba57430bcfe61eab64a6ba3cc",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/zarkmakerburg/BAFT/actions/runs/38493973702",
+      "updated_at": "2026-10-14T01:09:25Z"
+    },
+    {
+      "id": 38493973747,
+      "name": "r3.1-probabilistic-morphing",
+      "head_sha": "d8bb3b69decfba2ba57430bcfe61eab64a6ba3cc",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/zarkmakerburg/BAFT/actions/runs/38493973747",
+      "updated_at": "2026-10-14T01:18:49Z"
+    }
+  ],
+  "launch_job": {
+    "id": 115625408789,
+    "conclusion": "success",
+    "url": "https://github.com/zarkmakerburg/BAFT/actions/runs/38493973703/job/115625408789"
+  }
+}

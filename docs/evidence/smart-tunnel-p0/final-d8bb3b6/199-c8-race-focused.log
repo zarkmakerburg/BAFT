@@ -1,0 +1,6 @@
+ok  	github.com/zarkmakerburg/baft/internal/bcc	24.943s
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	11.094s
+ok  	github.com/zarkmakerburg/baft/internal/node	1.233s
+ok  	github.com/zarkmakerburg/baft/internal/session	1.037s
+ok  	github.com/zarkmakerburg/baft/internal/agent	9.630s
+ok  	github.com/zarkmakerburg/baft/internal/agentjob	1.113s [no tests to run]

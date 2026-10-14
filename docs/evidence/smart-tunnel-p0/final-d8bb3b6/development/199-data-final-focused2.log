@@ -1,0 +1,7 @@
+--- FAIL: TestDeliveryBothNodesMustSealBeforeAnyBackupRelease (0.08s)
+    verification_test.go:154: missing verification job: []
+--- FAIL: TestDeliveryCleanupFailureIsHeldAndCannotClaimActiveOrRollback (0.23s)
+    verification_test.go:173: missing verification fixture step: []
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/bcc	1.480s
+FAIL

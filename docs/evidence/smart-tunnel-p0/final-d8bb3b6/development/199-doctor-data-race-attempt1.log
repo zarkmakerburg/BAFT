@@ -1,0 +1,66 @@
+--- FAIL: TestDistributionRouteFailureOnlyZeroesAffectedRouteIR (0.44s)
+    distribution_policy_test.go:117: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestDistributionFiveRoutesStayIndependent (0.23s)
+    distribution_policy_test.go:315: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestIngressTwoIRFiveExplicitEXProducesFiveIndependentDecisions (0.26s)
+    ingress_policy_test.go:335: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestIngressRouteFailureOnlyMovesAffectedRoute (0.23s)
+    ingress_policy_test.go:418: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+panic: test timed out after 10m0s
+	running tests:
+		TestPlanCheckAndCreationAreOneAtomicStep (27s)
+
+goroutine 77124 [running]:
+testing.(*M).startAlarm.func1()
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2959 +0x605
+created by time.goFunc
+	/workspace/scratch/0dc4d492ab5c/go/src/time/sleep.go:182 +0x45
+
+goroutine 1 [chan receive]:
+testing.(*T).Run(0xc00017e488, {0x15a1dc3, 0x28}, 0x20b0da8)
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2266 +0xb3e
+testing.runTests.func1(0xc00017e488)
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2742 +0x85
+testing.tRunner(0xc00017e488, 0xc000365a40)
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2193 +0x21d
+testing.runTests({0x15940d1, 0x1d}, {0x15a402e, 0x2a}, 0xc000406288, {0x21d7f50, 0x14d, 0x14d}, {0xc2abd23f4c7afb6c, 0x8bcc465fbc, ...})
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2740 +0x9ea
+testing.(*M).Run(0xc00011fa40)
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2600 +0xf45
+main.main()
+	_testmain.go:712 +0x165
+
+goroutine 77144 [select]:
+database/sql.(*DB).connectionOpener(0xc003855e10, {0x20aeed0, 0xc00084bd60})
+	/workspace/scratch/0dc4d492ab5c/go/src/database/sql/sql.go:1266 +0xed
+created by database/sql.OpenDB in goroutine 72908
+	/workspace/scratch/0dc4d492ab5c/go/src/database/sql/sql.go:846 +0x287
+
+goroutine 72908 [runnable]:
+database/sql.(*Tx).closePrepared(0xc000566240)
+	/workspace/scratch/0dc4d492ab5c/go/src/database/sql/sql.go:2289 +0xfb
+database/sql.(*Tx).Commit(0xc000566240)
+	/workspace/scratch/0dc4d492ab5c/go/src/database/sql/sql.go:2321 +0x256
+github.com/zarkmakerburg/baft/internal/bcc.commitStateWithReconciliation({_, _}, {0xc003c20c90, 0xc003c20cc0, 0xc003c20cf0, 0xc003c20d20, 0xc003c20d50, {0x0, 0x0, 0x0}, ...}, ...)
+	/workspace/scratch/0dc4d492ab5c/baft-smart-pki-verified/internal/bcc/statedb.go:186 +0x52
+github.com/zarkmakerburg/baft/internal/bcc.writeStateDB({_, _}, {0xc003c20c90, 0xc003c20cc0, 0xc003c20cf0, 0xc003c20d20, 0xc003c20d50, {0x0, 0x0, 0x0}, ...})
+	/workspace/scratch/0dc4d492ab5c/baft-smart-pki-verified/internal/bcc/statedb.go:178 +0x2a6
+github.com/zarkmakerburg/baft/internal/bcc.(*Store).saveLocked(0xc00360ac60)
+	/workspace/scratch/0dc4d492ab5c/baft-smart-pki-verified/internal/bcc/store.go:268 +0x16b
+github.com/zarkmakerburg/baft/internal/bcc.(*Store).UpsertNode(_, {{0x157a69a, 0x4}, {0x157a69a, 0x4}, {0x1583d47, 0xe}, {0x0, 0x0}, {0x0, ...}, ...}, ...)
+	/workspace/scratch/0dc4d492ab5c/baft-smart-pki-verified/internal/bcc/store.go:333 +0x179b
+github.com/zarkmakerburg/baft/internal/bcc.tunnelStore(0xc00017e6c8)
+	/workspace/scratch/0dc4d492ab5c/baft-smart-pki-verified/internal/bcc/tunnel_test.go:31 +0x66e
+github.com/zarkmakerburg/baft/internal/bcc.TestPlanCheckAndCreationAreOneAtomicStep(0xc00017e6c8)
+	/workspace/scratch/0dc4d492ab5c/baft-smart-pki-verified/internal/bcc/tunnel_test.go:633 +0xa5
+testing.tRunner(0xc00017e6c8, 0x20b0da8)
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2193 +0x21d
+created by testing.(*T).Run in goroutine 1
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2258 +0xb13
+FAIL	github.com/zarkmakerburg/baft/internal/bcc	601.144s
+ok  	github.com/zarkmakerburg/baft/internal/agent	90.638s
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	57.159s
+ok  	github.com/zarkmakerburg/baft/internal/node	1.104s
+ok  	github.com/zarkmakerburg/baft/internal/session	1.307s
+ok  	github.com/zarkmakerburg/baft/internal/agentjob	1.121s
+FAIL

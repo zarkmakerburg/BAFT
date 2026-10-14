@@ -1,0 +1,76 @@
+--- FAIL: TestDistributionRouteFailureOnlyZeroesAffectedRouteIR (0.02s)
+    distribution_policy_test.go:117: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestDistributionFiveRoutesStayIndependent (0.02s)
+    distribution_policy_test.go:315: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestIngressTwoIRFiveExplicitEXProducesFiveIndependentDecisions (0.02s)
+    ingress_policy_test.go:335: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestIngressRouteFailureOnlyMovesAffectedRoute (0.02s)
+    ingress_policy_test.go:418: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestSmartIngressLiveDisabledMakesZeroProviderRequests (0.02s)
+    smart_ingress_live_test.go:262: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestSmartIngressApplyStaleAckMakesZeroProviderRequests (0.02s)
+    smart_ingress_live_test.go:281: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestSmartIngressLiveRejectsTokenFieldBeforeNetwork (0.01s)
+    smart_ingress_live_test.go:295: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestSmartIngressLiveUpdateRequiresReobserveBeforeAppliedGeneration (0.02s)
+    smart_ingress_live_test.go:311: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestSmartIngressAmbiguousWriteDoesNotAdvanceWithoutConvergence (0.02s)
+    smart_ingress_live_test.go:349: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestSmartIngressPostWriteAmbiguityCanBeConfirmedByReobserve (0.02s)
+    smart_ingress_live_test.go:375: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestSmartIngressProviderTokenNeverPersistsOrAudits (0.02s)
+    smart_ingress_live_test.go:396: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestSmartIngressLiveCreateConvergesBeforeAppliedGeneration (0.01s)
+    smart_ingress_live_test.go:427: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestSmartIngressLiveNoopPerformsNoProviderWrite (0.02s)
+    smart_ingress_live_test.go:453: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestSmartIngressLiveWithdrawDisablesExactRouteOnly (0.04s)
+    smart_ingress_live_test.go:478: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestSmartIngressConcurrentApplyHasOneProviderWriter (0.03s)
+    smart_ingress_live_test.go:541: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestSmartIngressStaleDesiredBlocksProviderBeforeNetwork (0.03s)
+    smart_ingress_live_test.go:590: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestSmartIngressStaleWithdrawBlocksProviderBeforeNetwork (0.02s)
+    smart_ingress_live_test.go:606: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestSmartIngressDesiredChangeBetweenProviderWritesStopsSecondWrite (0.02s)
+    smart_ingress_live_test.go:633: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestConfirmSmartIngressAppliedRejectsStaleLiveDesired (0.02s)
+    smart_ingress_live_test.go:671: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestSmartIngressLiveDisabledPoolIsUpdateNotNoop (0.02s)
+    smart_ingress_live_test.go:697: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestSmartIngressLiveWrongPoolWiringIsUpdateNotNoop (0.02s)
+    smart_ingress_live_test.go:724: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestSmartIngressDesiredChangeDuringProviderObserveMakesZeroWrites (0.02s)
+    smart_ingress_live_test.go:752: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestCloudflareDryRunTwoIRFiveEXIsolatedAndDeterministic (0.01s)
+    smart_ingress_provider_test.go:58: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestCloudflareRouteOnlyWeightChangeChangesOnlyThatRoute (0.02s)
+    smart_ingress_provider_test.go:153: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestCloudflareUnavailableEXWithdrawsOnlyExactRoute (0.02s)
+    smart_ingress_provider_test.go:195: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestCloudflareMissingBindingAndUnmanagedObservedBlock (0.13s)
+    smart_ingress_provider_test.go:238: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestCloudflareExactDesiredObservedIsNoop (0.06s)
+    smart_ingress_provider_test.go:315: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestSmartIngressProviderDryRunAPIAdminOnlyNoNetworkNoApplyMutation (0.02s)
+    smart_ingress_provider_test.go:424: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestSmartIngressTwoIRFiveEXPlansAreIndependent (0.05s)
+    smart_ingress_test.go:80: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestSmartIngressRouteFailureChangesOnlyAffectedRoute (0.02s)
+    smart_ingress_test.go:117: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestSmartIngressEXFailureIsFailClosedAndNeverSubstitutesEX (0.03s)
+    smart_ingress_test.go:155: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestSmartIngressRestoredInvalidHostFailsClosed (0.03s)
+    smart_ingress_test.go:199: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestSmartIngressMissingExplicitIRIPFailsClosed (0.03s)
+    smart_ingress_test.go:218: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestSmartIngressGenerationTracksM016WithoutNoopChurn (0.02s)
+    smart_ingress_test.go:237: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestSmartIngressPersistsAcrossRestartAndSQLiteMigration (0.02s)
+    smart_ingress_test.go:272: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+--- FAIL: TestSmartIngressAPIAuthEvaluateAndAudit (0.02s)
+    smart_ingress_test.go:294: node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/bcc	75.354s
+ok  	github.com/zarkmakerburg/baft/internal/agent	32.354s
+FAIL

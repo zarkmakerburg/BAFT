@@ -1,0 +1,8 @@
+=== RUN   TestBCCBuildsATunnelOnTwoServers
+    tunnel_flow_test.go:368: jobs run: [tunnel_finalize tunnel_finalize tunnel_seal tunnel_seal tunnel_data tunnel_data tunnel_observe tunnel_observe tunnel_health tunnel_health tunnel_commit_ir tunnel_commit_ex tunnel_prepare_ir tunnel_prepare_ex]
+--- FAIL: TestBCCBuildsATunnelOnTwoServers (1.73s)
+=== RUN   TestPlanIsReviewedThenDeployedByItsHash
+--- PASS: TestPlanIsReviewedThenDeployedByItsHash (0.80s)
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/agent	7.166s
+FAIL

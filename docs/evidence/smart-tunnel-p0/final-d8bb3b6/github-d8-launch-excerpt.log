@@ -1,0 +1,25 @@
+2026-10-14T01:07:29.8284241Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/200/merge
+2026-10-14T01:07:29.9191400Z HEAD is now at edb9ccc Merge d8bb3b69decfba2ba57430bcfe61eab64a6ba3cc into b028fd580fb2c3f0ebffe2fbf1a52f6b577cbf5f
+2026-10-14T01:08:48.1950267Z [launch1] release v0.0.2-ci built from edb9ccc8bc0542e4673c4b674acd92d0e305eb8a
+2026-10-14T01:08:48.2252522Z [launch1] BCC (the release's own baft-bcc binary)
+2026-10-14T01:08:49.3521341Z [launch1] install.sh --agent-only on both servers, from the signed release
+2026-10-14T01:09:24.1209267Z [launch1] BCC builds tunnel 1 (EX 18443 <-> IR 1443 -> target 2443)
+2026-10-14T01:10:33.3377511Z [launch1] traffic passes through tunnel 1
+2026-10-14T01:10:33.3378125Z [launch1] drift detection: in sync, then a hand edit, then fixed
+2026-10-14T01:10:41.5938042Z [launch1] baft menu on a real terminal; direct commands stay plain
+2026-10-14T01:10:47.4998281Z [launch1] discovery (report only): both nodes MANAGED, nothing on the hosts changes
+2026-10-14T01:10:51.8227954Z [launch1] certificate rotation (A4): PREPARE -> DISTRIBUTE -> VERIFY -> ACTIVATE -> CONFIRM -> RETIRE_OLD on real services
+2026-10-14T01:11:27.5454545Z [launch1] rotation complete: new certificate served and trusted alone; traffic passes
+2026-10-14T01:11:27.5455678Z [launch1] a cancelled rotation (after CONFIRM, during HOLD) rolls back EX then IR to the working certificate
+2026-10-14T01:12:16.3934602Z [launch1] cancelled rotation rolled back; traffic passes
+2026-10-14T01:12:16.4218145Z [launch1] a bad change (EX port taken by BCC) must roll back on both sides
+2026-10-14T01:12:28.7407926Z [launch1] tunnel 1 still carries traffic after the rolled-back change
+2026-10-14T01:12:28.7408689Z [launch1] no secret left behind
+2026-10-14T01:12:28.7509001Z [launch1] support bundle from a running node contains no key material
+2026-10-14T01:12:28.8234324Z [launch1] M-018C: decommission the legacy test tunnel before the scoped-instance lifecycle test
+2026-10-14T01:12:32.9827343Z [launch1] M-018C: two instance-scoped sibling tunnels carry traffic independently
+2026-10-14T01:13:52.6227899Z [launch1] M-018C: external edit must fail closed before any retirement
+2026-10-14T01:13:54.7957760Z [launch1] M-018C: edited material restored; retry decommission from explicit failed state
+2026-10-14T01:13:54.7958663Z [launch1] M-018C: decommission slot-a only; slot-b must remain live
+2026-10-14T01:13:59.1125739Z [launch1] M-018C decommission PASS: selected route/listener gone; sibling traffic still passes
+2026-10-14T01:13:59.1166118Z [launch1] PASS

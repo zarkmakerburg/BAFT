@@ -1,0 +1,8 @@
+go: downloading github.com/refraction-networking/utls v1.8.2
+go: downloading github.com/klauspost/compress v1.17.4
+go: downloading github.com/andybalholm/brotli v1.0.6
+?   	github.com/zarkmakerburg/baft/internal/verification	[no test files]
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	9.299s [no tests to run]
+ok  	github.com/zarkmakerburg/baft/internal/node	0.010s [no tests to run]
+ok  	github.com/zarkmakerburg/baft/internal/session	0.006s [no tests to run]
+ok  	github.com/zarkmakerburg/baft/internal/agentjob	0.006s [no tests to run]

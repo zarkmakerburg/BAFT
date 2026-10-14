@@ -1,0 +1,30 @@
+=== RUN   TestDataEvidenceRejectsUnavailableOrUnboundRuntimeReports
+=== RUN   TestDataEvidenceRejectsUnavailableOrUnboundRuntimeReports/version
+=== RUN   TestDataEvidenceRejectsUnavailableOrUnboundRuntimeReports/config
+=== RUN   TestDataEvidenceRejectsUnavailableOrUnboundRuntimeReports/boot
+=== RUN   TestDataEvidenceRejectsUnavailableOrUnboundRuntimeReports/peers
+=== RUN   TestDataEvidenceRejectsUnavailableOrUnboundRuntimeReports/received-only
+=== RUN   TestDataEvidenceRejectsUnavailableOrUnboundRuntimeReports/delivered-over-received
+=== RUN   TestDataEvidenceRejectsUnavailableOrUnboundRuntimeReports/stale-payload
+=== RUN   TestDataEvidenceRejectsUnavailableOrUnboundRuntimeReports/future-payload
+=== RUN   TestDataEvidenceRejectsUnavailableOrUnboundRuntimeReports/stale-report
+=== RUN   TestDataEvidenceRejectsUnavailableOrUnboundRuntimeReports/unsupported
+--- PASS: TestDataEvidenceRejectsUnavailableOrUnboundRuntimeReports (2.37s)
+    --- PASS: TestDataEvidenceRejectsUnavailableOrUnboundRuntimeReports/version (0.82s)
+    --- PASS: TestDataEvidenceRejectsUnavailableOrUnboundRuntimeReports/config (0.20s)
+    --- PASS: TestDataEvidenceRejectsUnavailableOrUnboundRuntimeReports/boot (0.20s)
+    --- PASS: TestDataEvidenceRejectsUnavailableOrUnboundRuntimeReports/peers (0.18s)
+    --- PASS: TestDataEvidenceRejectsUnavailableOrUnboundRuntimeReports/received-only (0.19s)
+    --- PASS: TestDataEvidenceRejectsUnavailableOrUnboundRuntimeReports/delivered-over-received (0.15s)
+    --- PASS: TestDataEvidenceRejectsUnavailableOrUnboundRuntimeReports/stale-payload (0.14s)
+    --- PASS: TestDataEvidenceRejectsUnavailableOrUnboundRuntimeReports/future-payload (0.19s)
+    --- PASS: TestDataEvidenceRejectsUnavailableOrUnboundRuntimeReports/stale-report (0.15s)
+    --- PASS: TestDataEvidenceRejectsUnavailableOrUnboundRuntimeReports/unsupported (0.15s)
+=== RUN   TestVerifiedFinalizeRequiresSealAndRetainsUnsealedMaterial
+--- PASS: TestVerifiedFinalizeRequiresSealAndRetainsUnsealedMaterial (0.18s)
+=== RUN   TestVerifiedFinalizeRefusesEditsAfterSeal
+--- PASS: TestVerifiedFinalizeRefusesEditsAfterSeal (0.15s)
+=== RUN   TestDataEvidenceRefusesCurrentArtifactDrift
+--- PASS: TestDataEvidenceRefusesCurrentArtifactDrift (0.16s)
+PASS
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	5.440s

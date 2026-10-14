@@ -1,0 +1,58 @@
+--- FAIL: TestDoctorMissingEvidenceIsUnknownAndDoesNotScheduleListeners (0.02s)
+    route_doctor_evidence_test.go:67: absent evidence became a diagnosis: {ID:doctor-0aa61e57d7cf8db0 TunnelID:doctor-tunnel CreatedAt:2026-10-13 23:51:58.118241612 +0000 UTC Verdict:FAIL FirstFailingStage:local_listener SummaryEN:First causally blocking stage: local_listener. SummaryFA:اولین مرحله مسدودکننده: local_listener. EvidenceDigest:d49c3bebaa4074d49a4dc50256587384a5919f2a4eb02616d355543998579f14 Stages:[{Stage:node_service State:PASS Detail:layered node health snapshot Reference:health:ir-1,ex-1} {Stage:local_listener State:FAIL Detail:stored tunnel listener evidence Reference:tunnel:doctor-tunnel} {Stage:tcp_path State:NOT_ASSESSED Detail: Reference:} {Stage:tls13 State:NOT_ASSESSED Detail: Reference:} {Stage:carrier_handshake State:NOT_ASSESSED Detail: Reference:} {Stage:route_authorization State:NOT_ASSESSED Detail: Reference:} {Stage:target_reachability State:NOT_ASSESSED Detail: Reference:} {Stage:application_flow State:NOT_ASSESSED Detail: Reference:} {Stage:consistency State:NOT_ASSESSED Detail: Reference:}]}
+--- FAIL: TestDoctorRawTCPDoesNotProveTLSNoiseAuthorizationOrApplication (0.03s)
+    route_doctor_evidence_test.go:90: raw probe on port 8443 turned tcp_path into PASS
+    route_doctor_evidence_test.go:90: raw probe on port 8443 turned tls13 into PASS
+    route_doctor_evidence_test.go:90: raw probe on port 8443 turned carrier_handshake into PASS
+    route_doctor_evidence_test.go:90: raw probe on port 8443 turned route_authorization into PASS
+    route_doctor_evidence_test.go:90: raw probe on port 8443 turned target_reachability into PASS
+    route_doctor_evidence_test.go:90: raw probe on port 8443 turned application_flow into PASS
+    route_doctor_evidence_test.go:90: raw probe on port 8443 turned consistency into PASS
+    route_doctor_evidence_test.go:90: raw probe on port 9443 turned tcp_path into PASS
+    route_doctor_evidence_test.go:90: raw probe on port 9443 turned tls13 into PASS
+    route_doctor_evidence_test.go:90: raw probe on port 9443 turned carrier_handshake into PASS
+    route_doctor_evidence_test.go:90: raw probe on port 9443 turned route_authorization into PASS
+    route_doctor_evidence_test.go:90: raw probe on port 9443 turned target_reachability into PASS
+    route_doctor_evidence_test.go:90: raw probe on port 9443 turned application_flow into PASS
+    route_doctor_evidence_test.go:90: raw probe on port 9443 turned consistency into PASS
+--- FAIL: TestDoctorScopeAndFreshnessProtectInstanceResults (0.07s)
+    --- FAIL: TestDoctorScopeAndFreshnessProtectInstanceResults/stale (0.01s)
+        route_doctor_evidence_test.go:136: stale evidence made node_service=PASS
+        route_doctor_evidence_test.go:136: stale evidence made local_listener=PASS
+    --- FAIL: TestDoctorScopeAndFreshnessProtectInstanceResults/future (0.01s)
+        route_doctor_evidence_test.go:136: future evidence made node_service=PASS
+        route_doctor_evidence_test.go:136: future evidence made local_listener=PASS
+    --- FAIL: TestDoctorScopeAndFreshnessProtectInstanceResults/other-instance (0.01s)
+        route_doctor_evidence_test.go:136: other-instance evidence made node_service=PASS
+        route_doctor_evidence_test.go:136: other-instance evidence made local_listener=PASS
+    --- FAIL: TestDoctorScopeAndFreshnessProtectInstanceResults/other-generation (0.01s)
+        route_doctor_evidence_test.go:136: other-generation evidence made node_service=PASS
+        route_doctor_evidence_test.go:136: other-generation evidence made local_listener=PASS
+    --- FAIL: TestDoctorScopeAndFreshnessProtectInstanceResults/other-config (0.01s)
+        route_doctor_evidence_test.go:136: other-config evidence made node_service=PASS
+        route_doctor_evidence_test.go:136: other-config evidence made local_listener=PASS
+    --- FAIL: TestDoctorScopeAndFreshnessProtectInstanceResults/unreadable (0.01s)
+        route_doctor_evidence_test.go:136: unreadable evidence made node_service=PASS
+        route_doctor_evidence_test.go:136: unreadable evidence made local_listener=PASS
+--- FAIL: TestDoctorScopedServiceIgnoresSiblingNodeAggregate (0.01s)
+    route_doctor_evidence_test.go:154: aggregate sibling failure replaced fresh scoped evidence: {ID:doctor-8b2b7f8605dd9dee TunnelID:doctor-tunnel CreatedAt:2026-10-13 23:51:58.238634685 +0000 UTC Verdict:FAIL FirstFailingStage:node_service SummaryEN:First causally blocking stage: node_service. SummaryFA:اولین مرحله مسدودکننده: node_service. EvidenceDigest:f7d0358dd04019498a5646eca5292b3fe21eac3508781cff67db99ee8ec7b113 Stages:[{Stage:node_service State:FAIL Detail:layered node health snapshot Reference:health:ir-1,ex-1} {Stage:local_listener State:NOT_ASSESSED Detail: Reference:} {Stage:tcp_path State:NOT_ASSESSED Detail: Reference:} {Stage:tls13 State:NOT_ASSESSED Detail: Reference:} {Stage:carrier_handshake State:NOT_ASSESSED Detail: Reference:} {Stage:route_authorization State:NOT_ASSESSED Detail: Reference:} {Stage:target_reachability State:NOT_ASSESSED Detail: Reference:} {Stage:application_flow State:NOT_ASSESSED Detail: Reference:} {Stage:consistency State:NOT_ASSESSED Detail: Reference:}]}
+--- FAIL: TestDoctorConsistencyRequiresBothFreshKnownNodes (0.09s)
+    --- FAIL: TestDoctorConsistencyRequiresBothFreshKnownNodes/missing (0.01s)
+        route_doctor_evidence_test.go:191: missing consistency=PASS want=NOT_ASSESSED
+    --- FAIL: TestDoctorConsistencyRequiresBothFreshKnownNodes/empty (0.01s)
+        route_doctor_evidence_test.go:191: empty consistency=PASS want=NOT_ASSESSED
+    --- FAIL: TestDoctorConsistencyRequiresBothFreshKnownNodes/partial (0.01s)
+        route_doctor_evidence_test.go:191: partial consistency=PASS want=NOT_ASSESSED
+    --- FAIL: TestDoctorConsistencyRequiresBothFreshKnownNodes/unknown (0.01s)
+        route_doctor_evidence_test.go:191: unknown consistency=FAIL want=NOT_ASSESSED
+    --- FAIL: TestDoctorConsistencyRequiresBothFreshKnownNodes/stale (0.01s)
+        route_doctor_evidence_test.go:191: stale consistency=PASS want=NOT_ASSESSED
+    --- FAIL: TestDoctorConsistencyRequiresBothFreshKnownNodes/future (0.01s)
+        route_doctor_evidence_test.go:191: future consistency=PASS want=NOT_ASSESSED
+--- FAIL: TestDoctorDigestBindsTunnelAndAssessmentTime (0.00s)
+    route_doctor_evidence_test.go:203: digest can be transplanted between tunnel identities or assessment times
+--- FAIL: TestDoctorConflictingDuplicateStageIsNotPass (0.00s)
+    route_doctor_evidence_test.go:212: conflicting evidence silently overwritten: {ID: TunnelID:a CreatedAt:1970-01-01 00:03:20 +0000 UTC Verdict:PASS FirstFailingStage: SummaryEN:All assessed Route Doctor stages passed. SummaryFA:همه مراحل ارزیابی‌شده Route Doctor با موفقیت عبور کردند. EvidenceDigest:c4310c8296deba67fbb967d6360501801b7b5903734df3d2d95a04f58df76791 Stages:[{Stage:node_service State:PASS Detail: Reference:} {Stage:local_listener State:PASS Detail: Reference:fixture:local_listener} {Stage:tcp_path State:PASS Detail: Reference:fixture:tcp_path} {Stage:tls13 State:PASS Detail: Reference:fixture:tls13} {Stage:carrier_handshake State:PASS Detail: Reference:fixture:carrier_handshake} {Stage:route_authorization State:PASS Detail: Reference:fixture:route_authorization} {Stage:target_reachability State:PASS Detail: Reference:fixture:target_reachability} {Stage:application_flow State:PASS Detail: Reference:fixture:application_flow} {Stage:consistency State:PASS Detail: Reference:fixture:consistency}]}
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/bcc	0.231s
+FAIL

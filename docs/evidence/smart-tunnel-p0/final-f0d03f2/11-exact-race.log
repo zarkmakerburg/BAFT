@@ -1,0 +1,11 @@
+--- FAIL: TestRotationFaultDuringActivate (57.27s)
+    --- FAIL: TestRotationFaultDuringActivate/activate:after-swap (18.11s)
+        rotate_test.go:435: verify IR: the certificate served now does not verify: context deadline exceeded
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/tunnelnode	447.145s
+--- FAIL: TestFailureOnOneSideRollsBothSidesBack (21.15s)
+    tunnel_flow_test.go:400: create tunnel = 400 node ex-1 has no fresh verified data-delivery capability; update BAFT and its agent before deployment
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/agent	562.210s
+ok  	github.com/zarkmakerburg/baft/internal/agentjob	1.115s
+FAIL

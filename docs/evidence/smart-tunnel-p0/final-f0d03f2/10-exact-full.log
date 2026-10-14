@@ -1,0 +1,8 @@
+--- FAIL: TestCandidateExecutableDriftPreservesActiveService (82.76s)
+    --- FAIL: TestCandidateExecutableDriftPreservesActiveService/ir/baft/replacement (2.07s)
+        executable_preparation_test.go:129: open /tmp/TestCandidateExecutableDriftPreservesActiveServiceirbaftrepla1452339762/003/baft: text file busy
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/tunnelnode	297.731s
+ok  	github.com/zarkmakerburg/baft/internal/agent	251.587s
+ok  	github.com/zarkmakerburg/baft/internal/agentjob	0.052s
+FAIL

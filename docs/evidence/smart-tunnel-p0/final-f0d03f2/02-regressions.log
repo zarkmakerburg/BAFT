@@ -1,0 +1,4 @@
+# github.com/zarkmakerburg/baft/internal/tunnelnode [github.com/zarkmakerburg/baft/internal/tunnelnode.test]
+internal/tunnelnode/executable_preparation_test.go:36:15: undefined: testMkfifo
+FAIL	github.com/zarkmakerburg/baft/internal/tunnelnode [build failed]
+FAIL

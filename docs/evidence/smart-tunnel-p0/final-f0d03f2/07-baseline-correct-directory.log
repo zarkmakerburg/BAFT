@@ -1,0 +1,167 @@
+--- FAIL: TestCandidateExecutableDriftPreservesActiveService (26.05s)
+    --- FAIL: TestCandidateExecutableDriftPreservesActiveService/ex/baft/replacement (2.11s)
+        executable_preparation_test.go:67: open /tmp/TestCandidateExecutableDriftPreservesActiveServiceexbaftrepla2237504407/003/baft: text file busy
+    --- FAIL: TestCandidateExecutableDriftPreservesActiveService/ex/baft/mode (1.95s)
+        executable_preparation_test.go:92: changed candidate was accepted
+        executable_preparation_test.go:93: changed candidate was accepted
+        executable_preparation_test.go:93: refusal changed live artifact: baft.yaml
+        executable_preparation_test.go:93: refusal changed live artifact: baft.service
+        executable_preparation_test.go:93: refusal changed live artifact: baft.managed.json
+        executable_preparation_test.go:93: refusal changed live artifact: generation
+        executable_preparation_test.go:93: refusal touched service: daemon-reload
+        executable_preparation_test.go:93: refusal touched service: enable baft
+        executable_preparation_test.go:93: refusal touched service: restart baft
+        executable_preparation_test.go:93: refusal changed live certificates
+    --- FAIL: TestCandidateExecutableDriftPreservesActiveService/ex/baft/symlink (2.64s)
+        executable_preparation_test.go:92: changed candidate was accepted
+        executable_preparation_test.go:93: changed candidate was accepted
+        executable_preparation_test.go:93: refusal changed live artifact: baft.service
+        executable_preparation_test.go:93: refusal changed live artifact: baft.managed.json
+        executable_preparation_test.go:93: refusal changed live artifact: generation
+        executable_preparation_test.go:93: refusal changed live artifact: baft.yaml
+        executable_preparation_test.go:93: refusal touched service: daemon-reload
+        executable_preparation_test.go:93: refusal touched service: enable baft
+        executable_preparation_test.go:93: refusal touched service: restart baft
+        executable_preparation_test.go:93: refusal changed live certificates
+    --- FAIL: TestCandidateExecutableDriftPreservesActiveService/ex/baft/path (1.46s)
+        executable_preparation_test.go:92: changed candidate was accepted
+        executable_preparation_test.go:93: changed candidate was accepted
+        executable_preparation_test.go:93: refusal changed live artifact: generation
+        executable_preparation_test.go:93: refusal changed live artifact: baft.yaml
+        executable_preparation_test.go:93: refusal changed live artifact: baft.service
+        executable_preparation_test.go:93: refusal changed live artifact: baft.managed.json
+        executable_preparation_test.go:93: refusal touched service: daemon-reload
+        executable_preparation_test.go:93: refusal touched service: enable baft
+        executable_preparation_test.go:93: refusal touched service: restart baft
+        executable_preparation_test.go:93: refusal changed live certificates
+    --- FAIL: TestCandidateExecutableDriftPreservesActiveService/ex/pair/replacement (1.30s)
+        executable_preparation_test.go:92: changed candidate was accepted
+        executable_preparation_test.go:93: changed candidate was accepted
+        executable_preparation_test.go:93: refusal changed live artifact: baft.yaml
+        executable_preparation_test.go:93: refusal changed live artifact: baft.service
+        executable_preparation_test.go:93: refusal changed live artifact: baft.managed.json
+        executable_preparation_test.go:93: refusal changed live artifact: generation
+        executable_preparation_test.go:93: refusal touched service: daemon-reload
+        executable_preparation_test.go:93: refusal touched service: enable baft
+        executable_preparation_test.go:93: refusal touched service: restart baft
+        executable_preparation_test.go:93: refusal changed live certificates
+    --- FAIL: TestCandidateExecutableDriftPreservesActiveService/ex/pair/mode (1.83s)
+        executable_preparation_test.go:92: changed candidate was accepted
+        executable_preparation_test.go:93: changed candidate was accepted
+        executable_preparation_test.go:93: refusal changed live artifact: baft.managed.json
+        executable_preparation_test.go:93: refusal changed live artifact: generation
+        executable_preparation_test.go:93: refusal changed live artifact: baft.yaml
+        executable_preparation_test.go:93: refusal changed live artifact: baft.service
+        executable_preparation_test.go:93: refusal touched service: daemon-reload
+        executable_preparation_test.go:93: refusal touched service: enable baft
+        executable_preparation_test.go:93: refusal touched service: restart baft
+        executable_preparation_test.go:93: refusal changed live certificates
+    --- FAIL: TestCandidateExecutableDriftPreservesActiveService/ex/pair/symlink (1.28s)
+        executable_preparation_test.go:92: changed candidate was accepted
+        executable_preparation_test.go:93: changed candidate was accepted
+        executable_preparation_test.go:93: refusal changed live artifact: baft.yaml
+        executable_preparation_test.go:93: refusal changed live artifact: baft.service
+        executable_preparation_test.go:93: refusal changed live artifact: baft.managed.json
+        executable_preparation_test.go:93: refusal changed live artifact: generation
+        executable_preparation_test.go:93: refusal touched service: daemon-reload
+        executable_preparation_test.go:93: refusal touched service: enable baft
+        executable_preparation_test.go:93: refusal touched service: restart baft
+        executable_preparation_test.go:93: refusal changed live certificates
+    --- FAIL: TestCandidateExecutableDriftPreservesActiveService/ex/pair/path (1.17s)
+        executable_preparation_test.go:92: changed candidate was accepted
+        executable_preparation_test.go:93: changed candidate was accepted
+        executable_preparation_test.go:93: refusal changed live artifact: baft.yaml
+        executable_preparation_test.go:93: refusal changed live artifact: baft.service
+        executable_preparation_test.go:93: refusal changed live artifact: baft.managed.json
+        executable_preparation_test.go:93: refusal changed live artifact: generation
+        executable_preparation_test.go:93: refusal touched service: daemon-reload
+        executable_preparation_test.go:93: refusal touched service: enable baft
+        executable_preparation_test.go:93: refusal touched service: restart baft
+        executable_preparation_test.go:93: refusal changed live certificates
+    --- FAIL: TestCandidateExecutableDriftPreservesActiveService/ir/baft/replacement (1.67s)
+        executable_preparation_test.go:67: open /tmp/TestCandidateExecutableDriftPreservesActiveServiceirbaftrepla4151345632/003/baft: text file busy
+    --- FAIL: TestCandidateExecutableDriftPreservesActiveService/ir/baft/mode (1.02s)
+        executable_preparation_test.go:92: changed candidate was accepted
+        executable_preparation_test.go:93: changed candidate was accepted
+        executable_preparation_test.go:93: refusal changed live artifact: baft.yaml
+        executable_preparation_test.go:93: refusal changed live artifact: baft.service
+        executable_preparation_test.go:93: refusal changed live artifact: baft.managed.json
+        executable_preparation_test.go:93: refusal changed live artifact: generation
+        executable_preparation_test.go:93: refusal touched service: daemon-reload
+        executable_preparation_test.go:93: refusal touched service: enable baft
+        executable_preparation_test.go:93: refusal touched service: restart baft
+    --- FAIL: TestCandidateExecutableDriftPreservesActiveService/ir/baft/symlink (1.51s)
+        executable_preparation_test.go:92: changed candidate was accepted
+        executable_preparation_test.go:93: changed candidate was accepted
+        executable_preparation_test.go:93: refusal changed live artifact: baft.yaml
+        executable_preparation_test.go:93: refusal changed live artifact: baft.service
+        executable_preparation_test.go:93: refusal changed live artifact: baft.managed.json
+        executable_preparation_test.go:93: refusal changed live artifact: generation
+        executable_preparation_test.go:93: refusal touched service: daemon-reload
+        executable_preparation_test.go:93: refusal touched service: enable baft
+        executable_preparation_test.go:93: refusal touched service: restart baft
+    --- FAIL: TestCandidateExecutableDriftPreservesActiveService/ir/baft/path (1.69s)
+        executable_preparation_test.go:92: changed candidate was accepted
+        executable_preparation_test.go:93: changed candidate was accepted
+        executable_preparation_test.go:93: refusal changed live artifact: baft.service
+        executable_preparation_test.go:93: refusal changed live artifact: baft.managed.json
+        executable_preparation_test.go:93: refusal changed live artifact: generation
+        executable_preparation_test.go:93: refusal changed live artifact: baft.yaml
+        executable_preparation_test.go:93: refusal touched service: daemon-reload
+        executable_preparation_test.go:93: refusal touched service: enable baft
+        executable_preparation_test.go:93: refusal touched service: restart baft
+    --- FAIL: TestCandidateExecutableDriftPreservesActiveService/ir/pair/replacement (2.21s)
+        executable_preparation_test.go:92: changed candidate was accepted
+        executable_preparation_test.go:93: changed candidate was accepted
+        executable_preparation_test.go:93: refusal changed live artifact: generation
+        executable_preparation_test.go:93: refusal changed live artifact: baft.yaml
+        executable_preparation_test.go:93: refusal changed live artifact: baft.service
+        executable_preparation_test.go:93: refusal changed live artifact: baft.managed.json
+        executable_preparation_test.go:93: refusal touched service: daemon-reload
+        executable_preparation_test.go:93: refusal touched service: enable baft
+        executable_preparation_test.go:93: refusal touched service: restart baft
+    --- FAIL: TestCandidateExecutableDriftPreservesActiveService/ir/pair/mode (1.66s)
+        executable_preparation_test.go:92: changed candidate was accepted
+        executable_preparation_test.go:93: changed candidate was accepted
+        executable_preparation_test.go:93: refusal changed live artifact: generation
+        executable_preparation_test.go:93: refusal changed live artifact: baft.yaml
+        executable_preparation_test.go:93: refusal changed live artifact: baft.service
+        executable_preparation_test.go:93: refusal changed live artifact: baft.managed.json
+        executable_preparation_test.go:93: refusal touched service: daemon-reload
+        executable_preparation_test.go:93: refusal touched service: enable baft
+        executable_preparation_test.go:93: refusal touched service: restart baft
+    --- FAIL: TestCandidateExecutableDriftPreservesActiveService/ir/pair/symlink (1.39s)
+        executable_preparation_test.go:92: changed candidate was accepted
+        executable_preparation_test.go:93: changed candidate was accepted
+        executable_preparation_test.go:93: refusal changed live artifact: baft.yaml
+        executable_preparation_test.go:93: refusal changed live artifact: baft.service
+        executable_preparation_test.go:93: refusal changed live artifact: baft.managed.json
+        executable_preparation_test.go:93: refusal changed live artifact: generation
+        executable_preparation_test.go:93: refusal touched service: daemon-reload
+        executable_preparation_test.go:93: refusal touched service: enable baft
+        executable_preparation_test.go:93: refusal touched service: restart baft
+    --- FAIL: TestCandidateExecutableDriftPreservesActiveService/ir/pair/path (1.16s)
+        executable_preparation_test.go:92: changed candidate was accepted
+        executable_preparation_test.go:93: changed candidate was accepted
+        executable_preparation_test.go:93: refusal changed live artifact: baft.yaml
+        executable_preparation_test.go:93: refusal changed live artifact: baft.service
+        executable_preparation_test.go:93: refusal changed live artifact: baft.managed.json
+        executable_preparation_test.go:93: refusal changed live artifact: generation
+        executable_preparation_test.go:93: refusal touched service: daemon-reload
+        executable_preparation_test.go:93: refusal touched service: enable baft
+        executable_preparation_test.go:93: refusal touched service: restart baft
+--- FAIL: TestCandidateValidatorExecutableDriftRefusedBeforeActivation (0.93s)
+    executable_preparation_test.go:137: changed candidate was accepted
+    executable_preparation_test.go:137: refusal changed live artifact: baft.yaml
+    executable_preparation_test.go:137: refusal changed live artifact: baft.service
+    executable_preparation_test.go:137: refusal changed live artifact: baft.managed.json
+    executable_preparation_test.go:137: refusal changed live artifact: generation
+    executable_preparation_test.go:137: refusal touched service: daemon-reload
+    executable_preparation_test.go:137: refusal touched service: enable baft
+    executable_preparation_test.go:137: refusal touched service: restart baft
+    executable_preparation_test.go:137: refusal changed live certificates
+--- FAIL: TestCandidatePreparationMissingExecutableDoesNotClaimNode (0.07s)
+    executable_preparation_test.go:150: got <nil>
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/tunnelnode	87.244s
+FAIL

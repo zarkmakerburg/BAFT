@@ -1,0 +1,7 @@
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState
+=== RUN   TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-live-owner
+    pki_rollback_test.go:104: environment cannot change uid/gid: chown /tmp/TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState3947035109/001/etc/pki/server.key: invalid argument
+--- PASS: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState (3.40s)
+    --- SKIP: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-live-owner (3.38s)
+PASS
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	16.596s

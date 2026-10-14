@@ -1,0 +1,13 @@
+=== RUN   TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle
+    multi_instance_proc_test.go:86: environment cannot inspect controlled child process namespace/FD ownership: service network namespace unavailable: readlink /proc/372/ns/net: no such file or directory
+--- SKIP: TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle (0.04s)
+=== RUN   TestResourcePreflightDoesNotUnlinkAnUnrelatedUnixSocket
+    resource_preflight_test.go:211: environment cannot create Unix sockets: listen unix /tmp/TestResourcePreflightDoesNotUnlinkAnUnrelatedUnixSocket1383854304/001/state/admin.sock: socket: operation not permitted
+--- SKIP: TestResourcePreflightDoesNotUnlinkAnUnrelatedUnixSocket (0.00s)
+=== RUN   TestResourceUnixListenerDoesNotConfuseAcceptedClientsWithBindOwner
+--- PASS: TestResourceUnixListenerDoesNotConfuseAcceptedClientsWithBindOwner (0.00s)
+=== RUN   TestResourceUnixListenerEvidenceWithActiveManagementClient
+    resource_proc_test.go:148: environment cannot create Unix sockets: listen unix /tmp/TestResourceUnixListenerEvidenceWithActiveManagementClient1316388572/001/admin.sock: socket: operation not permitted
+--- SKIP: TestResourceUnixListenerEvidenceWithActiveManagementClient (0.01s)
+PASS
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	10.891s

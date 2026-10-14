@@ -1,0 +1,14 @@
+go: downloading golang.org/x/sys v0.48.0
+go: downloading go.yaml.in/yaml/v3 v3.0.5
+go: downloading golang.org/x/crypto v0.57.0
+go: downloading modernc.org/sqlite v1.60.1
+go: downloading github.com/flynn/noise v1.1.0
+go: downloading modernc.org/libc v1.77.1
+go: downloading modernc.org/mathutil v1.7.1
+go: downloading modernc.org/memory v1.12.1
+go: downloading github.com/google/uuid v1.6.0
+go: downloading github.com/dustin/go-humanize v1.0.1
+go: downloading github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	84.715s
+ok  	github.com/zarkmakerburg/baft/internal/agent	35.891s
+ok  	github.com/zarkmakerburg/baft/internal/agentjob	0.014s

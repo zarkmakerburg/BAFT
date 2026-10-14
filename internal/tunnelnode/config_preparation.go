@@ -140,10 +140,16 @@ func (m *Manager) validatePreparedConfig(ctx context.Context, t Txn) ([]byte, co
 	if err != nil {
 		return nil, cfg, nil, err
 	}
+	if err := m.verifyServiceAccess(ctx, t, cfg); err != nil {
+		return nil, cfg, nil, err
+	}
 	if out, err := m.System.Run(ctx, m.BaftBin, "config", "validate", "--file", filepath.Join(m.stage(t.ID), "baft.new.yaml")); err != nil {
 		return nil, cfg, nil, fmt.Errorf("staged config is invalid: %v: %s", err, tailOf(out))
 	}
 	if err := m.verifyExecutables(ctx, t); err != nil {
+		return nil, cfg, nil, err
+	}
+	if err := m.verifyServiceAccess(ctx, t, cfg); err != nil {
 		return nil, cfg, nil, err
 	}
 	after, _, afterInputs, err := m.readPreparedConfig(t)

@@ -43,6 +43,9 @@ jobs:
           BAFT_REQUIRE_RESOURCE_EVIDENCE: "1"
         run: |
           go test ./internal/tunnelnode -run '^(TestResource|TestProcTCP|TestPassiveInventory|TestTwoLiveInstances)' -count=3 -timeout=5m -v
+      - name: Configured service-account access acceptance
+        run: |
+          sudo env PATH="$PATH" GOMODCACHE="$(go env GOMODCACHE)" BAFT_REQUIRE_SERVICE_ACCESS_EVIDENCE=1 "$(command -v go)" test ./internal/tunnelnode -run '^TestServiceAccessRealCredentialSwitch$' -count=3 -timeout=3m -v
       - name: Step 1 stability evidence
         run: |
           go test ./tests/integration -run '^TestSixNodeNoiseMasterHandshakeRoundTrip$' -count=1 -v

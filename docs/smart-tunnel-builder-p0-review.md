@@ -24,6 +24,26 @@ main merge and release/tag gates from #67 have not been exercised.
 
 ## Confirmed and corrected in this slice
 
+### Configured service-account access before activation
+
+New separate-candidate preparations bind the configured service account and
+verify it is available before claiming the instance. Following installer #197's
+Python account-access semantics, an isolated helper initializes supplementary
+groups and drops gid/uid, then checks actual OS access to the BAFT executable,
+Noise key, state-directory write/search permission, configuration directory and
+the prepared EX certificate/key/CA or IR peer CA. It creates no file, operates
+no service and returns no private material. Checks repeat around configuration
+validation and immediately before PKI activation; denied/unavailable evidence
+or a changed configured user refuses activation without repairing permissions.
+
+Older in-flight receipts keep their previous protocol. Ownership-free test
+adapters remain explicit; the production Agent CLI refuses an empty service
+account. CI adds mandatory root-run credential-switch acceptance with three
+repeats, alongside the existing two-node signed-release/systemd fixture.
+Local inability to switch uid/groups is recorded as SKIP, never as access PASS.
+This is DAC/ACL access evidence, not full systemd confinement, safe atomic host
+reservation or coordinated candidate handshake/payload before cutover.
+
 ### Shared installer executable drift gate
 
 New separate-candidate preparations seal actual `baft` and `baft-pair` bytes,

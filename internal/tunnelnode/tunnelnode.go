@@ -139,6 +139,7 @@ type Txn struct {
 	CandidateJobsRequired  bool              `json:"candidate_jobs_required,omitempty"`
 	PreparedReplySHA       string            `json:"prepared_reply_sha,omitempty"`
 	PreparedExecutables    map[string]string `json:"prepared_executables,omitempty"`
+	PreparedServiceUser    string            `json:"prepared_service_user,omitempty"`
 
 	// Ownership: what this change installed, so rollback only ever restores or
 	// deletes files that are still exactly the ones BAFT wrote.
@@ -394,6 +395,10 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 	if err != nil {
 		return "", err
 	}
+	serviceUser, err := m.prepareServiceUser(ctx, p.StageConfig)
+	if err != nil {
+		return "", err
+	}
 	t, err := m.begin(id, RoleEX)
 	if err != nil {
 		return "", err
@@ -403,6 +408,7 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 	t.ResourcesRequired = p.VerifyResources
 	t.CandidateJobsRequired = p.StageConfig
 	t.PreparedExecutables = executables
+	t.PreparedServiceUser = serviceUser
 	code, err := func() (string, error) {
 		if err := m.ensureNoiseKey(ctx); err != nil {
 			return "", err
@@ -465,6 +471,10 @@ func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (s
 	if err != nil {
 		return "", err
 	}
+	serviceUser, err := m.prepareServiceUser(ctx, p.StageConfig)
+	if err != nil {
+		return "", err
+	}
 	t, err := m.begin(id, RoleIR)
 	if err != nil {
 		return "", err
@@ -474,6 +484,7 @@ func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (s
 	t.ResourcesRequired = p.VerifyResources
 	t.CandidateJobsRequired = p.StageConfig
 	t.PreparedExecutables = executables
+	t.PreparedServiceUser = serviceUser
 	reply, err := func() (string, error) {
 		if err := m.ensureNoiseKey(ctx); err != nil {
 			return "", err
@@ -640,6 +651,9 @@ func (m *Manager) install(ctx context.Context, t Txn, port int) (string, error) 
 		return "", err
 	}
 	if err := m.verifyExecutables(ctx, t); err != nil {
+		return "", err
+	}
+	if err := m.verifyServiceAccess(ctx, t, cfg); err != nil {
 		return "", err
 	}
 	if err := m.activatePreparedPKI(t); err != nil {

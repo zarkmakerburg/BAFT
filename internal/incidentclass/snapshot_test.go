@@ -1,6 +1,8 @@
 package incidentclass
 
 import (
+ "encoding/json"
+ "fmt"
  "os"
  "path/filepath"
  "testing"
@@ -60,4 +62,18 @@ func TestSaveSnapshotRejectsInvalidStateWithoutOverwriting(t *testing.T) {
  got,err:=os.ReadFile(path)
  if err!=nil {t.Fatal(err)}
  if string(got)!=string(original) {t.Fatal("rejected write modified existing snapshot")}
+}
+
+func TestSnapshotAtActiveCapacityFitsConfiguredSize(t *testing.T) {
+ now:=time.Now().UTC()
+ active:=make(map[string]Incident,MaxActive)
+ for i:=0;i<MaxActive;i++ {
+  id:=fmt.Sprintf("instance-%04d",i)
+  active[id]=Incident{InstanceID:id,Status:NodeOffline,StartedAt:now,LastObservedAt:now,Observations:1}
+ }
+ data,err:=json.Marshal(Snapshot{Active:active})
+ if err!=nil {t.Fatal(err)}
+ if len(data)>MaxSnapshotBytes {
+  t.Fatalf("max active snapshot requires %d bytes but limit is %d",len(data),MaxSnapshotBytes)
+ }
 }

@@ -16,9 +16,14 @@ type Tracker struct {
 
 func NewTracker(snapshot Snapshot) (*Tracker,error) {
  if len(snapshot.History)>MaxHistory {return nil,errors.New("history exceeds limit")}
+ for _,incident:=range snapshot.History {
+  if incident.InstanceID=="" || incident.StartedAt.IsZero() || incident.RecoveredAt==nil || incident.RecoveredAt.Before(incident.StartedAt) || !incident.LastObservedAt.Equal(*incident.RecoveredAt) {
+   return nil,errors.New("invalid completed incident")
+  }
+ }
  t:=&Tracker{active:make(map[string]Incident),history:append([]Incident(nil),snapshot.History...)}
  for id,incident:=range snapshot.Active {
-  if id==""||incident.InstanceID!=id||incident.StartedAt.IsZero()||incident.LastObservedAt.Before(incident.StartedAt)||incident.RecoveredAt!=nil {
+  if id==""||incident.InstanceID!=id||incident.StartedAt.IsZero()||incident.LastObservedAt.Before(incident.StartedAt)||incident.RecoveredAt!=nil || (incident.Status!=NodeOffline && incident.Status!=NetworkPathFailure && incident.Status!=TransportFailure) {
    return nil,errors.New("invalid active incident")
   }
   t.active[id]=incident

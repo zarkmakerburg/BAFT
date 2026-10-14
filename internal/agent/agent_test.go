@@ -50,28 +50,11 @@ func (f *fakeSystem) Run(ctx context.Context, name string, args ...string) (stri
 	defer f.mu.Unlock()
 	f.calls = append(f.calls, filepath.Base(name)+" "+strings.Join(args, " "))
 	if filepath.Base(name) == "baft-pair" && len(args) > 0 {
-		arg := func(flag string) string {
-			for i := 0; i+1 < len(args); i++ {
-				if args[i] == flag {
-					return args[i+1]
-				}
-			}
-			return ""
-		}
 		switch args[0] {
-		case "keygen":
-			if path := arg("--file"); path != "" {
-				if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-					return "", err
-				}
-				if err := os.WriteFile(path, []byte("fake-noise-key"), 0o600); err != nil {
-					return "", err
-				}
-			}
-		case "pki":
-			// Tunnel preparation now validates actual certificate/key material.
-			// Reuse TestMain's real pair binary instead of non-PEM placeholders;
-			// service control and the one-time output remain fixture-only.
+		case "keygen", "pki", "ex-code":
+			// Preparation records actual keys, certificates and pending/PSK
+			// artifacts. Generate them with the real pair binary; service
+			// control and the returned secret marker remain adapter fixtures.
 			if out, err := exec.CommandContext(ctx, flowPair, args...).CombinedOutput(); err != nil {
 				return string(out), err
 			}

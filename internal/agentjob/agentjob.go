@@ -58,6 +58,8 @@ const (
 	ActionTunnelCommitIR  = "tunnel_commit_ir"
 	ActionTunnelHealth    = "tunnel_health"
 	ActionTunnelObserve   = "tunnel_observe"
+	ActionTunnelData      = "tunnel_data"
+	ActionTunnelSeal      = "tunnel_seal"
 	ActionTunnelInspect   = "tunnel_inspect"
 	// ActionTunnelDiscover is a read-only inventory of the BAFT units on a node.
 	ActionTunnelDiscover = "tunnel_discover"
@@ -126,6 +128,8 @@ var paramRules = map[string]map[string]*regexp.Regexp{
 	ActionTunnelCommitIR:  {"tunnel_id": tunnelIDRe},
 	ActionTunnelHealth:    {"tunnel_id": tunnelIDRe},
 	ActionTunnelObserve:   {"tunnel_id": tunnelIDRe},
+	ActionTunnelData:      {"tunnel_id": tunnelIDRe},
+	ActionTunnelSeal:      {"tunnel_id": tunnelIDRe},
 	ActionTunnelInspect:   {},
 	ActionTunnelDiscover:  {},
 	ActionTunnelFinalize:  {"tunnel_id": tunnelIDRe},
@@ -147,12 +151,14 @@ var paramRules = map[string]map[string]*regexp.Regexp{
 // Legacy BCCs may omit these fields; new BCCs use them for multi-instance
 // tunnel isolation.
 var optionalParamRules = map[string]map[string]*regexp.Regexp{
-	ActionTunnelPrepareEX: {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
-	ActionTunnelPrepareIR: {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
+	ActionTunnelPrepareEX: {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR, "verify_data": boolRe},
+	ActionTunnelPrepareIR: {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR, "verify_data": boolRe},
 	ActionTunnelCommitEX:  {"instance_id": instanceIDRe},
 	ActionTunnelCommitIR:  {"instance_id": instanceIDRe},
 	ActionTunnelHealth:    {"instance_id": instanceIDRe},
 	ActionTunnelObserve:   {"instance_id": instanceIDRe},
+	ActionTunnelData:      {"instance_id": instanceIDRe},
+	ActionTunnelSeal:      {"instance_id": instanceIDRe},
 	ActionTunnelInspect:   {"instance_id": instanceIDRe},
 	ActionTunnelFinalize:  {"instance_id": instanceIDRe},
 	ActionTunnelRollback:  {"instance_id": instanceIDRe},

@@ -65,6 +65,15 @@ func runContext(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	switch args[0] {
 	case "version":
 		return runVersion(args[1:], stdout, stderr)
+	case "capabilities":
+		if len(args) != 1 {
+			return 2
+		}
+		_ = json.NewEncoder(stdout).Encode(struct {
+			Version            int `json:"version"`
+			TunnelVerification int `json:"tunnel_verification"`
+		}{1, 1})
+		return 0
 	case "config":
 		return runConfig(args[1:], stdout, stderr)
 	case "run":

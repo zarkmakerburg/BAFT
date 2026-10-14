@@ -17,7 +17,9 @@ import (
 	"time"
 
 	"github.com/zarkmakerburg/baft/internal/bcc"
+	"github.com/zarkmakerburg/baft/internal/config"
 	"github.com/zarkmakerburg/baft/internal/tunnelnode"
+	"github.com/zarkmakerburg/baft/internal/verification"
 )
 
 var flowBaft, flowPair string
@@ -109,6 +111,7 @@ type flow struct {
 	h       http.Handler
 	ex, ir  *flowNode
 	exPort  int
+	target  string
 	irRoute string
 	dir     string
 	jobKey  ed25519.PrivateKey
@@ -167,6 +170,9 @@ func newFlowWith(t *testing.T, serveEX func(*testing.T, int)) *flow {
 	app.ConfigureJobSigning(key)
 	f := &flow{t: t, app: app, store: store, h: app.Handler(), dir: dir, exPort: freeFlowPort(t), jobKey: key}
 	f.irRoute = "127.0.0.1:" + strconv.Itoa(freeFlowPort(t))
+	targetPort := freeFlowPort(t)
+	accept(t, targetPort)
+	f.target = "127.0.0.1:" + strconv.Itoa(targetPort)
 	serveEX(t, f.exPort)
 	accept(t, mustFlowPort(f.irRoute))
 	// Agents reach BCC through f.h, so a test can restart BCC underneath.
@@ -190,9 +196,23 @@ func (f *flow) addNode(t *testing.T, url string, jobKey ed25519.PublicKey, id, r
 		t.Fatal(err)
 	}
 	n := &flowNode{id: id, token: token, sys: &hostSys{}, etc: filepath.Join(f.dir, id, "etc")}
+	// This adapter verifies lifecycle/signing/persistence, not real traffic.
+	// Real payload proof is exercised by the process fixtures in tunnelnode.
+	proofServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cfg, err := config.LoadFile(filepath.Join(n.etc, "baft.yaml"))
+		if err != nil || r.URL.Path != "/verification" {
+			http.NotFound(w, r)
+			return
+		}
+		now := time.Now().UTC()
+		json.NewEncoder(w).Encode(verification.RuntimeReport{Version: 1, Supported: true, ConfigDigest: verification.ConfigDigest(cfg), BootID: strings.Repeat("1", 32),
+			GeneratedAt: now, AuthenticatedPeers: 1, ReceivedBytes: 1024, DeliveredBytes: 1024, LastDeliveredAt: now})
+	}))
+	t.Cleanup(proofServer.Close)
 	tn, err := tunnelnode.New(tunnelnode.Env{
 		ConfigDir: n.etc, StateDir: filepath.Join(f.dir, id, "state"), UnitDir: filepath.Join(f.dir, id, "units"),
 		BaftBin: flowBaft, PairBin: flowPair, Settle: 20 * time.Millisecond, System: n.sys,
+		MetricsListen: proofServer.Listener.Addr().String(),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -228,6 +248,11 @@ func (f *flow) api(method, path string, body any) (int, []byte) {
 
 func (f *flow) create(req bcc.TunnelRequest) bcc.Tunnel {
 	f.t.Helper()
+	for _, n := range []*flowNode{f.ex, f.ir} {
+		if _, err := n.agent.RunOnce(context.Background()); err != nil {
+			f.t.Fatal(err)
+		}
+	}
 	code, body := f.api("POST", "/api/tunnels", req)
 	if code != http.StatusAccepted {
 		f.t.Fatalf("create tunnel = %d %s", code, body)
@@ -246,7 +271,7 @@ func (f *flow) tunnel(id string) bcc.Tunnel {
 }
 
 func (f *flow) plan() bcc.TunnelRequest {
-	return bcc.TunnelRequest{EXNode: "ex-1", IRNode: "ir-1", PublicAddress: "127.0.0.1", Port: f.exPort, RouteListen: f.irRoute}
+	return bcc.TunnelRequest{EXNode: "ex-1", IRNode: "ir-1", PublicAddress: "127.0.0.1", Port: f.exPort, RouteListen: f.irRoute, Target: f.target}
 }
 
 // run lets both agents work until the tunnel is final (or gives up).
@@ -339,7 +364,7 @@ func TestBCCBuildsATunnelOnTwoServers(t *testing.T) {
 	for _, j := range st {
 		types = append(types, j.Type)
 	}
-	if len(types) != 10 {
+	if len(types) != 14 {
 		t.Fatalf("jobs run: %v", types)
 	}
 	entries, _ := os.ReadFile(f.store.Path() + ".audit.jsonl")

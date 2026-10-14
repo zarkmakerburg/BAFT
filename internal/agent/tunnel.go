@@ -11,6 +11,7 @@ import (
 
 	"github.com/zarkmakerburg/baft/internal/agentjob"
 	"github.com/zarkmakerburg/baft/internal/tunnelnode"
+	"github.com/zarkmakerburg/baft/internal/verification"
 )
 
 // maxOutput bounds the secret output a job may return (pairing codes).
@@ -112,6 +113,19 @@ func (a *Agent) tunnel(ctx context.Context, j agentjob.Job) (string, string, err
 		}
 		b, err := json.Marshal(o)
 		return string(b), "", err
+	case agentjob.ActionTunnelData, agentjob.ActionTunnelSeal:
+		var proof verification.Proof
+		var err error
+		if j.Action == agentjob.ActionTunnelSeal {
+			proof, err = t.Seal(ctx, id)
+		} else {
+			proof, err = t.DataEvidence(ctx, id)
+		}
+		if err != nil {
+			return "", "", err
+		}
+		b, err := json.Marshal(proof)
+		return string(b), "", err
 	case agentjob.ActionTunnelInspect:
 		b, err := json.Marshal(t.Inspect(ctx))
 		return string(b), "", err
@@ -146,11 +160,12 @@ func exParams(p map[string]string, port int) tunnelnode.ExParams {
 	return tunnelnode.ExParams{
 		PublicAddress: p["public_address"], Port: port, Target: p["target"],
 		RouteID: p["route_id"], RecordShaping: p["record_shaping"] == "true", MetricsListen: p["metrics_listen"],
+		VerifyData: p["verify_data"] == "true",
 	}
 }
 
 func irParams(p map[string]string) tunnelnode.IRParams {
-	return tunnelnode.IRParams{RouteListen: p["route_listen"], RouteID: p["route_id"], MetricsListen: p["metrics_listen"]}
+	return tunnelnode.IRParams{RouteListen: p["route_listen"], RouteID: p["route_id"], MetricsListen: p["metrics_listen"], VerifyData: p["verify_data"] == "true"}
 }
 
 // certRotation runs one step of a certificate rotation. Every step answers

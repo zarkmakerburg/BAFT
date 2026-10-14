@@ -12,7 +12,7 @@ func multiInstanceStore(t *testing.T) *Store {
 	t.Helper()
 	s := tunnelStore(t)
 	for id, role := range map[string]string{"ex-2": "foreign", "ir-2": "worker"} {
-		if _, err := s.UpsertNode(Node{ID: id, Address: "203.0.113.8:22", Role: role}, "tok-"+id); err != nil {
+		if _, err := s.UpsertNode(Node{ID: id, Address: "203.0.113.8:22", Role: role,TunnelVerification:1,CapabilitiesAt:time.Now().UTC()}, "tok-"+id); err != nil {
 			t.Fatal(err)
 		}
 	}

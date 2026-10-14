@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/zarkmakerburg/baft/internal/tunnelnode"
+	"github.com/zarkmakerburg/baft/internal/verification"
 )
 
 const (
@@ -27,7 +28,7 @@ func tunnelStore(t *testing.T) *Store {
 		t.Fatal(err)
 	}
 	for id, role := range map[string]string{"ex-1": "foreign", "ir-1": "worker"} {
-		if _, err := s.UpsertNode(Node{ID: id, Address: "203.0.113.7:22", Role: role}, "tok-"+id); err != nil {
+		if _, err := s.UpsertNode(Node{ID: id, Address: "203.0.113.7:22", Role: role, TunnelVerification: 1, CapabilitiesAt: time.Now().UTC()}, "tok-"+id); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -36,6 +37,12 @@ func tunnelStore(t *testing.T) *Store {
 
 func newTunnel(t *testing.T, s *Store, now time.Time) Tunnel {
 	t.Helper()
+	for id, n := range s.st.Nodes {
+		if n.TunnelVerification == 1 {
+			n.CapabilitiesAt = now
+			s.st.Nodes[id] = n
+		}
+	}
 	tn, err := s.CreateTunnel(TunnelRequest{EXNode: "ex-1", IRNode: "ir-1"}, now)
 	if err != nil {
 		t.Fatal(err)
@@ -219,8 +226,8 @@ func TestTunnelsSurviveARestartAndBackup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.UpsertNode(Node{ID: "ex-1", Address: "203.0.113.7:22", Role: "foreign"}, "tok")
-	s.UpsertNode(Node{ID: "ir-1", Address: "198.51.100.2:22", Role: "worker"}, "tok2")
+	s.UpsertNode(Node{ID: "ex-1", Address: "203.0.113.7:22", Role: "foreign", TunnelVerification: 1, CapabilitiesAt: time.Now().UTC()}, "tok")
+	s.UpsertNode(Node{ID: "ir-1", Address: "198.51.100.2:22", Role: "worker", TunnelVerification: 1, CapabilitiesAt: time.Now().UTC()}, "tok2")
 	tn, err := s.CreateTunnel(TunnelRequest{EXNode: "ex-1", IRNode: "ir-1"}, time.Now())
 	if err != nil {
 		t.Fatal(err)
@@ -327,6 +334,46 @@ func ackObserved(t *testing.T, s *Store, node string, o tunnelnode.Observed, now
 		t.Fatal(err)
 	}
 	s.AdvanceTunnels(now)
+	if node == "ex-1" {
+		if tn, ok := s.GetTunnel(o.TunnelID); ok && tn.Phase == TunnelDataIR {
+			driveVerificationFixture(t, s, tn.ID, now)
+		}
+	}
+}
+
+func verificationFixture(tn Tunnel, node string, at time.Time, seal bool) verification.Proof {
+	d := tn.Digests[node]
+	role := "ex"
+	if node == tn.IRNode {
+		role = "ir"
+	}
+	return verification.Proof{Version: 1, TunnelID: tn.ID, InstanceID: tn.InstanceID, Role: role, Generation: tn.ObservedGen[node], ConfigSHA256: d.Config, UnitSHA256: d.Unit, MarkerSHA256: d.Marker,
+		State: verification.Pass, ReadyToFinalize: seal, At: at, TargetReachable: node == tn.EXNode,
+		Runtime: verification.RuntimeReport{Version: 1, ConfigDigest: strings.Repeat("d", 64), BootID: strings.Repeat("1", 32), Supported: true, GeneratedAt: at,
+			AuthenticatedPeers: 1, ReceivedBytes: 1024, DeliveredBytes: 1024, LastDeliveredAt: at}}
+}
+
+func driveVerificationFixture(t *testing.T, s *Store, id string, at time.Time) {
+	t.Helper()
+	for i := 0; i < 4; i++ {
+		tn, _ := s.GetTunnel(id)
+		node := tn.IRNode
+		if tn.Phase == TunnelDataEX || tn.Phase == TunnelSealingEX {
+			node = tn.EXNode
+		}
+		jobs := pullAll(t, s, node)
+		if len(jobs) != 1 || (jobs[0].Type != JobTunnelData && jobs[0].Type != JobTunnelSeal) {
+			t.Fatalf("missing verification fixture step: %+v", jobs)
+		}
+		p := verificationFixture(tn, node, at, jobs[0].Type == JobTunnelSeal)
+		b, _ := json.Marshal(p)
+		if err := s.AckJob(node, "tok-"+node, jobs[0].ID, "succeeded", string(b)); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.AdvanceTunnels(at); err != nil {
+			t.Fatal(err)
+		}
+	}
 }
 
 func TestMatchingObservedStateActivatesAndRecordsTheGeneration(t *testing.T) {
@@ -344,7 +391,7 @@ func TestMatchingObservedStateActivatesAndRecordsTheGeneration(t *testing.T) {
 		s.AdvanceTunnels(now)
 	}
 	got, _ := s.GetTunnel(tn.ID)
-	if got.Phase != TunnelActive || len(got.Evidence) != 4 {
+	if got.Phase != TunnelActive || len(got.Evidence) != 8 {
 		t.Fatalf("%s with %d evidence entries", got.Phase, len(got.Evidence))
 	}
 	for _, id := range []string{"ex-1", "ir-1"} {

@@ -46,6 +46,8 @@ type Node struct {
 	// AppliedGeneration is the legacy singleton generation. Multi-instance
 	// tunnels keep independent generation baselines in AppliedGenerations.
 	AgentSeen                time.Time      `json:"agent_seen,omitempty"`
+	TunnelVerification int `json:"tunnel_verification,omitempty"`
+	CapabilitiesAt time.Time `json:"capabilities_at,omitempty"`
 	AppliedGeneration        int            `json:"applied_generation,omitempty"`
 	AppliedGenerations       map[string]int `json:"applied_generations,omitempty"`
 	Health                   string         `json:"health"`
@@ -305,6 +307,9 @@ func (s *Store) UpsertNode(n Node, agentToken string, audits ...AuditEntry) (Nod
 		n.RevokedAt=old.RevokedAt
 		n.RevokeReason=old.RevokeReason
 		if n.AgentSeen.IsZero(){n.AgentSeen=old.AgentSeen}
+		if n.Address==old.Address && n.Role==old.Role && n.PublicKey==old.PublicKey && n.AgentTokenHash==old.AgentTokenHash {
+			n.TunnelVerification,n.CapabilitiesAt=old.TunnelVerification,old.CapabilitiesAt
+		} else { n.TunnelVerification,n.CapabilitiesAt=0,time.Time{} }
 		if n.PathIPv4==""{n.PathIPv4=old.PathIPv4}
 		if n.PathIPv6==""{n.PathIPv6=old.PathIPv6}
 		if n.Country==""{n.Country=old.Country;n.CountryManual=old.CountryManual;n.CountryAuto=old.CountryAuto}

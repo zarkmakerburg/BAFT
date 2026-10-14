@@ -259,6 +259,7 @@ func (s *Server) Handler() http.Handler {
 	m.HandleFunc("/api/bootstrap/hostkey", s.bootstrapHostKey)
 	m.HandleFunc("/api/deploy", s.deploy)
 	m.HandleFunc("/api/agent/jobs", s.agentJobs)
+	m.HandleFunc("/api/tunnels/retry-finalize",s.retryTunnelFinalize)
 	m.HandleFunc("/api/agent/ack", s.agentAck)
 	m.HandleFunc("/api/agent/traffic", s.agentTraffic)
 	m.HandleFunc("/api/finance", s.finance)
@@ -417,7 +418,7 @@ func (s *Server) agentJobs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	nodeID := r.URL.Query().Get("node_id")
-	jobs, err := s.store.PullJobs(nodeID, bearer(r))
+	jobs, err := s.store.PullJobsWithCapabilities(nodeID, bearer(r),r.URL.Query().Get("capabilities"))
 	s.agentAuthResult(r, err)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)

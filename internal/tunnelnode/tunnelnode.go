@@ -37,6 +37,7 @@ import (
 	"time"
 
 	"github.com/zarkmakerburg/baft/internal/config"
+	"github.com/zarkmakerburg/baft/internal/verification"
 )
 
 // System is how the package touches the host; tests replace it.
@@ -77,6 +78,7 @@ const (
 	PhasePrepared   = "prepared"
 	PhaseCommitted  = "committed"
 	PhaseFinalized  = "finalized"
+	PhaseFinalizing = "finalizing"
 	PhaseRolledBack = "rolled_back"
 
 	RoleEX = "ex"
@@ -114,8 +116,10 @@ type Txn struct {
 	// Complete PKI tree identities, including modes and owners, protect both the
 	// previous backup and operator edits. They also identify an already
 	// restored tree when rollback must be retried after a later failure.
-	PreviousPKI  map[string]string `json:"previous_pki,omitempty"`
-	InstalledPKI map[string]string `json:"installed_pki,omitempty"`
+	PreviousPKI          map[string]string   `json:"previous_pki,omitempty"`
+	InstalledPKI         map[string]string   `json:"installed_pki,omitempty"`
+	VerificationRequired bool                `json:"verification_required,omitempty"`
+	ReadyProof           *verification.Proof `json:"ready_proof,omitempty"`
 
 	// Ownership: what this change installed, so rollback only ever restores or
 	// deletes files that are still exactly the ones BAFT wrote.
@@ -195,12 +199,14 @@ type ExParams struct {
 	RouteID       string
 	RecordShaping bool
 	MetricsListen string // default 127.0.0.1:9191
+	VerifyData    bool
 }
 
 type IRParams struct {
 	RouteListen   string // loopback address local clients connect to
 	RouteID       string
 	MetricsListen string
+	VerifyData    bool
 }
 
 func validPort(p int) bool { return p >= 1 && p <= 65535 }
@@ -315,7 +321,7 @@ func (m *Manager) begin(id, role string) (Txn, error) {
 		return Txn{}, errors.New("invalid tunnel id")
 	}
 	if cur := m.activeID(); cur != "" && cur != id {
-		if t, err := m.readTxn(cur); err == nil && (t.Phase == PhasePrepared || t.Phase == PhaseCommitted) {
+		if t, err := m.readTxn(cur); err == nil && (t.Phase == PhasePrepared || t.Phase == PhaseCommitted || t.Phase == PhaseFinalizing) {
 			return Txn{}, fmt.Errorf("tunnel change %s is still in progress on this node", cur)
 		}
 	}
@@ -361,6 +367,7 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 		return "", err
 	}
 	t.Port = p.Port
+	t.VerificationRequired = p.VerifyData
 	code, err := func() (string, error) {
 		if err := m.ensureNoiseKey(ctx); err != nil {
 			return "", err
@@ -410,6 +417,7 @@ func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (s
 		return "", err
 	}
 	t.RouteListen = p.RouteListen
+	t.VerificationRequired = p.VerifyData
 	reply, err := func() (string, error) {
 		if err := m.ensureNoiseKey(ctx); err != nil {
 			return "", err
@@ -639,6 +647,9 @@ func (m *Manager) Finalize(ctx context.Context, id string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("unknown tunnel change %s", id)
 	}
+	if t.VerificationRequired {
+		return m.finalizeVerified(t)
+	}
 	if t.Phase == PhaseFinalized {
 		return "already finalized", nil
 	}
@@ -707,7 +718,7 @@ func (m *Manager) Rollback(ctx context.Context, id string) (string, error) {
 			return "rollback incomplete: active change could not be released", err
 		}
 		return "already rolled back", nil
-	case PhaseFinalized:
+	case PhaseFinalized, PhaseFinalizing:
 		return "", fmt.Errorf("tunnel change %s is finalized; make a new change instead", id)
 	}
 	return m.rollbackTxn(ctx, t)
@@ -1254,6 +1265,10 @@ type Observed struct {
 func (m *Manager) Observe(ctx context.Context, id string) (Observed, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	return m.observeLocked(ctx, id)
+}
+
+func (m *Manager) observeLocked(ctx context.Context, id string) (Observed, error) {
 	t, err := m.readTxn(id)
 	if err != nil {
 		return Observed{}, fmt.Errorf("unknown tunnel change %s", id)

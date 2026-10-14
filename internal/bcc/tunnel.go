@@ -36,6 +36,8 @@ const (
 	JobTunnelCommitIR  = agentjob.ActionTunnelCommitIR
 	JobTunnelHealth    = agentjob.ActionTunnelHealth
 	JobTunnelObserve   = agentjob.ActionTunnelObserve
+	JobTunnelData      = agentjob.ActionTunnelData
+	JobTunnelSeal      = agentjob.ActionTunnelSeal
 	JobTunnelInspect   = agentjob.ActionTunnelInspect
 	JobTunnelDiscover  = agentjob.ActionTunnelDiscover
 	JobTunnelFinalize  = agentjob.ActionTunnelFinalize
@@ -52,6 +54,11 @@ const (
 	TunnelHealthEX       = "health_ex"
 	TunnelObservingIR    = "observing_ir"
 	TunnelObservingEX    = "observing_ex"
+	TunnelDataIR         = "verifying_data_ir"
+	TunnelDataEX         = "verifying_data_ex"
+	TunnelSealingIR      = "sealing_ir"
+	TunnelSealingEX      = "sealing_ex"
+	TunnelFinalizeIncomplete = "finalize_incomplete"
 	TunnelFinalizingIR   = "finalizing_ir"
 	TunnelFinalizingEX   = "finalizing_ex"
 	TunnelActive         = "active"
@@ -119,6 +126,9 @@ type Tunnel struct {
 	Jobs           []string  `json:"jobs,omitempty"`
 	Touched        []string  `json:"touched,omitempty"`
 	HealthAttempts int       `json:"health_attempts,omitempty"`
+	VerificationStarted time.Time `json:"verification_started,omitempty"`
+	VerificationRetryAt time.Time `json:"verification_retry_at,omitempty"`
+	FinalizationBegan bool `json:"finalization_began,omitempty"`
 	StepStarted    time.Time `json:"step_started"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
@@ -317,6 +327,8 @@ func (s *Store) tunnelJobLocked(t *Tunnel, node, typ string, params map[string]s
 		params["instance_id"] = t.InstanceID
 	}
 	j := s.newJobLocked(Job{Type: typ, NodeID: node, Params: params})
+	j.CreatedAt, j.UpdatedAt = now.UTC(), now.UTC()
+	s.st.Jobs[j.ID] = j
 	t.Jobs = append(t.Jobs, j.ID)
 	t.JobID = j.ID
 	t.StepStarted = now
@@ -498,6 +510,7 @@ func (s *Store) createTunnelLocked(req TunnelRequest, planHash, topologyKey stri
 	if err != nil {
 		return Tunnel{}, err
 	}
+	if err:=requireTunnelVerification(ex,ir,now);err!=nil{return Tunnel{},err}
 	before,err:=cloneState(s.st)
 	if err!=nil{return Tunnel{},err}
 	t.PlanHash = planHash
@@ -529,6 +542,7 @@ func (t Tunnel) prepareEXParams() map[string]string {
 	p := map[string]string{
 		"tunnel_id": t.ID, "public_address": t.PublicAddress, "port": strconv.Itoa(t.Port), "target": t.Target,
 		"route_id": t.RouteID, "record_shaping": strconv.FormatBool(t.RecordShaping),
+		"verify_data":"true",
 	}
 	if t.InstanceID != "" {
 		p["instance_id"] = t.InstanceID
@@ -565,6 +579,7 @@ func (s *Store) CancelTunnel(id, reason string, now time.Time, audits ...AuditEn
 	if !ok {
 		return Tunnel{}, errors.New("tunnel not found")
 	}
+	if t.FinalizationBegan { return t,errors.New("backup release already began; retry finalization instead of rollback") }
 	switch t.Phase {
 	case TunnelRollingBack:
 		return t, errors.New("tunnel is already rolling back")
@@ -720,6 +735,8 @@ func (s *Store) AdvanceTunnels(now time.Time) ([]TunnelEvent, error) {
 }
 
 func (s *Store) advanceLocked(t *Tunnel, now time.Time) *TunnelEvent {
+	if t.Phase==TunnelFinalizeIncomplete { return nil }
+	if verificationPhase(t.Phase) { return s.advanceVerificationLocked(t,now) }
 	if t.Phase == TunnelRollingBack {
 		return s.advanceRollbackLocked(t, now)
 	}
@@ -734,7 +751,7 @@ func (s *Store) advanceLocked(t *Tunnel, now time.Time) *TunnelEvent {
 	switch j.Status {
 	case "queued", "dispatched":
 		if now.Sub(t.StepStarted) > tunnelStepTimeout {
-			s.failLocked(t, fmt.Sprintf("step %s timed out waiting for node %s", t.Phase, j.NodeID), now)
+			s.failVerifiedLocked(t, fmt.Sprintf("step %s timed out waiting for node %s", t.Phase, j.NodeID), now)
 		}
 		return nil
 	case "failed":
@@ -751,9 +768,8 @@ func (s *Store) advanceLocked(t *Tunnel, now time.Time) *TunnelEvent {
 			return nil
 		}
 		if t.Phase == TunnelFinalizingIR || t.Phase == TunnelFinalizingEX {
-			// Live and healthy; only the cleanup of backups failed.
-			t.Error = "finalize incomplete on " + j.NodeID + ": " + j.Message
-			return s.nextAfterFinalizeLocked(t, now)
+			s.failVerifiedLocked(t,"finalize incomplete on " + j.NodeID + ": " + j.Message,now)
+			return nil
 		}
 		s.failLocked(t, fmt.Sprintf("%s failed on %s: %s", t.Phase, j.NodeID, j.Message), now)
 		return nil
@@ -773,6 +789,7 @@ func (s *Store) advanceLocked(t *Tunnel, now time.Time) *TunnelEvent {
 		touch(t, t.IRNode)
 		t.Phase = TunnelPreparingIR
 		params := map[string]string{"code": secret, "route_listen": t.RouteListen, "route_id": t.RouteID}
+		params["verify_data"]="true"
 		if t.InstanceID != "" {
 			params["metrics_listen"] = t.IRMetricsListen
 		}
@@ -831,8 +848,9 @@ func (s *Store) advanceLocked(t *Tunnel, now time.Time) *TunnelEvent {
 			t.Phase = TunnelObservingEX
 			s.tunnelJobLocked(t, t.EXNode, JobTunnelObserve, nil, now)
 		} else {
-			t.Phase = TunnelFinalizingIR
-			s.tunnelJobLocked(t, t.IRNode, JobTunnelFinalize, nil, now)
+			t.Phase = TunnelDataIR
+			t.VerificationStarted = now
+			s.tunnelJobLocked(t, t.IRNode, JobTunnelData, nil, now)
 		}
 	case TunnelFinalizingIR, TunnelFinalizingEX:
 		return s.nextAfterFinalizeLocked(t, now)

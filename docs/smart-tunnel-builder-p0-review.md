@@ -133,6 +133,64 @@ payload gate, a host-wide lock, or a staged certificate cutover. The existing EX
 prepare path still replaces disk material before commit; fully staging that
 material and proving coordinated cutover remains a separate P0 design task.
 
+## Fresh instance evidence and data-gated finalization follow-up
+
+Route Doctor schema v2 binds its digest to tunnel/instance, both generations,
+assessment time, TTL and stages. A stage cannot pass from aggregate node health,
+a plan hash or a plaintext BAFTP1 candidate probe. Missing, stale, malformed,
+wrong-instance and conflicting evidence stays NOT_ASSESSED. It neither opens a
+probe listener on an active tunnel port nor infers filtering from untyped errors.
+Fresh artifact-scoped observations and complete two-node drift evidence are
+required independently. Re-running assessment does not refresh observations.
+
+New BCC deployments require a fresh authenticated capability report from BOTH
+agents. Each agent checks the installed `baft capabilities` command. Older or
+downgraded clients revoke the claim; host/role/key/token changes clear it. The
+capability is narrowly `tunnel-verify-v1`, not general host resource discovery.
+Existing active tunnels are not migrated by this change. An already in-flight
+older transaction or shared-binary upgrade still needs a coordinated upgrade
+review; this slice does not add automatic recovery after process restart.
+
+The session delivery hook counts only complete received DATA segments written
+to the application socket, not admission into a buffer or duplicate frames. A
+GET-only, non-cacheable endpoint on the existing literal-loopback metrics
+listener exports config digest, boot identity, counters, timestamps and current
+application authority, with no payload, keys, addresses or peer/route labels.
+The proof is supported only for one Noise-authenticated peer and one route,
+TLS 1.3, H2/WS, and no fallback. Multi-route/multi-peer and reused Runtime objects
+remain unsupported rather than attributing aggregate counters to a tunnel.
+
+Agents bind that runtime report to current config/unit/marker digests, generation,
+instance and transaction, require stable service/current carrier authority and
+fresh actual delivery in both directions, and check the EX target accepts TCP.
+BCC accepts only correctly scoped signed-job results. Idle is NOT_ASSESSED:
+users must create test traffic on the selected tunnel. Retries are bounded at
+10 seconds; a 20-minute overall verification deadline retains rollback material
+until rollback is attempted. Endpoint reads have strict schema, size, clock,
+loopback, timeout and redirect bounds. A delayed acknowledgement cannot renew
+old DATA. Three minutes is an evidence window, not a continuity guarantee.
+
+Both nodes must seal a fresh PASS while retaining their backups before ANY
+backup release is queued. Node cleanup first persists a finalizing phase;
+filesystem/receipt failures retain the active claim and are reported. BCC holds
+`finalize_incomplete`, refuses rollback after release begins, and exposes an
+explicit retry which rechecks both nodes before attempting cleanup again. The
+panel shows Persian waiting guidance and unknown evidence states.
+
+This proves bounded recent bidirectional DATA delivery through the sole
+configured/authenticated route. It does not prove application semantics, one
+specific challenge flow, future availability, zero downtime, a measured browser
+fingerprint, or field resistance to blocking. Verification happens AFTER commit
+but BEFORE destructive backup release. Fully staged pre-cutover payload/PKI
+verification remains open. Direct/manual legacy Manager transactions keep their
+older contract unless explicitly opted in; BCC-created transactions opt in.
+
+Unit fixtures model BCC signing/lifecycle and Agent adapters; their synthetic
+proof counters are not field evidence. The separate two-real-process fixture
+checks actual echo bytes, idle rejection and fresh proofs before both seals.
+Local service control remains simulated. Final exact-head evidence is linked
+from PR #200 and HQ #67, including failed development attempts.
+
 ## Two-live-instance laboratory regression
 
 `TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle` uses real built
@@ -158,20 +216,17 @@ is recorded in the PR and #67, including failed/repeated/race attempts.
 
 ## Remaining P0 gates and review findings
 
-1. **Actual deployment verification:** `Manager.Health` proves service stability
-   and TCP acceptance. It does not prove the tunnel's Noise handshake, route
-   authorization, upstream availability or end-to-end payload. The laboratory
-   test's echo check does not add that verification to every deployment. Reuse
-   the existing probe/doctor machinery with exact tunnel identity before deleting
-   rollback backups; do not equate lifecycle `active` with verified traffic.
-2. **Unknown states:** `RunRouteDoctor` currently converts absent listener/target
-   evidence to FAIL and treats some missing consistency evidence as PASS.
-   Aggregate node health and a path-matrix candidate also need exact tunnel/port
-   binding. This is a source-review finding; dedicated regressions and a
-   structured freshness-aware evidence contract are still required.
+1. **Pre-cutover verification:** the new capability/data/seal contract gates
+   destructive finalization. Commit still precedes actual payload evidence.
+   Fully staged coordinated cutover, per-flow challenge/application semantics,
+   and older in-flight transaction compatibility remain open.
+2. **Continuous Doctor evidence:** the false PASS/FAIL and scope/freshness defects
+   have dedicated regressions and a schema-v2 contract. Stored observations
+   expire; continuous instance-scoped refresh and broader measured diagnostics
+   are still required. Old raw candidate probes never substitute for these.
 3. **Physical host preflight:** this slice protects BCC-declared binds. Fresh
-   local listener inventory, filesystem/unit namespace ownership and node
-   capabilities still need checking on both agents. Unknown external services
+   local listener inventory, filesystem/unit namespace ownership still need checking on both agents. This slice
+   discovers only the narrow data-proof capability, not every host capability. Unknown external services
    cannot be declared free solely from BCC's database.
 4. **Installer coexistence:** compare #197's standalone instance namespaces and
    unit naming with the BCC-scoped namespaces, plus shared-binary upgrades,
@@ -198,11 +253,11 @@ is recorded in the PR and #67, including failed/repeated/race attempts.
 
 | Area | Current evidence | Next requirement |
 | --- | --- | --- |
-| Capabilities | Config validation accepts H2 and WS; uTLS requires WS; H3 is explicitly rejected | Versioned discovery on BOTH nodes; support/experimental/unavailable states |
+| Capabilities | Config validation accepts H2 and WS; uTLS requires WS; H3 is explicitly rejected | Narrow data-proof discovery now exists; broader support/experimental/unavailable discovery remains |
 | Builder | Reviewed plan hash, explicit deploy, edit-by-replacement exist | Guided/expert forms with instance identity, effective settings and impact |
 | Security | Signed allowlisted jobs and instance parameters are retained by this slice | Persian inner/outer encryption/authentication guidance, no weaker fallback, credential-redaction review |
 | Traffic Identity | Protocol implementation is inspectable; comparative field evidence is absent | Measured fingerprints from #74; show unknown where measurement is missing |
-| Network Doctor | Existing path-probe/matrix/doctor code can be reused | Exact identity, timestamp, confidence, actionable unknown/error states |
+| Network Doctor | Existing path-probe/matrix/doctor code can be reused | Fresh scoped Doctor v2 now exists; broader network measurements and continuous refresh remain |
 | Enrollment/map UX | One-step enrollment and offline IP country lookup exist | Catch/finally for rejected SSH requests; restore-auto location option; label country anchors approximate |
 | Profiles | Tunables and resource cost require engine-specific validation | Quiet/Balanced/Boost ceilings, isolated before/after measurement, safe fallback |
 | Capacity | No verified user-count/capacity acceptance in this slice | Load tests, CPU per throughput, memory, latency/loss and stability evidence |

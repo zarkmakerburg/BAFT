@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"github.com/zarkmakerburg/baft/internal/verification"
 	"io"
 	"net"
 	"os"
@@ -123,12 +124,12 @@ func TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle(t *testing.T) {
 				checkGermany(id + ": " + step)
 			}
 		}
-		code, err := ex.PrepareEX(ctx, id, ExParams{PublicAddress: public, Port: listen, Target: target, RouteID: "service-main"})
+		code, err := ex.PrepareEX(ctx, id, ExParams{PublicAddress: public, Port: listen, Target: target, RouteID: "service-main", VerifyData: true})
 		if err != nil {
 			t.Fatal(err)
 		}
 		check("prepare EX")
-		reply, err := ir.PrepareIR(ctx, id, code, IRParams{RouteListen: route, RouteID: "service-main"})
+		reply, err := ir.PrepareIR(ctx, id, code, IRParams{RouteListen: route, RouteID: "service-main", VerifyData: true})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -149,6 +150,11 @@ func TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle(t *testing.T) {
 			t.Fatal(err)
 		}
 		check("commit IR")
+		// Handshake, an active process and an accepting socket cannot pass
+		// delivery verification before actual DATA crossed the managed route.
+		if p, err := ir.DataEvidence(ctx, id); err != nil || p.State == verification.Pass {
+			t.Fatalf("idle runtime was verified: %+v %v", p, err)
+		}
 		// Type=simple/process-start is not listener readiness. Wait for real
 		// handshake and payload before sampling health; a fixed 50ms settle
 		// can otherwise race startup on a loaded CI runner.
@@ -157,9 +163,17 @@ func TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle(t *testing.T) {
 			if _, err := m.Health(ctx, id); err != nil {
 				t.Fatal(err)
 			}
+			if p, err := m.DataEvidence(ctx, id); err != nil || p.State != verification.Pass || p.Generation <= 0 {
+				t.Fatalf("real payload not verified: %+v %v", p, err)
+			}
 		}
 	}
 	finalize := func(ex, ir *Manager, id string) {
+		for _, m := range []*Manager{ir, ex} {
+			if p, err := m.Seal(ctx, id); err != nil || !p.ReadyToFinalize {
+				t.Fatalf("seal: %+v %v", p, err)
+			}
+		}
 		for _, m := range []*Manager{ir, ex} {
 			if _, err := m.Finalize(ctx, id); err != nil {
 				t.Fatal(err)

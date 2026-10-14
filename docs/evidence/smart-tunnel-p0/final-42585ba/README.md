@@ -69,3 +69,9 @@ Writes after the last identity check still require host-wide reservation/locking
 
 Keep #199 open and #200 draft. No production/server change, main merge, tag/release, transport/shaping change, EX pool/exit replacement, restart-resume or standby role resumption. Board claim 6163435418 is released in the final report.
 
+## Subsequent exact-source CI completion — 2026-10-14
+
+The reviewed source HEAD is still 42585baa9e5967abac2977c028cd2406409ccf31. All four associated workflows are now SUCCESS: CI 38555751948, R3 38555751962, static 38555751981 and BCC UI 38555751958. Main CI's full race/vet/fuzz and all 15 jobs completed successfully; the R3 job also completed successfully. ci-complete.json records this newer observation without relabeling the earlier pending snapshots.
+
+native-linux-complete.log retains the actual mandatory three-run resource-step output with BAFT_REQUIRE_RESOURCE_EVIDENCE=1: three two-live-instance passes and three held-Unix-client passes, no skips. This completes current-source native qualification; local process/Unix/uid-gid skips remain unchanged and are not called passes. No source code or reviewed source HEAD changed during this follow-up. Broader epic, coordinated pre-cutover candidate handshake/payload and authorized field/production acceptance remain open.
+

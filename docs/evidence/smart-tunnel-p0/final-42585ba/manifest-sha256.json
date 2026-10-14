@@ -1,5 +1,6 @@
 {
-  "README.md": "be349d6a5d36463a6179477f0cc164bd2dfb93dd595ab34d7831359424c4f11c",
+  "README.md": "e692c4736eb34d841882375fe8207ce5c5d8301e4b85e2ba1422f3f179ca98b4",
+  "ci-complete.json": "dadfa99f987ee4302331e0dfa03a439a9b57ef247ca9db77e8795f3da22d9fbf",
   "ci-initial.json": "6b8bbabce2a456ddb207eb0045148f3369d85f45a396b67a69c9d8f1cdd43086",
   "final-status.json": "90a7b59a934bcb1ead786959321471052b16292d07c966789ef9fff4c6e255c3",
   "logs/199-config-425-environment.log": "e0119cd9e39c03dce466d214c359ee8fd948594bb69e7c5d231b7587dd84b16f",
@@ -21,5 +22,6 @@
   "logs/199-config-full-development.log": "b5f63024b2c21e1ac15a4247a7b22003438b1dfa604775807071f2975f36aa7e",
   "logs/199-config-race-development.log": "86112abc4fb9a10c321cdd2a2ed20535dd41a585870a98bc140eff9417765bd2",
   "logs/199-config-vet-development.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "native-linux-complete.log": "441d585ec9da491a9fffc5eecdb5da01737b14fbba9d92c1aec28e7f24ad2a63",
   "publication.json": "c81d46688ce4852f2b100306e0c1c94f6cee2e140f1b811b6c7aa3ceb6678c0f"
 }

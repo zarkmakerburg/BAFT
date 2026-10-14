@@ -16,6 +16,7 @@ type Tracker struct {
 
 func NewTracker(snapshot Snapshot) (*Tracker,error) {
  if len(snapshot.History)>MaxHistory {return nil,errors.New("history exceeds limit")}
+ if len(snapshot.Active)>MaxActive {return nil,errors.New("active incidents exceed limit")}
  for _,incident:=range snapshot.History {
   if incident.InstanceID=="" || incident.StartedAt.IsZero() || incident.LastObservedAt.IsZero() || incident.Observations==0 || incident.RecoveredAt==nil || (incident.Status!=NodeOffline && incident.Status!=NetworkPathFailure && incident.Status!=TransportFailure) || incident.RecoveredAt.Before(incident.StartedAt) || !incident.LastObservedAt.Equal(*incident.RecoveredAt) {
    return nil,errors.New("invalid completed incident")
@@ -39,6 +40,7 @@ func (t *Tracker) Observe(instanceID string, result Result) {
  var current *Incident
  if existing,ok:=t.active[instanceID];ok {copy:=existing;current=&copy}
  next,completed:=Advance(instanceID,current,result)
+ if current==nil && next!=nil && len(t.active)>=MaxActive {return Result{Status:Unknown,Reason:"incident_capacity_exceeded",ObservedAt:result.ObservedAt}}
  if next==nil {delete(t.active,instanceID)} else {t.active[instanceID]=*next}
  if completed!=nil {t.history=AddCompleted(t.history,*completed)}
 }

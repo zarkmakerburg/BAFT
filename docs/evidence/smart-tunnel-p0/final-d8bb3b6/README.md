@@ -125,3 +125,16 @@ or automatic process-restart recovery was performed.
 
 No credential/pairing/private-key marker was found in the retained local and failed R3 logs.
 SHA-256 checksums for every evidence file are in [manifest](sha256.txt).
+
+## Final GitHub completion
+
+All four workflows associated with reviewed HEAD `d8bb3b6` completed SUCCESS:
+
+- [CI 38493973703](https://github.com/zarkmakerburg/BAFT/actions/runs/38493973703)
+- [R3 full unit/race/vet/fuzz 38493973747](https://github.com/zarkmakerburg/BAFT/actions/runs/38493973747)
+- [Static analysis 38493973702](https://github.com/zarkmakerburg/BAFT/actions/runs/38493973702)
+- [BCC UI tests 38493973705](https://github.com/zarkmakerburg/BAFT/actions/runs/38493973705)
+
+[Final snapshot](github-workflows-final.json) records their completion and
+checked-out merge-tree identity. The earlier snapshot remains as historical
+IN_PROGRESS evidence; it was not overwritten. Draft/field/release gates remain.

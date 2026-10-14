@@ -31,6 +31,7 @@ func SaveSnapshot(path string, snapshot Snapshot) error {
  info, err := os.Lstat(path)
  if err != nil { return err }
  if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 { return errors.New("snapshot target must be a private regular file") }
+ if _, err := NewTracker(snapshot); err != nil { return err }
  data, err := json.Marshal(snapshot)
  if err != nil { return err }
  if len(data) > MaxSnapshotBytes { return errors.New("snapshot exceeds size limit") }

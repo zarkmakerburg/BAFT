@@ -65,7 +65,7 @@ table{width:100%}th{color:var(--bcc-muted);font-weight:650}th,td{border-color:va
 </div></details>
 <div class="actions"><button id="bsGo" onclick="bsRun()">Connect and install</button><button id="bsNext" class="alt" onclick="bsTunnel()" hidden>Build a tunnel</button></div>
 <div id="bsFp" class="muted" style="margin-top:10px;font-family:monospace;word-break:break-all"></div>
-<pre id="bsOut" dir="auto" class="muted" style="white-space:pre-wrap;margin-top:10px;unicode-bidi:plaintext;text-align:start"></pre></div>
+<pre id="bsOut" role="status" aria-live="polite" dir="auto" class="muted" style="white-space:pre-wrap;margin-top:10px;unicode-bidi:plaintext;text-align:start"></pre></div>
 
 <div class="card"><div class="top"><b>Existing tunnels (discovery)</b><span><button class="alt" onclick="dcStart()">Discover all</button> <button class="alt" onclick="loadDiscovery()">Refresh</button></span></div>
 <div class="muted">Report only. Discovery reads each node and never adopts, changes, restarts or deletes anything. States: MANAGED, DRIFTED, MISSING, DISCOVERED_UNMANAGED, OWNERSHIP_CONFLICT, UNKNOWN.</div>
@@ -86,10 +86,10 @@ table{width:100%}th{color:var(--bcc-muted);font-weight:650}th,td{border-color:va
 <div class="grid" style="margin-top:10px"><input id="smNode" placeholder="enrolled node ID"><input id="smOld" value="22" placeholder="old port"><input id="smNew" placeholder="new port"><input id="smUser" placeholder="SSH user"><input id="smFP" placeholder="SHA256 host fingerprint"></div>
 <div style="margin-top:8px"><button class="alt" onclick="smPlan()">Plan / برنامه</button> <button class="alt" onclick="smStart()">Start dual-listen / شروع</button></div><div id="smState" class="muted" style="margin-top:8px"></div>
 <div class="grid" style="margin-top:8px"><input id="smPassword" type="password" placeholder="password (not stored)"><textarea id="smKey" placeholder="private key (not stored)"></textarea></div><button class="alt" onclick="smVerify()">Verify authenticated access / تأیید دسترسی</button></div>
-<div class="card"><div class="top"><b>Route Doctor / عیب‌یاب مسیر</b><button class="alt" onclick="rdRun()">Run diagnosis / اجرای تشخیص</button></div>
+<div class="card"><div class="top"><b>Route Doctor / عیب‌یاب مسیر</b><button id="rdGo" class="alt" onclick="rdRun()">Run diagnosis / اجرای تشخیص</button></div>
 <div class="muted">Read-only diagnosis of an active BAFT tunnel. It reports the first causally blocking stage and never changes firewall, ports, certificates, routing or tunnel state. / تشخیص فقط‌خواندنی است و هیچ تنظیمی را تغییر نمی‌دهد.</div>
 <div class="grid" style="margin-top:10px"><select id="rdTunnel"><option value="">active tunnel…</option></select></div>
-<div id="rdResult" class="muted" style="margin-top:10px">No diagnosis selected. / هنوز تشخیصی اجرا نشده است.</div></div>
+<div id="rdResult" role="status" aria-live="polite" class="muted" style="margin-top:10px">No diagnosis selected. / هنوز تشخیصی اجرا نشده است.</div></div>
 <div class="card"><div class="top"><b>Automatic Path Discovery / کشف خودکار مسیر</b><div><span class="badge up">AUTO</span> <button class="alt" onclick="pdRun()">Refresh graph now</button></div></div>
 <div class="muted">BCC inventories every enrolled node and measures directed IPv4/IPv6 paths automatically. Only FULL_DATA edges can become routes; TCP/TLS-only and byte-ceiling paths are rejected. No country, provider or server name is hard-coded.</div>
 <div id="pdState" class="muted" style="margin-top:8px">Waiting for discovery…</div>
@@ -147,10 +147,41 @@ function reportURL(format){let p=q('#reportPeriod').value,f=q('#reportFrom').val
 async function loadFinanceReport(){if(!token())return;let r=await fetch(reportURL(''),{headers:ah()});if(!r.ok){alert(await r.text());return}let data=await r.json();q('#reportRows').innerHTML=data.rows.map(x=>'<tr><td>'+esc(x.period)+'</td><td>'+esc(x.scope)+'</td><td>'+esc(x.node_id||'ALL')+'</td><td>'+esc(x.ingress_bytes)+'</td><td>'+esc(x.egress_bytes)+'</td><td>'+esc(x.cost_micros)+'</td><td>'+esc(x.revenue_micros)+'</td><td>'+esc(x.profit_micros)+'</td><td>'+esc(x.currency)+'</td></tr>').join('')}
 async function downloadFinanceCSV(){if(!token())return;let r=await fetch(reportURL('csv'),{headers:ah()});if(!r.ok){alert(await r.text());return}let blob=await r.blob(),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='baft-finance-'+q('#reportPeriod').value+'.csv';a.click();URL.revokeObjectURL(u)}
 function initReportDates(){let d=new Date(),to=d.toISOString().slice(0,10),first=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),1)).toISOString().slice(0,10);q('#reportFrom').value=first;q('#reportTo').value=to}
-let bsLast=null;
+let bsLast=null,bsBusy=false;
 function bsT(en,fa){return document.documentElement.lang==='fa'?fa:en}
 function bsAutoID(role,host){let s=host.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,48);return (role==='foreign'?'ex-':'ir-')+(s||'server')}
-async function bsRun(){let host=q('#bsHost').value.trim(),port=Number(q('#bsPort').value)||22,role=q('#bsRole').value;if(!host){q('#bsOut').textContent=bsT('Enter the server host or IP.','میزبان یا IP سرور را وارد کنید.');return}if(!q('#bsPass').value&&!q('#bsKey').value){q('#bsOut').textContent=bsT('Enter the SSH password, or paste an SSH key.','رمز SSH را وارد کنید یا کلید SSH را بچسبانید.');return}let id=q('#bsId').value.trim()||bsAutoID(role,host);q('#bsGo').disabled=true;q('#bsNext').hidden=true;bsLast=null;q('#bsFp').textContent='';q('#bsOut').textContent=bsT('Connecting to ','در حال اتصال به ')+host+'…';let r=await fetch('/api/bootstrap/hostkey',{method:'POST',headers:ah(),body:JSON.stringify({host,port})});let t=await r.text();if(!r.ok){q('#bsGo').disabled=false;q('#bsOut').textContent=bsT('FAILED','ناموفق')+'\n'+bsT('Cannot reach SSH on ','اتصال SSH برقرار نشد: ')+host+':'+port+'\n'+t;return}let d=JSON.parse(t);q('#bsFp').textContent=bsT('SSH key remembered: ','کلید SSH سرور ثبت شد: ')+d.key_type+'  '+d.fingerprint;q('#bsOut').textContent=bsT('Installing… this can take a few minutes.','در حال نصب… ممکن است چند دقیقه طول بکشد.');let body={node_id:id,alias:q('#bsAlias').value.trim()||host,role,host,port,user:q('#bsUser').value.trim(),host_key_fingerprint:d.fingerprint,password:q('#bsPass').value,private_key:q('#bsKey').value,passphrase:q('#bsPhrase').value};if(body.private_key)body.password='';r=await fetch('/api/bootstrap',{method:'POST',headers:ah(),body:JSON.stringify(body)});t=await r.text();body.password=body.private_key=body.passphrase='';q('#bsPass').value=q('#bsKey').value=q('#bsPhrase').value='';q('#bsGo').disabled=false;if(r.ok){bsLast={id,role};q('#bsNext').hidden=false;try{t=JSON.parse(t).output||bsT('Installed.','نصب شد.')}catch(e){}}q('#bsOut').textContent=(r.ok?bsT('OK','انجام شد'):bsT('FAILED','ناموفق'))+'\n'+t;loadAll()}
+async function bsRun(){
+if(bsBusy)return;
+const host=q('#bsHost').value.trim(),port=Number(q('#bsPort').value.trim()||22),role=q('#bsRole').value;
+if(!host){q('#bsOut').textContent=bsT('Enter the server host or IP.','میزبان یا IP سرور را وارد کنید.');return}
+if(!Number.isInteger(port)||port<1||port>65535){q('#bsOut').textContent=bsT('SSH port must be between 1 and 65535.','پورت SSH باید بین ۱ و ۶۵۵۳۵ باشد.');return}
+if(!q('#bsPass').value&&!q('#bsKey').value){q('#bsOut').textContent=bsT('Enter the SSH password, or paste an SSH key.','رمز SSH را وارد کنید یا کلید SSH را بچسبانید.');return}
+const id=q('#bsId').value.trim()||bsAutoID(role,host),body={node_id:id,alias:q('#bsAlias').value.trim()||host,role,host,port,user:q('#bsUser').value.trim()||'root',password:q('#bsPass').value,private_key:q('#bsKey').value,passphrase:q('#bsPhrase').value};
+if(body.private_key)body.password='';
+const controls=['bsHost','bsPort','bsRole','bsAlias','bsUser','bsId','bsPass','bsKey','bsPhrase','bsGo'].map(id=>q('#'+id)),previous=controls.map(e=>e.disabled);
+const controller=new AbortController();let timer,stage='hostkey',status=0;
+bsBusy=true;controls.forEach(e=>e.disabled=true);q('#bsNext').hidden=true;bsLast=null;q('#bsFp').textContent='';q('#bsOut').textContent=bsT('Connecting to ','در حال اتصال به ')+host+'…';
+try{
+timer=setTimeout(()=>controller.abort(),45000);
+let r=await fetch('/api/bootstrap/hostkey',{method:'POST',headers:ah(),signal:controller.signal,body:JSON.stringify({host,port})});status=r.status;
+if(!r.ok)throw new Error('HTTP');
+const d=await r.json();
+if(d.host!==host||Number(d.port)!==port||!/^SHA256:[A-Za-z0-9+/]{43}=?$/.test(d.fingerprint)||typeof d.key_type!=='string')throw new Error('HOSTKEY');
+body.host_key_fingerprint=d.fingerprint;q('#bsFp').textContent=bsT('SSH key pinned for this installation: ','کلید SSH برای همین نصب تأیید شد: ')+d.key_type+'  '+d.fingerprint;
+clearTimeout(timer);stage='install';status=0;timer=setTimeout(()=>controller.abort(),630000);
+q('#bsOut').textContent=bsT('Installing… this can take a few minutes.','در حال نصب… ممکن است چند دقیقه طول بکشد.');
+r=await fetch('/api/bootstrap',{method:'POST',headers:ah(),signal:controller.signal,body:JSON.stringify(body)});status=r.status;
+if(!r.ok)throw new Error('HTTP');
+const result=await r.json();if(result.node?.id!==id||result.node?.role!==role||typeof result.output!=='string')throw new Error('RESULT');
+bsLast={id,role};q('#bsNext').hidden=false;q('#bsOut').textContent=bsT('OK','انجام شد')+'\n'+(result.output||bsT('Installed.','نصب شد.'));
+}catch(e){
+const hint=stage==='hostkey'?bsT('Could not verify SSH. Check the host, port and connectivity, then try again.','تأیید اتصال SSH انجام نشد؛ میزبان، پورت و اتصال را بررسی کنید و دوباره تلاش کنید.'):bsT('The installation result is not confirmed. Check the server inventory and agent status before retrying.','نتیجهٔ نصب تأیید نشد؛ پیش از تلاش دوباره، فهرست سرورها و وضعیت عامل را بررسی کنید.');
+q('#bsOut').textContent=bsT('FAILED','ناموفق')+(status?' · HTTP '+status:'')+'\n'+hint;
+}finally{
+clearTimeout(timer);body.password=body.private_key=body.passphrase='';q('#bsPass').value=q('#bsKey').value=q('#bsPhrase').value='';controls.forEach((e,i)=>e.disabled=previous[i]);bsBusy=false;
+}
+try{await loadAll()}catch(e){}
+}
 function bsTunnel(){if(!bsLast)return;tnFill();q(bsLast.role==='foreign'?'#tnEx':'#tnIr').value=bsLast.id;if(window.BAFT_UI)location.hash='#tunnels';else q('#tnEx').scrollIntoView({behavior:'smooth'})}
 function tnFill(){let opt=(role)=>nodes.filter(n=>role.includes(n.role)&&!n.revoked).map(n=>'<option value="'+esc(n.id)+'">'+esc(n.alias||n.id)+' ('+esc(n.id)+')</option>').join('');let ex=q('#tnEx'),ir=q('#tnIr'),a=ex.value,b=ir.value;ex.innerHTML='<option value="">EX node…</option>'+opt(['foreign']);ir.innerHTML='<option value="">IR node…</option>'+opt(['worker','master']);ex.value=a;ir.value=b}
 let tnPlanHash='',tnPlanReq=null;
@@ -186,8 +217,31 @@ async function smPlan(){smPlanObj=null;let plan=await smCall({action:'plan',requ
 async function smStart(){if(!smPlanObj){await smPlan();if(!smPlanObj)return}const run=await smCall({action:'start',request:smReq(),plan_hash:smPlanObj.plan_hash});if(!run)return;smRun=run;q('#smState').textContent=run.phase+' · '+run.id}
 async function smVerify(){if(!smRun){alert('Start migration first');return}const run=await smCall({action:'verify',id:smRun.id,password:q('#smPassword').value,private_key:q('#smKey').value});q('#smPassword').value='';q('#smKey').value='';if(!run)return;smRun=run;q('#smState').textContent=run.phase+' · '+run.id;loadAudit()}
 function rdFill(ts){let e=q('#rdTunnel');if(!e)return;let old=e.value;e.innerHTML='<option value="">active tunnel…</option>'+ts.filter(t=>t.phase==='active').map(t=>'<option value="'+esc(t.id)+'">'+esc(t.id)+' · '+esc(t.ir_node)+' → '+esc(t.ex_node)+'</option>').join('');if(ts.some(t=>t.id===old&&t.phase==='active'))e.value=old}
-function rdRender(r){let stages=(r.stages||[]).map(s=>'<div><span class="badge '+(s.state==='PASS'?'up':s.state==='FAIL'?'down':'unknown')+'">'+esc(s.state)+'</span> <b>'+esc(s.stage)+'</b> <span class=muted>'+esc(s.detail||'')+(s.reference?' · '+esc(s.reference):'')+'</span></div>').join('');q('#rdResult').innerHTML='<div><b>'+esc(r.summary_en||'')+'</b><div>'+esc(r.summary_fa||'')+'</div><div class=muted>Evidence '+esc(r.evidence_digest||'')+' · '+esc(r.id||'')+'</div></div>'+stages}
-async function rdRun(){let id=q('#rdTunnel').value;if(!id){alert('Choose an active tunnel');return}let r=await fetch('/api/route-doctor',{method:'POST',headers:ah(),body:JSON.stringify({tunnel_id:id})});let t=await r.text();if(!r.ok){alert(t);return}rdRender(JSON.parse(t));loadAudit()}
+// Display-time expiry uses observation timestamps, never the time the UI fetched a report.
+function rdCurrent(r,now=Date.now()){
+const expected=['node_service','local_listener','tcp_path','tls13','carrier_handshake','route_authorization','target_reachability','application_flow','consistency'],created=Date.parse(r?.created_at),ttl=Number(r?.fresh_for_seconds)*1000;
+const valid=r?.schema_version===2&&Number.isFinite(created)&&created<=now&&Number.isFinite(ttl)&&ttl>0&&ttl<=300000&&Array.isArray(r.stages)&&r.stages.length===expected.length;
+let stale=!valid,expires=created+ttl,at=Infinity;
+const raw=Array.isArray(r?.stages)?r.stages:[],stages=expected.map(name=>{const matches=raw.filter(s=>s?.stage===name),s={...(matches.length===1?matches[0]:{stage:name,state:'NOT_ASSESSED'})};
+if(matches.length!==1||!['PASS','FAIL','NOT_ASSESSED'].includes(s.state)){stale=true;s.state='NOT_ASSESSED'}
+if(s.state==='PASS'||s.state==='FAIL'){const time=Date.parse(s.observed_at);if(!Number.isFinite(time)||time>created||time>now){stale=true;s.state='NOT_ASSESSED'}else{at=Math.min(at,time);expires=Math.min(expires,time+ttl);if(now>=time+ttl){stale=true;s.state='NOT_ASSESSED'}}}
+return s});
+if(!Number.isFinite(expires)||now>=expires)stale=true;
+let verdict=r?.verdict;
+if(!['PASS','FAIL','NOT_ASSESSED'].includes(verdict)||(verdict==='PASS'&&stages.some(s=>s.state!=='PASS'))||(verdict==='FAIL'&&!stages.some(s=>s.state==='FAIL')))stale=true;
+if(stale){verdict='NOT_ASSESSED';stages.forEach(s=>s.state='NOT_ASSESSED')}
+return {verdict,stale,at:Number.isFinite(at)?new Date(at).toISOString():'',expires_at:valid&&Number.isFinite(expires)?new Date(expires).toISOString():'',stages};
+}
+let rdResult=null,rdBusy=false;
+function rdRender(r){rdResult=r;const view=rdCurrent(r),fa=document.documentElement.lang==='fa',summary=view.stale?bsT('Evidence is expired or incomplete; the current result is unknown.','شواهد منقضی یا ناقص است؛ نتیجهٔ فعلی نامشخص است.'):(fa?r.summary_fa:r.summary_en)||view.verdict;
+const stages=view.stages.map(s=>'<div><span class="badge '+(s.state==='PASS'?'up':s.state==='FAIL'?'down':'unknown')+'">'+esc(s.state)+'</span> <b>'+esc(s.stage)+'</b> <span class=muted>'+esc(s.observed_at||'—')+(!view.stale?' · '+esc(s.detail||''):'')+'</span></div>').join('');
+q('#rdResult').innerHTML='<div><b>'+esc(summary)+'</b><div class=muted>'+esc(bsT('Assesses existing reports; no new live measurement is performed.','ارزیابی گزارش‌های موجود؛ سنجش زندهٔ جدید انجام نمی‌شود.'))+'</div><div class=muted>'+esc(bsT('Evidence time: ','زمان شواهد: '))+esc(view.at||'—')+'</div><div class=muted>Evidence '+esc(r.evidence_digest||'')+' · '+esc(r.id||'')+'</div></div>'+stages}
+setInterval(()=>{if(rdResult)rdRender(rdResult)},5000);
+async function rdRun(){const id=q('#rdTunnel').value;if(!id){q('#rdResult').textContent=bsT('Choose an active tunnel.','یک تونل فعال انتخاب کنید.');return}if(rdBusy)return;
+rdBusy=true;rdResult=null;q('#rdGo').disabled=true;q('#rdResult').textContent=bsT('Checking stored evidence…','در حال بررسی گزارش‌های موجود…');
+try{const r=await fetch('/api/route-doctor',{method:'POST',headers:ah(),body:JSON.stringify({tunnel_id:id})});if(!r.ok)throw new Error('HTTP');const report=await r.json();if(report.tunnel_id!==id)throw new Error('SCOPE');rdRender(report);await loadAudit()}
+catch(e){q('#rdResult').textContent=bsT('Could not assess evidence. Check the connection and try again.','ارزیابی شواهد انجام نشد؛ اتصال را بررسی کنید و دوباره تلاش کنید.')}
+finally{rdBusy=false;q('#rdGo').disabled=false}}
 function dcCls(st){return st==='MANAGED'?'up':(st==='DRIFTED'||st==='MISSING'||st==='OWNERSHIP_CONFLICT'?'down':'unknown')}
 async function dcStart(){let r=await fetch('/api/discovery?all=1',{method:'POST',headers:ah()});if(!r.ok)alert(await r.text());loadDiscovery();loadAudit()}
 async function loadDiscovery(){if(!token())return;let r=await fetch('/api/discovery',{headers:ah()});if(!r.ok)return;let d=await r.json();q('#dcRows').innerHTML=(d.nodes||[]).map(n=>{let head=n.pending?'<span class=muted>running…</span>':(n.problem?'<span class=muted>'+esc(n.problem)+'</span>':(n.at?'<span class=muted>'+esc(n.at)+'</span>':'<span class=muted>not run</span>'));let ins=n.instances||[];if(!ins.length)return '<tr><td>'+esc(n.node_id)+'</td><td colspan=3>'+head+'</td></tr>';return ins.map((v,i)=>'<tr><td>'+(i===0?esc(n.node_id)+'<div>'+head+'</div>':'')+'</td><td>'+esc(v.unit)+(v.primary?' <span class=muted>(primary)</span>':'')+'</td><td><span class="badge '+dcCls(v.state)+'">'+esc(v.state)+'</span></td><td>'+esc((v.reasons||[]).join('; '))+'</td></tr>').join('')}).join('')}

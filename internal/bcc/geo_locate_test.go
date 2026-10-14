@@ -2,6 +2,8 @@ package bcc
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"testing"
 	"time"
@@ -52,5 +54,40 @@ func TestAutoCountryFromAddress(t *testing.T) {
 	s.LocateNodes(context.Background())
 	if n, _ := store.GetNode("auto"); n.Country != "NL" || !n.CountryManual {
 		t.Errorf("manual choice overridden: %+v", n)
+	}
+}
+
+func TestRestoreAutoCountryClearsManualOverrideAndReevaluatesIP(t *testing.T) {
+	store, err := OpenStore(filepath.Join(t.TempDir(), "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.UpsertNode(Node{ID: "ex", Address: "8.8.8.8:22", Role: "foreign"}, ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.SetNodeCountry("ex", "NL", time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	app, err := NewServer(store, "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	app.Handler().ServeHTTP(rr, authReq(http.MethodPost, "/api/nodes/location", "admin", map[string]any{"node_id": "ex", "automatic": true}))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("restore automatic location: %d %s", rr.Code, rr.Body.String())
+	}
+	n, _ := store.GetNode("ex")
+	if n.Country != "US" || !n.CountryAuto || n.CountryManual {
+		t.Fatalf("automatic location not restored: %+v", n)
+	}
+	overview := app.Overview(time.Now(), 24*time.Hour)
+	if len(overview.Nodes) != 1 || !overview.Nodes[0].CountryAuto || overview.Nodes[0].CountryManual {
+		t.Fatalf("overview omitted location mode: %+v", overview.Nodes)
+	}
+	rr = httptest.NewRecorder()
+	app.Handler().ServeHTTP(rr, authReq(http.MethodPost, "/api/nodes/location", "admin", map[string]any{"node_id": "ex", "country": "DE", "automatic": true}))
+	if rr.Code != http.StatusBadRequest {
+		t.Fatal("automatic location accepted a manual country")
 	}
 }

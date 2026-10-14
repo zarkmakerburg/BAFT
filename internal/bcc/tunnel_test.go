@@ -268,7 +268,7 @@ func TestDashboardHasServerAndTunnelControlsWithoutStoringCredentials(t *testing
 	}
 	// One step: the host key read on first contact is pinned for the install
 	// request, credentials are wiped after it and never put in browser storage.
-	if !strings.Contains(dashboardHTML, "host_key_fingerprint:d.fingerprint") {
+	if !strings.Contains(dashboardHTML, "body.host_key_fingerprint=d.fingerprint") {
 		t.Error("install does not pin the host key read on first contact")
 	}
 	if !strings.Contains(dashboardHTML, "q('#bsPass').value=q('#bsKey').value=q('#bsPhrase').value=''") {

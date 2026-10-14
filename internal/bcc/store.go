@@ -491,6 +491,17 @@ func (s *Store) RevokeNode(nodeID,reason string,now time.Time,audits ...AuditEnt
 
 // SetNodeCountry records where the map draws a node; "" removes it from the map.
 func (s *Store) SetNodeCountry(nodeID,country string,now time.Time,audits ...AuditEntry)(Node,error){
+	return s.setNodeCountryMode(nodeID,country,false,now,audits...)
+}
+
+// RestoreAutoCountry explicitly removes a manual (including blank) location.
+// An unresolved address stays in automatic mode with no country; it must not
+// retain the previous manual country as if that were an IP lookup result.
+func (s *Store) RestoreAutoCountry(nodeID,country string,now time.Time,audits ...AuditEntry)(Node,error){
+	return s.setNodeCountryMode(nodeID,country,true,now,audits...)
+}
+
+func (s *Store) setNodeCountryMode(nodeID,country string,automatic bool,now time.Time,audits ...AuditEntry)(Node,error){
 	if len(audits)>1{return Node{},errors.New("at most one security audit intent is allowed")}
 	code,ok:=normalizeCountry(country)
 	if !ok{return Node{},errors.New("unknown country code")}
@@ -499,7 +510,7 @@ func (s *Store) SetNodeCountry(nodeID,country string,now time.Time,audits ...Aud
 	n,found:=s.st.Nodes[nodeID];if !found{return Node{},errors.New("node not found")}
 	before,err:=cloneState(s.st);if err!=nil{return Node{},err}
 	n.Country=code
-	n.CountryManual,n.CountryAuto=true,false
+	n.CountryManual,n.CountryAuto=!automatic,automatic
 	n.UpdatedAt=now
 	s.st.Nodes[nodeID]=n
 	if len(audits)==1{

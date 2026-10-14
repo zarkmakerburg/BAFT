@@ -30,7 +30,7 @@ func AddCompleted(history []Incident, completed Incident) []Incident {
 func SaveSnapshot(path string, snapshot Snapshot) error {
  info, err := os.Lstat(path)
  if err != nil { return err }
- if !info.Mode().IsRegular() { return errors.New("snapshot target must be a regular file") }
+ if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 { return errors.New("snapshot target must be a private regular file") }
  data, err := json.Marshal(snapshot)
  if err != nil { return err }
  if len(data) > MaxSnapshotBytes { return errors.New("snapshot exceeds size limit") }
@@ -55,12 +55,14 @@ func LoadSnapshot(path string) (Snapshot,error) {
  var snapshot Snapshot
  info,err := os.Lstat(path)
  if err != nil { return snapshot,err }
- if !info.Mode().IsRegular() || info.Size()>MaxSnapshotBytes {
+ if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || info.Size()>MaxSnapshotBytes {
   return snapshot,errors.New("invalid snapshot file")
  }
  data,err := os.ReadFile(path)
  if err != nil { return snapshot,err }
  if len(data)>MaxSnapshotBytes { return snapshot,errors.New("snapshot exceeds size limit") }
  err=json.Unmarshal(data,&snapshot)
- return snapshot,err
+ if err!=nil { return Snapshot{},err }
+ if _,err=NewTracker(snapshot);err!=nil { return Snapshot{},err }
+ return snapshot,nil
 }

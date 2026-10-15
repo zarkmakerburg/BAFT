@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -294,18 +295,13 @@ func (s *Store) ObserveTunnelIncident(instanceID string, now time.Time, maxAge t
  result:=tracker.ObserveEvidence(instanceID,now,maxAge,evidence)
  next:=tracker.Snapshot()
  // Unknown/stale and out-of-order evidence cannot change durable lifecycle.
- if bytes.Equal(mustIncidentJSON(previous),mustIncidentJSON(next)) {return result,nil}
+ if reflect.DeepEqual(previous,next) {return result,nil}
  s.st.IncidentSnapshot=next
  if err:=s.saveLocked();err!=nil {
   s.st.IncidentSnapshot=previous
   return result,err
  }
  return result,nil
-}
-
-func mustIncidentJSON(snapshot incidentclass.Snapshot) []byte {
- b,_:=json.Marshal(snapshot)
- return b
 }
 
 // PersistenceUncertain reports a failed commit whose durable outcome could not

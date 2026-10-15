@@ -1,0 +1,64 @@
+
+added 37 packages in 5s
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> @baft/aurora-foundation@0.0.0 test:dom
+> node --experimental-vm-modules --test tests/dom/*.test.mjs
+
+(node:36) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ mounted DOM loads historical DEMO evidence without reporting payload health (155.670328ms)
+✔ all four language/theme combinations mount, switch, persist and restore focus (215.82067ms)
+✖ completion preserves a control focused while data was pending (25.648561ms)
+✖ navigation while pending keeps main focused after completion (39.318721ms)
+✔ errors are safe and explicit retry recovers without duplicate requests (43.555222ms)
+✔ empty and mislabeled real data never become DEMO resources (22.517299ms)
+✔ destroy aborts pending data, removes listeners and refuses late repaint (25.725292ms)
+✔ remount has one listener owner and stale destroy cannot remove new UI (26.516378ms)
+✔ resource text is inert even when synthetic aliases resemble HTML (15.465063ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 7
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1128.262734
+
+✖ failing tests:
+
+test at tests/dom/shell.test.mjs:39:1
+✖ completion preserves a control focused while data was pending (25.648561ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'language'
+  
+      at TestContext.<anonymous> (file:///workspace/scratch/e71c4683db12/baft-aurora-dom/web/aurora/tests/dom/shell.test.mjs:46:10)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'language',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/dom/shell.test.mjs:49:1
+✖ navigation while pending keeps main focused after completion (39.318721ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'BODY' !== 'MAIN'
+  
+      at TestContext.<anonymous> (file:///workspace/scratch/e71c4683db12/baft-aurora-dom/web/aurora/tests/dom/shell.test.mjs:56:10)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'BODY',
+    expected: 'MAIN',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

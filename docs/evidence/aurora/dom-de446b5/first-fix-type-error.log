@@ -1,0 +1,1 @@
+src/shell.ts(65,60): error TS18047: 'win' is possibly 'null'.

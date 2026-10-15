@@ -1,0 +1,132 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+added 37 packages in 733ms
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> @baft/aurora-foundation@0.0.0 test
+> npm run typecheck && npm run check:generated && npm run size && node --test tests/*.test.mjs && npm run test:dom
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> @baft/aurora-foundation@0.0.0 typecheck
+> tsc --noEmit && tsc -p tsconfig.type-tests.json
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> @baft/aurora-foundation@0.0.0 check:generated
+> node scripts/check-generated.mjs
+
+Generated assets verified: 8 files, compiler 6.0.3
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> @baft/aurora-foundation@0.0.0 size
+> node scripts/report-size.mjs
+
+{"foundationRawBytes":15508,"foundationGzipBytes":5106,"shellRawBytes":19973,"shellGzipBytes":6624,"cssRawBytes":5828,"cssGzipBytes":1931,"runtimeDependencies":0,"embeddedInBCC":false}
+✔ DEMO provider is deterministic and in-memory changes stay isolated (4.935765ms)
+✔ DEMO import and every operation work when fetch is forbidden (0.457479ms)
+✔ fresh-process mock imports do not touch a network or install polling (78.251434ms)
+✔ explicit same-origin GET adapter preserves session and protected base path (13.143039ms)
+✔ cross-origin, credential-bearing, normalized traversal and malformed bases are rejected before fetch (1.007427ms)
+✔ session expiry invokes caller boundary once and never exposes response text (0.945544ms)
+✔ HTTP, network, redirects, HTML, malformed JSON and schema errors stay sanitized (5.63617ms)
+✔ response budget covers declared size and actual streamed bytes (3.679813ms)
+✔ deadline covers an uncooperative fetch and a stalled body (21.805717ms)
+✔ caller cancellation and already-aborted signals do not start or revive requests (1.709906ms)
+✔ rejected response bodies are cancelled without reading arbitrary HTTP error data (0.649649ms)
+✔ catalogs have exact parity, nonempty copy, and explicit DEMO/unknown boundaries (2.181977ms)
+✔ preferences validate values and safely tolerate blocked or corrupted storage (0.69018ms)
+✔ only built views route; arbitrary hashes fall back without executing anything (0.242035ms)
+✔ runtime refuses a real provider before touching DOM (0.553163ms)
+✔ preview policy refuses operational network, forms and inline execution (0.630119ms)
+✔ shell owns safe text rendering, cancellation and explicit cleanup without real reads or polling (0.692323ms)
+✔ responsive/accessibility source hooks exist (not a visual or keyboard execution) (0.270418ms)
+✔ theme token text, accent, focus and control borders meet calculated contrast minima (0.84326ms)
+✔ actual overview concepts preserve unknown, zero, country anchors and scope (2.220135ms)
+✔ cached reassessment expires evidence at the boundary without renewing fetch time (0.401945ms)
+✔ future, absent and revoked node reports cannot imply healthy state (0.627204ms)
+✔ malformed types, out-of-range measurements, duplicate and wrong-scope resources reject (1.498567ms)
+✔ only selected presentation fields leave the adapter (0.388015ms)
+✔ uint64 counters retain exact decimals and reject rounded JSON numbers (0.332021ms)
+✔ RFC3339 accepts Go nanoseconds and timezone offsets without accepting invalid dates (0.232781ms)
+✔ tunnel desired phase and lifecycle timestamp never become delivery health (0.375155ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 27
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 187.231112
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> @baft/aurora-foundation@0.0.0 test:dom
+> node --experimental-vm-modules --test tests/dom/*.test.mjs
+
+(node:176) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ mounted DOM loads historical DEMO evidence without reporting payload health (131.002569ms)
+✔ all four language/theme combinations mount, switch, persist and restore focus (184.804521ms)
+✔ completion preserves a control focused while data was pending (21.308789ms)
+✔ navigation while pending keeps main focused after completion (21.299084ms)
+✔ completion never steals focus from a target outside the shell (36.132008ms)
+✔ errors are safe and explicit retry recovers without duplicate requests (36.817742ms)
+✔ empty and mislabeled real data never become DEMO resources (28.528003ms)
+✔ destroy aborts pending data, removes listeners and refuses late repaint (15.46066ms)
+✔ remount has one listener owner and stale destroy cannot remove new UI (24.671985ms)
+✔ resource text is inert even when synthetic aliases resemble HTML (17.212209ms)
+✔ blocked storage keeps preference controls functional and reports a safe notice (23.252197ms)
+✔ entry page lifecycle events tear down and remount on a persisted pageshow (23.383564ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1103.624095
+✔ Persian and English carry the same strings (1.947994ms)
+✔ every translated element in the page has a string (0.210578ms)
+✔ the country list matches the server (0.311429ms)
+✔ every menu route has a page and a name (0.183436ms)
+✔ demo numbers appear only in the labelled preview (0.310918ms)
+✔ text from the server is escaped before it reaches the page (0.485791ms)
+✔ the page only loads files that BCC embeds (0.371269ms)
+✔ theme and language are applied before the first paint (0.117336ms)
+✔ BCC dashboard keeps all existing operational sections (1.109522ms)
+✔ BCC visual tokens and focus states are present (0.25276ms)
+✔ BCC dashboard remains wired to existing operational loaders (0.183656ms)
+✔ operational dashboard includes focus-visible and disabled control styles (0.301354ms)
+✔ SSH enrollment always restores controls and clears credentials (0.223236ms)
+✔ Doctor cached PASS expires to NOT_ASSESSED at display time (0.997543ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 91.214815
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+{
+  "auditReportVersion": 2,
+  "vulnerabilities": {},
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0,
+      "total": 0
+    },
+    "dependencies": {
+      "prod": 1,
+      "dev": 37,
+      "optional": 0,
+      "peer": 0,
+      "peerOptional": 0,
+      "total": 37
+    }
+  }
+}

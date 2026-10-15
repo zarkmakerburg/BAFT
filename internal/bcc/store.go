@@ -278,6 +278,36 @@ func (s *Store) recordStateWrite(err error) error {
 	return err
 }
 
+// ObserveTunnelIncident classifies evidence for one tunnel instance and persists
+// its lifecycle in the existing BCC SQLite transaction. It does not probe nodes.
+// On a failed write, the previous in-memory snapshot is restored.
+func (s *Store) ObserveTunnelIncident(instanceID string, now time.Time, maxAge time.Duration, evidence incidentclass.Evidence) (incidentclass.Result,error) {
+ if strings.TrimSpace(instanceID)=="" || len(instanceID)>incidentclass.MaxInstanceIDBytes {
+  return incidentclass.Result{},errors.New("invalid incident instance id")
+ }
+ s.mu.Lock()
+ defer s.mu.Unlock()
+ if s.persistenceUncertain {return incidentclass.Result{},errStateCommitUncertain}
+ tracker,err:=incidentclass.NewTracker(s.st.IncidentSnapshot)
+ if err!=nil {return incidentclass.Result{},fmt.Errorf("invalid stored incident snapshot: %w",err)}
+ previous:=s.st.IncidentSnapshot
+ result:=tracker.ObserveEvidence(instanceID,now,maxAge,evidence)
+ next:=tracker.Snapshot()
+ // Unknown/stale and out-of-order evidence cannot change durable lifecycle.
+ if bytes.Equal(mustIncidentJSON(previous),mustIncidentJSON(next)) {return result,nil}
+ s.st.IncidentSnapshot=next
+ if err:=s.saveLocked();err!=nil {
+  s.st.IncidentSnapshot=previous
+  return result,err
+ }
+ return result,nil
+}
+
+func mustIncidentJSON(snapshot incidentclass.Snapshot) []byte {
+ b,_:=json.Marshal(snapshot)
+ return b
+}
+
 // PersistenceUncertain reports a failed commit whose durable outcome could not
 // be read back. Callers must not serve the in-memory snapshot as authoritative.
 func (s *Store) PersistenceUncertain() bool {

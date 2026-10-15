@@ -1,0 +1,138 @@
+{
+  "source_sha": "b5548ebb1a4751cb868cee8587afa7605ff2ab03",
+  "source_tree": "210da43edebd2ca3364c52ca19b861ecc819639c",
+  "pr": 204,
+  "draft": true,
+  "main_ci_attempt": 1,
+  "workflows": [
+    {
+      "id": 38713217696,
+      "name": "BCC UI tests",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 38713217513,
+      "name": "static-analysis",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 38713217511,
+      "name": "ci",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "jobs": [
+    {
+      "id": 116349504306,
+      "name": "e2e-bcc-schema-upgrade",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 116349504394,
+      "name": "third-party-licenses",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 116349504474,
+      "name": "e2e-uninstall",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 116349504499,
+      "name": "test",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 116349504513,
+      "name": "e2e-launch1",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 116349504536,
+      "name": "e2e-bcc-install",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 116349504543,
+      "name": "installer-faults",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 116349504594,
+      "name": "e2e-ssh-bootstrap",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 116349504599,
+      "name": "e2e-binaries",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 116349504617,
+      "name": "e2e-agent-enroll",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 116349504687,
+      "name": "e2e-install-ssh",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 116349504789,
+      "name": "e2e-install",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 116349504796,
+      "name": "e2e-install-release",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 116349504826,
+      "name": "release-dry-run",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 116349504980,
+      "name": "e2e-install-offline",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "synthetic_merge_sha": "4b218c75de2e6f0ee4e46834b20b298e8a9c8e21",
+  "synthetic_merge_tree": "210da43edebd2ca3364c52ca19b861ecc819639c",
+  "code_tree_equal": true,
+  "local": {
+    "typecheck": "PASS",
+    "generated_assets": "PASS",
+    "provider_tests": 19,
+    "classic_tests": 14,
+    "skip": 0,
+    "syntax": "PASS",
+    "workflow_policy": "PASS"
+  },
+  "not_run": [
+    "local Go",
+    "browser/native fetch smoke: Chromium missing",
+    "visual/accessibility/render performance",
+    "owner-deferred native two-node/candidate acceptance"
+  ],
+  "current_ci_retries": 0
+}

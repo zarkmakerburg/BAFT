@@ -1,0 +1,46 @@
+name: Aurora x Core isolated merge preflight
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/aurora-core-preflight.yml'
+      - 'web/aurora/**'
+      - 'internal/bcc/**'
+
+permissions:
+  contents: read
+
+jobs:
+  three-way:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Three-way merge probe (no push)
+        shell: bash
+        run: |
+          set -euo pipefail
+          incoming=86cb4317fbab16e71208f701851b70140e380e84
+          git fetch --no-tags origin "$incoming"
+          git merge-base --is-ancestor 9bc830241fa2531199ed7cb697149b953217e722 HEAD
+          git config user.name "BAFT Aurora preflight"
+          git config user.email "aurora-preflight@users.noreply.github.com"
+          if git merge --no-commit --no-ff "$incoming"; then
+            echo "AURORA_CORE_TEXT_MERGE=CLEAN"
+          else
+            echo "AURORA_CORE_TEXT_MERGE=CONFLICT"
+            git status --short
+            git ls-files -u
+            echo "::error::Aurora x Core needs reviewed conflict resolution"
+            exit 1
+          fi
+          git diff --cached --check
+          test -f web/aurora/src/shell.ts
+          test -f internal/incidentclass/tracker.go
+          grep -q 'TunnelVerification' internal/bcc/store.go
+          echo "AURORA_CORE_TREE_SHA=$(git write-tree)"
+          echo "Source merge only; browser/RTL/dark-light/visual parity NOT certified."

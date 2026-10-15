@@ -271,3 +271,15 @@ func TestIncidentSnapshotMigrationFromV12PreservesExistingState(t *testing.T) {
  version,err:=stateSchemaVersion(path)
  if err!=nil || version!=13 {t.Fatalf("migration version %d: %v",version,err)}
 }
+
+func TestIncidentSnapshotMissingSingletonFailsClosed(t *testing.T) {
+ path:=filepath.Join(t.TempDir(),"state.db")
+ var st state
+ normalizeState(&st)
+ if err:=writeStateDB(path,st);err!=nil {t.Fatal(err)}
+ db,err:=openStateDB(path)
+ if err!=nil {t.Fatal(err)}
+ if _,err:=db.Exec("DELETE FROM incident_snapshot");err!=nil {t.Fatal(err)}
+ if err:=db.Close();err!=nil {t.Fatal(err)}
+ if _,err:=readStateDB(path);err==nil {t.Fatal("missing incident snapshot row accepted")}
+}

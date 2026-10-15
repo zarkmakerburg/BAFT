@@ -101,3 +101,18 @@ func TestSnapshotWorstCaseCapacityFitsBudget(t *testing.T) {
  if err:=SaveSnapshot(path,snapshot);err!=nil {t.Fatal(err)}
  if _,err:=LoadSnapshot(path);err!=nil {t.Fatal(err)}
 }
+
+func TestLoadSnapshotRejectsOversizedFile(t *testing.T) {
+ path:=filepath.Join(t.TempDir(),"oversized.json")
+ f,err:=os.OpenFile(path,os.O_CREATE|os.O_WRONLY|os.O_EXCL,0600)
+ if err!=nil {t.Fatal(err)}
+ if err:=f.Truncate(int64(MaxSnapshotBytes)+1);err!=nil {f.Close();t.Fatal(err)}
+ if err:=f.Close();err!=nil {t.Fatal(err)}
+ if _,err:=LoadSnapshot(path);err==nil {t.Fatal("accepted file larger than snapshot byte budget")}
+}
+
+func TestSaveSnapshotRefusesDirectoryWithoutModifyingIt(t *testing.T) {
+ dir:=t.TempDir()
+ if err:=SaveSnapshot(dir,Snapshot{});err==nil {t.Fatal("accepted directory as snapshot target")}
+ if _,err:=LoadSnapshot(dir);err==nil {t.Fatal("accepted directory as snapshot source")}
+}

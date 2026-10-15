@@ -93,6 +93,7 @@ func TestAuroraReadWireContract(t *testing.T) {
 	store.st.Nodes["demo-ex-1"] = Node{ID: "demo-ex-1", Alias: "DEMO Exit", Role: "foreign", Country: "DE", Revoked: true}
 	store.st.Telemetry["demo-ir-1"] = TelemetryCursor{NodeID: "demo-ir-1", LastTelemetry: at}
 	store.st.History["demo-ir-1"] = []HistoryPoint{{Timestamp: at.Add(-time.Minute)}, {Timestamp: at}}
+	store.st.Tunnels = map[string]Tunnel{}
 	store.st.Tunnels["demo-scoped"] = Tunnel{ID: "demo-scoped", InstanceID: "demo-slot-1", IRNode: "demo-ir-1", EXNode: "demo-ex-1", Phase: TunnelActive, Port: 18443, CreatedAt: at.Add(-time.Minute), UpdatedAt: at}
 	store.st.Tunnels["demo-legacy"] = Tunnel{ID: "demo-legacy", IRNode: "demo-ir-1", EXNode: "demo-ex-1", Phase: TunnelActive, Port: 19443, CreatedAt: at.Add(-2 * time.Minute), UpdatedAt: at}
 	store.mu.Unlock()

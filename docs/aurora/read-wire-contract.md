@@ -55,6 +55,12 @@ Locked install uses existing dependencies with lifecycle scripts disabled. No
 browser/server/dependency download, native node or deployment attempt occurred.
 Final test counts, exact SHA, CI and any later failures are logged in #67/#199.
 
+First producer attempt on `e646fac` compiled but failed in test setup: fresh
+Store lazily leaves its tunnel map nil, so direct synthetic insertion panicked.
+The correction initializes only that test map. The full failing CI job is retained
+at [immutable evidence](https://github.com/zarkmakerburg/BAFT/blob/0143ac246304eb8a34c1566c54bebb1176401809/docs/evidence/aurora/wire-e646fac/first-go-failure.md).
+This correction requires a new exact-source CI pass; Node success is insufficient.
+
 Browser/layout/mobile320/screenshots/rendered accessibility/performance remain
 OPEN. Native IR↔EX/candidate remains owner-DEFERRED/OPEN. This test slice does not
 authorize main merge/release or claim controlled convergence is complete.

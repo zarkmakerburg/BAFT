@@ -14,7 +14,7 @@ Status: integration NOT performed. This file is an executable handoff, not proof
 set -euo pipefail
 git fetch origin 1816f2a35dfeb8a51d32575dbb57e6e0c4c27dc7 39424cf6e4f5a79ec1282b7c2bc516ac306ea6aa
 git switch codex/core-reconcile-stage110
-test "$(git merge-base --is-ancestor 1816f2a35dfeb8a51d32575dbb57e6e0c4c27dc7 HEAD; echo $?)" = 0
+git merge-base --is-ancestor 1816f2a35dfeb8a51d32575dbb57e6e0c4c27dc7 HEAD
 # Stage111 documentation commit follows PR200, so HEAD is intentionally newer.
 test -z "$(git status --porcelain)"
 test "$(git merge-base HEAD 39424cf6e4f5a79ec1282b7c2bc516ac306ea6aa)" = b028fd580fb2c3f0ebffe2fbf1a52f6b577cbf5f
@@ -22,6 +22,13 @@ if ! git merge --no-commit --no-ff 39424cf6e4f5a79ec1282b7c2bc516ac306ea6aa; the
   echo "Merge stopped for manual semantic conflict resolution"
 fi
 git status --short
+# Do not commit if unresolved merge entries remain:
+if git ls-files -u | grep -q .; then
+  echo "Unresolved merge entries remain; STOP" >&2
+  exit 1
+fi
+# Inspect the staged diff and run the listed acceptance tests before committing.
+git diff --cached --check
 ```
 Stop and resolve every conflict semantically before committing. Never use wholesale 'ours'/'theirs' on stateful BCC files.
 

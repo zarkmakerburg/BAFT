@@ -20,13 +20,14 @@ jobs:
     env:
       SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
       AURORA_SHA: 86cb4317fbab16e71208f701851b70140e380e84
-      EVIDENCE_DIR: ${{ runner.temp }}/aurora-core-evidence
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}
+      - name: Set runner-local evidence directory
+        run: printf 'EVIDENCE_DIR=%s/aurora-core-evidence\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
       - name: Evidence recovery and failure-path regressions
         run: python3 -m unittest discover -s scripts/ci/tests -p test_aurora_core_evidence.py -v
       - name: Three-way merge probe (no push)

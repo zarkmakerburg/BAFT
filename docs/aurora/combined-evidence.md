@@ -73,6 +73,15 @@ empty repository, verify the self-contained bundle and fetch its explicit ref.
 An initial read guessed `core-reconciliation-preflight.yml`; inventory found the
 existing `core-reconcile-preflight.yml`. No existing file or guard was removed.
 
+First published source `cd633e5` did not start the combined workflow: review found
+`runner.temp` in job-level `env`, where GitHub's context availability table does
+not permit `runner`. The normal YAML parser and supply-chain check had not caught
+this semantic restriction. The follow-up keeps the original commit and sets the
+path from `$RUNNER_TEMP` through `$GITHUB_ENV` inside a runner step. Reference:
+https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#context-availability
+Other workflows starting successfully at the first SHA did not qualify this
+missing mandatory gate. No rerun or permission increase bypasses that requirement.
+
 This records source regression evidence only. Full current-head CI/race/vet/fuzz,
 review, rendered FA/EN × dark/light × 320/390/768/1440 parity, keyboard/accessibility,
 classic feature retention and secure feature-flagged route integration remain

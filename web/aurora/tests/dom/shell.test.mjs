@@ -46,6 +46,44 @@ test('completion preserves a control focused while data was pending', async t =>
   assert.equal(ui.document.activeElement.dataset.action, 'language');
 });
 
+test('pending completion retains nav and skip links across every language and theme without activating them', async t => {
+  for (const language of ['fa', 'en']) for (const theme of ['dark', 'light']) {
+    for (const href of ['#overview', '#nodes', '#tunnels', '#aurora-content']) {
+      const ui = await realm({ language, theme }); t.after(() => ui.close());
+      const pending = deferred(); const snapshot = await ui.demo().getOverview();
+      ui.mount({ mode: 'demo', getOverview: () => pending.promise });
+      ui.root.querySelector(`a[href="${href}"]`).focus();
+      assert.equal(ui.document.activeElement.getAttribute('href'), href);
+      pending.resolve(snapshot); await settle();
+      assert.equal(ui.document.activeElement.getAttribute('href'), href, `${language}/${theme}/${href}`);
+      assert.equal(ui.root.querySelector('[aria-current=page]').getAttribute('href'), '#overview');
+      assert.equal(ui.errors.length, 0);
+    }
+  }
+});
+
+test('pending rejection retains a focused nav link without exposing error detail', async t => {
+  const ui = await realm({ language: 'en', theme: 'light' }); t.after(() => ui.close());
+  const pending = deferred();
+  ui.mount({ mode: 'demo', getOverview: () => pending.promise });
+  ui.root.querySelector('a[href="#tunnels"]').focus();
+  pending.reject(Error('synthetic-private-error')); await settle();
+  assert.equal(ui.document.activeElement.getAttribute('href'), '#tunnels');
+  assert.match(ui.root.querySelector('[role=status]').textContent, /could not/);
+  assert.doesNotMatch(ui.root.textContent, /synthetic-private-error/);
+});
+
+test('reload completion keeps the link chosen after starting refresh', async t => {
+  const ui = await realm(); t.after(() => ui.close());
+  const snapshot = await ui.demo().getOverview(); const pending = deferred(); let calls = 0;
+  ui.mount({ mode: 'demo', getOverview: () => ++calls === 1 ? Promise.resolve(snapshot) : pending.promise });
+  await settle(); ui.click('reload');
+  ui.root.querySelector('a[href="#nodes"]').focus();
+  pending.resolve(snapshot); await settle();
+  assert.equal(ui.document.activeElement.getAttribute('href'), '#nodes');
+  assert.equal(calls, 2);
+});
+
 test('navigation while pending keeps main focused after completion', async t => {
   const ui = await realm(); t.after(() => ui.close());
   const pending = deferred(); const snapshot = await ui.demo().getOverview();

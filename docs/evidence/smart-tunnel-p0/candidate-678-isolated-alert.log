@@ -1,0 +1,4 @@
+=== RUN   TestUnreachableIncidentIsDeterministicAndRestartSafe
+--- PASS: TestUnreachableIncidentIsDeterministicAndRestartSafe (100.46s)
+PASS
+ok  	github.com/zarkmakerburg/baft/internal/bcc	101.483s

@@ -16,6 +16,7 @@ desc:{servers:'سرورهای ثبت‌شده، وضعیت و موقعیت آن�
 mapTitle:'وضعیت لحظه‌ای شبکه',mapSub:'ارتباط سرورها و تونل‌های فعال روی نقشه',worldView:'نمای جهان',simpleMap:'نقشهٔ ساده',demo:'داده‌های نمونه',
 kServers:'سرورهای فعال',kTunnels:'تونل‌های فعال',kLatency:'میانگین تأخیر',kTraffic:'ترافیک جاری',kAlerts:'هشدارها',serverStatus:'وضعیت سرورها',viewAll:'مشاهدهٔ همه',traffic:'ترافیک شبکه',in:'ورودی',out:'خروجی',r24:'۲۴ ساعت',r7:'۷ روز',
 up:'آنلاین',down:'آفلاین',unknown:'نامشخص',revoked:'لغوشده',noServers:'هنوز سروری ثبت نشده است.',addServer:'افزودن سرور',noTraffic:'هنوز ترافیکی گزارش نشده است.',noLocation:n=>n+' سرور موقعیت ندارد؛ کشورش از IP تشخیص داده نشد، آن را در صفحهٔ سرورها انتخاب کنید',autoLoc:'تشخیص خودکار از IP',
+autoCountry:'تشخیص از IP',manualLoc:'انتخاب دستی',autoUnknown:'کشور از IP تشخیص داده نشد',mapApprox:'نقطهٔ نقشه نمایندهٔ تقریبی کشور است؛ موقعیت دقیق سرور نیست.',doctorStale:'شواهد منقضی یا ناقص است؛ نتیجهٔ فعلی نامشخص است.',doctorStored:'ارزیابی گزارش‌های موجود؛ سنجش زندهٔ جدید انجام نمی‌شود.',doctorObserved:'زمان شواهد',
 netOk:'شبکه فعال',netOkSub:'همهٔ سرورها آنلاین',netWarn:n=>n+' هشدار فعال',netWarnSub:'جزئیات در مانیتورینگ',netPart:(a,b)=>a+' از '+b+' سرور آنلاین',netPartSub:'برخی سرورها پاسخ نمی‌دهند',netNone:'شبکه خالی است',netNoneSub:'اولین سرور را اضافه کنید',netWait:'در حال دریافت وضعیت…',
 support:'حمایت از ما',supportTitle:'حمایت از بافت',supportText:'بافت متن‌باز و رایگان است. اگر برایتان مفید بوده، با یک ستاره در گیت‌هاب، یک قهوه یا کمک رمزارزی در ادامه‌ی کار سهیم شوید.',supportStar:'ستاره در گیت‌هاب',supportCoffee:'یک قهوه مهمان‌مان کنید',supportWallets:'آدرس کیف پول‌ها',supportNetwork:'شبکه',supportCheck:'پیش از ارسال، شبکه و آدرس را دوباره بررسی کنید؛ تراکنش رمزارز برگشت‌پذیر نیست.',copy:'کپی',copied:'کپی شد',close:'بستن',
 loading:'در حال دریافت…',error:'دریافت اطلاعات ناموفق بود؛ دوباره تلاش کنید.',expired:'نشست منقضی شده؛ دوباره وارد شوید.',refresh:'تازه‌سازی',updated:'به‌روز شده',
@@ -37,6 +38,7 @@ desc:{servers:'Enrolled servers, their state and where they sit on the map',tunn
 mapTitle:'Network Overview',mapSub:'Servers and active tunnels on the map',worldView:'World Map',simpleMap:'Simple Map',demo:'Sample data',
 kServers:'Active Servers',kTunnels:'Active Tunnels',kLatency:'Average Latency',kTraffic:'Current Traffic',kAlerts:'Alerts',serverStatus:'Server Status',viewAll:'View all',traffic:'Network Traffic',in:'In',out:'Out',r24:'24 Hours',r7:'7 Days',
 up:'Online',down:'Offline',unknown:'Unknown',revoked:'Revoked',noServers:'No servers enrolled yet.',addServer:'Add server',noTraffic:'No traffic reported yet.',noLocation:n=>n+(n===1?' server has':' servers have')+' no location; its IP did not match a country, pick one on the Servers page',autoLoc:'Detected from IP',
+autoCountry:'Detect from IP',manualLoc:'Manual selection',autoUnknown:'Country could not be detected from IP',mapApprox:'The map uses an approximate country anchor, not the server’s exact location.',doctorStale:'Evidence is expired or incomplete; the current result is unknown.',doctorStored:'Assesses existing reports; no new live measurement is performed.',doctorObserved:'Evidence time',
 netOk:'Network Online',netOkSub:'All servers online',netWarn:n=>n+(n===1?' active alert':' active alerts'),netWarnSub:'Details in Monitoring',netPart:(a,b)=>a+' of '+b+' servers online',netPartSub:'Some servers are not responding',netNone:'No servers yet',netNoneSub:'Add your first server',netWait:'Loading status…',
 support:'Support us',supportTitle:'Support BAFT',supportText:'BAFT is open source and free. If it helps you, keep it going with a GitHub star, a coffee or a crypto donation.',supportStar:'Star on GitHub',supportCoffee:'Buy us a coffee',supportWallets:'Wallet addresses',supportNetwork:'Network',supportCheck:'Check the network and address before sending; crypto transfers cannot be reversed.',copy:'Copy',copied:'Copied',close:'Close',
 loading:'Loading…',error:'Could not load data. Try again.',expired:'Session expired. Sign in again.',refresh:'Refresh',updated:'Updated',
@@ -173,7 +175,7 @@ function mountDashboard(main){main.append(dashboardView());$('range').value=rang
   const tip=$('mapTip');
   map=window.BAFT_MAP.create($('mapCanvas'),{assetBase,countryName,unknown:()=>t('unknown'),onSelect(n,l){sel=n?{id:n.id,link:l?.tunnel_id||null}:null;paintPanel()},
     onHover(n,x,y){if(!n){tip.hidden=true;return}tip.hidden=false;tip.innerHTML='<b>'+esc(n.alias)+'</b> · '+esc(t(n.status)||n.status)+(n.latency_ms!=null?' · <span class="ltr">'+n.latency_ms+' ms</span>':'');tip.style.left=(x+14)+'px';tip.style.top=(y+14)+'px'}});
-  map.mode(mapMode);sel=null;paintDashboard();loadAudit(true);paintQuick();clearInterval(freshTimer);freshTimer=setInterval(paintFresh,5000)}
+  map.mode(mapMode);sel=null;paintDashboard();loadAudit(true);paintQuick();clearInterval(freshTimer);freshTimer=setInterval(()=>{paintFresh();paintDoctorResults()},5000)}
 function kpi(cls,icon,label,value,extra=''){return'<div class="kpi'+(cls?' '+cls:'')+'"><span class="ic '+icon[1]+'">'+svg(icon[0])+'</span><div class="body"><span>'+esc(label)+'</span><strong class="num">'+value+'</strong>'+extra+'</div></div>'}
 function sparkPath(vals,wd,ht){const pts=vals.filter(Number.isFinite);if(pts.length<2)return'';const mx=Math.max(...pts),mn=Math.min(...pts),r=mx-mn||1;return pts.map((v,i)=>(i?'L':'M')+(i*wd/(pts.length-1)).toFixed(1)+' '+(ht-2-(v-mn)/r*(ht-4)).toFixed(1)).join(' ')}
 function paintDashboard(){const k=$('kpis');if(!k)return;const o=overview,dash='—';
@@ -213,11 +215,13 @@ function paintPanel(){const p=$('mapPanel');if(!p)return;const n=sel&&overview?.
       +'<small>'+esc(aliasOf(l.ir_node))+' → '+esc(aliasOf(l.ex_node))+' · <span class="ltr">:'+esc(l.port)+'</span></small>'
       +'<small>'+esc(t('certExpiry'))+': '+(c?.not_after?esc(ago(c.not_after)):esc(c?t('certUnknown'):'—'))+'</small>'
       +(live?'<button type="button" class="btn small" data-doctor="'+esc(l.tunnel_id)+'"'+(dr==='run'?' disabled':'')+'>'+esc(dr==='run'?t('doctorRunning'):t('runDoctor'))+'</button>':'')
-      +(dr&&dr!=='run'?'<p class="doctor '+(dr.verdict==='PASS'?'ok':dr.verdict==='NOT_ASSESSED'?'warn':'bad')+'">'+esc(dr.error||(lang()==='fa'?dr.summary_fa:dr.summary_en)||dr.verdict)+'</p>':'')+'</div>'}).join(''):'<p class="muted">'+esc(t('panelNoTunnels'))+'</p>')
+      +(dr&&dr!=='run'?'<div data-doctor-result="'+esc(l.tunnel_id)+'">'+doctorHTML(dr)+'</div>':'')+'</div>'}).join(''):'<p class="muted">'+esc(t('panelNoTunnels'))+'</p>')
    +'<a class="text-link" href="#servers">'+esc(t('openServers'))+'</a>';
   p.hidden=false;$('panelClose').onclick=()=>{sel=null;p.hidden=true};
   for(const b of p.querySelectorAll('[data-doctor]'))b.onclick=()=>runDoctor(b.dataset.doctor)}
-async function runDoctor(id){doctor[id]='run';paintPanel();try{doctor[id]=await api('route-doctor',{method:'POST',body:{tunnel_id:id}})}catch(e){doctor[id]={error:e.message==='SESSION'?'':t('qFailed')+': '+e.message}}paintPanel()}
+function doctorHTML(r){if(r.error)return'<p class="doctor warn">'+esc(r.error)+'</p>';const v=window.rdCurrent?window.rdCurrent(r):{verdict:'NOT_ASSESSED',stale:true,at:''};return'<p class="doctor '+(v.verdict==='PASS'?'ok':v.verdict==='FAIL'?'bad':'warn')+'">'+esc(v.stale?t('doctorStale'):(lang()==='fa'?r.summary_fa:r.summary_en)||v.verdict)+'</p><small class="muted">'+esc(t('doctorObserved'))+': '+esc(v.at||'—')+'<br>'+esc(t('doctorStored'))+'</small>'}
+function paintDoctorResults(){for(const p of document.querySelectorAll('[data-doctor-result]')){const r=doctor[p.dataset.doctorResult];if(r&&r!=='run'){const html=doctorHTML(r);if(p.innerHTML!==html)p.innerHTML=html}}}
+async function runDoctor(id){if(doctor[id]==='run')return;doctor[id]='run';paintPanel();try{const r=await api('route-doctor',{method:'POST',body:{tunnel_id:id}});if(r?.tunnel_id!==id)throw new Error('SCOPE');doctor[id]=r}catch(e){doctor[id]={error:e.message==='SESSION'?t('expired'):t('failed')}}paintPanel()}
 function paintHealth(){const h=$('health');if(!h)return;const o=overview;if(!o){h.innerHTML='<div class="empty">'+esc(loadState==='error'?t('error'):t('loading'))+'</div>';return}
   const x=o.health||{},certs=(x.certs||[]).filter(c=>c.not_after).sort((a,b)=>Date.parse(a.not_after)-Date.parse(b.not_after)),next=certs[0];
   const soon=next&&Date.parse(next.not_after)-Date.now()<14*864e5,old=x.last_backup&&Date.now()-Date.parse(x.last_backup)>2*864e5;
@@ -267,7 +271,7 @@ function phaseLabel(p){return lang()==='fa'?(PHASE_FA[p]||(p.startsWith('prepari
 function roleLabel(r){return r==='foreign'?t('roleEX'):r==='master'?t('roleMaster'):t('roleIR')}
 function roleBadge(r){return'<span class="badge '+(r==='foreign'?'blue':'gold')+'">'+esc(roleLabel(r))+'</span>'}
 
-let nodeDetail={};
+let nodeDetail={};const countryPending=new Set();
 async function serversView(main){main.insertAdjacentHTML('beforeend',pageHead('servers','<button type="button" class="btn gold small" id="addServer">'+svg('plus')+esc(t('addServer'))+'</button>')+'<div class="stack"><section class="card"><div id="serverTable"></div><div class="status-line" id="serverStatus" role="status"></div></section></div>');
   const stack=main.querySelector('.stack');stack.append(tool('ssh',['plus','gold'],'tSsh','tSshSub',false),tool('manual',['servers','blue'],'tManual','tManualSub',false),tool('migrate',['key','amber'],'tMigrate','tMigrateSub',false));
   $('addServer').addEventListener('click',()=>{const d=main.querySelector('[data-tool=ssh]');d.open=true;d.scrollIntoView({behavior:'smooth',block:'start'})});
@@ -276,8 +280,21 @@ function paintServers(){const host=$('serverTable');if(!host)return;const nodes=
   if(!overview){host.innerHTML='<div class="empty">'+esc(loadState==='error'?t('error'):t('loading'))+'</div>';return}
   if(!nodes.length){host.innerHTML='<div class="empty"><b>'+esc(t('noServers'))+'</b></div>';const d=document.querySelector('[data-tool=ssh]');if(d)d.open=true;return}
   const opts=c=>'<option value="">'+esc(t('noCountry'))+'</option>'+COUNTRIES.map(x=>[x,countryName(x)]).sort((a,b)=>a[1].localeCompare(b[1],lang())).map(([x,name])=>'<option value="'+x+'"'+(x===c?' selected':'')+'>'+esc(name)+'</option>').join('');
-  host.innerHTML=table([t('colServer'),t('colRole'),t('colStatus'),t('colLatency'),t('uptime'),t('trafficNow'),t('colSeen'),t('colLocation'),t('colAddress')],nodes.map(n=>'<tr><td><div class="cell">'+flagHTML(n.country)+'<div><b>'+esc(n.alias)+'</b><br><small class="ltr">'+esc(n.id)+'</small></div></div></td><td>'+roleBadge(n.role)+'</td><td>'+statusPill(n.status)+'</td><td class="ltr">'+(n.latency_ms!=null?n.latency_ms+' ms':'—')+'</td><td>'+(n.uptime_pct!=null?pct(n.uptime_pct):'—')+'</td><td class="ltr">'+esc(n.in_bps!=null?'↓ '+bps(n.in_bps).join(' ')+' · ↑ '+bps(n.out_bps).join(' '):'—')+'</td><td>'+esc(n.last_seen?ago(n.last_seen):'—')+'</td><td><select data-country="'+esc(n.id)+'" aria-label="'+esc(t('colLocation')+' '+n.alias)+'"'+(live&&!n.revoked?'':' disabled')+'>'+opts(n.country)+'</select>'+(nodeDetail[n.id]?.country_auto?'<br><small class="muted">'+esc(t('autoLoc'))+'</small>':'')+'</td><td class="ltr"><small>'+esc(nodeDetail[n.id]?.address||'—')+'</small></td></tr>'));
-  for(const s of host.querySelectorAll('select[data-country]'))s.addEventListener('change',async ev=>{const sel=ev.target;sel.disabled=true;try{await api('nodes/location',{method:'POST',body:{node_id:sel.dataset.country,country:sel.value}});$('serverStatus').textContent=t('saved');await refresh()}catch(e){if(e.message!=='SESSION')toast(t('failed'),true)}finally{sel.disabled=false}});applySearch()}
+  const locationCell=n=>{const disabled=!(live&&!n.revoked)||countryPending.has(n.id),manual=n.country_manual||(n.country&&!n.country_auto);
+    return '<select data-country="'+esc(n.id)+'" aria-label="'+esc(t('colLocation')+' '+n.alias)+'"'+(disabled?' disabled':'')+'>'+opts(n.country)+'</select><br><small class="muted">'+esc(manual?t('manualLoc'):n.country?t('autoLoc'):t('autoUnknown'))+'</small><br><button type="button" class="btn small" data-country-auto="'+esc(n.id)+'"'+(disabled?' disabled':'')+'>'+esc(t('autoCountry'))+'</button>'};
+  host.innerHTML='<p class="muted">'+esc(t('mapApprox'))+'</p>'+table([t('colServer'),t('colRole'),t('colStatus'),t('colLatency'),t('uptime'),t('trafficNow'),t('colSeen'),t('colLocation'),t('colAddress')],nodes.map(n=>'<tr><td><div class="cell">'+flagHTML(n.country)+'<div><b>'+esc(n.alias)+'</b><br><small class="ltr">'+esc(n.id)+'</small></div></div></td><td>'+roleBadge(n.role)+'</td><td>'+statusPill(n.status)+'</td><td class="ltr">'+(n.latency_ms!=null?n.latency_ms+' ms':'—')+'</td><td>'+(n.uptime_pct!=null?pct(n.uptime_pct):'—')+'</td><td class="ltr">'+esc(n.in_bps!=null?'↓ '+bps(n.in_bps).join(' ')+' · ↑ '+bps(n.out_bps).join(' '):'—')+'</td><td>'+esc(n.last_seen?ago(n.last_seen):'—')+'</td><td>'+locationCell(n)+'</td><td class="ltr"><small>'+esc(nodeDetail[n.id]?.address||'—')+'</small></td></tr>'));
+  for(const s of host.querySelectorAll('select[data-country]'))s.addEventListener('change',ev=>setServerLocation(ev.target.dataset.country,ev.target.value,false));
+  for(const b of host.querySelectorAll('[data-country-auto]'))b.addEventListener('click',()=>setServerLocation(b.dataset.countryAuto,'',true));
+  applySearch()}
+async function setServerLocation(id,country,automatic){
+  const n=overview?.nodes?.find(n=>n.id===id);if(!live||!n||n.revoked||countryPending.has(id))return;
+  countryPending.add(id);paintServers();
+  try{const saved=await api('nodes/location',{method:'POST',body:{node_id:id,country,automatic}});
+    if(!saved||saved.id!==id)throw new Error('LOCATION');
+    nodeDetail[id]=saved;Object.assign(n,{country:saved.country||'',country_auto:!!saved.country_auto,country_manual:!!saved.country_manual});
+    if($('serverStatus'))$('serverStatus').textContent=t('saved');await refresh();
+  }catch(e){if(e.message!=='SESSION')toast(t('failed'),true)}
+  finally{countryPending.delete(id);paintServers()}}
 
 function tunnelsView(main){main.insertAdjacentHTML('beforeend',pageHead('tunnels')+'<div class="stack"></div>');main.querySelector('.stack').append(tool('tunnels',['tunnels','green'],'tTunnels','tTunnelsSub',true),tool('discovery',['search','blue'],'tDiscovery','tDiscoverySub',false),tool('doctor',['route','amber'],'tDoctor','tDoctorSub',false),tool('paths',['globe','gold'],'tPaths','tPathsSub',false),tool('changes',['doc','gray'],'tChanges','tChangesSub',false))}
 

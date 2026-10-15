@@ -1,0 +1,856 @@
+panic: test timed out after 3m0s
+	running tests:
+		TestUnreachableIncidentIsDeterministicAndRestartSafe (1m4s)
+
+goroutine 46668 [running]:
+testing.(*M).startAlarm.func1()
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2959 +0x605
+created by time.goFunc
+	/workspace/scratch/0dc4d492ab5c/go/src/time/sleep.go:182 +0x45
+
+goroutine 1 [chan receive, 1 minutes]:
+testing.(*T).Run(0xc000170b48, {0x158fd70, 0x34}, 0x2080510)
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2266 +0xb3e
+testing.runTests.func1(0xc000170b48)
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2742 +0x85
+testing.tRunner(0xc000170b48, 0xc00037fa40)
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2193 +0x21d
+testing.runTests({0x1576dfe, 0x1d}, {0x1586ac3, 0x2a}, 0xc0001323f0, {0x21a6f50, 0x13e, 0x13e}, {0xc2abc0ffd07ff64b, 0x29e965fa0a, ...})
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2740 +0x9ea
+testing.(*M).Run(0xc0002a59a0)
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2600 +0xf45
+main.main()
+	_testmain.go:682 +0x165
+
+goroutine 33663 [select]:
+net/http.(*persistConn).writeLoop(0xc0002a7a40)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2810 +0x1b5
+created by net/http.(*Transport).dialConn in goroutine 33661
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2124 +0x397d
+
+goroutine 42540 [IO wait]:
+internal/poll.runtime_pollWait(0x7fd57ab20600, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc0003382a0, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0xc000338280, {0xc0003d1000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:170 +0x499
+net.(*netFD).Read(0xc000338280, {0xc0003d1000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_posix.go:68 +0x4b
+net.(*conn).Read(0xc0000060d0, {0xc0003d1000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/net.go:196 +0xad
+net/http.(*connReader).Read(0xc007bd41c0, {0xc0003d1000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:856 +0x288
+bufio.(*Reader).fill(0xc00467c0c0)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:113 +0x2a4
+bufio.(*Reader).Peek(0xc00467c0c0, 0x4)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:152 +0xaf
+net/http.(*conn).serve(0xc0000fc360, {0x207e330, 0xc00506a6f0})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:2173 +0x112e
+created by net/http.(*Server).Serve in goroutine 42582
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:3581 +0x92a
+
+goroutine 46222 [IO wait]:
+internal/poll.runtime_pollWait(0x7fd56358c200, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc0066c00a0, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0xc0066c0080, {0xc000580000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:170 +0x499
+net.(*netFD).Read(0xc0066c0080, {0xc000580000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_posix.go:68 +0x4b
+net.(*conn).Read(0xc004502018, {0xc000580000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/net.go:196 +0xad
+net/http.(*connReader).Read(0xc007bd4000, {0xc000580000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:856 +0x288
+bufio.(*Reader).fill(0xc0000a4060)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:113 +0x2a4
+bufio.(*Reader).Peek(0xc0000a4060, 0x4)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:152 +0xaf
+net/http.(*conn).serve(0xc000336000, {0x207e330, 0xc00506a150})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:2173 +0x112e
+created by net/http.(*Server).Serve in goroutine 46190
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:3581 +0x92a
+
+goroutine 44387 [IO wait]:
+internal/poll.runtime_pollWait(0x7fd57832a800, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc0066c0d20, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Accept(0xc0066c0d00)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:618 +0x4ea
+net.(*netFD).accept(0xc0066c0d00)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_unix.go:149 +0x45
+net.(*TCPListener).accept(0xc005ae6ec0)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/tcpsock_posix.go:159 +0x4e
+net.(*TCPListener).Accept(0xc005ae6ec0)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/tcpsock.go:387 +0x65
+net/http.(*Server).Serve(0xc000523180, {0x207dce8, 0xc005ae6ec0})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:3551 +0x6ad
+net/http/httptest.(*Server).goServe.func1()
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/httptest/server.go:586 +0xad
+created by net/http/httptest.(*Server).goServe in goroutine 29496
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/httptest/server.go:584 +0xeb
+
+goroutine 37302 [IO wait]:
+internal/poll.runtime_pollWait(0x7fd56358c600, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc00015a6a0, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0xc00015a680, {0xc0005f8000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:170 +0x499
+net.(*netFD).Read(0xc00015a680, {0xc0005f8000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_posix.go:68 +0x4b
+net.(*conn).Read(0xc0045823c0, {0xc0005f8000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/net.go:196 +0xad
+net/http.(*connReader).Read(0xc000136d80, {0xc0005f8000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:856 +0x288
+bufio.(*Reader).fill(0xc0000a50e0)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:113 +0x2a4
+bufio.(*Reader).Peek(0xc0000a50e0, 0x4)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:152 +0xaf
+net/http.(*conn).serve(0xc005068e10, {0x207e330, 0xc004767a70})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:2173 +0x112e
+created by net/http.(*Server).Serve in goroutine 37095
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:3581 +0x92a
+
+goroutine 46666 [chan receive]:
+database/sql.(*Tx).awaitDone(0xc00042bb00)
+	/workspace/scratch/0dc4d492ab5c/go/src/database/sql/sql.go:2217 +0x4a
+created by database/sql.(*DB).beginDC in goroutine 29496
+	/workspace/scratch/0dc4d492ab5c/go/src/database/sql/sql.go:1930 +0x428
+
+goroutine 35297 [IO wait]:
+internal/poll.runtime_pollWait(0x7fd56358ca00, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc000322b20, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Accept(0xc000322b00)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:618 +0x4ea
+net.(*netFD).accept(0xc000322b00)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_unix.go:149 +0x45
+net.(*TCPListener).accept(0xc005ae6cc0)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/tcpsock_posix.go:159 +0x4e
+net.(*TCPListener).Accept(0xc005ae6cc0)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/tcpsock.go:387 +0x65
+net/http.(*Server).Serve(0xc0002a72c0, {0x207dce8, 0xc005ae6cc0})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:3551 +0x6ad
+net/http/httptest.(*Server).goServe.func1()
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/httptest/server.go:586 +0xad
+created by net/http/httptest.(*Server).goServe in goroutine 29496
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/httptest/server.go:584 +0xeb
+
+goroutine 30043 [IO wait]:
+internal/poll.runtime_pollWait(0x7fd57ab20400, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc00504d320, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0xc00504d300, {0xc0003ea000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:170 +0x499
+net.(*netFD).Read(0xc00504d300, {0xc0003ea000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_posix.go:68 +0x4b
+net.(*conn).Read(0xc000102330, {0xc0003ea000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/net.go:196 +0xad
+net/http.(*persistConn).Read(0xc000675400, {0xc0003ea000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2300 +0x233
+bufio.(*Reader).fill(0xc0000a48a0)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:113 +0x2a4
+bufio.(*Reader).Peek(0xc0000a48a0, 0x1)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:152 +0xaf
+net/http.(*persistConn).readLoop(0xc000675400)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2483 +0x31b
+created by net/http.(*Transport).dialConn in goroutine 30042
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2123 +0x38f2
+
+goroutine 31807 [IO wait]:
+internal/poll.runtime_pollWait(0x7fd57832aa00, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc00504d8a0, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0xc00504d880, {0xc00047f000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:170 +0x499
+net.(*netFD).Read(0xc00504d880, {0xc00047f000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_posix.go:68 +0x4b
+net.(*conn).Read(0xc0045822c0, {0xc00047f000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/net.go:196 +0xad
+net/http.(*persistConn).Read(0xc0005232c0, {0xc00047f000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2300 +0x233
+bufio.(*Reader).fill(0xc000134c60)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:113 +0x2a4
+bufio.(*Reader).Peek(0xc000134c60, 0x1)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:152 +0xaf
+net/http.(*persistConn).readLoop(0xc0005232c0)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2483 +0x31b
+created by net/http.(*Transport).dialConn in goroutine 31806
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2123 +0x38f2
+
+goroutine 37095 [IO wait]:
+internal/poll.runtime_pollWait(0x7fd5783bae00, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc000339a20, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Accept(0xc000339a00)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:618 +0x4ea
+net.(*netFD).accept(0xc000339a00)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_unix.go:149 +0x45
+net.(*TCPListener).accept(0xc005ae6d40)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/tcpsock_posix.go:159 +0x4e
+net.(*TCPListener).Accept(0xc005ae6d40)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/tcpsock.go:387 +0x65
+net/http.(*Server).Serve(0xc000523400, {0x207dce8, 0xc005ae6d40})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:3551 +0x6ad
+net/http/httptest.(*Server).goServe.func1()
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/httptest/server.go:586 +0xad
+created by net/http/httptest.(*Server).goServe in goroutine 29496
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/httptest/server.go:584 +0xeb
+
+goroutine 33423 [IO wait]:
+internal/poll.runtime_pollWait(0x7fd5d0f47400, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc00504c8a0, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Accept(0xc00504c880)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:618 +0x4ea
+net.(*netFD).accept(0xc00504c880)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_unix.go:149 +0x45
+net.(*TCPListener).accept(0xc00030f040)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/tcpsock_posix.go:159 +0x4e
+net.(*TCPListener).Accept(0xc00030f040)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/tcpsock.go:387 +0x65
+net/http.(*Server).Serve(0xc000522500, {0x207dce8, 0xc00030f040})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:3551 +0x6ad
+net/http/httptest.(*Server).goServe.func1()
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/httptest/server.go:586 +0xad
+created by net/http/httptest.(*Server).goServe in goroutine 29496
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/httptest/server.go:584 +0xeb
+
+goroutine 31808 [select]:
+net/http.(*persistConn).writeLoop(0xc0005232c0)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2810 +0x1b5
+created by net/http.(*Transport).dialConn in goroutine 31806
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2124 +0x397d
+
+goroutine 39145 [IO wait]:
+internal/poll.runtime_pollWait(0x7fd5d0f46a00, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc00504dda0, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0xc00504dd80, {0xc0006d0000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:170 +0x499
+net.(*netFD).Read(0xc00504dd80, {0xc0006d0000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_posix.go:68 +0x4b
+net.(*conn).Read(0xc0044c2278, {0xc0006d0000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/net.go:196 +0xad
+net/http.(*connReader).Read(0xc007bd5ec0, {0xc0006d0000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:856 +0x288
+bufio.(*Reader).fill(0xc00467cea0)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:113 +0x2a4
+bufio.(*Reader).Peek(0xc00467cea0, 0x4)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:152 +0xaf
+net/http.(*conn).serve(0xc005068510, {0x207e330, 0xc0047667b0})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:2173 +0x112e
+created by net/http.(*Server).Serve in goroutine 38935
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:3581 +0x92a
+
+goroutine 46397 [select]:
+net/http.(*persistConn).writeLoop(0xc0004c68c0)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2810 +0x1b5
+created by net/http.(*Transport).dialConn in goroutine 46395
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2124 +0x397d
+
+goroutine 31776 [IO wait]:
+internal/poll.runtime_pollWait(0x7fd57832a400, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc0066c09a0, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0xc0066c0980, {0xc0003eb000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:170 +0x499
+net.(*netFD).Read(0xc0066c0980, {0xc0003eb000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_posix.go:68 +0x4b
+net.(*conn).Read(0xc004502328, {0xc0003eb000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/net.go:196 +0xad
+net/http.(*connReader).Read(0xc007dbc900, {0xc0003eb000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:856 +0x288
+bufio.(*Reader).fill(0xc00030a300)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:113 +0x2a4
+bufio.(*Reader).Peek(0xc00030a300, 0x4)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:152 +0xaf
+net/http.(*conn).serve(0xc0000fcbd0, {0x207e330, 0xc00038ade0})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:2173 +0x112e
+created by net/http.(*Server).Serve in goroutine 31596
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:3581 +0x92a
+
+goroutine 29955 [IO wait]:
+internal/poll.runtime_pollWait(0x7fd57832b000, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc000338620, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0xc000338600, {0xc00047e000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:170 +0x499
+net.(*netFD).Read(0xc000338600, {0xc00047e000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_posix.go:68 +0x4b
+net.(*conn).Read(0xc005b3e090, {0xc00047e000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/net.go:196 +0xad
+net/http.(*connReader).Read(0xc00506c780, {0xc00047e000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:856 +0x288
+bufio.(*Reader).fill(0xc000135860)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:113 +0x2a4
+bufio.(*Reader).Peek(0xc000135860, 0x4)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:152 +0xaf
+net/http.(*conn).serve(0xc005068870, {0x207e330, 0xc0045920c0})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:2173 +0x112e
+created by net/http.(*Server).Serve in goroutine 29497
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:3581 +0x92a
+
+goroutine 29497 [IO wait, 1 minutes]:
+internal/poll.runtime_pollWait(0x7fd57ab20c00, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc0066c0020, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Accept(0xc0066c0000)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:618 +0x4ea
+net.(*netFD).accept(0xc0066c0000)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_unix.go:149 +0x45
+net.(*TCPListener).accept(0xc0001fa080)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/tcpsock_posix.go:159 +0x4e
+net.(*TCPListener).Accept(0xc0001fa080)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/tcpsock.go:387 +0x65
+net/http.(*Server).Serve(0xc00020c000, {0x207dce8, 0xc0001fa080})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:3551 +0x6ad
+net/http/httptest.(*Server).goServe.func1()
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/httptest/server.go:586 +0xad
+created by net/http/httptest.(*Server).goServe in goroutine 29496
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/httptest/server.go:584 +0xeb
+
+goroutine 39112 [select]:
+net/http.(*persistConn).writeLoop(0xc000523900)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2810 +0x1b5
+created by net/http.(*Transport).dialConn in goroutine 39110
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2124 +0x397d
+
+goroutine 42795 [IO wait]:
+internal/poll.runtime_pollWait(0x7fd5d0f47200, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc0066c19a0, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0xc0066c1980, {0xc00067b000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:170 +0x499
+net.(*netFD).Read(0xc0066c1980, {0xc00067b000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_posix.go:68 +0x4b
+net.(*conn).Read(0xc0045822e8, {0xc00067b000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/net.go:196 +0xad
+net/http.(*persistConn).Read(0xc0002a7680, {0xc00067b000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2300 +0x233
+bufio.(*Reader).fill(0xc000134d20)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:113 +0x2a4
+bufio.(*Reader).Peek(0xc000134d20, 0x1)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:152 +0xaf
+net/http.(*persistConn).readLoop(0xc0002a7680)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2483 +0x31b
+created by net/http.(*Transport).dialConn in goroutine 42794
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2123 +0x38f2
+
+goroutine 46190 [IO wait]:
+internal/poll.runtime_pollWait(0x7fd5d0f47600, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc00504d520, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Accept(0xc00504d500)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:618 +0x4ea
+net.(*netFD).accept(0xc00504d500)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_unix.go:149 +0x45
+net.(*TCPListener).accept(0xc007dbd740)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/tcpsock_posix.go:159 +0x4e
+net.(*TCPListener).Accept(0xc007dbd740)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/tcpsock.go:387 +0x65
+net/http.(*Server).Serve(0xc0002a6dc0, {0x207dce8, 0xc007dbd740})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:3551 +0x6ad
+net/http/httptest.(*Server).goServe.func1()
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/httptest/server.go:586 +0xad
+created by net/http/httptest.(*Server).goServe in goroutine 29496
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/httptest/server.go:584 +0xeb
+
+goroutine 30044 [select]:
+net/http.(*persistConn).writeLoop(0xc000675400)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2810 +0x1b5
+created by net/http.(*Transport).dialConn in goroutine 30042
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2124 +0x397d
+
+goroutine 35507 [IO wait]:
+internal/poll.runtime_pollWait(0x7fd56358c400, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc00015a220, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0xc00015a200, {0xc0001e9000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:170 +0x499
+net.(*netFD).Read(0xc00015a200, {0xc0001e9000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_posix.go:68 +0x4b
+net.(*conn).Read(0xc004582040, {0xc0001e9000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/net.go:196 +0xad
+net/http.(*persistConn).Read(0xc0006748c0, {0xc0001e9000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2300 +0x233
+bufio.(*Reader).fill(0xc00030a0c0)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:113 +0x2a4
+bufio.(*Reader).Peek(0xc00030a0c0, 0x1)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:152 +0xaf
+net/http.(*persistConn).readLoop(0xc0006748c0)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2483 +0x31b
+created by net/http.(*Transport).dialConn in goroutine 35506
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2123 +0x38f2
+
+goroutine 33662 [IO wait]:
+internal/poll.runtime_pollWait(0x7fd5d0f46e00, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc0066c1aa0, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0xc0066c1a80, {0xc000299000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:170 +0x499
+net.(*netFD).Read(0xc0066c1a80, {0xc000299000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_posix.go:68 +0x4b
+net.(*conn).Read(0xc0045024e8, {0xc000299000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/net.go:196 +0xad
+net/http.(*persistConn).Read(0xc0002a7a40, {0xc000299000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2300 +0x233
+bufio.(*Reader).fill(0xc000135020)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:113 +0x2a4
+bufio.(*Reader).Peek(0xc000135020, 0x1)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:152 +0xaf
+net/http.(*persistConn).readLoop(0xc0002a7a40)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2483 +0x31b
+created by net/http.(*Transport).dialConn in goroutine 33661
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2123 +0x38f2
+
+goroutine 35491 [IO wait]:
+internal/poll.runtime_pollWait(0x7fd5783bb200, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc000338020, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0xc000338000, {0xc00048e000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:170 +0x499
+net.(*netFD).Read(0xc000338000, {0xc00048e000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_posix.go:68 +0x4b
+net.(*conn).Read(0xc0044c2008, {0xc00048e000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/net.go:196 +0xad
+net/http.(*connReader).Read(0xc00030e000, {0xc00048e000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:856 +0x288
+bufio.(*Reader).fill(0xc000134120)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:113 +0x2a4
+bufio.(*Reader).Peek(0xc000134120, 0x4)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:152 +0xaf
+net/http.(*conn).serve(0xc00042a1b0, {0x207e330, 0xc00506b530})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:2173 +0x112e
+created by net/http.(*Server).Serve in goroutine 35297
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:3581 +0x92a
+
+goroutine 42796 [select]:
+net/http.(*persistConn).writeLoop(0xc0002a7680)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2810 +0x1b5
+created by net/http.(*Transport).dialConn in goroutine 42794
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2124 +0x397d
+
+goroutine 46730 [select]:
+database/sql.(*DB).connectionOpener(0xc0001cb520, {0x207e368, 0xc0003507d0})
+	/workspace/scratch/0dc4d492ab5c/go/src/database/sql/sql.go:1266 +0xed
+created by database/sql.OpenDB in goroutine 29496
+	/workspace/scratch/0dc4d492ab5c/go/src/database/sql/sql.go:846 +0x287
+
+goroutine 46396 [IO wait]:
+internal/poll.runtime_pollWait(0x7fd57832ac00, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc0003387a0, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0xc000338780, {0xc0004c9000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:170 +0x499
+net.(*netFD).Read(0xc000338780, {0xc0004c9000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_posix.go:68 +0x4b
+net.(*conn).Read(0xc0000061a8, {0xc0004c9000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/net.go:196 +0xad
+net/http.(*persistConn).Read(0xc0004c68c0, {0xc0004c9000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2300 +0x233
+bufio.(*Reader).fill(0xc000134480)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:113 +0x2a4
+bufio.(*Reader).Peek(0xc000134480, 0x1)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:152 +0xaf
+net/http.(*persistConn).readLoop(0xc0004c68c0)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2483 +0x31b
+created by net/http.(*Transport).dialConn in goroutine 46395
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2123 +0x38f2
+
+goroutine 31596 [IO wait]:
+internal/poll.runtime_pollWait(0x7fd57ab20a00, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc0066c1e20, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Accept(0xc0066c1e00)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:618 +0x4ea
+net.(*netFD).accept(0xc0066c1e00)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_unix.go:149 +0x45
+net.(*TCPListener).accept(0xc00030ed00)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/tcpsock_posix.go:159 +0x4e
+net.(*TCPListener).Accept(0xc00030ed00)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/tcpsock.go:387 +0x65
+net/http.(*Server).Serve(0xc00020d540, {0x207dce8, 0xc00030ed00})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:3551 +0x6ad
+net/http/httptest.(*Server).goServe.func1()
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/httptest/server.go:586 +0xad
+created by net/http/httptest.(*Server).goServe in goroutine 29496
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/httptest/server.go:584 +0xeb
+
+goroutine 29496 [runnable]:
+modernc.org/sqlite/lib._yy_shift(0xc0004b3b80, 0x7fd588421028, 0x1e4, 0x81, {0xc0004b3b80?, 0x73143c0?})
+	/root/go/pkg/mod/modernc.org/sqlite@v1.60.1/lib/sqlite_g_000000000001feab.go:26304 +0x1e8
+modernc.org/sqlite/lib._sqlite3Parser(0xc0004b3b80, 0x7fd588421028, 0x81, {0x4c29dd?, 0xf8300?})
+	/root/go/pkg/mod/modernc.org/sqlite@v1.60.1/lib/sqlite_g_000000000001feab.go:17659 +0x58b
+modernc.org/sqlite/lib._sqlite3RunParser(0xc0004b3b80, 0x7fd588470c20, 0x7fd588440b20)
+	/root/go/pkg/mod/modernc.org/sqlite@v1.60.1/lib/sqlite_g_0000000000000480.go:17742 +0x1077
+modernc.org/sqlite/lib._sqlite3Prepare(0xc0004b3b80, 0x7fd588470428, 0x7fd588440b20, 0xffffffff, 0x80, 0x0, 0x7fd58848fe60, 0x7fd58848fb90)
+	/root/go/pkg/mod/modernc.org/sqlite@v1.60.1/lib/sqlite_g_0000000000000480.go:17379 +0xc08
+modernc.org/sqlite/lib._sqlite3LockAndPrepare(0xc0004b3b80, 0x7fd588470428, 0x7fd588440b20, 0xffffffff, 0x80, 0x0, 0x7fd58848fe60, 0x7fd58848fb90)
+	/root/go/pkg/mod/modernc.org/sqlite@v1.60.1/lib/sqlite.go:34121 +0x2ce
+modernc.org/sqlite/lib.Xsqlite3_prepare_v2(...)
+	/root/go/pkg/mod/modernc.org/sqlite@v1.60.1/lib/sqlite.go:11690
+modernc.org/sqlite.(*conn).prepareV2(0xc00467c7e0, 0xc0000f8890)
+	/root/go/pkg/mod/modernc.org/sqlite@v1.60.1/conn.go:793 +0x2d9
+modernc.org/sqlite.newStmt(0xc00467c7e0, {0xc00033f698, 0x13})
+	/root/go/pkg/mod/modernc.org/sqlite@v1.60.1/stmt.go:33 +0xff
+modernc.org/sqlite.(*conn).prepare(...)
+	/root/go/pkg/mod/modernc.org/sqlite@v1.60.1/conn.go:1182
+modernc.org/sqlite.(*conn).exec(0xc00467c7e0, {0x207e2c0, 0x21cd280}, {0xc00033f698, 0x13}, {0x21cd280, 0x0, 0x0})
+	/root/go/pkg/mod/modernc.org/sqlite@v1.60.1/conn.go:1156 +0x93
+modernc.org/sqlite.(*conn).ExecContext(0xc00467c7e0, {0x207e2c0, 0x21cd280}, {0xc00033f698, 0x13}, {0x21cd280, 0x0, 0x0})
+	/root/go/pkg/mod/modernc.org/sqlite@v1.60.1/conn.go:1426 +0x95
+database/sql.ctxDriverExec({0x207e2c0, 0x21cd280}, {0x7fd5d13ce020, 0xc00467c7e0}, {0x0, 0x0}, {0xc00033f698, 0x13}, {0x21cd280, 0x0, ...})
+	/workspace/scratch/0dc4d492ab5c/go/src/database/sql/ctxutil.go:31 +0xeb
+database/sql.(*DB).execDC.func2()
+	/workspace/scratch/0dc4d492ab5c/go/src/database/sql/sql.go:1718 +0x266
+database/sql.withLock({0x207cc20, 0xc000339380}, 0xc0000f8e50)
+	/workspace/scratch/0dc4d492ab5c/go/src/database/sql/sql.go:3621 +0xa3
+database/sql.(*DB).execDC(0x1?, {0x207e2c0, 0x21cd280}, 0xc000339380, 0xc0004de6e0, {0xc00033f698, 0x13}, {0x0, 0x0, 0x0})
+	/workspace/scratch/0dc4d492ab5c/go/src/database/sql/sql.go:1713 +0x405
+database/sql.(*Tx).ExecContext(0xc00042bb00, {0x207e2c0, 0x21cd280}, {0xc00033f698, 0x13}, {0x0, 0x0, 0x0})
+	/workspace/scratch/0dc4d492ab5c/go/src/database/sql/sql.go:2521 +0x129
+database/sql.(*Tx).Exec(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/database/sql/sql.go:2530
+github.com/zarkmakerburg/baft/internal/bcc.writeStateTx(_, {0xc00017f7a0, 0xc00017f800, 0xc00017f830, 0xc00017f860, 0xc00017f890, {0x0, 0x0, 0x0}, 0x0, ...})
+	/workspace/scratch/0dc4d492ab5c/baft-smart-verified/internal/bcc/statedb.go:210 +0x17a
+github.com/zarkmakerburg/baft/internal/bcc.writeStateDB({_, _}, {0xc00017f7a0, 0xc00017f800, 0xc00017f830, 0xc00017f860, 0xc00017f890, {0x0, 0x0, 0x0}, ...})
+	/workspace/scratch/0dc4d492ab5c/baft-smart-verified/internal/bcc/statedb.go:174 +0x15b
+github.com/zarkmakerburg/baft/internal/bcc.(*Store).saveLocked(0xc000310b00)
+	/workspace/scratch/0dc4d492ab5c/baft-smart-verified/internal/bcc/store.go:266 +0x16b
+github.com/zarkmakerburg/baft/internal/bcc.(*Store).EvaluateIngress(0xc000310b00, {0x5?, 0x6fc23ac00?, 0x0?}, {0x5?, 0x6fc23ac00?, 0x29e8d60800?})
+	/workspace/scratch/0dc4d492ab5c/baft-smart-verified/internal/bcc/ingress_policy.go:132 +0x13d7
+github.com/zarkmakerburg/baft/internal/bcc.(*Server).evaluateHealthAt(0xc000161860, {0xc000310b00?, 0x155d0e5?, 0x0?})
+	/workspace/scratch/0dc4d492ab5c/baft-smart-verified/internal/bcc/health_engine.go:282 +0xbf8
+github.com/zarkmakerburg/baft/internal/bcc.(*alertRig).tick(0xc0003bc9a0, {0x155d0e5, 0x2}, {0x0, 0x0, 0x1, 0x0, 0x1, 0x0})
+	/workspace/scratch/0dc4d492ab5c/baft-smart-verified/internal/bcc/alert_hysteresis_test.go:108 +0x539
+github.com/zarkmakerburg/baft/internal/bcc.TestUnreachableIncidentIsDeterministicAndRestartSafe.func1(0x3d)
+	/workspace/scratch/0dc4d492ab5c/baft-smart-verified/internal/bcc/alert_hysteresis_test.go:644 +0x149
+github.com/zarkmakerburg/baft/internal/bcc.TestUnreachableIncidentIsDeterministicAndRestartSafe(0xc000170d88)
+	/workspace/scratch/0dc4d492ab5c/baft-smart-verified/internal/bcc/alert_hysteresis_test.go:661 +0x426
+testing.tRunner(0xc000170d88, 0x2080510)
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2193 +0x21d
+created by testing.(*T).Run in goroutine 1
+	/workspace/scratch/0dc4d492ab5c/go/src/testing/testing.go:2258 +0xb13
+
+goroutine 37265 [select]:
+net/http.(*persistConn).writeLoop(0xc0005237c0)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2810 +0x1b5
+created by net/http.(*Transport).dialConn in goroutine 37263
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2124 +0x397d
+
+goroutine 40955 [IO wait]:
+internal/poll.runtime_pollWait(0x7fd5d0f46c00, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc000339820, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0xc000339800, {0xc0001f4000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:170 +0x499
+net.(*netFD).Read(0xc000339800, {0xc0001f4000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_posix.go:68 +0x4b
+net.(*conn).Read(0xc0000066e0, {0xc0001f4000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/net.go:196 +0xad
+net/http.(*connReader).Read(0xc007dbdc00, {0xc0001f4000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:856 +0x288
+bufio.(*Reader).fill(0xc00030aba0)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:113 +0x2a4
+bufio.(*Reader).Peek(0xc00030aba0, 0x4)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:152 +0xaf
+net/http.(*conn).serve(0xc0003a23f0, {0x207e330, 0xc0003c41b0})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:2173 +0x112e
+created by net/http.(*Server).Serve in goroutine 40651
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:3581 +0x92a
+
+goroutine 42582 [IO wait]:
+internal/poll.runtime_pollWait(0x7fd57832a600, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc0066c0b20, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Accept(0xc0066c0b00)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:618 +0x4ea
+net.(*netFD).accept(0xc0066c0b00)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_unix.go:149 +0x45
+net.(*TCPListener).accept(0xc007dbce80)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/tcpsock_posix.go:159 +0x4e
+net.(*TCPListener).Accept(0xc007dbce80)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/tcpsock.go:387 +0x65
+net/http.(*Server).Serve(0xc00020d400, {0x207dce8, 0xc007dbce80})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:3551 +0x6ad
+net/http/httptest.(*Server).goServe.func1()
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/httptest/server.go:586 +0xad
+created by net/http/httptest.(*Server).goServe in goroutine 29496
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/httptest/server.go:584 +0xeb
+
+goroutine 37264 [IO wait]:
+internal/poll.runtime_pollWait(0x7fd56358cc00, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc000339920, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0xc000339900, {0xc0000b9000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:170 +0x499
+net.(*netFD).Read(0xc000339900, {0xc0000b9000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_posix.go:68 +0x4b
+net.(*conn).Read(0xc0044c2248, {0xc0000b9000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/net.go:196 +0xad
+net/http.(*persistConn).Read(0xc0005237c0, {0xc0000b9000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2300 +0x233
+bufio.(*Reader).fill(0xc000134f60)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:113 +0x2a4
+bufio.(*Reader).Peek(0xc000134f60, 0x1)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:152 +0xaf
+net/http.(*persistConn).readLoop(0xc0005237c0)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2483 +0x31b
+created by net/http.(*Transport).dialConn in goroutine 37263
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2123 +0x38f2
+
+goroutine 35508 [select]:
+net/http.(*persistConn).writeLoop(0xc0006748c0)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2810 +0x1b5
+created by net/http.(*Transport).dialConn in goroutine 35506
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2124 +0x397d
+
+goroutine 40966 [IO wait]:
+internal/poll.runtime_pollWait(0x7fd5d0f47000, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc00015aea0, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0xc00015ae80, {0xc0002e5000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:170 +0x499
+net.(*netFD).Read(0xc00015ae80, {0xc0002e5000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_posix.go:68 +0x4b
+net.(*conn).Read(0xc0045026a0, {0xc0002e5000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/net.go:196 +0xad
+net/http.(*persistConn).Read(0xc000523b80, {0xc0002e5000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2300 +0x233
+bufio.(*Reader).fill(0xc000135bc0)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:113 +0x2a4
+bufio.(*Reader).Peek(0xc000135bc0, 0x1)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:152 +0xaf
+net/http.(*persistConn).readLoop(0xc000523b80)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2483 +0x31b
+created by net/http.(*Transport).dialConn in goroutine 40965
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2123 +0x38f2
+
+goroutine 33641 [IO wait]:
+internal/poll.runtime_pollWait(0x7fd56358d000, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc0003235a0, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0xc000323580, {0xc0001ec000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:170 +0x499
+net.(*netFD).Read(0xc000323580, {0xc0001ec000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_posix.go:68 +0x4b
+net.(*conn).Read(0xc0045821d8, {0xc0001ec000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/net.go:196 +0xad
+net/http.(*connReader).Read(0xc0059478c0, {0xc0001ec000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:856 +0x288
+bufio.(*Reader).fill(0xc00467ca80)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:113 +0x2a4
+bufio.(*Reader).Peek(0xc00467ca80, 0x4)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:152 +0xaf
+net/http.(*conn).serve(0xc000511950, {0x207e330, 0xc004766ba0})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:2173 +0x112e
+created by net/http.(*Server).Serve in goroutine 33423
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:3581 +0x92a
+
+goroutine 44589 [IO wait]:
+internal/poll.runtime_pollWait(0x7fd57ab20800, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc0066c18a0, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0xc0066c1880, {0xc000415000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:170 +0x499
+net.(*netFD).Read(0xc0066c1880, {0xc000415000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_posix.go:68 +0x4b
+net.(*conn).Read(0xc000102320, {0xc000415000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/net.go:196 +0xad
+net/http.(*persistConn).Read(0xc0004c6000, {0xc000415000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2300 +0x233
+bufio.(*Reader).fill(0xc0000a4c00)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:113 +0x2a4
+bufio.(*Reader).Peek(0xc0000a4c00, 0x1)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:152 +0xaf
+net/http.(*persistConn).readLoop(0xc0004c6000)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2483 +0x31b
+created by net/http.(*Transport).dialConn in goroutine 44588
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2123 +0x38f2
+
+goroutine 44401 [IO wait]:
+internal/poll.runtime_pollWait(0x7fd5783bb400, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc00504c620, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0xc00504c600, {0xc0003ce000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:170 +0x499
+net.(*netFD).Read(0xc00504c600, {0xc0003ce000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_posix.go:68 +0x4b
+net.(*conn).Read(0xc004582090, {0xc0003ce000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/net.go:196 +0xad
+net/http.(*connReader).Read(0xc005946280, {0xc0003ce000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:856 +0x288
+bufio.(*Reader).fill(0xc00467c360)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:113 +0x2a4
+bufio.(*Reader).Peek(0xc00467c360, 0x4)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:152 +0xaf
+net/http.(*conn).serve(0xc00042ab40, {0x207e330, 0xc00048a930})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:2173 +0x112e
+created by net/http.(*Server).Serve in goroutine 44387
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:3581 +0x92a
+
+goroutine 38935 [IO wait]:
+internal/poll.runtime_pollWait(0x7fd5783bb000, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc00504c6a0, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Accept(0xc00504c680)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:618 +0x4ea
+net.(*netFD).accept(0xc00504c680)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_unix.go:149 +0x45
+net.(*TCPListener).accept(0xc007dbd100)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/tcpsock_posix.go:159 +0x4e
+net.(*TCPListener).Accept(0xc007dbd100)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/tcpsock.go:387 +0x65
+net/http.(*Server).Serve(0xc000674640, {0x207dce8, 0xc007dbd100})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:3551 +0x6ad
+net/http/httptest.(*Server).goServe.func1()
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/httptest/server.go:586 +0xad
+created by net/http/httptest.(*Server).goServe in goroutine 29496
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/httptest/server.go:584 +0xeb
+
+goroutine 44590 [select]:
+net/http.(*persistConn).writeLoop(0xc0004c6000)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2810 +0x1b5
+created by net/http.(*Transport).dialConn in goroutine 44588
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2124 +0x397d
+
+goroutine 39111 [IO wait]:
+internal/poll.runtime_pollWait(0x7fd56358c800, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc00015b920, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0xc00015b900, {0xc00034b000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:170 +0x499
+net.(*netFD).Read(0xc00015b900, {0xc00034b000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_posix.go:68 +0x4b
+net.(*conn).Read(0xc000102358, {0xc00034b000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/net.go:196 +0xad
+net/http.(*persistConn).Read(0xc000523900, {0xc00034b000, 0x1000, 0x1000})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2300 +0x233
+bufio.(*Reader).fill(0xc00030acc0)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:113 +0x2a4
+bufio.(*Reader).Peek(0xc00030acc0, 0x1)
+	/workspace/scratch/0dc4d492ab5c/go/src/bufio/bufio.go:152 +0xaf
+net/http.(*persistConn).readLoop(0xc000523900)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2483 +0x31b
+created by net/http.(*Transport).dialConn in goroutine 39110
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2123 +0x38f2
+
+goroutine 40651 [IO wait]:
+internal/poll.runtime_pollWait(0x7fd56358ce00, 0x72)
+	/workspace/scratch/0dc4d492ab5c/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc000338120, 0x72, 0x0)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:84 +0xb1
+internal/poll.(*pollDesc).waitRead(...)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Accept(0xc000338100)
+	/workspace/scratch/0dc4d492ab5c/go/src/internal/poll/fd_unix.go:618 +0x4ea
+net.(*netFD).accept(0xc000338100)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/fd_unix.go:149 +0x45
+net.(*TCPListener).accept(0xc007dbc080)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/tcpsock_posix.go:159 +0x4e
+net.(*TCPListener).Accept(0xc007dbc080)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/tcpsock.go:387 +0x65
+net/http.(*Server).Serve(0xc000674b40, {0x207dce8, 0xc007dbc080})
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/server.go:3551 +0x6ad
+net/http/httptest.(*Server).goServe.func1()
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/httptest/server.go:586 +0xad
+created by net/http/httptest.(*Server).goServe in goroutine 29496
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/httptest/server.go:584 +0xeb
+
+goroutine 40967 [select]:
+net/http.(*persistConn).writeLoop(0xc000523b80)
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2810 +0x1b5
+created by net/http.(*Transport).dialConn in goroutine 40965
+	/workspace/scratch/0dc4d492ab5c/go/src/net/http/transport.go:2124 +0x397d
+FAIL	github.com/zarkmakerburg/baft/internal/bcc	180.035s
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	28.998s
+ok  	github.com/zarkmakerburg/baft/internal/agent	36.450s
+ok  	github.com/zarkmakerburg/baft/internal/agentjob	1.030s
+FAIL

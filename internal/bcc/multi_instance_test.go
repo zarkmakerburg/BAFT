@@ -12,7 +12,7 @@ func multiInstanceStore(t *testing.T) *Store {
 	t.Helper()
 	s := tunnelStore(t)
 	for id, role := range map[string]string{"ex-2": "foreign", "ir-2": "worker"} {
-		if _, err := s.UpsertNode(Node{ID: id, Address: "203.0.113.8:22", Role: role}, "tok-"+id); err != nil {
+		if _, err := s.UpsertNode(Node{ID: id, Address: "203.0.113.8:22", Role: role,TunnelVerification:1,CapabilitiesAt:time.Now().UTC()}, "tok-"+id); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -173,6 +173,9 @@ func TestScopedTunnelJobsCarryInstanceIdentity(t *testing.T) {
 	if got := exJobs[0].Params["metrics_listen"]; got != req.EXMetricsListen {
 		t.Fatalf("EX metrics=%q", got)
 	}
+	if exJobs[0].Params["verify_resources"] != "true" {
+		t.Fatal("EX preparation omitted the explicit physical-resource gate")
+	}
 	if err := s.AckJobOutput("ex-1", "tok-ex-1", exJobs[0].ID, "succeeded", "pairing code issued", testPairCode); err != nil {
 		t.Fatal(err)
 	}
@@ -188,6 +191,9 @@ func TestScopedTunnelJobsCarryInstanceIdentity(t *testing.T) {
 	}
 	if got := irJobs[0].Params["metrics_listen"]; got != req.IRMetricsListen {
 		t.Fatalf("IR metrics=%q", got)
+	}
+	if irJobs[0].Params["verify_resources"] != "true" {
+		t.Fatal("IR preparation omitted the explicit physical-resource gate")
 	}
 }
 

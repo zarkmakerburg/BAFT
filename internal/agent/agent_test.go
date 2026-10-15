@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -44,41 +45,18 @@ func (f *fakeSystem) Systemctl(_ context.Context, args ...string) (string, error
 	return "", nil
 }
 
-func (f *fakeSystem) Run(_ context.Context, name string, args ...string) (string, error) {
+func (f *fakeSystem) Run(ctx context.Context, name string, args ...string) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls = append(f.calls, filepath.Base(name)+" "+strings.Join(args, " "))
 	if filepath.Base(name) == "baft-pair" && len(args) > 0 {
-		arg := func(flag string) string {
-			for i := 0; i+1 < len(args); i++ {
-				if args[i] == flag {
-					return args[i+1]
-				}
-			}
-			return ""
-		}
 		switch args[0] {
-		case "keygen":
-			if path := arg("--file"); path != "" {
-				if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-					return "", err
-				}
-				if err := os.WriteFile(path, []byte("fake-noise-key"), 0o600); err != nil {
-					return "", err
-				}
-			}
-		case "pki":
-			if dir := arg("--dir"); dir != "" {
-				if err := os.MkdirAll(dir, 0o750); err != nil {
-					return "", err
-				}
-				for file, mode := range map[string]os.FileMode{
-					"ca.key": 0o600, "server.key": 0o600, "ca.pem": 0o644, "server.pem": 0o644,
-				} {
-					if err := os.WriteFile(filepath.Join(dir, file), []byte("fake-"+file), mode); err != nil {
-						return "", err
-					}
-				}
+		case "keygen", "pki", "ex-code":
+			// Preparation records actual keys, certificates and pending/PSK
+			// artifacts. Generate them with the real pair binary; service
+			// control and the returned secret marker remain adapter fixtures.
+			if out, err := exec.CommandContext(ctx, flowPair, args...).CombinedOutput(); err != nil {
+				return string(out), err
 			}
 		}
 	}

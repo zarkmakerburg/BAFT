@@ -259,6 +259,7 @@ func (s *Server) Handler() http.Handler {
 	m.HandleFunc("/api/bootstrap/hostkey", s.bootstrapHostKey)
 	m.HandleFunc("/api/deploy", s.deploy)
 	m.HandleFunc("/api/agent/jobs", s.agentJobs)
+	m.HandleFunc("/api/tunnels/retry-finalize",s.retryTunnelFinalize)
 	m.HandleFunc("/api/agent/ack", s.agentAck)
 	m.HandleFunc("/api/agent/traffic", s.agentTraffic)
 	m.HandleFunc("/api/finance", s.finance)
@@ -417,7 +418,7 @@ func (s *Server) agentJobs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	nodeID := r.URL.Query().Get("node_id")
-	jobs, err := s.store.PullJobs(nodeID, bearer(r))
+	jobs, err := s.store.PullJobsWithCapabilities(nodeID, bearer(r),r.URL.Query().Get("capabilities"))
 	s.agentAuthResult(r, err)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
@@ -478,6 +479,9 @@ func (s *Server) ProbeOnce(ctx context.Context) {
 // never changed; an address that was already looked up is not resolved again.
 func (s *Server) LocateNodes(ctx context.Context) {
 	for _, n := range s.store.ListNodes() {
+		if ctx.Err() != nil {
+			return
+		}
 		if n.Revoked || n.CountryManual || (n.Country != "" && !n.CountryAuto) {
 			continue
 		}
@@ -491,10 +495,14 @@ func (s *Server) LocateNodes(ctx context.Context) {
 		if done {
 			continue
 		}
-		if cc, ok := nodeCountry(ctx, n); ok {
-			if _, err := s.store.SetAutoCountry(n.ID, cc); err != nil {
-				continue
-			}
+		cc, _ := nodeCountry(ctx, n)
+		if ctx.Err() != nil {
+			return
+		}
+		// An unlocatable new address invalidates the previous automatic country.
+		// Empty is unknown, not evidence that the old IP's country still applies.
+		if _, err := s.store.SetAutoCountry(n.ID, cc); err != nil {
+			continue
 		}
 		s.geoMu.Lock()
 		s.geoTried[n.ID] = key
@@ -794,19 +802,46 @@ func (s *Server) nodeLocation(w http.ResponseWriter, r *http.Request) {
 	s.mutationMu.Lock()
 	defer s.mutationMu.Unlock()
 	var in struct {
-		NodeID  string `json:"node_id"`
-		Country string `json:"country"`
+		NodeID    string `json:"node_id"`
+		Country   string `json:"country"`
+		Automatic bool   `json:"automatic"`
 	}
 	if err := decodeJSON(r, &in); err != nil {
 		http.Error(w, err.Error(), 400)
 		return
 	}
-	details := map[string]any{"country": strings.ToUpper(strings.TrimSpace(in.Country))}
+	in.NodeID = strings.TrimSpace(in.NodeID)
+	if in.Automatic && strings.TrimSpace(in.Country) != "" {
+		http.Error(w, "automatic location cannot include a manual country", http.StatusBadRequest)
+		return
+	}
+	country := in.Country
+	if in.Automatic {
+		n, ok := s.store.GetNode(in.NodeID)
+		if !ok {
+			http.Error(w, "node not found", http.StatusBadRequest)
+			return
+		}
+		country, _ = nodeCountry(r.Context(), n)
+	}
+	details := map[string]any{"country": strings.ToUpper(strings.TrimSpace(country)), "automatic": in.Automatic}
 	now := s.now()
-	n, err := s.store.SetNodeCountry(strings.TrimSpace(in.NodeID), in.Country, now, AuditEntry{Timestamp: now.UTC(), Actor: "admin", RemoteIP: s.clientIP(r), Details: withRequest(r, details)})
+	audit := AuditEntry{Timestamp: now.UTC(), Actor: "admin", RemoteIP: s.clientIP(r), Details: withRequest(r, details)}
+	var n Node
+	var err error
+	if in.Automatic {
+		n, err = s.store.RestoreAutoCountry(in.NodeID, country, now, audit)
+	} else {
+		n, err = s.store.SetNodeCountry(in.NodeID, country, now, audit)
+	}
 	if err != nil {
 		s.auditFailure(w, r, "node.location", in.NodeID, details, err, http.StatusBadRequest)
 		return
+	}
+	if in.Automatic {
+		s.geoMu.Lock()
+		delete(s.geoTried, in.NodeID)
+		s.geoMu.Unlock()
 	}
 	if err := s.FlushSecurityAuditIntents(); err != nil {
 		w.Header().Set("X-BAFT-Audit-State", "pending")

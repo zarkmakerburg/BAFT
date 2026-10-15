@@ -72,12 +72,23 @@ func TestRuntimePersistentTelemetrySurvivesOutageAndRestart(t *testing.T){
 	irPub,_:=securityinternal.EncodePublicKey(irKey.Public)
 
 	ex,err:=config.LoadFile("../../configs/example-ex.yaml");if err!=nil{t.Fatal(err)}
+	// The test helper closes its ephemeral reservation immediately. Under -race,
+	// the kernel may reuse that port for a later reservation before Run binds.
+	// Keep the EX and IR runtime endpoints distinct within this test.
+	usedPorts:=map[string]bool{target.Addr().String():true,probeTarget.Addr().String():true}
+	uniqueAddress:=func() string {
+		for {
+			addr:=reserveAddress(t)
+			if !usedPorts[addr] { usedPorts[addr]=true; return addr }
+		}
+	}
+
 	ex.Node.ID="ex-persistent-runtime"
-	ex.Server.Listen=reserveAddress(t)
+	ex.Server.Listen=uniqueAddress()
 	ex.Server.ServerName="ex.test"
 	ex.Server.AllowedPeerIdentities=[]string{"urn:baft:node:"+nodeID}
 	ex.Management.UnixSocket=filepath.Join(dir,"ex.sock")
-	ex.Management.MetricsListen=reserveAddress(t)
+	ex.Management.MetricsListen=uniqueAddress()
 	ex.Transport.Shards=1
 	ex.Routes[0].Target=target.Addr().String()
 	ex.Routes[0].AllowedPeers=[]string{"urn:baft:node:"+nodeID}
@@ -93,10 +104,10 @@ func TestRuntimePersistentTelemetrySurvivesOutageAndRestart(t *testing.T){
 	ir.Peer.ServerName="ex.test"
 	ir.Peer.AllowedIdentity="urn:baft:node:ex-persistent-runtime"
 	ir.Management.UnixSocket=filepath.Join(dir,"ir.sock")
-	ir.Management.MetricsListen=reserveAddress(t)
+	ir.Management.MetricsListen=uniqueAddress()
 	ir.Transport.Shards=1
-	ir.Routes[0].Listen=reserveAddress(t)
-	probeListen:=reserveAddress(t)
+	ir.Routes[0].Listen=uniqueAddress()
+	probeListen:=uniqueAddress()
 	ir.Routes=append(ir.Routes,config.Route{ID:probeRouteID,Listen:probeListen,RemoteRoute:probeRouteID,Direction:"outbound",TrafficClass:"interactive"})
 	ir.TLS=ex.TLS
 	ir.Noise=&config.Noise{KeyFile:irPath,PeerPublicKey:exPub,RecordShaping:recordshape.Config{}}

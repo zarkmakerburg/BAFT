@@ -1,0 +1,50 @@
+import type { Language } from './preferences.js';
+
+export const en = {
+  title: 'Network workspace', eyebrow: 'AURORA / FOUNDATION', overview: 'Overview', nodes: 'Nodes', tunnels: 'Tunnels',
+  brandNote: 'A clearer view of your network', demo: 'DEMO · synthetic data',
+  notice: 'Isolated preview. No connection to your servers and no operational actions.',
+  demoClock: 'Fixture time is fixed. Historical or missing evidence is UNKNOWN, not proof of an outage.',
+  refresh: 'Reload demo data', theme: 'Switch color theme', language: 'تغییر زبان به فارسی',
+  loading: 'Loading demo data…', error: 'Demo data could not be loaded.', retry: 'Try demo again',
+  empty: 'No resources in this sample.', unknown: 'UNKNOWN', up: 'Reported up', down: 'Reported down',
+  nodeCount: 'Sample nodes', tunnelCount: 'Configured intents', delivery: 'Payload delivery',
+  deliveryNote: 'No measurement available', generated: 'Source evidence time',
+  nodeTitle: 'Node inventory', tunnelTitle: 'Tunnel intent',
+  nodeNote: 'Node evidence is separate from agent, service, handshake and payload health.',
+  tunnelNote: 'An active configuration does not prove traffic delivery. No edit or deploy action exists here.',
+  role: 'Role', worker: 'Iran node', foreign: 'Exit node', lastSeen: 'Last node report', country: 'Country',
+  phase: 'Desired phase', active: 'Active intent', rolled_back: 'Rolled back intent',
+  path: 'Endpoint references', stale: 'Stale', future: 'Future-dated', fresh: 'Within age policy',
+  missing: 'Not observed', dataBoundary: 'Evidence, not assumptions',
+  boundaryNote: 'This shell uses the validated A1 DEMO provider only. Live reads, map, Studio and incident workflows are not integrated.',
+  next: 'Next: visual and mobile qualification',
+  nextNote: 'Browser, keyboard, contrast and device evidence are required before accepting this interface.',
+  skip: 'Skip to content', localOnly: 'Preferences apply to this preview only.', storageFailed: 'Preferences could not be saved on this device.',
+  nav: 'Preview navigation', controls: 'Appearance', status: 'Evidence state', footer: 'Development preview · no production acceptance'
+} as const;
+export type Catalog = { readonly [Key in keyof typeof en]: string };
+export const fa: Catalog = {
+  title: 'فضای کار شبکه', eyebrow: 'AURORA / FOUNDATION', overview: 'نمای کلی', nodes: 'نودها', tunnels: 'تونل‌ها',
+  brandNote: 'دیدی روشن‌تر از شبکه', demo: 'DEMO · دادهٔ ساختگی',
+  notice: 'پیش‌نمایش ایزوله؛ بدون اتصال به سرورهای شما و بدون عملیات اجرایی.',
+  demoClock: 'زمان دادهٔ نمونه ثابت است. شاهد قدیمی یا ناموجود UNKNOWN است؛ نه اثبات قطعی شبکه.',
+  refresh: 'بازخوانی دادهٔ نمونه', theme: 'تغییر تم رنگی', language: 'Switch language to English',
+  loading: 'در حال بارگذاری دادهٔ نمونه…', error: 'دادهٔ نمونه بارگذاری نشد.', retry: 'تلاش دوباره برای نمونه',
+  empty: 'منبعی در این نمونه وجود ندارد.', unknown: 'نامشخص', up: 'گزارش روشن', down: 'گزارش خاموش',
+  nodeCount: 'نودهای نمونه', tunnelCount: 'پیکربندی‌های ثبت‌شده', delivery: 'تحویل واقعی داده',
+  deliveryNote: 'اندازه‌گیری در دسترس نیست', generated: 'زمان شاهد منبع',
+  nodeTitle: 'فهرست نودها', tunnelTitle: 'وضعیت درخواستی تونل',
+  nodeNote: 'شاهد نود با سلامت عامل، سرویس، دست‌دهی و مسیر داده یکسان نیست.',
+  tunnelNote: 'پیکربندی فعال، عبور داده را ثابت نمی‌کند. اینجا عملیاتی برای ویرایش یا استقرار وجود ندارد.',
+  role: 'نقش', worker: 'نود ایران', foreign: 'نود خروجی', lastSeen: 'آخرین گزارش نود', country: 'کشور',
+  phase: 'وضعیت درخواستی', active: 'پیکربندی فعال', rolled_back: 'پیکربندی بازگردانده‌شده',
+  path: 'شناسهٔ دو سر مسیر', stale: 'کهنه', future: 'دارای زمان آینده', fresh: 'در محدودهٔ زمانی',
+  missing: 'مشاهده نشده', dataBoundary: 'شاهد، نه فرض',
+  boundaryNote: 'این پوسته فقط از فراهم‌کنندهٔ نمونهٔ اعتبارسنجی‌شدهٔ A1 استفاده می‌کند. خواندن زنده، نقشه، استودیو و گردش‌کار رخداد هنوز متصل نیستند.',
+  next: 'گام بعد: ارزیابی بصری و موبایل',
+  nextNote: 'پذیرش این رابط به شواهد مرورگر، صفحه‌کلید، کنتراست و دستگاه نیاز دارد.',
+  skip: 'رفتن به محتوا', localOnly: 'تنظیمات فقط برای همین پیش‌نمایش است.', storageFailed: 'ذخیرهٔ تنظیمات در این دستگاه ممکن نشد.',
+  nav: 'ناوبری پیش‌نمایش', controls: 'ظاهر', status: 'وضعیت شاهد', footer: 'پیش‌نمایش توسعه · بدون پذیرش عملیاتی'
+};
+export function catalog(language: Language): Catalog { return language === 'fa' ? fa : en; }

@@ -18,6 +18,10 @@ func TestFlagsAndSecrets(t *testing.T) {
 	if code := run(context.Background(), []string{"--bcc-url", "http://bcc", "--node-id", "ex-1"}, &out); code != 2 || !strings.Contains(out.String(), "https") {
 		t.Fatalf("plain HTTP accepted: %d %s", code, out.String())
 	}
+	out.Reset()
+	if code := run(context.Background(), []string{"--bcc-url", "https://bcc", "--node-id", "ex-1", "--service-user", ""}, &out); code != 2 || !strings.Contains(out.String(), "--service-user") {
+		t.Fatalf("empty service account accepted: %d %s", code, out.String())
+	}
 	dir := t.TempDir()
 	tok := filepath.Join(dir, "token")
 	os.WriteFile(tok, []byte("secret\n"), 0o644)

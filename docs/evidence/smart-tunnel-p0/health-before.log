@@ -1,0 +1,12 @@
+--- FAIL: TestHealthDoesNotAcceptMissingOrInvalidRestartEvidence (0.00s)
+    --- FAIL: TestHealthDoesNotAcceptMissingOrInvalidRestartEvidence/counter_query_failed (0.00s)
+        health_evidence_test.go:22: missing restart evidence accepted as a healthy sample
+    --- FAIL: TestHealthDoesNotAcceptMissingOrInvalidRestartEvidence/empty_counter (0.00s)
+        health_evidence_test.go:22: missing restart evidence accepted as a healthy sample
+    --- FAIL: TestHealthDoesNotAcceptMissingOrInvalidRestartEvidence/malformed_counter (0.00s)
+        health_evidence_test.go:22: missing restart evidence accepted as a healthy sample
+    --- FAIL: TestHealthDoesNotAcceptMissingOrInvalidRestartEvidence/negative_counter (0.00s)
+        health_evidence_test.go:22: missing restart evidence accepted as a healthy sample
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/tunnelnode	0.783s
+FAIL

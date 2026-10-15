@@ -31,6 +31,7 @@ import (
 	"github.com/zarkmakerburg/baft/internal/routes"
 	"github.com/zarkmakerburg/baft/internal/session"
 	"github.com/zarkmakerburg/baft/internal/telemetry"
+	"github.com/zarkmakerburg/baft/internal/verification"
 )
 
 type ListenerStartupState struct {
@@ -81,6 +82,11 @@ type Runtime struct {
 	peerMu      sync.Mutex
 	peers       map[*session.Peer]struct{}
 	ingressBytes    atomic.Uint64
+	deliveredBytes atomic.Uint64
+	lastDeliveryUnix atomic.Int64
+	verificationMu sync.RWMutex
+	verificationDigest string
+	verificationSupported bool
 	egressBytes     atomic.Uint64
 	handshakeErrors atomic.Uint64
 	noiseLatencyMS  atomic.Int64
@@ -548,6 +554,11 @@ func (r *Runtime) Run(ctx context.Context, cfg config.Config) (retErr error) {
 	if err := config.Validate(cfg); err != nil {
 		return err
 	}
+	r.verificationMu.Lock()
+	firstRun := r.verificationDigest == ""
+	r.verificationDigest = verification.ConfigDigest(cfg)
+	r.verificationSupported = firstRun && verification.Supported(cfg)
+	r.verificationMu.Unlock()
 	if cfg.Revocation != nil {
 		r.revocationMu.Lock()
 		r.revocationFile = cfg.Revocation.File
@@ -784,6 +795,7 @@ func (r *Runtime) runListener(ctx context.Context, cfg config.Config) error {
 				ProfileID:cfg.Transport.Profile,ProfileVersion:1,ConfigRevision:"config-v1",
 				Resources:r.Resources,FlowSlots:r.FlowSlots,RecoveryEnabled:true,RecoveryRetention:recoveryRetention(cfg),CarrierID:owner,BootID:r.bootID,
 				TrafficObserver:func(in,out uint64){r.ingressBytes.Add(in);r.egressBytes.Add(out)},
+				DeliveryObserver:r.observeDelivery,
 			})
 			if err!=nil{return err}
 			// The listener learns SessionID from the authenticated first HELLO.
@@ -804,6 +816,7 @@ func (r *Runtime) runListener(ctx context.Context, cfg config.Config) error {
 			ProfileID: cfg.Transport.Profile, ProfileVersion: 1, ConfigRevision: "config-v1",
 			Resources: r.Resources, FlowSlots: r.FlowSlots,
 			TrafficObserver: func(in,out uint64){ r.ingressBytes.Add(in); r.egressBytes.Add(out) },
+			DeliveryObserver:r.observeDelivery,
 		})
 		if err != nil { return err }
 		r.registerPeer(p)
@@ -993,6 +1006,7 @@ func (r *Runtime) runDialer(ctx context.Context, cfg config.Config) error {
 			ProfileID: cfg.Transport.Profile, ProfileVersion: 1, ConfigRevision: "config-v1",
 			Resources: r.Resources, FlowSlots: r.FlowSlots,
 			TrafficObserver: func(in,out uint64){ r.ingressBytes.Add(in); r.egressBytes.Add(out) },
+			DeliveryObserver:r.observeDelivery,
 			LatencyObserver: func(rtt time.Duration){ r.noiseLatencyMS.Store(rtt.Milliseconds()) },
 			PingInterval: func() time.Duration { if cfg.Noise!=nil { return 5*time.Second }; return 0 }(),
 			RecoveryEnabled: cfg.Recovery.Enabled, RecoveryRetention: recoveryRetention(cfg),

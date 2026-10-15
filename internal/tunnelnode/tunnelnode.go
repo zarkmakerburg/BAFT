@@ -19,6 +19,7 @@
 package tunnelnode
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -37,6 +38,7 @@ import (
 	"time"
 
 	"github.com/zarkmakerburg/baft/internal/config"
+	"github.com/zarkmakerburg/baft/internal/verification"
 )
 
 // System is how the package touches the host; tests replace it.
@@ -68,15 +70,19 @@ type Env struct {
 	System        System
 	Now           func() time.Time
 	// Fault, when set, is asked at named points inside a certificate
-	// rotation; an error stops the operation right there, without any
+	// operation; an error stops the operation right there, without any
 	// cleanup, as if the process died (fault-injection tests only).
 	Fault func(point string) error
+	// TCPInventory overrides the passive host inventory in adapters/tests.
+	// Production leaves it nil and inspects the actual local network namespace.
+	TCPInventory func(context.Context) ([]TCPBinding, error)
 }
 
 const (
 	PhasePrepared   = "prepared"
 	PhaseCommitted  = "committed"
 	PhaseFinalized  = "finalized"
+	PhaseFinalizing = "finalizing"
 	PhaseRolledBack = "rolled_back"
 
 	RoleEX = "ex"
@@ -111,6 +117,30 @@ type Txn struct {
 	UnitChanged   bool `json:"unit_changed"`
 	PKIReplaced   bool `json:"pki_replaced"`
 	ConfigWritten bool `json:"config_written"`
+	// Complete PKI tree identities, including modes and owners, protect both the
+	// previous backup and operator edits. They also identify an already
+	// restored tree when rollback must be retried after a later failure.
+	PreviousPKI  map[string]string `json:"previous_pki,omitempty"`
+	InstalledPKI map[string]string `json:"installed_pki,omitempty"`
+	// PKIHost opts into staged preparation. Empty preserves the rollback
+	// contract for older in-flight transactions; PKIStaged distinguishes a
+	// generated candidate from reuse of an unchanged live certificate tree.
+	PKIHost              string              `json:"pki_host,omitempty"`
+	PKIStaged            bool                `json:"pki_staged,omitempty"`
+	ResourcesRequired    bool                `json:"resources_required,omitempty"`
+	VerificationRequired bool                `json:"verification_required,omitempty"`
+	ReadyProof           *verification.Proof `json:"ready_proof,omitempty"`
+	// New preparations bind the candidate and its private dependencies to
+	// this transaction. Empty fields preserve older in-flight receipts.
+	PreparedConfigSHA       string            `json:"prepared_config_sha,omitempty"`
+	PreparedConfigIdentity  string            `json:"prepared_config_identity,omitempty"`
+	PreparedConfigInputs    map[string]string `json:"prepared_config_inputs,omitempty"`
+	PreparedPairingInputs   map[string]string `json:"prepared_pairing_inputs,omitempty"`
+	CandidateJobsRequired   bool              `json:"candidate_jobs_required,omitempty"`
+	PreparedReplySHA        string            `json:"prepared_reply_sha,omitempty"`
+	PreparedExecutables     map[string]string `json:"prepared_executables,omitempty"`
+	PreparedServiceUser     string            `json:"prepared_service_user,omitempty"`
+	PreparedServiceIdentity string            `json:"prepared_service_identity,omitempty"`
 
 	// Ownership: what this change installed, so rollback only ever restores or
 	// deletes files that are still exactly the ones BAFT wrote.
@@ -184,18 +214,24 @@ func (m *Manager) ForInstance(instance, metricsListen string) (*Manager, error) 
 // ---- parameters ----
 
 type ExParams struct {
-	PublicAddress string // host or IP the IR dials; also the certificate name
-	Port          int
-	Target        string // fixed IP:port the route exits to
-	RouteID       string
-	RecordShaping bool
-	MetricsListen string // default 127.0.0.1:9191
+	PublicAddress   string // host or IP the IR dials; also the certificate name
+	Port            int
+	Target          string // fixed IP:port the route exits to
+	RouteID         string
+	RecordShaping   bool
+	MetricsListen   string // default 127.0.0.1:9191
+	VerifyData      bool
+	VerifyResources bool
+	StageConfig     bool
 }
 
 type IRParams struct {
-	RouteListen   string // loopback address local clients connect to
-	RouteID       string
-	MetricsListen string
+	RouteListen     string // loopback address local clients connect to
+	RouteID         string
+	MetricsListen   string
+	VerifyData      bool
+	VerifyResources bool
+	StageConfig     bool
 }
 
 func validPort(p int) bool { return p >= 1 && p <= 65535 }
@@ -310,7 +346,7 @@ func (m *Manager) begin(id, role string) (Txn, error) {
 		return Txn{}, errors.New("invalid tunnel id")
 	}
 	if cur := m.activeID(); cur != "" && cur != id {
-		if t, err := m.readTxn(cur); err == nil && (t.Phase == PhasePrepared || t.Phase == PhaseCommitted) {
+		if t, err := m.readTxn(cur); err == nil && (t.Phase == PhasePrepared || t.Phase == PhaseCommitted || t.Phase == PhaseFinalizing) {
 			return Txn{}, fmt.Errorf("tunnel change %s is still in progress on this node", cur)
 		}
 	}
@@ -351,23 +387,40 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 	if p.MetricsListen == "" {
 		p.MetricsListen = m.MetricsListen
 	}
+	if p.VerifyResources {
+		if err := m.preflightResources(ctx, []string{net.JoinHostPort("0.0.0.0", strconv.Itoa(p.Port)), p.MetricsListen}); err != nil {
+			return "", err
+		}
+	}
+	executables, err := m.prepareExecutables(ctx, p.StageConfig)
+	if err != nil {
+		return "", err
+	}
+	serviceUser, serviceIdentity, err := m.prepareServiceUser(ctx, p.StageConfig)
+	if err != nil {
+		return "", err
+	}
 	t, err := m.begin(id, RoleEX)
 	if err != nil {
 		return "", err
 	}
 	t.Port = p.Port
+	t.VerificationRequired = p.VerifyData
+	t.ResourcesRequired = p.VerifyResources
+	t.CandidateJobsRequired = p.StageConfig
+	t.PreparedExecutables = executables
+	t.PreparedServiceUser = serviceUser
+	t.PreparedServiceIdentity = serviceIdentity
 	code, err := func() (string, error) {
 		if err := m.ensureNoiseKey(ctx); err != nil {
 			return "", err
 		}
-		replaced, err := m.ensurePKI(ctx, id, p.PublicAddress)
-		t.PKIReplaced = replaced
-		if err != nil {
+		if err := m.ensurePKI(ctx, &t, p.PublicAddress); err != nil {
 			return "", err
 		}
 		identity := "urn:baft:node:ex-" + randomHex(6)
 		args := []string{"ex-code", "--key", m.noiseKey(), "--address", net.JoinHostPort(p.PublicAddress, strconv.Itoa(p.Port)),
-			"--server-name", p.PublicAddress, "--identity", identity, "--ca-file", filepath.Join(m.pkiDir(), "ca.pem"),
+			"--server-name", p.PublicAddress, "--identity", identity, "--ca-file", filepath.Join(m.preparedPKIDir(t), "ca.pem"),
 			"--psk-out", filepath.Join(m.stage(id), "psk"), "--pending-out", filepath.Join(m.stage(id), "pending.json"),
 			"--ttl", "15m"}
 		if p.RecordShaping {
@@ -380,13 +433,22 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 		return strings.TrimSpace(out), nil
 	}()
 	if err != nil {
-		m.abort(ctx, t)
-		return "", err
+		_, rollbackErr := m.rollbackTxn(ctx, t)
+		return "", errors.Join(err, rollbackErr)
+	}
+	if err := m.verifyExecutables(ctx, t); err != nil {
+		_, rollbackErr := m.rollbackTxn(ctx, t)
+		return "", errors.Join(err, rollbackErr)
 	}
 	// The staged commit arguments are kept so commit needs only the reply.
 	if err := writeJSON(filepath.Join(m.stage(id), "ex-params.json"), p, 0o600); err != nil {
-		m.abort(ctx, t)
-		return "", err
+		_, rollbackErr := m.rollbackTxn(ctx, t)
+		return "", errors.Join(err, rollbackErr)
+	}
+	t.PreparedPairingInputs, err = m.pairingInputs(id)
+	if err != nil {
+		_, rollbackErr := m.rollbackTxn(ctx, t)
+		return "", errors.Join(err, rollbackErr)
 	}
 	return code, m.writeTxn(t)
 }
@@ -402,11 +464,30 @@ func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (s
 	if p.MetricsListen == "" {
 		p.MetricsListen = m.MetricsListen
 	}
+	if p.VerifyResources {
+		if err := m.preflightResources(ctx, []string{p.RouteListen, p.MetricsListen}); err != nil {
+			return "", err
+		}
+	}
+	executables, err := m.prepareExecutables(ctx, p.StageConfig)
+	if err != nil {
+		return "", err
+	}
+	serviceUser, serviceIdentity, err := m.prepareServiceUser(ctx, p.StageConfig)
+	if err != nil {
+		return "", err
+	}
 	t, err := m.begin(id, RoleIR)
 	if err != nil {
 		return "", err
 	}
 	t.RouteListen = p.RouteListen
+	t.VerificationRequired = p.VerifyData
+	t.ResourcesRequired = p.VerifyResources
+	t.CandidateJobsRequired = p.StageConfig
+	t.PreparedExecutables = executables
+	t.PreparedServiceUser = serviceUser
+	t.PreparedServiceIdentity = serviceIdentity
 	reply, err := func() (string, error) {
 		if err := m.ensureNoiseKey(ctx); err != nil {
 			return "", err
@@ -421,14 +502,14 @@ func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (s
 		if err := m.chownTree(stage); err != nil {
 			return "", err
 		}
-		if out, err := m.System.Run(ctx, m.BaftBin, "config", "validate", "--file", filepath.Join(stage, "baft.new.yaml")); err != nil {
-			return "", fmt.Errorf("staged config is invalid: %v: %s", err, tailOf(out))
+		if err := m.recordPreparedConfig(ctx, &t); err != nil {
+			return "", err
 		}
 		return strings.TrimSpace(out), nil
 	}()
 	if err != nil {
-		m.abort(ctx, t)
-		return "", err
+		_, rollbackErr := m.rollbackTxn(ctx, t)
+		return "", errors.Join(err, rollbackErr)
 	}
 	return reply, m.writeTxn(t)
 }
@@ -444,9 +525,50 @@ func (m *Manager) CommitEX(ctx context.Context, id, reply string) (string, error
 	if err != nil {
 		return "", err
 	}
+	if t.CandidateJobsRequired {
+		return "", errors.New("candidate must be staged and activated with its reviewed digest")
+	}
+	if err := m.completeEXConfig(ctx, &t, reply); err != nil {
+		return "", err
+	}
+	return m.install(ctx, t, t.Port)
+}
+
+// completeEXConfig consumes the pairing reply but changes no live service,
+// configuration, PKI, unit or generation. Legacy CommitEX also uses it.
+func (m *Manager) completeEXConfig(ctx context.Context, t *Txn, reply string) error {
+	id := t.ID
+	if err := m.verifyExecutables(ctx, *t); err != nil {
+		return err
+	}
+	if err := m.verifyPairingInputs(*t); err != nil {
+		return err
+	}
 	var p ExParams
-	if err := readJSON(filepath.Join(m.stage(id), "ex-params.json"), &p); err != nil {
-		return "", fmt.Errorf("prepare state missing: %w", err)
+	paramPath := filepath.Join(m.stage(id), "ex-params.json")
+	paramBytes, paramDigest, err := preparedMaterial(paramPath)
+	if err != nil {
+		return fmt.Errorf("prepare state missing: %w", err)
+	}
+	if len(t.PreparedPairingInputs) > 0 && paramDigest != t.PreparedPairingInputs[paramPath] {
+		return errors.New("commit refused: prepared EX parameters changed")
+	}
+	if err := json.Unmarshal(paramBytes, &p); err != nil {
+		return fmt.Errorf("prepare state invalid: %w", err)
+	}
+	if err := p.validate(); err != nil {
+		return err
+	}
+	if t.PKIHost != "" && t.PKIHost != p.PublicAddress {
+		return errors.New("prepare state does not match the certificate host")
+	}
+	if err := m.verifyPreparedPKI(*t); err != nil {
+		return err
+	}
+	if t.ResourcesRequired {
+		if err := m.preflightResources(ctx, []string{net.JoinHostPort("0.0.0.0", strconv.Itoa(p.Port)), p.MetricsListen}); err != nil {
+			return err
+		}
 	}
 	stage := m.stage(id)
 	out, err := m.System.Run(ctx, m.PairBin, "ex-accept", "--reply", reply, "--pending", filepath.Join(stage, "pending.json"),
@@ -457,12 +579,10 @@ func (m *Manager) CommitEX(ctx context.Context, id, reply string) (string, error
 		"--config-out", filepath.Join(stage, "baft.new.yaml"))
 	if err != nil {
 		// Nothing live was touched; the transaction stays prepared so BCC can roll it back.
-		return "", fmt.Errorf("baft-pair ex-accept: %v: %s", err, redact(tailOf(out), reply))
+		return fmt.Errorf("baft-pair ex-accept: %v: %s", err, redact(tailOf(out), reply))
 	}
-	if out, err := m.System.Run(ctx, m.BaftBin, "config", "validate", "--file", filepath.Join(stage, "baft.new.yaml")); err != nil {
-		return "", fmt.Errorf("staged config is invalid: %v: %s", err, tailOf(out))
-	}
-	return m.install(ctx, t, p.Port)
+	t.PreparedReplySHA = shaHex([]byte(reply))
+	return m.recordPreparedConfig(ctx, t)
 }
 
 // CommitIR installs the staged dialer config and starts the service.
@@ -473,16 +593,24 @@ func (m *Manager) CommitIR(ctx context.Context, id string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if t.CandidateJobsRequired {
+		return "", errors.New("candidate must be activated with its reviewed digest")
+	}
 	return m.install(ctx, t, 0)
 }
 
 // install swaps the staged config in, starts the service, and restores the
 // previous state if it does not come up.
 func (m *Manager) install(ctx context.Context, t Txn, port int) (string, error) {
-	stage := m.stage(t.ID)
-	staged := filepath.Join(stage, "baft.new.yaml")
-	if _, err := os.Stat(staged); err != nil {
-		return "", errors.New("no staged config")
+	staged2, cfg, _, err := m.validatePreparedConfig(ctx, t)
+	if err != nil {
+		return "", err
+	}
+	if t.ResourcesRequired {
+		binds := configurationBinds(cfg)
+		if err := m.preflightResources(ctx, binds); err != nil {
+			return "", err
+		}
 	}
 	if b, err := os.ReadFile(m.liveConfig()); err == nil {
 		t.HadConfig = true
@@ -497,7 +625,10 @@ func (m *Manager) install(ctx context.Context, t Txn, port int) (string, error) 
 		}
 	}
 	state, _ := m.System.Systemctl(ctx, "is-active", m.Service)
-	t.WasActive = state == "active"
+	// Committing EX can briefly put its existing IR peer into systemd's
+	// restart/activating state before IR is committed. Rollback must restore
+	// that running intent, rather than explicitly stopping the old service.
+	t.WasActive = state == "active" || state == "activating" || state == "reloading"
 	if en, _ := m.System.Systemctl(ctx, "is-enabled", m.Service); en == "enabled" {
 		t.WasEnabled = true
 	}
@@ -509,13 +640,28 @@ func (m *Manager) install(ctx context.Context, t Txn, port int) (string, error) 
 			return "", err
 		}
 	}
-	staged2, err := os.ReadFile(staged)
-	if err != nil {
-		return "", err
+	after, _, _, err := m.readPreparedConfig(t)
+	if err != nil || !bytes.Equal(staged2, after) {
+		return "", errors.New("commit refused: candidate changed before activation")
 	}
 	want := m.ManagedUnit(port, t.ID, t.Generation)
 	t.InstalledUnitSHA = shaHex([]byte(want))
 	t.InstalledConfigSHA = shaHex(staged2)
+	// All preparation and certificate checks finish before any live file is
+	// changed. The persisted prepared receipt already identifies both trees,
+	// including the exchange window, for an explicit rollback after failure.
+	if err := m.writeTxn(t); err != nil {
+		return "", err
+	}
+	if err := m.verifyExecutables(ctx, t); err != nil {
+		return "", err
+	}
+	if err := m.verifyServiceAccess(ctx, t, cfg); err != nil {
+		return "", err
+	}
+	if err := m.activatePreparedPKI(t); err != nil {
+		return "", err
+	}
 	t.Phase = PhaseCommitted
 	t.ConfigWritten = true
 	t.UnitChanged = true
@@ -548,7 +694,7 @@ func (m *Manager) install(ctx context.Context, t Txn, port int) (string, error) 
 		_, _ = m.rollbackTxn(ctx, t)
 		return "", err
 	}
-	_ = os.Remove(staged)
+	_ = os.Remove(filepath.Join(m.stage(t.ID), "baft.new.yaml"))
 	for _, args := range [][]string{{"daemon-reload"}, {"enable", m.Service}, {"restart", m.Service}} {
 		if _, err := m.System.Systemctl(ctx, args...); err != nil {
 			msg, _ := m.rollbackTxn(ctx, t)
@@ -605,12 +751,22 @@ func (m *Manager) Health(ctx context.Context, id string) (string, error) {
 }
 
 func (m *Manager) stableSample(ctx context.Context) (restarts string, err error) {
-	state, _ := m.System.Systemctl(ctx, "is-active", m.Service)
+	state, err := m.System.Systemctl(ctx, "is-active", m.Service)
+	if err != nil {
+		return "", fmt.Errorf("%s service state unavailable: %w", m.Service, err)
+	}
 	if state != "active" {
 		return "", fmt.Errorf("%s is %q", m.Service, state)
 	}
-	r, _ := m.System.Systemctl(ctx, "show", "-p", "NRestarts", "--value", m.Service)
-	return strings.TrimSpace(r), nil
+	r, err := m.System.Systemctl(ctx, "show", "-p", "NRestarts", "--value", m.Service)
+	if err != nil {
+		return "", fmt.Errorf("%s restart evidence unavailable: %w", m.Service, err)
+	}
+	n, err := strconv.ParseUint(strings.TrimSpace(r), 10, 64)
+	if err != nil {
+		return "", fmt.Errorf("%s restart evidence is not a valid counter", m.Service)
+	}
+	return strconv.FormatUint(n, 10), nil
 }
 
 // ---- finalize / rollback ----
@@ -623,11 +779,17 @@ func (m *Manager) Finalize(ctx context.Context, id string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("unknown tunnel change %s", id)
 	}
+	if t.VerificationRequired {
+		return m.finalizeVerified(t)
+	}
 	if t.Phase == PhaseFinalized {
 		return "already finalized", nil
 	}
 	if t.Phase != PhaseCommitted {
 		return "", fmt.Errorf("tunnel change %s is %s, not committed", id, t.Phase)
+	}
+	if err := m.verifyPKIFinalization(t); err != nil {
+		return "", err
 	}
 	t.Phase = PhaseFinalized
 	if err := m.writeTxn(t); err != nil {
@@ -661,12 +823,37 @@ func (m *Manager) Rollback(ctx context.Context, id string) (string, error) {
 	defer m.mu.Unlock()
 	t, err := m.readTxn(id)
 	if err != nil {
-		return "nothing to roll back", nil
+		if errors.Is(err, os.ErrNotExist) {
+			active, activeErr := os.ReadFile(m.activePath())
+			if activeErr != nil && !errors.Is(activeErr, os.ErrNotExist) {
+				return "", fmt.Errorf("cannot verify active rollback change: %w", activeErr)
+			}
+			if strings.TrimSpace(string(active)) == id {
+				return "", fmt.Errorf("rollback transaction %s is missing for the active change", id)
+			}
+			b, markerErr := os.ReadFile(m.markerPath())
+			if markerErr == nil {
+				var marker Marker
+				if err := json.Unmarshal(b, &marker); err != nil {
+					return "", fmt.Errorf("cannot verify rollback ownership marker: %w", err)
+				}
+				if marker.ManagedBy == "baft" && marker.TunnelID == id {
+					return "", fmt.Errorf("rollback transaction %s is missing for the installed change", id)
+				}
+			} else if !errors.Is(markerErr, os.ErrNotExist) {
+				return "", fmt.Errorf("cannot verify rollback ownership marker: %w", markerErr)
+			}
+			return "nothing to roll back", nil
+		}
+		return "", fmt.Errorf("cannot read rollback transaction %s: %w", id, err)
 	}
 	switch t.Phase {
 	case PhaseRolledBack:
+		if err := m.clearActiveChange(id); err != nil {
+			return "rollback incomplete: active change could not be released", err
+		}
 		return "already rolled back", nil
-	case PhaseFinalized:
+	case PhaseFinalized, PhaseFinalizing:
 		return "", fmt.Errorf("tunnel change %s is finalized; make a new change instead", id)
 	}
 	return m.rollbackTxn(ctx, t)
@@ -690,6 +877,14 @@ func (m *Manager) rollbackTxn(ctx context.Context, t Txn) (string, error) {
 			msg := "rollback refused: " + strings.Join(v, "; ") + "; nothing was changed"
 			return msg, errors.New(msg)
 		}
+	}
+	// Verify and restore the complete old certificate set before the old
+	// config is validated or any service operation can load it. Unknown
+	// backups/live material are refused before altering the other artifacts.
+	if err := m.restorePKI(t); err != nil {
+		return "rollback incomplete: " + err.Error(), fmt.Errorf("rollback incomplete: %w", err)
+	}
+	if t.ConfigWritten {
 		note(m.writeGeneration(t.PreviousGeneration))
 		if t.HadConfig {
 			b, err := os.ReadFile(m.backup(t.ID, "baft.yaml"))
@@ -721,37 +916,63 @@ func (m *Manager) rollbackTxn(ctx context.Context, t Txn) (string, error) {
 		} else {
 			note(removeIfExists(m.markerPath()))
 		}
-		_, _ = m.System.Systemctl(ctx, "daemon-reload")
+		if len(errs) > 0 {
+			return "rollback incomplete: " + strings.Join(errs, "; "), errors.New("rollback incomplete: " + strings.Join(errs, "; "))
+		}
+		_, err := m.System.Systemctl(ctx, "daemon-reload")
+		note(err)
+		if err != nil {
+			return "rollback incomplete: " + err.Error(), fmt.Errorf("rollback incomplete: %w", err)
+		}
 		if t.HadConfig && t.WasActive {
 			if _, err := m.System.Systemctl(ctx, "restart", m.Service); err != nil {
 				note(err)
 			}
 		} else {
-			_, _ = m.System.Systemctl(ctx, "stop", m.Service)
-			if !t.WasEnabled {
-				_, _ = m.System.Systemctl(ctx, "disable", m.Service)
-			}
+			_, err := m.System.Systemctl(ctx, "stop", m.Service)
+			note(err)
 		}
-	}
-	if t.PKIReplaced {
-		before := m.pkiDir() + ".before-" + t.ID
-		if _, err := os.Stat(before); err == nil {
-			note(os.RemoveAll(m.pkiDir()))
-			note(os.Rename(before, m.pkiDir()))
+		// Active services can still be disabled at boot. Restore enablement
+		// independently of the previous running state.
+		if !t.WasEnabled {
+			_, err := m.System.Systemctl(ctx, "disable", m.Service)
+			note(err)
 		}
 	}
 	if len(errs) > 0 {
 		return "rollback incomplete: " + strings.Join(errs, "; "), errors.New("rollback incomplete: " + strings.Join(errs, "; "))
 	}
+	note(m.cleanupPKIBackup(t))
 	for _, f := range []string{"psk", "pending.json", "pairing.pending.json", "ex-params.json", "baft.new.yaml"} {
-		_ = os.Remove(filepath.Join(m.stage(t.ID), f))
+		note(removeIfExists(filepath.Join(m.stage(t.ID), f)))
+	}
+	if len(errs) > 0 {
+		return "rollback incomplete: " + strings.Join(errs, "; "), errors.New("rollback incomplete: " + strings.Join(errs, "; "))
 	}
 	t.Phase = PhaseRolledBack
-	_ = m.writeTxn(t)
-	if m.activeID() == t.ID {
-		m.clearActive()
+	if err := m.writeTxn(t); err != nil {
+		return "rollback incomplete: completion could not be recorded", err
+	}
+	if err := m.clearActiveChange(t.ID); err != nil {
+		return "rollback incomplete: active change could not be released", err
 	}
 	return "rolled back", nil
+}
+
+// Keep an incomplete change claimed. Reading/removing the receipt must not
+// silently fail, and a newer change's receipt must never be removed.
+func (m *Manager) clearActiveChange(id string) error {
+	b, err := os.ReadFile(m.activePath())
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(string(b)) != id {
+		return nil
+	}
+	return removeIfExists(m.activePath())
 }
 
 // ---- helpers ----
@@ -820,34 +1041,59 @@ func (m *Manager) ensureNoiseKey(ctx context.Context) error {
 	return m.chownTo(m.noiseKey(), m.User, m.User)
 }
 
-// ensurePKI creates the EX's outer TLS material for host, replacing (and
-// keeping aside for rollback) material made for another name.
-func (m *Manager) ensurePKI(ctx context.Context, id, host string) (replaced bool, err error) {
+// ensurePKI creates and verifies the EX's outer TLS material in an independent
+// candidate directory. Preparation never moves or changes the live tree.
+func (m *Manager) ensurePKI(ctx context.Context, t *Txn, host string) (err error) {
+	previous, err := snapshotPKI(m.pkiDir())
+	if err != nil {
+		return fmt.Errorf("cannot verify previous PKI: %w", err)
+	}
 	marker := filepath.Join(m.pkiDir(), "host")
 	if b, err := os.ReadFile(marker); err == nil && strings.TrimSpace(string(b)) == host {
-		return false, nil
-	}
-	if _, err := os.Stat(m.pkiDir()); err == nil {
-		if err := renameDurable(m.pkiDir(), m.pkiDir()+".before-"+id); err != nil {
-			return false, err
+		if err := m.validatePreparedCertificate(m.pkiDir(), host); err != nil {
+			return err
 		}
-		replaced = true
+		t.PKIHost, t.PreviousPKI, t.InstalledPKI = host, previous, previous
+		return m.writeTxn(*t)
 	}
+	next := m.pkiNext(t.ID)
+	for _, path := range []string{next, m.pkiDir() + ".before-" + t.ID} {
+		if _, err := os.Lstat(path); !errors.Is(err, os.ErrNotExist) {
+			return errors.New("PKI candidate or backup path is already occupied or unreadable")
+		}
+	}
+	t.PKIHost, t.PKIStaged, t.PKIReplaced, t.PreviousPKI = host, true, len(previous) > 0, previous
+	if err := m.writeTxn(*t); err != nil {
+		return err
+	}
+	defer func() {
+		current, snapshotErr := snapshotPKI(next)
+		if snapshotErr != nil {
+			err = errors.Join(err, fmt.Errorf("cannot record prepared PKI: %w", snapshotErr))
+			return
+		}
+		t.InstalledPKI = current
+		err = errors.Join(err, m.writeTxn(*t))
+	}()
 	if err := os.MkdirAll(m.ConfigDir, 0o750); err != nil {
-		return replaced, err
+		return err
 	}
-	if out, err := m.System.Run(ctx, m.PairBin, "pki", "--dir", m.pkiDir(), "--host", host); err != nil {
-		return replaced, fmt.Errorf("baft-pair pki: %v: %s", err, tailOf(out))
+	if out, err := m.System.Run(ctx, m.PairBin, "pki", "--dir", next, "--host", host); err != nil {
+		return fmt.Errorf("baft-pair pki: %v: %s", err, tailOf(out))
 	}
-	if err := writeFile(marker, []byte(host+"\n"), 0o644); err != nil {
-		return replaced, err
+	// Refuse symlinks/special files before chmod/chown or certificate reads.
+	if _, err := snapshotPKI(next); err != nil {
+		return err
+	}
+	if err := writeFile(filepath.Join(next, "host"), []byte(host+"\n"), 0o644); err != nil {
+		return err
 	}
 	// Same modes/ownership as install.sh, but verified and synced before the
 	// PKI tree can become live.
-	if err := m.securePKI(m.pkiDir()); err != nil {
-		return replaced, err
+	if err := m.securePKI(next); err != nil {
+		return err
 	}
-	return replaced, nil
+	return m.validatePreparedCertificate(next, host)
 }
 
 // writeConfig installs b as the live config, root-owned and group-readable
@@ -1157,6 +1403,10 @@ type Observed struct {
 func (m *Manager) Observe(ctx context.Context, id string) (Observed, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	return m.observeLocked(ctx, id)
+}
+
+func (m *Manager) observeLocked(ctx context.Context, id string) (Observed, error) {
 	t, err := m.readTxn(id)
 	if err != nil {
 		return Observed{}, fmt.Errorf("unknown tunnel change %s", id)
@@ -1249,6 +1499,9 @@ func (m *Manager) ownershipViolations(t Txn) []string {
 		}
 		b, err := os.ReadFile(live)
 		if err != nil {
+			if !errors.Is(err, os.ErrNotExist) {
+				v = append(v, label+" "+live+" cannot be read to verify BAFT ownership")
+			}
 			return // absent: nothing of ours to protect
 		}
 		sum := shaHex(b)

@@ -14,6 +14,7 @@ import (
 func ingressStore(t *testing.T, now time.Time) *Store {
 	t.Helper()
 	s := desiredTopologyStore(t)
+	for id,n:=range s.st.Nodes { n.CapabilitiesAt=now;n.TunnelVerification=1;s.st.Nodes[id]=n }
 	spec := TopologySpec{
 		IRMembers: []IRPoolMember{
 			{NodeID: "ir-1", Enabled: true},
@@ -327,6 +328,7 @@ func TestIngressPersistenceTableMigratesCleanly(t *testing.T) {
 func TestIngressTwoIRFiveExplicitEXProducesFiveIndependentDecisions(t *testing.T) {
 	now := time.Unix(8000, 0).UTC()
 	s := desiredTopologyStore(t)
+	for id, n := range s.st.Nodes { n.CapabilitiesAt = now; n.TunnelVerification = 1; s.st.Nodes[id] = n }
 	if _, err := s.SetTopologySpec(desiredSpec([]string{"ir-1", "ir-2"}, ""), now); err != nil {
 		t.Fatal(err)
 	}
@@ -403,6 +405,7 @@ func TestIngressSnapshotMarksPersistedSelectionUnusableBeforeReevaluation(t *tes
 func TestIngressRouteFailureOnlyMovesAffectedRoute(t *testing.T) {
 	now := time.Unix(9500, 0).UTC()
 	s := desiredTopologyStore(t)
+	for id, n := range s.st.Nodes { n.CapabilitiesAt = now; n.TunnelVerification = 1; s.st.Nodes[id] = n }
 	spec := TopologySpec{
 		IRMembers: []IRPoolMember{{NodeID: "ir-1", Enabled: true}, {NodeID: "ir-2", Enabled: true}},
 		EXRoutes: []ExplicitEXRoute{

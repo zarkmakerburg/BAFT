@@ -1,0 +1,5 @@
+--- FAIL: TestOpenNoiseReportsTLSPhase (0.00s)
+    noise_test.go:218: error missing TLS phase: h2: OpenNoise failed phase=noise_ik_msg1_write_error elapsed=0ms trace=connection_acquire@0ms,tcp_connect_start@0ms,tcp_connect_complete@0ms,tls_handshake_start@0ms,tls_handshake_error@0ms,noise_ik_msg1_write@0ms,noise_ik_msg1_write_error@0ms: transport error
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/carrier/h2	0.085s
+FAIL

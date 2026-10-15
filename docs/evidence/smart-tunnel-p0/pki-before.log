@@ -1,0 +1,18 @@
+--- FAIL: TestPKIRollbackRestoresPreviousCertificateBeforeRestart (0.21s)
+    pki_rollback_test.go:47: rollback did not start the previous service with its previous certificate
+--- FAIL: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState (1.22s)
+    --- FAIL: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/missing-backup (0.21s)
+        pki_rollback_test.go:100: unsafe rollback acknowledged: "rolled back"
+    --- FAIL: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-backup (0.20s)
+        pki_rollback_test.go:100: unsafe rollback acknowledged: "rolled back"
+    --- FAIL: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/changed-live (0.20s)
+        pki_rollback_test.go:100: unsafe rollback acknowledged: "rolled back"
+    --- FAIL: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/extra-live-file (0.20s)
+        pki_rollback_test.go:100: unsafe rollback acknowledged: "rolled back"
+    --- FAIL: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/symlink-backup (0.20s)
+        pki_rollback_test.go:100: unsafe rollback acknowledged: "rolled back"
+    --- FAIL: TestPKIRollbackRefusesUnverifiedMaterialBeforeChangingLiveState/symlink-live-file (0.20s)
+        pki_rollback_test.go:100: unsafe rollback acknowledged: "rolled back"
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/tunnelnode	2.765s
+FAIL

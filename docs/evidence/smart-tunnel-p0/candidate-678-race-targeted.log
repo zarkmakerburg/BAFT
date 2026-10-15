@@ -1,0 +1,58 @@
+=== RUN   TestScopedTunnelsCanShareIRWithIndependentResources
+--- PASS: TestScopedTunnelsCanShareIRWithIndependentResources (0.14s)
+=== RUN   TestScopedTunnelsCanShareEXWithIndependentResources
+--- PASS: TestScopedTunnelsCanShareEXWithIndependentResources (0.13s)
+=== RUN   TestScopedTunnelResourceConflictsAreRejected
+=== RUN   TestScopedTunnelResourceConflictsAreRejected/same_IR_route_listener
+=== RUN   TestScopedTunnelResourceConflictsAreRejected/same_EX_listener_port
+--- PASS: TestScopedTunnelResourceConflictsAreRejected (0.23s)
+    --- PASS: TestScopedTunnelResourceConflictsAreRejected/same_IR_route_listener (0.11s)
+    --- PASS: TestScopedTunnelResourceConflictsAreRejected/same_EX_listener_port (0.12s)
+=== RUN   TestScopedSiblingActivationDoesNotSupersede
+--- PASS: TestScopedSiblingActivationDoesNotSupersede (0.11s)
+=== RUN   TestScopedTunnelJobsCarryInstanceIdentity
+--- PASS: TestScopedTunnelJobsCarryInstanceIdentity (0.21s)
+=== RUN   TestScopedCertRotationJobCarriesInstanceIdentity
+--- PASS: TestScopedCertRotationJobCarriesInstanceIdentity (0.14s)
+=== RUN   TestScopedTunnelRefusesImplicitLegacyMigration
+--- PASS: TestScopedTunnelRefusesImplicitLegacyMigration (0.10s)
+=== RUN   TestPreflightRejectsCrossPurposeBindCollisionsBeforeJobs
+=== RUN   TestPreflightRejectsCrossPurposeBindCollisionsBeforeJobs/own_EX_listener_and_metrics
+=== RUN   TestPreflightRejectsCrossPurposeBindCollisionsBeforeJobs/dual-stack_EX_listener_and_IPv6_metrics
+=== RUN   TestPreflightRejectsCrossPurposeBindCollisionsBeforeJobs/own_IR_route_and_metrics
+=== RUN   TestPreflightRejectsCrossPurposeBindCollisionsBeforeJobs/EX_metrics_meets_sibling_listener
+=== RUN   TestPreflightRejectsCrossPurposeBindCollisionsBeforeJobs/EX_listener_meets_sibling_metrics
+=== RUN   TestPreflightRejectsCrossPurposeBindCollisionsBeforeJobs/IR_metrics_meets_sibling_route
+=== RUN   TestPreflightRejectsCrossPurposeBindCollisionsBeforeJobs/IR_route_meets_sibling_metrics
+=== RUN   TestPreflightRejectsCrossPurposeBindCollisionsBeforeJobs/equivalent_decimal_metrics_ports
+--- PASS: TestPreflightRejectsCrossPurposeBindCollisionsBeforeJobs (0.89s)
+    --- PASS: TestPreflightRejectsCrossPurposeBindCollisionsBeforeJobs/own_EX_listener_and_metrics (0.10s)
+    --- PASS: TestPreflightRejectsCrossPurposeBindCollisionsBeforeJobs/dual-stack_EX_listener_and_IPv6_metrics (0.10s)
+    --- PASS: TestPreflightRejectsCrossPurposeBindCollisionsBeforeJobs/own_IR_route_and_metrics (0.11s)
+    --- PASS: TestPreflightRejectsCrossPurposeBindCollisionsBeforeJobs/EX_metrics_meets_sibling_listener (0.13s)
+    --- PASS: TestPreflightRejectsCrossPurposeBindCollisionsBeforeJobs/EX_listener_meets_sibling_metrics (0.12s)
+    --- PASS: TestPreflightRejectsCrossPurposeBindCollisionsBeforeJobs/IR_metrics_meets_sibling_route (0.11s)
+    --- PASS: TestPreflightRejectsCrossPurposeBindCollisionsBeforeJobs/IR_route_meets_sibling_metrics (0.11s)
+    --- PASS: TestPreflightRejectsCrossPurposeBindCollisionsBeforeJobs/equivalent_decimal_metrics_ports (0.10s)
+=== RUN   TestPreflightRejectsInvalidNumericEndpointsBeforeJobs
+=== RUN   TestPreflightRejectsInvalidNumericEndpointsBeforeJobs/listener_range
+=== RUN   TestPreflightRejectsInvalidNumericEndpointsBeforeJobs/route_range
+=== RUN   TestPreflightRejectsInvalidNumericEndpointsBeforeJobs/metrics_range
+=== RUN   TestPreflightRejectsInvalidNumericEndpointsBeforeJobs/metrics_padded_zero
+=== RUN   TestPreflightRejectsInvalidNumericEndpointsBeforeJobs/target_invalid_IP
+=== RUN   TestPreflightRejectsInvalidNumericEndpointsBeforeJobs/target_range
+=== RUN   TestPreflightRejectsInvalidNumericEndpointsBeforeJobs/ignored_legacy_metrics
+--- PASS: TestPreflightRejectsInvalidNumericEndpointsBeforeJobs (0.66s)
+    --- PASS: TestPreflightRejectsInvalidNumericEndpointsBeforeJobs/listener_range (0.10s)
+    --- PASS: TestPreflightRejectsInvalidNumericEndpointsBeforeJobs/route_range (0.10s)
+    --- PASS: TestPreflightRejectsInvalidNumericEndpointsBeforeJobs/metrics_range (0.11s)
+    --- PASS: TestPreflightRejectsInvalidNumericEndpointsBeforeJobs/metrics_padded_zero (0.09s)
+    --- PASS: TestPreflightRejectsInvalidNumericEndpointsBeforeJobs/target_invalid_IP (0.09s)
+    --- PASS: TestPreflightRejectsInvalidNumericEndpointsBeforeJobs/target_range (0.08s)
+    --- PASS: TestPreflightRejectsInvalidNumericEndpointsBeforeJobs/ignored_legacy_metrics (0.09s)
+=== RUN   TestPreflightAllowsDistinctAddressesAndIndependentNodes
+--- PASS: TestPreflightAllowsDistinctAddressesAndIndependentNodes (0.20s)
+=== RUN   TestPlanCheckAndCreationAreOneAtomicStep
+--- PASS: TestPlanCheckAndCreationAreOneAtomicStep (19.31s)
+PASS
+ok  	github.com/zarkmakerburg/baft/internal/bcc	23.175s

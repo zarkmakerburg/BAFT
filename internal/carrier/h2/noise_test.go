@@ -142,7 +142,7 @@ func TestNoiseSlowProbeBounded(t *testing.T) {
 	rk, _ := securityinternal.GenerateKeyPair()
 	phaseCh := make(chan string, 1)
 	h, err := HandlerWithNoise(nil, NoiseOptions{
-		Handshake: securityinternal.HandshakeConfig{Static: rk, PeerStatic: ik.Public},
+		Handshake:    securityinternal.HandshakeConfig{Static: rk, PeerStatic: ik.Public},
 		PeerIdentity: "test", HandshakeTimeout: 20 * time.Millisecond, MaxPending: 1,
 		OnHandshakeFailure: func(phase string) { phaseCh <- phase },
 	})
@@ -258,5 +258,33 @@ func TestNoisePhaseTraceSanitizedErrorPreservesCause(t *testing.T) {
 	}
 	if !errors.Is(trace.wrap(context.Canceled, true, true), context.DeadlineExceeded) {
 		t.Fatal("internal handshake timeout did not retain deadline semantics")
+	}
+}
+
+func TestNoiseTraceKeepsTransportCauseAcrossPipeFailure(t *testing.T) {
+	trace := newNoisePhaseTrace()
+	trace.note("tls_handshake_error", "")
+	trace.note("noise_ik_msg1_write", "")
+	trace.note("noise_ik_msg1_write_error", "")
+	trace.note("tcp_connect_error", "") // late losing dial must not hide TLS
+	err := trace.wrap(io.EOF, false, true)
+	if !strings.Contains(err.Error(), "phase=tls_handshake_error") || !errors.Is(err, io.EOF) {
+		t.Fatalf("TLS cause was replaced by its pipe consequence: %v", err)
+	}
+	for _, success := range []string{"tcp_connect_complete", "tls_handshake_complete", "connection_ready"} {
+		trace := newNoisePhaseTrace()
+		trace.note("tcp_connect_error", "")
+		trace.note(success, "")
+		trace.note("noise_ik_msg1_write_error", "")
+		if err := trace.wrap(io.EOF, false, true); !strings.Contains(err.Error(), "phase=noise_ik_msg1_write_error") {
+			t.Fatalf("successful connection kept an old failure: %v", err)
+		}
+	}
+	trace = newNoisePhaseTrace()
+	trace.note("connection_ready", "")
+	trace.note("noise_ik_msg1_write_error", "")
+	trace.note("tcp_connect_error", "") // late losing parallel dial
+	if err := trace.wrap(io.EOF, false, true); !strings.Contains(err.Error(), "phase=noise_ik_msg1_write_error") {
+		t.Fatalf("losing parallel dial replaced the active connection's failure: %v", err)
 	}
 }

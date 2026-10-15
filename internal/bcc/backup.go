@@ -1,6 +1,7 @@
 package bcc
 
 import (
+	"github.com/zarkmakerburg/baft/internal/incidentclass"
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
@@ -72,6 +73,7 @@ func newAEAD(key []byte)(cipher.AEAD,error){
 }
 
 func normalizeState(st *state){
+	if st.IncidentSnapshot.Active==nil { st.IncidentSnapshot.Active=map[string]incidentclass.Incident{} }
 	if st.Nodes==nil{st.Nodes=map[string]Node{}}
 	if st.Jobs==nil{st.Jobs=map[string]Job{}}
 	if st.Tunnels==nil{st.Tunnels=map[string]Tunnel{}}

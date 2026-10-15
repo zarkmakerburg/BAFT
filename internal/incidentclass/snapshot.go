@@ -17,7 +17,7 @@ type Snapshot struct {
 const MaxHistory = 256
 const MaxActive = 4096
 // Allow bounded active state plus history without rejecting normal full-capacity snapshots.
-const MaxSnapshotBytes = 4 << 20
+const MaxSnapshotBytes = 8 << 20
 
 // AddCompleted returns a copy with oldest completed incidents evicted.
 func AddCompleted(history []Incident, completed Incident) []Incident {

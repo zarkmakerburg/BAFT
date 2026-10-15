@@ -25,7 +25,7 @@ jobs:
           git merge-base --is-ancestor "$base" HEAD
           if git merge-base --is-ancestor "$incoming" HEAD; then
             echo "Incoming PR203 is already an ancestor: verify persisted integration directly."
-            test "$(git rev-parse HEAD^{tree})" = "0eaa77d0eb5e27098fadc7b15ce6c53c05f74a6f"
+            test "$(git rev-parse 9bc830241fa2531199ed7cb697149b953217e722^{tree})" = "0eaa77d0eb5e27098fadc7b15ce6c53c05f74a6f"
             grep -q "TunnelVerification" internal/bcc/store.go
             grep -q "ObserveTunnelIncident" internal/bcc/store.go
             go test ./internal/bcc ./internal/incidentclass

@@ -1,0 +1,10 @@
+[
+  {
+    "id": "demo-scoped", "instance_id": "demo-slot-1", "ir_node": "demo-ir-1", "ex_node": "demo-ex-1",
+    "phase": "active", "port": 18443, "updated_at": "2026-01-01T12:00:00.123456789Z"
+  },
+  {
+    "id": "demo-legacy", "ir_node": "demo-ir-1", "ex_node": "demo-ex-1",
+    "phase": "active", "port": 19443, "updated_at": "2026-01-01T12:00:00.123456789Z"
+  }
+]

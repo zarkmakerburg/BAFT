@@ -11,12 +11,14 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/zarkmakerburg/baft/internal/telemetry"
+	"github.com/zarkmakerburg/baft/internal/incidentclass"
 )
 
 const (
@@ -160,6 +162,7 @@ type MonitoringNode struct {
 }
 
 type state struct {
+	IncidentSnapshot incidentclass.Snapshot `json:"incident_snapshot,omitempty"`
 	Nodes    map[string]Node          `json:"nodes"`
 	Jobs     map[string]Job           `json:"jobs"`
 	Finance   map[string]NodeFinance      `json:"finance,omitempty"`
@@ -238,6 +241,9 @@ func OpenStore(path string) (*Store, error) {
 	case !errors.Is(err,os.ErrNotExist):
 		return nil,err
 	}
+	// Fresh stores have not passed through SQLite decoding or legacy normalization.
+	// Keep the incident lifecycle map writable before the first persistence.
+	if s.st.IncidentSnapshot.Active==nil { s.st.IncidentSnapshot.Active=map[string]incidentclass.Incident{} }
 	return s,nil
 }
 
@@ -271,6 +277,31 @@ func (s *Store) recordStateWrite(err error) error {
 		s.persistenceUncertain = true
 	}
 	return err
+}
+
+// ObserveTunnelIncident classifies evidence for one tunnel instance and persists
+// its lifecycle in the existing BCC SQLite transaction. It does not probe nodes.
+// On a failed write, the previous in-memory snapshot is restored.
+func (s *Store) ObserveTunnelIncident(instanceID string, now time.Time, maxAge time.Duration, evidence incidentclass.Evidence) (incidentclass.Result,error) {
+ if strings.TrimSpace(instanceID)=="" || len(instanceID)>incidentclass.MaxInstanceIDBytes {
+  return incidentclass.Result{},errors.New("invalid incident instance id")
+ }
+ s.mu.Lock()
+ defer s.mu.Unlock()
+ if s.persistenceUncertain {return incidentclass.Result{},errStateCommitUncertain}
+ tracker,err:=incidentclass.NewTracker(s.st.IncidentSnapshot)
+ if err!=nil {return incidentclass.Result{},fmt.Errorf("invalid stored incident snapshot: %w",err)}
+ previous:=s.st.IncidentSnapshot
+ result:=tracker.ObserveEvidence(instanceID,now,maxAge,evidence)
+ next:=tracker.Snapshot()
+ // Unknown/stale and out-of-order evidence cannot change durable lifecycle.
+ if reflect.DeepEqual(previous,next) {return result,nil}
+ s.st.IncidentSnapshot=next
+ if err:=s.saveLocked();err!=nil {
+  s.st.IncidentSnapshot=previous
+  return result,err
+ }
+ return result,nil
 }
 
 // PersistenceUncertain reports a failed commit whose durable outcome could not

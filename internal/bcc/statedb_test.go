@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/zarkmakerburg/baft/internal/telemetry"
+	"github.com/zarkmakerburg/baft/internal/incidentclass"
 )
 
 func populatedState(t *testing.T, path string) *Store {
@@ -224,4 +225,201 @@ func TestReleasedV020SchemaUpgradesWithoutLosingNode(t *testing.T) {
 	defer check.Close()
 	if err := check.QueryRow(`SELECT doc FROM nodes WHERE id = ?`, want.ID).Scan(&saved); err != nil { t.Fatal(err) }
 	if saved != string(doc) { t.Fatalf("migration rewrote existing node: got %q, want %q", saved, doc) }
+}
+
+func TestIncidentSnapshotSQLiteRoundTripAndRejectsInvalid(t *testing.T) {
+ path:=filepath.Join(t.TempDir(),"state.db")
+ var st state
+ normalizeState(&st)
+ now:=time.Now().UTC().Truncate(time.Second)
+ st.IncidentSnapshot.Active["tunnel-1"]=incidentclass.Incident{InstanceID:"tunnel-1",Status:incidentclass.NodeOffline,Reason:"node offline",StartedAt:now,LastObservedAt:now,Observations:1}
+ if err:=writeStateDB(path,st);err!=nil {t.Fatal(err)}
+ got,err:=readStateDB(path)
+ if err!=nil {t.Fatal(err)}
+ if !bytes.Equal(canonicalStateJSON(st),canonicalStateJSON(got)) {t.Fatal("incident snapshot lost across SQLite roundtrip")}
+ got.IncidentSnapshot.Active["tunnel-2"]=incidentclass.Incident{InstanceID:"mismatched",Status:incidentclass.NodeOffline,StartedAt:now,LastObservedAt:now,Observations:1}
+ if err:=writeStateDB(path,got);err==nil {t.Fatal("invalid incident snapshot accepted")}
+ after,err:=readStateDB(path)
+ if err!=nil {t.Fatal(err)}
+ if !bytes.Equal(canonicalStateJSON(st),canonicalStateJSON(after)) {t.Fatal("invalid write replaced valid persisted state")}
+}
+
+func TestIncidentSnapshotSQLiteCorruptionFailsClosed(t *testing.T) {
+ path:=filepath.Join(t.TempDir(),"state.db")
+ var st state
+ normalizeState(&st)
+ if err:=writeStateDB(path,st);err!=nil {t.Fatal(err)}
+ db,err:=openStateDB(path)
+ if err!=nil {t.Fatal(err)}
+ if _,err:=db.Exec("UPDATE incident_snapshot SET doc = ?", "{bad json");err!=nil {t.Fatal(err)}
+ db.Close()
+ if _,err:=readStateDB(path);err==nil {t.Fatal("corrupt incident snapshot accepted")}
+}
+
+func TestIncidentSnapshotMigrationFromV12PreservesExistingState(t *testing.T) {
+ path:=filepath.Join(t.TempDir(),"state.db")
+ store:=populatedState(t,path)
+ before:=canonicalStateJSON(store.st)
+ db,err:=openStateDB(path)
+ if err!=nil {t.Fatal(err)}
+ if _,err:=db.Exec("DROP TABLE incident_snapshot");err!=nil {t.Fatal(err)}
+ if _,err:=db.Exec("DELETE FROM schema_migrations WHERE version = 13");err!=nil {t.Fatal(err)}
+ if err:=db.Close();err!=nil {t.Fatal(err)}
+ got,err:=OpenStore(path)
+ if err!=nil {t.Fatalf("v12 upgrade failed: %v",err)}
+ // Schema v12 had no incident snapshot; compare the pre-existing fields only.
+ gotLegacy:=got.st
+ gotLegacy.IncidentSnapshot=store.st.IncidentSnapshot
+ if !bytes.Equal(before,canonicalStateJSON(gotLegacy)) {t.Fatal("v12 migration changed existing BCC state")}
+ if len(got.st.IncidentSnapshot.Active)!=0 || len(got.st.IncidentSnapshot.History)!=0 {t.Fatal("v12 migration did not initialize an empty incident snapshot")}
+ version,err:=stateSchemaVersion(path)
+ if err!=nil || version!=13 {t.Fatalf("migration version %d: %v",version,err)}
+}
+
+func TestIncidentSnapshotMissingSingletonFailsClosed(t *testing.T) {
+ path:=filepath.Join(t.TempDir(),"state.db")
+ var st state
+ normalizeState(&st)
+ if err:=writeStateDB(path,st);err!=nil {t.Fatal(err)}
+ db,err:=openStateDB(path)
+ if err!=nil {t.Fatal(err)}
+ if _,err:=db.Exec("DELETE FROM incident_snapshot");err!=nil {t.Fatal(err)}
+ if err:=db.Close();err!=nil {t.Fatal(err)}
+ if _,err:=readStateDB(path);err==nil {t.Fatal("missing incident snapshot row accepted")}
+ if _,err:=OpenStore(path);err==nil {t.Fatal("BCC startup accepted missing incident snapshot row")}
+}
+
+func TestFreshStoreInitializesIncidentLifecycleMap(t *testing.T) {
+ path:=filepath.Join(t.TempDir(),"fresh.db")
+ store,err:=OpenStore(path)
+ if err!=nil {t.Fatal(err)}
+ if store.st.IncidentSnapshot.Active==nil {t.Fatal("fresh store incident map is nil")}
+ now:=time.Date(2026,10,15,5,0,0,0,time.UTC)
+ store.st.IncidentSnapshot.Active["fresh-tunnel"]=incidentclass.Incident{
+  InstanceID:"fresh-tunnel",Status:incidentclass.NodeOffline,
+  StartedAt:now,LastObservedAt:now,Observations:1,
+ }
+ if err:=writeStateDB(path,store.st);err!=nil {t.Fatal(err)}
+ reopened,err:=OpenStore(path)
+ if err!=nil {t.Fatal(err)}
+ if _,ok:=reopened.st.IncidentSnapshot.Active["fresh-tunnel"];!ok {t.Fatal("fresh incident not persisted")}
+}
+
+
+func TestObserveTunnelIncidentScopedDurableAndStaleSafe(t *testing.T) {
+ path:=filepath.Join(t.TempDir(),"incident.db")
+ store,err:=OpenStore(path)
+ if err!=nil {t.Fatal(err)}
+ now:=time.Date(2026,10,15,6,0,0,0,time.UTC)
+ failed:=incidentclass.Evidence{ObservedAt:now,HeartbeatKnown:true,HeartbeatFresh:false}
+ result,err:=store.ObserveTunnelIncident("tunnel-a",now,time.Minute,failed)
+ if err!=nil {t.Fatal(err)}
+ if result.Status!=incidentclass.NodeOffline {t.Fatalf("unexpected classification: %+v",result)}
+ reopened,err:=OpenStore(path)
+ if err!=nil {t.Fatal(err)}
+ if _,ok:=reopened.st.IncidentSnapshot.Active["tunnel-a"];!ok {t.Fatal("incident not persisted")}
+ if len(reopened.st.IncidentSnapshot.Active)!=1 {t.Fatal("unexpected sibling incident")}
+ stale:=incidentclass.Evidence{ObservedAt:now.Add(-2*time.Minute),HeartbeatKnown:true,HeartbeatFresh:true,ServiceKnown:true,ServiceRunning:true,HandshakeKnown:true,HandshakeOK:true,DataPathKnown:true,DataPathOK:true}
+ result,err=store.ObserveTunnelIncident("tunnel-a",now.Add(time.Second),time.Minute,stale)
+ if err!=nil {t.Fatal(err)}
+ if result.Status!=incidentclass.Unknown {t.Fatalf("stale evidence was accepted: %+v",result)}
+ if len(store.st.IncidentSnapshot.Active)!=1 {t.Fatal("stale evidence closed incident")}
+ healthy:=stale
+ healthy.ObservedAt=now.Add(2*time.Second)
+ result,err=store.ObserveTunnelIncident("tunnel-a",now.Add(2*time.Second),time.Minute,healthy)
+ if err!=nil {t.Fatal(err)}
+ if result.Status!=incidentclass.Recovered {t.Fatalf("unexpected recovery: %+v",result)}
+ reopened,err=OpenStore(path)
+ if err!=nil {t.Fatal(err)}
+ if len(reopened.st.IncidentSnapshot.Active)!=0 || len(reopened.st.IncidentSnapshot.History)!=1 {t.Fatal("recovery not durably recorded")}
+}
+
+func TestObserveTunnelIncidentFailedWriteRestoresMemory(t *testing.T) {
+ dir:=t.TempDir()
+ path:=filepath.Join(dir,"incident.db")
+ store,err:=OpenStore(path)
+ if err!=nil {t.Fatal(err)}
+ now:=time.Date(2026,10,15,7,0,0,0,time.UTC)
+ // Put a regular file in the parent position: SQLite cannot create its child.
+ blocker:=filepath.Join(dir,"not-a-directory")
+ if err:=os.WriteFile(blocker,[]byte("block"),0600);err!=nil {t.Fatal(err)}
+ store.path=filepath.Join(blocker,"state.db")
+ result,err:=store.ObserveTunnelIncident("rollback-tunnel",now,time.Minute,incidentclass.Evidence{
+  ObservedAt:now,HeartbeatKnown:true,HeartbeatFresh:false,
+ })
+ if err==nil {t.Fatal("expected persistence failure")}
+ if result.Status!=incidentclass.NodeOffline {t.Fatalf("unexpected classification: %+v",result)}
+ if len(store.st.IncidentSnapshot.Active)!=0 || len(store.st.IncidentSnapshot.History)!=0 {
+  t.Fatal("failed persistence published incident in memory")
+ }
+}
+
+func TestObserveTunnelIncidentRecoveryPreservesSibling(t *testing.T) {
+ path:=filepath.Join(t.TempDir(),"incident.db")
+ store,err:=OpenStore(path)
+ if err!=nil {t.Fatal(err)}
+ now:=time.Date(2026,10,15,8,0,0,0,time.UTC)
+ failed:=incidentclass.Evidence{ObservedAt:now,HeartbeatKnown:true,HeartbeatFresh:false}
+ for _,id:=range []string{"tunnel-a","tunnel-b"} {
+  if _,err:=store.ObserveTunnelIncident(id,now,time.Minute,failed);err!=nil {t.Fatal(err)}
+ }
+ before:=store.st.IncidentSnapshot.Active["tunnel-b"]
+ healthy:=incidentclass.Evidence{
+  ObservedAt:now.Add(time.Second),HeartbeatKnown:true,HeartbeatFresh:true,
+  ServiceKnown:true,ServiceRunning:true,HandshakeKnown:true,HandshakeOK:true,
+  DataPathKnown:true,DataPathOK:true,
+ }
+ result,err:=store.ObserveTunnelIncident("tunnel-a",healthy.ObservedAt,time.Minute,healthy)
+ if err!=nil {t.Fatal(err)}
+ if result.Status!=incidentclass.Recovered {t.Fatalf("unexpected recovery: %+v",result)}
+ reopened,err:=OpenStore(path)
+ if err!=nil {t.Fatal(err)}
+ snapshot:=reopened.st.IncidentSnapshot
+ if len(snapshot.Active)!=1 {t.Fatalf("unexpected active incidents: %+v",snapshot.Active)}
+ if got,ok:=snapshot.Active["tunnel-b"];!ok || got!=before {
+  t.Fatalf("sibling changed after unrelated recovery: got=%+v want=%+v",got,before)
+ }
+ if len(snapshot.History)!=1 || snapshot.History[0].InstanceID!="tunnel-a" {
+  t.Fatalf("unexpected recovery history: %+v",snapshot.History)
+ }
+}
+
+func TestObserveTunnelIncidentFailedWritePreservesSiblingSnapshots(t *testing.T) {
+ dir:=t.TempDir()
+ path:=filepath.Join(dir,"incident.db")
+ store,err:=OpenStore(path)
+ if err!=nil {t.Fatal(err)}
+ now:=time.Date(2026,10,15,9,0,0,0,time.UTC)
+ failed:=incidentclass.Evidence{ObservedAt:now,HeartbeatKnown:true,HeartbeatFresh:false}
+ for _,id:=range []string{"tunnel-a","tunnel-b"} {
+  if _,err:=store.ObserveTunnelIncident(id,now,time.Minute,failed);err!=nil {t.Fatal(err)}
+ }
+ beforeA:=store.st.IncidentSnapshot.Active["tunnel-a"]
+ beforeB:=store.st.IncidentSnapshot.Active["tunnel-b"]
+ originalPath:=store.path
+ blocker:=filepath.Join(dir,"regular-file-parent")
+ if err:=os.WriteFile(blocker,[]byte("block"),0600);err!=nil {t.Fatal(err)}
+ store.path=filepath.Join(blocker,"state.db")
+ healthy:=incidentclass.Evidence{
+  ObservedAt:now.Add(time.Second),HeartbeatKnown:true,HeartbeatFresh:true,
+  ServiceKnown:true,ServiceRunning:true,HandshakeKnown:true,HandshakeOK:true,
+  DataPathKnown:true,DataPathOK:true,
+ }
+ result,err:=store.ObserveTunnelIncident("tunnel-a",healthy.ObservedAt,time.Minute,healthy)
+ if err==nil {t.Fatal("expected persistence failure")}
+ if result.Status!=incidentclass.Recovered {t.Fatalf("unexpected classification: %+v",result)}
+ if len(store.st.IncidentSnapshot.Active)!=2 || len(store.st.IncidentSnapshot.History)!=0 {
+  t.Fatalf("failed write changed in-memory lifecycle: %+v",store.st.IncidentSnapshot)
+ }
+ if store.st.IncidentSnapshot.Active["tunnel-a"]!=beforeA || store.st.IncidentSnapshot.Active["tunnel-b"]!=beforeB {
+  t.Fatal("failed write changed an active tunnel incident")
+ }
+ reopened,err:=OpenStore(originalPath)
+ if err!=nil {t.Fatal(err)}
+ if len(reopened.st.IncidentSnapshot.Active)!=2 || len(reopened.st.IncidentSnapshot.History)!=0 {
+  t.Fatalf("failed write changed durable lifecycle: %+v",reopened.st.IncidentSnapshot)
+ }
+ if reopened.st.IncidentSnapshot.Active["tunnel-a"]!=beforeA || reopened.st.IncidentSnapshot.Active["tunnel-b"]!=beforeB {
+  t.Fatal("failed write changed durable sibling state")
+ }
 }

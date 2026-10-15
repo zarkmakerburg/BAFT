@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/aurora-core-preflight.yml'
-      - 'web/aurora/**'
+      - 'web/**'
       - 'internal/bcc/**'
       - 'scripts/ci/aurora_core_evidence.py'
       - 'scripts/ci/tests/test_aurora_core_evidence.py'

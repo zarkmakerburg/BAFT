@@ -1,0 +1,42 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> @baft/aurora-foundation@0.0.0 test
+> npm run typecheck && npm run check:generated && node --test tests/*.test.mjs
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> @baft/aurora-foundation@0.0.0 typecheck
+> tsc --noEmit && tsc -p tsconfig.type-tests.json
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> @baft/aurora-foundation@0.0.0 check:generated
+> node scripts/check-generated.mjs
+
+Generated assets verified: 4 files, compiler 5.9.3
+✔ DEMO provider is deterministic and in-memory changes stay isolated (4.710046ms)
+✔ DEMO import and every operation work when fetch is forbidden (0.558601ms)
+✔ explicit same-origin GET adapter preserves session and protected base path (9.540754ms)
+✔ cross-origin, credential-bearing, normalized traversal and malformed bases are rejected before fetch (1.082091ms)
+✔ session expiry invokes caller boundary once and never exposes response text (0.806475ms)
+✔ HTTP, network, redirects, HTML, malformed JSON and schema errors stay sanitized (3.313913ms)
+✔ response budget covers declared size and actual streamed bytes (1.949246ms)
+✔ deadline covers an uncooperative fetch and a stalled body (21.766781ms)
+✔ caller cancellation and already-aborted signals do not start or revive requests (1.199517ms)
+✔ rejected response bodies are cancelled without reading arbitrary HTTP error data (0.519022ms)
+✔ actual overview concepts preserve unknown, zero, country anchors and scope (1.89825ms)
+✔ cached reassessment expires evidence at the boundary without renewing fetch time (0.310528ms)
+✔ future, absent and revoked node reports cannot imply healthy state (0.624461ms)
+✔ malformed types, out-of-range measurements, duplicate and wrong-scope resources reject (1.397225ms)
+✔ only selected presentation fields leave the adapter (0.328976ms)
+✔ uint64 counters retain exact decimals and reject rounded JSON numbers (0.362977ms)
+✔ RFC3339 accepts Go nanoseconds and timezone offsets without accepting invalid dates (0.412271ms)
+✔ tunnel desired phase and lifecycle timestamp never become delivery health (0.313483ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 131.992149

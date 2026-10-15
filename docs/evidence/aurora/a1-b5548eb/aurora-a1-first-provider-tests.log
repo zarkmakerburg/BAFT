@@ -1,0 +1,62 @@
+✔ DEMO provider is deterministic and in-memory changes stay isolated (3.231664ms)
+✔ DEMO import and every operation work when fetch is forbidden (0.276607ms)
+✔ explicit same-origin GET adapter preserves session and protected base path (6.980659ms)
+✔ cross-origin, credential-bearing, normalized traversal and malformed bases are rejected before fetch (0.891544ms)
+✔ session expiry invokes caller boundary once and never exposes response text (0.659745ms)
+✔ HTTP, network, redirects, HTML, malformed JSON and schema errors stay sanitized (2.879534ms)
+✔ response budget covers declared size and actual streamed bytes (1.413201ms)
+✔ deadline covers an uncooperative fetch and a stalled body (20.684409ms)
+✖ caller cancellation and already-aborted signals do not start or revive requests (1.733134ms)
+✖ rejected response bodies are cancelled without reading arbitrary HTTP error data (1.302885ms)
+✔ actual overview concepts preserve unknown, zero, country anchors and scope (1.565792ms)
+✔ cached reassessment expires evidence at the boundary without renewing fetch time (0.23859ms)
+✔ future, absent and revoked node reports cannot imply healthy state (0.475557ms)
+✔ malformed types, out-of-range measurements, duplicate and wrong-scope resources reject (0.940789ms)
+✔ only selected presentation fields leave the adapter (0.239561ms)
+✔ uint64 counters retain exact decimals and reject rounded JSON numbers (0.279141ms)
+✔ RFC3339 accepts Go nanoseconds and timezone offsets without accepting invalid dates (0.16602ms)
+✔ tunnel desired phase and lifecycle timestamp never become delivery health (0.231319ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 16
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 118.639169
+
+✖ failing tests:
+
+test at tests/real-provider.test.mjs:80:1
+✖ caller cancellation and already-aborted signals do not start or revive requests (1.733134ms)
+  AssertionError [ERR_ASSERTION]: aborted late response must not expire a session
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///workspace/scratch/e71c4683db12/baft/web/aurora/tests/real-provider.test.mjs:90:10)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/real-provider.test.mjs:93:1
+✖ rejected response bodies are cancelled without reading arbitrary HTTP error data (1.302885ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///workspace/scratch/e71c4683db12/baft/web/aurora/tests/real-provider.test.mjs:98:10)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

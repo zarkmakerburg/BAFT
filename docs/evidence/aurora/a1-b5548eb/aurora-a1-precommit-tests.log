@@ -1,0 +1,49 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> @baft/aurora-foundation@0.0.0 test
+> npm run typecheck && npm run check:generated && npm run size && node --test tests/*.test.mjs
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> @baft/aurora-foundation@0.0.0 typecheck
+> tsc --noEmit && tsc -p tsconfig.type-tests.json
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> @baft/aurora-foundation@0.0.0 check:generated
+> node scripts/check-generated.mjs
+
+Generated assets verified: 4 files, compiler 5.9.3
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> @baft/aurora-foundation@0.0.0 size
+> node scripts/report-size.mjs
+
+{"generatedRawBytes":15508,"gzipBytesByFile":5106,"runtimeDependencies":0,"embeddedInBCC":false}
+✔ DEMO provider is deterministic and in-memory changes stay isolated (3.22746ms)
+✔ DEMO import and every operation work when fetch is forbidden (0.272962ms)
+✔ fresh-process mock imports do not touch a network or install polling (66.103697ms)
+✔ explicit same-origin GET adapter preserves session and protected base path (7.315399ms)
+✔ cross-origin, credential-bearing, normalized traversal and malformed bases are rejected before fetch (0.58987ms)
+✔ session expiry invokes caller boundary once and never exposes response text (0.659906ms)
+✔ HTTP, network, redirects, HTML, malformed JSON and schema errors stay sanitized (2.421434ms)
+✔ response budget covers declared size and actual streamed bytes (1.451671ms)
+✔ deadline covers an uncooperative fetch and a stalled body (20.086757ms)
+✔ caller cancellation and already-aborted signals do not start or revive requests (1.108623ms)
+✔ rejected response bodies are cancelled without reading arbitrary HTTP error data (0.572904ms)
+✔ actual overview concepts preserve unknown, zero, country anchors and scope (1.514856ms)
+✔ cached reassessment expires evidence at the boundary without renewing fetch time (0.257799ms)
+✔ future, absent and revoked node reports cannot imply healthy state (0.460945ms)
+✔ malformed types, out-of-range measurements, duplicate and wrong-scope resources reject (1.032298ms)
+✔ only selected presentation fields leave the adapter (0.280854ms)
+✔ uint64 counters retain exact decimals and reject rounded JSON numbers (0.298961ms)
+✔ RFC3339 accepts Go nanoseconds and timezone offsets without accepting invalid dates (0.169546ms)
+✔ tunnel desired phase and lifecycle timestamp never become delivery health (0.226922ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 146.225423

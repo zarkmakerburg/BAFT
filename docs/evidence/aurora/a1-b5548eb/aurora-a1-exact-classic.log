@@ -1,0 +1,22 @@
+✔ Persian and English carry the same strings (1.826454ms)
+✔ every translated element in the page has a string (0.206381ms)
+✔ the country list matches the server (0.32498ms)
+✔ every menu route has a page and a name (0.186141ms)
+✔ demo numbers appear only in the labelled preview (0.310758ms)
+✔ text from the server is escaped before it reaches the page (0.286372ms)
+✔ the page only loads files that BCC embeds (0.597281ms)
+✔ theme and language are applied before the first paint (0.269747ms)
+✔ BCC dashboard keeps all existing operational sections (0.923182ms)
+✔ BCC visual tokens and focus states are present (0.136806ms)
+✔ BCC dashboard remains wired to existing operational loaders (0.197387ms)
+✔ operational dashboard includes focus-visible and disabled control styles (0.213682ms)
+✔ SSH enrollment always restores controls and clears credentials (0.413263ms)
+✔ Doctor cached PASS expires to NOT_ASSESSED at display time (1.055502ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 94.802533

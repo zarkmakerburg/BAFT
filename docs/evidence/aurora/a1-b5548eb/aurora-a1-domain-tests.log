@@ -1,0 +1,18 @@
+✔ DEMO provider is deterministic and in-memory changes stay isolated (3.75992ms)
+✔ DEMO import and every operation work when fetch is forbidden (0.368585ms)
+✔ actual overview concepts preserve unknown, zero, country anchors and scope (1.515372ms)
+✔ cached reassessment expires evidence at the boundary without renewing fetch time (0.241945ms)
+✔ future, absent and revoked node reports cannot imply healthy state (0.36512ms)
+✔ malformed types, out-of-range measurements, duplicate and wrong-scope resources reject (0.957852ms)
+✔ only selected presentation fields leave the adapter (0.244187ms)
+✔ uint64 counters retain exact decimals and reject rounded JSON numbers (0.380332ms)
+✔ RFC3339 accepts Go nanoseconds and timezone offsets without accepting invalid dates (0.16596ms)
+✔ tunnel desired phase and lifecycle timestamp never become delivery health (0.225169ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 95.719882

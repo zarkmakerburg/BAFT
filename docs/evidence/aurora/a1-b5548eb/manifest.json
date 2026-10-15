@@ -1,0 +1,112 @@
+[
+  {
+    "file": "README.md",
+    "bytes": 4668,
+    "sha256": "90574c4ee6481086e6fd0ac554ea9196066e96211f40c61f709234c39a8a54b6"
+  },
+  {
+    "file": "aurora-a1-audit.json",
+    "bytes": 358,
+    "sha256": "06c18d6ae5bb95560b3aaf924119c2ecbd29a69e9f4f8a67dc2bb1d7bc726c5e"
+  },
+  {
+    "file": "aurora-a1-classic-baseline.log",
+    "bytes": 1079,
+    "sha256": "c5688568d1af61960720dbbd5ad6ca9d20b8df1dec141b23c6d9badfdb59a8dc"
+  },
+  {
+    "file": "aurora-a1-dependencies.json",
+    "bytes": 247,
+    "sha256": "510c33b8d81b886749f78b6300090262966d274aa9961ed250197ff54d06ca58"
+  },
+  {
+    "file": "aurora-a1-domain-tests.log",
+    "bytes": 1001,
+    "sha256": "5268e9d1ec504b6fd13bb1142e76a88fdc15cb32362684affe32289507ae4a85"
+  },
+  {
+    "file": "aurora-a1-exact-classic.log",
+    "bytes": 1081,
+    "sha256": "7113565ce032e2277ae3235b935d1fc3f570cbcf61a7cc519e2eae31456cb5bc"
+  },
+  {
+    "file": "aurora-a1-exact-install.log",
+    "bytes": 125,
+    "sha256": "02adb5399033f23ad42ae6c725b143db05070fda04107af14c3f7ea9e92a1c25"
+  },
+  {
+    "file": "aurora-a1-exact-policy.log",
+    "bytes": 68,
+    "sha256": "9535551181d20402fde5b2ee52e2c08a58f250b5966c33eb34e0553c99b992d7"
+  },
+  {
+    "file": "aurora-a1-exact-tests.log",
+    "bytes": 2770,
+    "sha256": "31952f66d66f17568c7041dcb228ef9b152824e1a6f4d07d54a783593f461bba"
+  },
+  {
+    "file": "aurora-a1-final-local.log",
+    "bytes": 2770,
+    "sha256": "483a9d9405bb9688f1b76f35f4d03d0f854192dd79f3635be6f2715743a63a0d"
+  },
+  {
+    "file": "aurora-a1-first-provider-tests.log",
+    "bytes": 3080,
+    "sha256": "1f54f0f96a2c0595af8b6e4943a4536829ae8df6a6dc5b7c892e7f6e034460a7"
+  },
+  {
+    "file": "aurora-a1-fixed-tests.log",
+    "bytes": 2400,
+    "sha256": "9d3987225aa8b21eb78fb711903814eb08ad905bb743b147e3d6c3b5456dfdd1"
+  },
+  {
+    "file": "aurora-a1-install.log",
+    "bytes": 122,
+    "sha256": "369de401bca8dd38d4efaec4e30c61bb1fdb1717031202af300dcd754e57f898"
+  },
+  {
+    "file": "aurora-a1-lock-reinstall.log",
+    "bytes": 125,
+    "sha256": "24cdcd12727269cb77a63bb20b59574a795e61a2b8a8d9d3d260f9c37b4bd397"
+  },
+  {
+    "file": "aurora-a1-lock-retest.log",
+    "bytes": 2769,
+    "sha256": "42eb26db18abc2f8cc3c0d354fc5ee271f9ee9fb852208465ec4363a2de820e0"
+  },
+  {
+    "file": "aurora-a1-precommit-tests.log",
+    "bytes": 2768,
+    "sha256": "13062b4c314c7928f5906e2717a784dd7a6a56308c694c9bf407f86cb669a480"
+  },
+  {
+    "file": "aurora-a1-ts6-audit.json",
+    "bytes": 358,
+    "sha256": "06c18d6ae5bb95560b3aaf924119c2ecbd29a69e9f4f8a67dc2bb1d7bc726c5e"
+  },
+  {
+    "file": "aurora-a1-ts6-install.log",
+    "bytes": 127,
+    "sha256": "9d138a0ae5850dfc7017f1ee4bdc93609591ba0dcde48395fd6826ea04084b2b"
+  },
+  {
+    "file": "aurora-a1-ts6-tests.log",
+    "bytes": 2767,
+    "sha256": "3a87442a5a70c80056f98e2b38a9187c631f17c86d791d1157e6b5f408937e2f"
+  },
+  {
+    "file": "aurora-a1-typecheck-initial.log",
+    "bytes": 193,
+    "sha256": "576042868571aad92c597d49fd207391d5f5430407196103699c048f152951cb"
+  },
+  {
+    "file": "aurora-a1-ui-ci.log",
+    "bytes": 27099,
+    "sha256": "0b7fd760565425b60fa5c1a3c6ef299411379dd16bba2b3df14653f77876a4ca"
+  },
+  {
+    "file": "aurora-a1-workflow-policy.log",
+    "bytes": 68,
+    "sha256": "9535551181d20402fde5b2ee52e2c08a58f250b5966c33eb34e0553c99b992d7"
+  }
+]

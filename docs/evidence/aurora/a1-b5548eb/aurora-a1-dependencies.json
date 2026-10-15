@@ -1,0 +1,11 @@
+{
+  "version": "0.0.0",
+  "name": "@baft/aurora-foundation",
+  "dependencies": {
+    "typescript": {
+      "version": "5.9.3",
+      "resolved": "https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz",
+      "overridden": false
+    }
+  }
+}

@@ -1,6 +1,9 @@
 package bcc
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"github.com/zarkmakerburg/baft/internal/incidentclass"
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
@@ -417,4 +420,96 @@ func TestRestoreRejectsCorruptCurrentAuditBeforeMutation(t *testing.T){
 	afterAudit,err:=os.ReadFile(app.audit.path);if err!=nil{t.Fatal(err)}
 	if !bytes.Equal(corrupt,afterAudit){t.Fatal("restore rewrote corrupt current audit before rejection")}
 	t.Log("PASS corrupt current audit rejected before any restore mutation")
+}
+
+func TestRestoreFaultAfterStateCommitPreservesActiveIncident(t *testing.T) {
+ dir:=t.TempDir()
+ store,err:=OpenStore(filepath.Join(dir,"state.db"))
+ if err!=nil {t.Fatal(err)}
+ now:=time.Date(2026,10,15,5,0,0,0,time.UTC)
+ incident:=incidentclass.Incident{InstanceID:"tunnel-rollback",Status:incidentclass.NodeOffline,StartedAt:now,LastObservedAt:now,Observations:1}
+ store.mu.Lock()
+ normalizeState(&store.st)
+ store.st.IncidentSnapshot.Active["tunnel-rollback"]=incident
+ if err:=writeStateDB(store.path,store.st);err!=nil {store.mu.Unlock();t.Fatal(err)}
+ store.mu.Unlock()
+ app,err:=NewServer(store,"admin")
+ if err!=nil {t.Fatal(err)}
+ backupPath:=filepath.Join(dir,"incident.baftbak")
+ if _,err:=app.BackupToFile(backupPath,backupTestKey(),now);err!=nil {t.Fatal(err)}
+ // Ensure candidate backup differs from the current incident snapshot.
+ store.mu.Lock()
+ delete(store.st.IncidentSnapshot.Active,"tunnel-rollback")
+ if err:=writeStateDB(store.path,store.st);err!=nil {store.mu.Unlock();t.Fatal(err)}
+ store.mu.Unlock()
+ beforeRAM:=stateJSONForTest(t,store)
+ beforeDisk:=diskStateJSONForTest(t,store)
+ beforeAudit,hadAudit,err:=readMaybe(app.audit.path)
+ if err!=nil {t.Fatal(err)}
+ app.restoreFault=func(stage string) error {
+  if stage=="after_state_commit" {return errors.New("injected post-state-commit failure")}
+  return nil
+ }
+ err=app.RestoreFromFile(backupPath,backupTestKey())
+ app.restoreFault=nil
+ if err==nil {t.Fatal("restore unexpectedly succeeded")}
+ if !bytes.Equal(beforeRAM,stateJSONForTest(t,store)) {t.Fatal("failed restore changed RAM incident state")}
+ if !bytes.Equal(beforeDisk,diskStateJSONForTest(t,store)) {t.Fatal("failed restore changed SQLite incident state")}
+ afterAudit,hasAudit,err:=readMaybe(app.audit.path)
+ if err!=nil {t.Fatal(err)}
+ if hadAudit!=hasAudit || !bytes.Equal(beforeAudit,afterAudit) {t.Fatal("failed restore changed audit")}
+ reopened,err:=OpenStore(store.path)
+ if err!=nil {t.Fatal(err)}
+ if !bytes.Equal(beforeDisk,canonicalStateJSON(reopened.st)) {t.Fatal("restart after rollback changed incident state")}
+}
+
+func TestEncryptedBackupPreservesIncidentSnapshotAndRejectsInvalidLifecycle(t *testing.T) {
+ dir:=t.TempDir()
+ sourcePath:=filepath.Join(dir,"source.db")
+ store,err:=OpenStore(sourcePath)
+ if err!=nil {t.Fatal(err)}
+ now:=time.Date(2026,10,15,5,0,0,0,time.UTC)
+ incident:=incidentclass.Incident{InstanceID:"tunnel-1",Status:incidentclass.NodeOffline,StartedAt:now,LastObservedAt:now,Reason:"node offline",Observations:1}
+ store.mu.Lock()
+ normalizeState(&store.st)
+ store.st.IncidentSnapshot.Active["tunnel-1"]=incident
+ if err:=writeStateDB(store.path,store.st);err!=nil {store.mu.Unlock();t.Fatal(err)}
+ store.mu.Unlock()
+ app,err:=NewServer(store,"admin")
+ if err!=nil {t.Fatal(err)}
+ data,_,err:=app.CreateBackupBytes(backupTestKey(),now)
+ if err!=nil {t.Fatal(err)}
+ payload,_,err:=decodeBackup(data,backupTestKey())
+ if err!=nil {t.Fatal(err)}
+ if !reflect.DeepEqual(payload.State.IncidentSnapshot.Active["tunnel-1"],incident) {t.Fatal("backup lost active incident")}
+ backupPath:=filepath.Join(dir,"incident.baftbak")
+ if err:=os.WriteFile(backupPath,data,0600);err!=nil {t.Fatal(err)}
+ freshStore,err:=OpenStore(filepath.Join(dir,"fresh.db"))
+ if err!=nil {t.Fatal(err)}
+ fresh,err:=NewServer(freshStore,"admin")
+ if err!=nil {t.Fatal(err)}
+ if err:=fresh.RestoreFromFile(backupPath,backupTestKey());err!=nil {t.Fatal(err)}
+ persisted,err:=readStateDB(freshStore.path)
+ if err!=nil {t.Fatal(err)}
+ if !reflect.DeepEqual(persisted.IncidentSnapshot.Active["tunnel-1"],incident) {t.Fatal("restore lost persisted incident")}
+
+ // An authenticated backup can still contain a semantically invalid lifecycle.
+ // Re-encrypt it with a valid key/checksum to exercise validation beyond AEAD.
+ payload.State.IncidentSnapshot.Active["tunnel-1"]=incidentclass.Incident{InstanceID:"different",Status:incidentclass.NodeOffline,StartedAt:now,LastObservedAt:now,Observations:1}
+ plain,err:=json.Marshal(payload)
+ if err!=nil {t.Fatal(err)}
+ sum:=sha256.Sum256(plain)
+ var env encryptedBackup
+ if err:=json.Unmarshal(data,&env);err!=nil {t.Fatal(err)}
+ env.Header.PayloadSHA256=hex.EncodeToString(sum[:])
+ aad,err:=json.Marshal(env.Header)
+ if err!=nil {t.Fatal(err)}
+ aead,err:=newAEAD(backupTestKey())
+ if err!=nil {t.Fatal(err)}
+ nonce,err:=base64.StdEncoding.DecodeString(env.Nonce)
+ if err!=nil {t.Fatal(err)}
+ env.Ciphertext=base64.StdEncoding.EncodeToString(aead.Seal(nil,nonce,plain,aad))
+ invalid,err:=json.Marshal(env)
+ if err!=nil {t.Fatal(err)}
+ if _,_,err:=decodeBackup(invalid,backupTestKey());err==nil {t.Fatal("authenticated invalid incident lifecycle accepted")}
 }

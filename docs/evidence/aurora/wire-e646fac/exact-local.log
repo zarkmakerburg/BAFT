@@ -1,0 +1,117 @@
+e646faceefea39cb09a45ad0cbf2c019d47de863
+dbef5d0d7720cf605b4ece1effcea862608141dd
+v24.19.0
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+11.9.0
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+added 37 packages in 859ms
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> @baft/aurora-foundation@0.0.0 test
+> npm run typecheck && npm run check:generated && npm run size && node --test tests/*.test.mjs && npm run test:dom
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> @baft/aurora-foundation@0.0.0 typecheck
+> tsc --noEmit && tsc -p tsconfig.type-tests.json
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> @baft/aurora-foundation@0.0.0 check:generated
+> node scripts/check-generated.mjs
+
+Generated assets verified: 8 files, compiler 6.0.3
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> @baft/aurora-foundation@0.0.0 size
+> node scripts/report-size.mjs
+
+{"foundationRawBytes":15508,"foundationGzipBytes":5106,"shellRawBytes":19973,"shellGzipBytes":6624,"cssRawBytes":5828,"cssGzipBytes":1931,"runtimeDependencies":0,"embeddedInBCC":false}
+✔ DEMO provider is deterministic and in-memory changes stay isolated (4.493379ms)
+✔ DEMO import and every operation work when fetch is forbidden (0.382376ms)
+✔ fresh-process mock imports do not touch a network or install polling (69.556914ms)
+✔ explicit same-origin GET adapter preserves session and protected base path (8.365712ms)
+✔ cross-origin, credential-bearing, normalized traversal and malformed bases are rejected before fetch (1.159096ms)
+✔ session expiry invokes caller boundary once and never exposes response text (0.797872ms)
+✔ HTTP, network, redirects, HTML, malformed JSON and schema errors stay sanitized (4.062098ms)
+✔ response budget covers declared size and actual streamed bytes (1.753712ms)
+✔ deadline covers an uncooperative fetch and a stalled body (21.741544ms)
+✔ caller cancellation and already-aborted signals do not start or revive requests (1.311275ms)
+✔ rejected response bodies are cancelled without reading arbitrary HTTP error data (0.655046ms)
+✔ catalogs have exact parity, nonempty copy, and explicit DEMO/unknown boundaries (2.889522ms)
+✔ preferences validate values and safely tolerate blocked or corrupted storage (0.505661ms)
+✔ only built views route; arbitrary hashes fall back without executing anything (0.276597ms)
+✔ runtime refuses a real provider before touching DOM (0.674696ms)
+✔ preview policy refuses operational network, forms and inline execution (0.541435ms)
+✔ shell owns safe text rendering, cancellation and explicit cleanup without real reads or polling (0.532332ms)
+✔ responsive/accessibility source hooks exist (not a visual or keyboard execution) (0.321664ms)
+✔ theme token text, accent, focus and control borders meet calculated contrast minima (0.789159ms)
+✔ actual overview concepts preserve unknown, zero, country anchors and scope (1.667612ms)
+✔ cached reassessment expires evidence at the boundary without renewing fetch time (0.324629ms)
+✔ future, absent and revoked node reports cannot imply healthy state (0.51113ms)
+✔ malformed types, out-of-range measurements, duplicate and wrong-scope resources reject (0.944162ms)
+✔ only selected presentation fields leave the adapter (0.250718ms)
+✔ uint64 counters retain exact decimals and reject rounded JSON numbers (0.263697ms)
+✔ RFC3339 accepts Go nanoseconds and timezone offsets without accepting invalid dates (0.280863ms)
+✔ tunnel desired phase and lifecycle timestamp never become delivery health (0.239571ms)
+✔ Go-handler shared fixtures decode through the real adapter without a live request (9.356825ms)
+✔ actual Go empty-list shapes remain empty, never zero-filled resources (0.882199ms)
+✔ wire timestamps do not renew cached node evidence or certify payload delivery (0.659593ms)
+ℹ tests 30
+ℹ suites 0
+ℹ pass 30
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 166.001384
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> @baft/aurora-foundation@0.0.0 test:dom
+> node --experimental-vm-modules --test tests/dom/*.test.mjs
+
+(node:202) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ mounted DOM loads historical DEMO evidence without reporting payload health (118.466657ms)
+✔ all four language/theme combinations mount, switch, persist and restore focus (180.174208ms)
+✔ completion preserves a control focused while data was pending (21.217901ms)
+✔ navigation while pending keeps main focused after completion (20.72605ms)
+✔ completion never steals focus from a target outside the shell (31.094358ms)
+✔ errors are safe and explicit retry recovers without duplicate requests (24.731433ms)
+✔ empty and mislabeled real data never become DEMO resources (27.350257ms)
+✔ destroy aborts pending data, removes listeners and refuses late repaint (12.770506ms)
+✔ remount has one listener owner and stale destroy cannot remove new UI (22.198267ms)
+✔ resource text is inert even when synthetic aliases resemble HTML (15.22223ms)
+✔ blocked storage keeps preference controls functional and reports a safe notice (21.141296ms)
+✔ entry page lifecycle events tear down and remount on a persisted pageshow (23.349762ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1036.338737
+✔ Persian and English carry the same strings (2.602861ms)
+✔ every translated element in the page has a string (0.237759ms)
+✔ the country list matches the server (0.296807ms)
+✔ every menu route has a page and a name (0.5045ms)
+✔ demo numbers appear only in the labelled preview (0.487815ms)
+✔ text from the server is escaped before it reaches the page (0.279341ms)
+✔ the page only loads files that BCC embeds (0.515446ms)
+✔ theme and language are applied before the first paint (0.309206ms)
+✔ BCC dashboard keeps all existing operational sections (0.850031ms)
+✔ BCC visual tokens and focus states are present (0.133291ms)
+✔ BCC dashboard remains wired to existing operational loaders (0.207713ms)
+✔ operational dashboard includes focus-visible and disabled control styles (0.25947ms)
+✔ SSH enrollment always restores controls and clears credentials (1.71298ms)
+✔ Doctor cached PASS expires to NOT_ASSESSED at display time (1.04855ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 97.583175

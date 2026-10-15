@@ -267,7 +267,11 @@ func TestIncidentSnapshotMigrationFromV12PreservesExistingState(t *testing.T) {
  if err:=db.Close();err!=nil {t.Fatal(err)}
  got,err:=OpenStore(path)
  if err!=nil {t.Fatalf("v12 upgrade failed: %v",err)}
- if !bytes.Equal(before,canonicalStateJSON(got.st)) {t.Fatal("v12 migration changed existing BCC state")}
+ // Schema v12 had no incident snapshot; compare the pre-existing fields only.
+ gotLegacy:=got.st
+ gotLegacy.IncidentSnapshot=store.st.IncidentSnapshot
+ if !bytes.Equal(before,canonicalStateJSON(gotLegacy)) {t.Fatal("v12 migration changed existing BCC state")}
+ if len(got.st.IncidentSnapshot.Active)!=0 || len(got.st.IncidentSnapshot.History)!=0 {t.Fatal("v12 migration did not initialize an empty incident snapshot")}
  version,err:=stateSchemaVersion(path)
  if err!=nil || version!=13 {t.Fatalf("migration version %d: %v",version,err)}
 }

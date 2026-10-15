@@ -1,6 +1,7 @@
 package incidentclass
 
 import (
+ "strings"
  "fmt"
  "sync"
  "testing"
@@ -92,4 +93,18 @@ func TestObserveEvidenceCapacityLimit(t *testing.T) {
  result:=tracker.ObserveEvidence("overflow",now.Add(time.Second),time.Minute,evidence)
  if result.Status!=Unknown {t.Fatalf("unexpected result: %+v",result)}
  if len(tracker.Snapshot().Active)!=MaxActive {t.Fatal("overflow changed active count")}
+}
+
+func TestNewTrackerRejectsOversizedPersistedFields(t *testing.T) {
+ now:=time.Now().UTC()
+ valid:=Incident{InstanceID:"node",Status:NodeOffline,StartedAt:now,LastObservedAt:now,Observations:1}
+ oversizedID:=valid
+ oversizedID.InstanceID=strings.Repeat("i",MaxInstanceIDBytes+1)
+ if _,err:=NewTracker(Snapshot{Active:map[string]Incident{oversizedID.InstanceID:oversizedID}});err==nil {t.Fatal("oversized active ID accepted")}
+ oversizedReason:=valid
+ oversizedReason.Reason=strings.Repeat("r",MaxReasonBytes+1)
+ if _,err:=NewTracker(Snapshot{Active:map[string]Incident{"node":oversizedReason}});err==nil {t.Fatal("oversized active reason accepted")}
+ completed:=oversizedReason
+ completed.RecoveredAt=&now
+ if _,err:=NewTracker(Snapshot{History:[]Incident{completed}});err==nil {t.Fatal("oversized completed reason accepted")}
 }

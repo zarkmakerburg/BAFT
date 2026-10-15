@@ -146,3 +146,19 @@ func TestLoadSnapshotRejectsCompletedHistoryOverflow(t *testing.T) {
  if err:=os.WriteFile(path,data,0600);err!=nil {t.Fatal(err)}
  if _,err:=LoadSnapshot(path);err==nil {t.Fatal("accepted snapshot exceeding completed incident history capacity")}
 }
+
+func TestSaveSnapshotRejectsActiveCapacityOverflowWithoutOverwriting(t *testing.T) {
+ now:=time.Now().UTC()
+ active:=make(map[string]Incident,MaxActive+1)
+ for i:=0;i<=MaxActive;i++ {
+  id:=fmt.Sprintf("instance-%04d",i)
+  active[id]=Incident{InstanceID:id,Status:NodeOffline,StartedAt:now,LastObservedAt:now,Observations:1}
+ }
+ path:=filepath.Join(t.TempDir(),"existing.json")
+ original:=[]byte("{}")
+ if err:=os.WriteFile(path,original,0600);err!=nil {t.Fatal(err)}
+ if err:=SaveSnapshot(path,Snapshot{Active:active});err==nil {t.Fatal("accepted active capacity overflow on save")}
+ got,err:=os.ReadFile(path)
+ if err!=nil {t.Fatal(err)}
+ if string(got)!=string(original) {t.Fatal("rejected active overflow overwrote existing snapshot")}
+}

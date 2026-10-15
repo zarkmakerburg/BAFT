@@ -383,3 +383,43 @@ func TestObserveTunnelIncidentRecoveryPreservesSibling(t *testing.T) {
   t.Fatalf("unexpected recovery history: %+v",snapshot.History)
  }
 }
+
+func TestObserveTunnelIncidentFailedWritePreservesSiblingSnapshots(t *testing.T) {
+ dir:=t.TempDir()
+ path:=filepath.Join(dir,"incident.db")
+ store,err:=OpenStore(path)
+ if err!=nil {t.Fatal(err)}
+ now:=time.Date(2026,10,15,9,0,0,0,time.UTC)
+ failed:=incidentclass.Evidence{ObservedAt:now,HeartbeatKnown:true,HeartbeatFresh:false}
+ for _,id:=range []string{"tunnel-a","tunnel-b"} {
+  if _,err:=store.ObserveTunnelIncident(id,now,time.Minute,failed);err!=nil {t.Fatal(err)}
+ }
+ beforeA:=store.st.IncidentSnapshot.Active["tunnel-a"]
+ beforeB:=store.st.IncidentSnapshot.Active["tunnel-b"]
+ originalPath:=store.path
+ blocker:=filepath.Join(dir,"regular-file-parent")
+ if err:=os.WriteFile(blocker,[]byte("block"),0600);err!=nil {t.Fatal(err)}
+ store.path=filepath.Join(blocker,"state.db")
+ healthy:=incidentclass.Evidence{
+  ObservedAt:now.Add(time.Second),HeartbeatKnown:true,HeartbeatFresh:true,
+  ServiceKnown:true,ServiceRunning:true,HandshakeKnown:true,HandshakeOK:true,
+  DataPathKnown:true,DataPathOK:true,
+ }
+ result,err:=store.ObserveTunnelIncident("tunnel-a",healthy.ObservedAt,time.Minute,healthy)
+ if err==nil {t.Fatal("expected persistence failure")}
+ if result.Status!=incidentclass.Recovered {t.Fatalf("unexpected classification: %+v",result)}
+ if len(store.st.IncidentSnapshot.Active)!=2 || len(store.st.IncidentSnapshot.History)!=0 {
+  t.Fatalf("failed write changed in-memory lifecycle: %+v",store.st.IncidentSnapshot)
+ }
+ if store.st.IncidentSnapshot.Active["tunnel-a"]!=beforeA || store.st.IncidentSnapshot.Active["tunnel-b"]!=beforeB {
+  t.Fatal("failed write changed an active tunnel incident")
+ }
+ reopened,err:=OpenStore(originalPath)
+ if err!=nil {t.Fatal(err)}
+ if len(reopened.st.IncidentSnapshot.Active)!=2 || len(reopened.st.IncidentSnapshot.History)!=0 {
+  t.Fatalf("failed write changed durable lifecycle: %+v",reopened.st.IncidentSnapshot)
+ }
+ if reopened.st.IncidentSnapshot.Active["tunnel-a"]!=beforeA || reopened.st.IncidentSnapshot.Active["tunnel-b"]!=beforeB {
+  t.Fatal("failed write changed durable sibling state")
+ }
+}

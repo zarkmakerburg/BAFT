@@ -53,5 +53,7 @@ jobs:
           test -f internal/incidentclass/tracker.go
           test -f internal/incidentclass/snapshot_test.go
           echo "INTEGRATED_TREE_SHA=$(git write-tree)"
+          echo "INTEGRATED_STORE_BLOB=$(git rev-parse :internal/bcc/store.go)"
+          echo "INTEGRATED_STATE_DB_BLOB=$(git rev-parse :internal/bcc/statedb.go)"
           go test ./internal/bcc ./internal/incidentclass
           echo "Merged source was tested in CI workspace only; no commit or push."

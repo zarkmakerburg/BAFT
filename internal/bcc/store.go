@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/zarkmakerburg/baft/internal/telemetry"
+	"github.com/zarkmakerburg/baft/internal/incidentclass"
 )
 
 const (
@@ -160,6 +161,7 @@ type MonitoringNode struct {
 }
 
 type state struct {
+	IncidentSnapshot incidentclass.Snapshot `json:"incident_snapshot,omitempty"`
 	Nodes    map[string]Node          `json:"nodes"`
 	Jobs     map[string]Job           `json:"jobs"`
 	Finance   map[string]NodeFinance      `json:"finance,omitempty"`

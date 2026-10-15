@@ -131,3 +131,18 @@ func TestLoadSnapshotRejectsActiveCapacityOverflow(t *testing.T) {
  if err:=os.WriteFile(path,data,0600);err!=nil {t.Fatal(err)}
  if _,err:=LoadSnapshot(path);err==nil {t.Fatal("accepted snapshot exceeding active incident capacity")}
 }
+
+func TestLoadSnapshotRejectsCompletedHistoryOverflow(t *testing.T) {
+ now:=time.Now().UTC()
+ history:=make([]Incident,MaxHistory+1)
+ for i:=range history {
+  id:=fmt.Sprintf("history-%04d",i)
+  history[i]=Incident{InstanceID:id,Status:Recovered,StartedAt:now,LastObservedAt:now,RecoveredAt:&now,Observations:1}
+ }
+ data,err:=json.Marshal(Snapshot{History:history})
+ if err!=nil {t.Fatal(err)}
+ if len(data)>MaxSnapshotBytes {t.Fatal("history test unexpectedly exceeds byte budget")}
+ path:=filepath.Join(t.TempDir(),"history-overflow.json")
+ if err:=os.WriteFile(path,data,0600);err!=nil {t.Fatal(err)}
+ if _,err:=LoadSnapshot(path);err==nil {t.Fatal("accepted snapshot exceeding completed incident history capacity")}
+}

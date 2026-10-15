@@ -12,6 +12,7 @@ export function mountAurora(root, provider = createMockProvider()) {
     const win = doc.defaultView;
     if (!win)
         throw new Error('A browser document is required');
+    const HTMLElementClass = win.HTMLElement;
     const abort = new AbortController();
     const previous = { language: doc.documentElement.lang, direction: doc.documentElement.dir };
     let preferences;
@@ -74,6 +75,13 @@ export function mountAurora(root, provider = createMockProvider()) {
     function render(focusAction) {
         if (disposed)
             return;
+        // Replacing the root removes its focused descendants. Preserve only a
+        // known shell target; never steal focus from elsewhere in the document.
+        const active = doc.activeElement;
+        const ownedFocus = active !== null && root.contains(active);
+        const previousAction = ownedFocus && active instanceof HTMLElementClass ? active.dataset['action'] : undefined;
+        const action = focusAction ?? (previousAction === 'language' || previousAction === 'theme' || previousAction === 'reload' ? previousAction : undefined);
+        const mainFocused = ownedFocus && active.id === 'aurora-content';
         const t = catalog(preferences.language);
         doc.documentElement.lang = preferences.language;
         doc.documentElement.dir = preferences.language === 'fa' ? 'rtl' : 'ltr';
@@ -201,8 +209,10 @@ export function mountAurora(root, provider = createMockProvider()) {
         layout.append(sidebar, main);
         fragment.append(layout);
         root.replaceChildren(fragment);
-        if (focusAction)
-            root.querySelector(`button[data-action="${focusAction}"]`)?.focus();
+        if (action)
+            root.querySelector(`button[data-action="${action}"]`)?.focus();
+        else if (mainFocused)
+            root.querySelector('main')?.focus();
     }
     async function reload(returnFocus = false) {
         const sequence = ++request;

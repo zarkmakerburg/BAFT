@@ -3,13 +3,14 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "engines": { "node": ">=22" },
+  "engines": { "node": "^22.22.2 || ^24.15.0 || >=26.0.0" },
   "scripts": {
     "typecheck": "tsc --noEmit && tsc -p tsconfig.type-tests.json",
     "build": "tsc",
     "check:generated": "node scripts/check-generated.mjs",
     "size": "node scripts/report-size.mjs",
-    "test": "npm run typecheck && npm run check:generated && npm run size && node --test tests/*.test.mjs"
+    "test:dom": "node --experimental-vm-modules --test tests/dom/*.test.mjs",
+    "test": "npm run typecheck && npm run check:generated && npm run size && node --test tests/*.test.mjs && npm run test:dom"
   },
-  "devDependencies": { "typescript": "6.0.3" }
+  "devDependencies": { "typescript": "6.0.3", "jsdom": "30.1.3" }
 }

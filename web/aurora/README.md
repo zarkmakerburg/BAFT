@@ -4,6 +4,11 @@ This package is an isolated foundation, not a deployed dashboard. Its generated
 modules are committed but are not embedded by `web/assets.go`, imported by the
 current UI, or exposed through a new BCC route. Production needs no Node service.
 
+The package now also has an exact-pinned development-only JSDOM test tool for
+executing shell DOM behavior in Node. [Admission and regression evidence](../../docs/aurora/dom-test-admission.md)
+keeps this distinct from a browser, rendering, screenshots and mobile acceptance.
+The required Node versions follow that tool's engine range; production is unaffected.
+
 From the repository root:
 
 ```sh

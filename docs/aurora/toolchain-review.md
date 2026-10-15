@@ -1,5 +1,9 @@
 # A1 compiler and dependency admission — 2026-10-15
 
+Historical A1 admission below is unchanged. The subsequent A2 DOM unit tool has a
+separate [admission record](dom-test-admission.md); it is test-only and not a runtime
+dependency or browser acceptance mechanism.
+
 Decision: one exact development dependency, `typescript@6.0.3`; no runtime
 framework, graph, chart, CSS, polyfill, bundler, Node service or browser package.
 Alternatives: JSDoc alone cannot meet the owner's strict-TypeScript contract;

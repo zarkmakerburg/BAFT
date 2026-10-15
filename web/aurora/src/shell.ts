@@ -13,6 +13,7 @@ export function mountAurora(root: HTMLElement, provider: DemoReads = createMockP
   const doc = root.ownerDocument;
   const win = doc.defaultView;
   if (!win) throw new Error('A browser document is required');
+  const HTMLElementClass = win.HTMLElement;
   const abort = new AbortController();
   const previous = { language: doc.documentElement.lang, direction: doc.documentElement.dir };
   let preferences: Preferences;
@@ -58,6 +59,13 @@ export function mountAurora(root: HTMLElement, provider: DemoReads = createMockP
   }
   function render(focusAction?: string): void {
     if (disposed) return;
+    // Replacing the root removes its focused descendants. Preserve only a
+    // known shell target; never steal focus from elsewhere in the document.
+    const active = doc.activeElement;
+    const ownedFocus = active !== null && root.contains(active);
+    const previousAction = ownedFocus && active instanceof HTMLElementClass ? active.dataset['action'] : undefined;
+    const action = focusAction ?? (previousAction === 'language' || previousAction === 'theme' || previousAction === 'reload' ? previousAction : undefined);
+    const mainFocused = ownedFocus && active.id === 'aurora-content';
     const t = catalog(preferences.language);
     doc.documentElement.lang = preferences.language;
     doc.documentElement.dir = preferences.language === 'fa' ? 'rtl' : 'ltr';
@@ -132,7 +140,8 @@ export function mountAurora(root: HTMLElement, provider: DemoReads = createMockP
     }
     const next = section(t.next, t.nextNote); next.classList.add('qualification'); main.append(next, element('footer', 'muted', t.footer));
     layout.append(sidebar, main); fragment.append(layout); root.replaceChildren(fragment);
-    if (focusAction) root.querySelector<HTMLButtonElement>(`button[data-action="${focusAction}"]`)?.focus();
+    if (action) root.querySelector<HTMLButtonElement>(`button[data-action="${action}"]`)?.focus();
+    else if (mainFocused) root.querySelector<HTMLElement>('main')?.focus();
   }
   async function reload(returnFocus = false): Promise<void> {
     const sequence = ++request; state = 'loading'; render();

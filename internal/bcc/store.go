@@ -524,11 +524,12 @@ func (s *Store) setNodeCountryMode(nodeID,country string,automatic bool,now time
 }
 
 // SetAutoCountry records the country BCC derived from a node's IP address.
+// An empty result clears a previous automatic country when the address is unknown.
 // It changes nothing once the operator has chosen a location, and reports
 // whether it stored a new value.
 func (s *Store) SetAutoCountry(nodeID,country string)(bool,error){
 	code,ok:=normalizeCountry(country)
-	if !ok||code==""{return false,nil}
+	if !ok{return false,nil}
 	s.mu.Lock();defer s.mu.Unlock()
 	n,found:=s.st.Nodes[nodeID]
 	// A code set before BCC located nodes itself counts as the operator's.

@@ -91,3 +91,60 @@ func TestRestoreAutoCountryClearsManualOverrideAndReevaluatesIP(t *testing.T) {
 		t.Fatal("automatic location accepted a manual country")
 	}
 }
+
+func TestAutoCountryAddressBecomesUnknown(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.json")
+	store, err := OpenStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"auto", "manual", "legacy"} {
+		country := ""
+		if id == "legacy" {
+			country = "DE"
+		}
+		if _, err := store.UpsertNode(Node{ID: id, Address: "8.8.8.8:22", Role: "foreign", Country: country}, ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := store.SetNodeCountry("manual", "NL", time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	app := &Server{store: store}
+	app.LocateNodes(context.Background())
+	for _, id := range []string{"auto", "manual", "legacy"} {
+		if _, err := store.UpsertNode(Node{ID: id, Address: "10.0.0.1:22", Role: "foreign"}, ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// A cancelled refresh must not discard the previous observation or cache it.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	app.LocateNodes(ctx)
+	if n, _ := store.GetNode("auto"); n.Country != "US" {
+		t.Fatalf("cancelled lookup changed country: %+v", n)
+	}
+	app.LocateNodes(context.Background())
+	check := func(s *Store) {
+		t.Helper()
+		for id, want := range map[string]string{"auto": "", "manual": "NL", "legacy": "DE"} {
+			n, _ := s.GetNode(id)
+			if n.Country != want || (id == "auto" && (!n.CountryAuto || n.CountryManual)) {
+				t.Errorf("%s: %+v, want country %q", id, n, want)
+			}
+		}
+	}
+	check(store)
+	reopened, err := OpenStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	check(reopened)
+	if _, err := store.UpsertNode(Node{ID: "auto", Address: "5.9.1.1:22", Role: "foreign"}, ""); err != nil {
+		t.Fatal(err)
+	}
+	app.LocateNodes(context.Background())
+	if n, _ := store.GetNode("auto"); n.Country != "DE" || !n.CountryAuto {
+		t.Fatalf("lookup did not recover: %+v", n)
+	}
+}

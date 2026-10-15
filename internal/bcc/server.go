@@ -479,6 +479,9 @@ func (s *Server) ProbeOnce(ctx context.Context) {
 // never changed; an address that was already looked up is not resolved again.
 func (s *Server) LocateNodes(ctx context.Context) {
 	for _, n := range s.store.ListNodes() {
+		if ctx.Err() != nil {
+			return
+		}
 		if n.Revoked || n.CountryManual || (n.Country != "" && !n.CountryAuto) {
 			continue
 		}
@@ -492,10 +495,14 @@ func (s *Server) LocateNodes(ctx context.Context) {
 		if done {
 			continue
 		}
-		if cc, ok := nodeCountry(ctx, n); ok {
-			if _, err := s.store.SetAutoCountry(n.ID, cc); err != nil {
-				continue
-			}
+		cc, _ := nodeCountry(ctx, n)
+		if ctx.Err() != nil {
+			return
+		}
+		// An unlocatable new address invalidates the previous automatic country.
+		// Empty is unknown, not evidence that the old IP's country still applies.
+		if _, err := s.store.SetAutoCountry(n.ID, cc); err != nil {
+			continue
 		}
 		s.geoMu.Lock()
 		s.geoTried[n.ID] = key

@@ -1,0 +1,38 @@
+name: Core reconciliation preflight
+on:
+  push:
+    branches:
+      - codex/core-reconcile-stage110
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  merge-diagnostics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify pinned parents and inspect three-way merge
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=1816f2a35dfeb8a51d32575dbb57e6e0c4c27dc7
+          incoming=39424cf6e4f5a79ec1282b7c2bc516ac306ea6aa
+          common=b028fd580fb2c3f0ebffe2fbf1a52f6b577cbf5f
+          git merge-base --is-ancestor "$base" HEAD
+          test "$(git merge-base HEAD "$incoming")" = "$common"
+          git config user.name "BAFT reconciliation preflight"
+          git config user.email "baft-preflight@users.noreply.github.com"
+          if git merge --no-commit --no-ff "$incoming"; then
+            echo "Clean textual merge. Semantic and regression validation still required."
+            git diff --cached --check
+          else
+            echo "::warning::Merge conflicts require manual semantic resolution"
+            git status --short
+            git ls-files -u
+            exit 1
+          fi
+          echo "Merge was inspected only; no commit or push."

@@ -1,6 +1,7 @@
 package incidentclass
 
 import (
+ "strings"
  "encoding/json"
  "fmt"
  "os"
@@ -76,4 +77,25 @@ func TestSnapshotAtActiveCapacityFitsConfiguredSize(t *testing.T) {
  if len(data)>MaxSnapshotBytes {
   t.Fatalf("max active snapshot requires %d bytes but limit is %d",len(data),MaxSnapshotBytes)
  }
+}
+
+func TestSnapshotWorstCaseCapacityFailsWithoutReplacingFile(t *testing.T) {
+ now:=time.Now().UTC()
+ active:=make(map[string]Incident,MaxActive)
+ for i:=0;i<MaxActive;i++ {
+  id:=fmt.Sprintf("instance-%04d",i)
+  active[id]=Incident{InstanceID:id,Status:NodeOffline,StartedAt:now,LastObservedAt:now,Observations:1,Reason:strings.Repeat("r",MaxReasonBytes)}
+ }
+ snapshot:=Snapshot{Active:active}
+ if _,err:=NewTracker(snapshot);err!=nil {t.Fatal(err)}
+ encoded,err:=json.Marshal(snapshot)
+ if err!=nil {t.Fatal(err)}
+ if len(encoded)<=MaxSnapshotBytes {t.Skip("worst-case snapshot currently fits budget")}
+ path:=filepath.Join(t.TempDir(),"incidents.json")
+ original:=[]byte("{}")
+ if err:=os.WriteFile(path,original,0600);err!=nil {t.Fatal(err)}
+ if err:=SaveSnapshot(path,snapshot);err==nil {t.Fatal("oversized snapshot accepted")}
+ got,err:=os.ReadFile(path)
+ if err!=nil {t.Fatal(err)}
+ if string(got)!=string(original) {t.Fatal("oversized snapshot replaced durable file")}
 }

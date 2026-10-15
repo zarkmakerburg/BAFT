@@ -8,6 +8,10 @@ and [A2 opt-in DEMO shell](a2-shell.md). A2 source is implemented but browser,
 mobile/visual/accessibility/performance qualification remains OPEN; the historical
 bootstrap inventory below must not be mistaken for current runtime integration.
 
+[Embedded-shell isolation](embedded-isolation.md) prepares an optional DEMO island
+without owning the BCC document, router or global styles. It does not mount or
+activate Aurora in the current default or classic product interface.
+
 Authority: [Master Engineering](https://github.com/zarkmakerburg/BAFT/issues/67#issuecomment-6178389947),
 [Aurora](https://github.com/zarkmakerburg/BAFT/issues/67#issuecomment-6187169497),
 [combined execution contract](https://github.com/zarkmakerburg/BAFT/issues/67#issuecomment-6187258582),

@@ -4,11 +4,15 @@ import { catalog, type Catalog } from './catalog.js';
 import { readPreferences, savePreferences, viewFromHash, type Preferences, type View } from './preferences.js';
 
 type DemoReads = ReadProvider & { readonly mode: 'demo' };
+export interface ShellOptions { readonly host?: 'standalone' | 'embedded' }
 const mounted = new WeakMap<HTMLElement, () => void>();
 
 /** Owns one opt-in DEMO root. No polling, real provider, live actions or global fetch patch. */
-export function mountAurora(root: HTMLElement, provider: DemoReads = createMockProvider()): () => void {
+export function mountAurora(root: HTMLElement, provider: DemoReads = createMockProvider(), options: ShellOptions = {}): () => void {
   if (provider.mode !== 'demo') throw new Error('Aurora preview requires DEMO data');
+  const host = options.host ?? 'standalone';
+  if (host !== 'standalone' && host !== 'embedded') throw new Error('Invalid Aurora host mode');
+  const embedded = host === 'embedded';
   mounted.get(root)?.();
   const doc = root.ownerDocument;
   const win = doc.defaultView;
@@ -17,10 +21,15 @@ export function mountAurora(root: HTMLElement, provider: DemoReads = createMockP
   const HTMLAnchorElementClass = win.HTMLAnchorElement;
   const abort = new AbortController();
   const previous = { language: doc.documentElement.lang, direction: doc.documentElement.dir };
+  const previousRoot = new Map<string, string | null>(
+    ['lang', 'dir', 'data-theme', 'data-aurora-root', 'data-aurora-host'].map(name => [name, root.getAttribute(name)])
+  );
+  root.dataset['auroraRoot'] = '';
+  root.dataset['auroraHost'] = host;
   let preferences: Preferences;
   try { preferences = readPreferences(win.localStorage, win.matchMedia('(prefers-color-scheme: dark)').matches); }
   catch { preferences = { language: 'fa', theme: 'dark' }; }
-  let view: View = viewFromHash(win.location.hash);
+  let view: View = embedded ? 'overview' : viewFromHash(win.location.hash);
   let data: Overview | null = null;
   let state: 'loading' | 'ready' | 'error' = 'loading';
   let saved = true;
@@ -70,8 +79,12 @@ export function mountAurora(root: HTMLElement, provider: DemoReads = createMockP
     const linkHref = ['#overview', '#nodes', '#tunnels', '#aurora-content'].find(href =>
       ownedFocus && active instanceof HTMLAnchorElementClass && active.getAttribute('href') === href);
     const t = catalog(preferences.language);
-    doc.documentElement.lang = preferences.language;
-    doc.documentElement.dir = preferences.language === 'fa' ? 'rtl' : 'ltr';
+    root.lang = preferences.language;
+    root.dir = preferences.language === 'fa' ? 'rtl' : 'ltr';
+    if (!embedded) {
+      doc.documentElement.lang = preferences.language;
+      doc.documentElement.dir = root.dir;
+    }
     root.dataset['theme'] = preferences.theme;
     const fragment = doc.createDocumentFragment();
     const skip = element('a', 'skip', t.skip); skip.href = '#aurora-content'; fragment.append(skip);
@@ -93,7 +106,8 @@ export function mountAurora(root: HTMLElement, provider: DemoReads = createMockP
       if (view === name) link.setAttribute('aria-current', 'page'); nav.append(link);
     }
     sidebar.append(element('p', 'eyebrow', t.eyebrow), nav, element('p', 'sidebar-note muted', t.localOnly));
-    const main = element('main', 'content'); main.id = 'aurora-content'; main.tabIndex = -1;
+    const main = element(embedded ? 'section' : 'main', 'content'); main.id = 'aurora-content'; main.tabIndex = -1;
+    if (embedded) main.setAttribute('aria-label', t[view]);
     const intro = element('div', 'intro');
     const heading = element('div'); heading.append(element('p', 'eyebrow', 'BAFT / AURORA'), element('h1', '', view === 'overview' ? t.title : t[view]));
     intro.append(heading, badge(t.demo)); main.append(intro);
@@ -145,7 +159,7 @@ export function mountAurora(root: HTMLElement, provider: DemoReads = createMockP
     layout.append(sidebar, main); fragment.append(layout); root.replaceChildren(fragment);
     if (action) root.querySelector<HTMLButtonElement>(`button[data-action="${action}"]`)?.focus();
     else if (linkHref) root.querySelector<HTMLAnchorElement>(`a[href="${linkHref}"]`)?.focus();
-    else if (mainFocused) root.querySelector<HTMLElement>('main')?.focus();
+    else if (mainFocused) root.querySelector<HTMLElement>('#aurora-content')?.focus();
   }
   async function reload(returnFocus = false): Promise<void> {
     const sequence = ++request; state = 'loading'; render();
@@ -164,6 +178,16 @@ export function mountAurora(root: HTMLElement, provider: DemoReads = createMockP
   root.addEventListener('click', event => {
     const target = event.target;
     if (!(target instanceof win.Element)) return;
+    // Embedded islands do not own the BCC hash router or document language.
+    const link = target.closest<HTMLAnchorElement>('a');
+    const href = link?.getAttribute('href');
+    if (embedded && link && root.contains(link) &&
+        (href === '#overview' || href === '#nodes' || href === '#tunnels' || href === '#aurora-content')) {
+      event.preventDefault();
+      if (href !== '#aurora-content') { view = viewFromHash(href); render(); }
+      root.querySelector<HTMLElement>('#aurora-content')?.focus();
+      return;
+    }
     const action = target.closest<HTMLButtonElement>('button[data-action]')?.dataset['action'];
     if (action === 'reload') { if (state !== 'loading') void reload(true); return; }
     if (action !== 'theme' && action !== 'language') return;
@@ -172,13 +196,16 @@ export function mountAurora(root: HTMLElement, provider: DemoReads = createMockP
     try { saved = savePreferences(win.localStorage, preferences); } catch { saved = false; }
     render(action);
   }, { signal: abort.signal });
-  win.addEventListener('hashchange', () => {
-    if (win.location.hash === '#aurora-content') { root.querySelector<HTMLElement>('main')?.focus(); return; }
-    view = viewFromHash(win.location.hash); render(); root.querySelector<HTMLElement>('main')?.focus();
+  if (!embedded) win.addEventListener('hashchange', () => {
+    if (win.location.hash === '#aurora-content') { root.querySelector<HTMLElement>('#aurora-content')?.focus(); return; }
+    view = viewFromHash(win.location.hash); render(); root.querySelector<HTMLElement>('#aurora-content')?.focus();
   }, { signal: abort.signal });
   const destroy = (): void => {
     if (disposed) return; disposed = true; request++; abort.abort(); root.replaceChildren();
-    delete root.dataset['theme']; doc.documentElement.lang = previous.language; doc.documentElement.dir = previous.direction;
+    for (const [name, value] of previousRoot) {
+      if (value === null) root.removeAttribute(name); else root.setAttribute(name, value);
+    }
+    if (!embedded) { doc.documentElement.lang = previous.language; doc.documentElement.dir = previous.direction; }
     mounted.delete(root);
   };
   mounted.set(root, destroy); void reload(); return destroy;

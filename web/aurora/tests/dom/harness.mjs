@@ -44,7 +44,7 @@ export async function realm(preferences = { language: 'fa', theme: 'dark' }) {
   return {
     window, document: window.document, root, errors, load,
     demo: createMockProvider,
-    mount(provider = createMockProvider()) { destroy = mountAurora(root, provider); return destroy; },
+    mount(provider = createMockProvider(), options = {}) { destroy = mountAurora(root, provider, options); return destroy; },
     click(action) { root.querySelector(`button[data-action="${action}"]`).click(); },
     async navigate(view) {
       const changed = new Promise(resolve => window.addEventListener('hashchange', resolve, { once: true }));

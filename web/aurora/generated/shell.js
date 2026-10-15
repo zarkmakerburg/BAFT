@@ -4,9 +4,13 @@ import { catalog } from './catalog.js';
 import { readPreferences, savePreferences, viewFromHash } from './preferences.js';
 const mounted = new WeakMap();
 /** Owns one opt-in DEMO root. No polling, real provider, live actions or global fetch patch. */
-export function mountAurora(root, provider = createMockProvider()) {
+export function mountAurora(root, provider = createMockProvider(), options = {}) {
     if (provider.mode !== 'demo')
         throw new Error('Aurora preview requires DEMO data');
+    const host = options.host ?? 'standalone';
+    if (host !== 'standalone' && host !== 'embedded')
+        throw new Error('Invalid Aurora host mode');
+    const embedded = host === 'embedded';
     mounted.get(root)?.();
     const doc = root.ownerDocument;
     const win = doc.defaultView;
@@ -16,6 +20,9 @@ export function mountAurora(root, provider = createMockProvider()) {
     const HTMLAnchorElementClass = win.HTMLAnchorElement;
     const abort = new AbortController();
     const previous = { language: doc.documentElement.lang, direction: doc.documentElement.dir };
+    const previousRoot = new Map(['lang', 'dir', 'data-theme', 'data-aurora-root', 'data-aurora-host'].map(name => [name, root.getAttribute(name)]));
+    root.dataset['auroraRoot'] = '';
+    root.dataset['auroraHost'] = host;
     let preferences;
     try {
         preferences = readPreferences(win.localStorage, win.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -23,7 +30,7 @@ export function mountAurora(root, provider = createMockProvider()) {
     catch {
         preferences = { language: 'fa', theme: 'dark' };
     }
-    let view = viewFromHash(win.location.hash);
+    let view = embedded ? 'overview' : viewFromHash(win.location.hash);
     let data = null;
     let state = 'loading';
     let saved = true;
@@ -85,8 +92,12 @@ export function mountAurora(root, provider = createMockProvider()) {
         const mainFocused = ownedFocus && active.id === 'aurora-content';
         const linkHref = ['#overview', '#nodes', '#tunnels', '#aurora-content'].find(href => ownedFocus && active instanceof HTMLAnchorElementClass && active.getAttribute('href') === href);
         const t = catalog(preferences.language);
-        doc.documentElement.lang = preferences.language;
-        doc.documentElement.dir = preferences.language === 'fa' ? 'rtl' : 'ltr';
+        root.lang = preferences.language;
+        root.dir = preferences.language === 'fa' ? 'rtl' : 'ltr';
+        if (!embedded) {
+            doc.documentElement.lang = preferences.language;
+            doc.documentElement.dir = root.dir;
+        }
         root.dataset['theme'] = preferences.theme;
         const fragment = doc.createDocumentFragment();
         const skip = element('a', 'skip', t.skip);
@@ -123,9 +134,11 @@ export function mountAurora(root, provider = createMockProvider()) {
             nav.append(link);
         }
         sidebar.append(element('p', 'eyebrow', t.eyebrow), nav, element('p', 'sidebar-note muted', t.localOnly));
-        const main = element('main', 'content');
+        const main = element(embedded ? 'section' : 'main', 'content');
         main.id = 'aurora-content';
         main.tabIndex = -1;
+        if (embedded)
+            main.setAttribute('aria-label', t[view]);
         const intro = element('div', 'intro');
         const heading = element('div');
         heading.append(element('p', 'eyebrow', 'BAFT / AURORA'), element('h1', '', view === 'overview' ? t.title : t[view]));
@@ -216,7 +229,7 @@ export function mountAurora(root, provider = createMockProvider()) {
         else if (linkHref)
             root.querySelector(`a[href="${linkHref}"]`)?.focus();
         else if (mainFocused)
-            root.querySelector('main')?.focus();
+            root.querySelector('#aurora-content')?.focus();
     }
     async function reload(returnFocus = false) {
         const sequence = ++request;
@@ -246,6 +259,19 @@ export function mountAurora(root, provider = createMockProvider()) {
         const target = event.target;
         if (!(target instanceof win.Element))
             return;
+        // Embedded islands do not own the BCC hash router or document language.
+        const link = target.closest('a');
+        const href = link?.getAttribute('href');
+        if (embedded && link && root.contains(link) &&
+            (href === '#overview' || href === '#nodes' || href === '#tunnels' || href === '#aurora-content')) {
+            event.preventDefault();
+            if (href !== '#aurora-content') {
+                view = viewFromHash(href);
+                render();
+            }
+            root.querySelector('#aurora-content')?.focus();
+            return;
+        }
         const action = target.closest('button[data-action]')?.dataset['action'];
         if (action === 'reload') {
             if (state !== 'loading')
@@ -264,15 +290,16 @@ export function mountAurora(root, provider = createMockProvider()) {
         }
         render(action);
     }, { signal: abort.signal });
-    win.addEventListener('hashchange', () => {
-        if (win.location.hash === '#aurora-content') {
-            root.querySelector('main')?.focus();
-            return;
-        }
-        view = viewFromHash(win.location.hash);
-        render();
-        root.querySelector('main')?.focus();
-    }, { signal: abort.signal });
+    if (!embedded)
+        win.addEventListener('hashchange', () => {
+            if (win.location.hash === '#aurora-content') {
+                root.querySelector('#aurora-content')?.focus();
+                return;
+            }
+            view = viewFromHash(win.location.hash);
+            render();
+            root.querySelector('#aurora-content')?.focus();
+        }, { signal: abort.signal });
     const destroy = () => {
         if (disposed)
             return;
@@ -280,9 +307,16 @@ export function mountAurora(root, provider = createMockProvider()) {
         request++;
         abort.abort();
         root.replaceChildren();
-        delete root.dataset['theme'];
-        doc.documentElement.lang = previous.language;
-        doc.documentElement.dir = previous.direction;
+        for (const [name, value] of previousRoot) {
+            if (value === null)
+                root.removeAttribute(name);
+            else
+                root.setAttribute(name, value);
+        }
+        if (!embedded) {
+            doc.documentElement.lang = previous.language;
+            doc.documentElement.dir = previous.direction;
+        }
         mounted.delete(root);
     };
     mounted.set(root, destroy);

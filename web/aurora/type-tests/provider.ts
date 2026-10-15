@@ -12,4 +12,8 @@ export function checkBoundary(real: ReadProvider, demo: DemoProvider): void {
   void demo.setTunnelPhase('demo-tunnel-1', 'restart');
   // @ts-expect-error The isolated preview must not accept a live data provider.
   mountAurora(document.createElement('div'), real);
+  // @ts-expect-error Embedded composition does not enable live provider reads.
+  mountAurora(document.createElement('div'), real, { host: 'embedded' });
+  // @ts-expect-error Host ownership has only two explicitly supported modes.
+  mountAurora(document.createElement('div'), demo, { host: 'automatic' });
 }

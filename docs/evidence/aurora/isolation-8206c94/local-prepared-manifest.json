@@ -1,0 +1,23 @@
+{
+  "bundle_ref": "refs/baft-preflight/d6de9a1cb96ad0f733bd8d93e97379a4138dfb2d",
+  "bundle_self_contained": true,
+  "bundle_sha256": "7aa60e72f4a51d71657cdbbd3c95c6258e9875b34e5daf8f1d74a0f35076877f",
+  "combined_commit": "d6de9a1cb96ad0f733bd8d93e97379a4138dfb2d",
+  "combined_tests_passed": false,
+  "combined_tree": "78b459700813b5f66a185dba6439d0b9462836fc",
+  "incoming_sha": "6c68887a23c4e7476cd3a80042eb2824e1a36fa1",
+  "limits": [
+    "Source regression evidence only",
+    "No browser or native lab acceptance",
+    "No mainline merge, release, deployment or live BCC activation"
+  ],
+  "parents": [
+    "8206c9496ebec0c52c5e1e191ce6b8b246363037",
+    "6c68887a23c4e7476cd3a80042eb2824e1a36fa1"
+  ],
+  "run_attempt": null,
+  "run_id": null,
+  "schema": 1,
+  "source_sha": "8206c9496ebec0c52c5e1e191ce6b8b246363037",
+  "state": "PREPARED"
+}

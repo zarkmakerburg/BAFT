@@ -1,0 +1,12 @@
+test_bundle_tampering_cannot_be_accepted (test_aurora_core_evidence.MergeEvidenceTest.test_bundle_tampering_cannot_be_accepted) ... ok
+test_dirty_tracked_source_is_refused (test_aurora_core_evidence.MergeEvidenceTest.test_dirty_tracked_source_is_refused) ... ok
+test_failed_skipped_cancelled_checks_cannot_be_accepted (test_aurora_core_evidence.MergeEvidenceTest.test_failed_skipped_cancelled_checks_cannot_be_accepted) ... ok
+test_post_test_worktree_change_cannot_be_accepted (test_aurora_core_evidence.MergeEvidenceTest.test_post_test_worktree_change_cannot_be_accepted) ... ok
+test_same_parents_and_tree_produce_same_commit (test_aurora_core_evidence.MergeEvidenceTest.test_same_parents_and_tree_produce_same_commit) ... ok
+test_self_contained_bundle_restores_exact_commit_tree_and_parents (test_aurora_core_evidence.MergeEvidenceTest.test_self_contained_bundle_restores_exact_commit_tree_and_parents) ... ok
+test_source_or_incoming_mismatch_refused_before_evidence (test_aurora_core_evidence.MergeEvidenceTest.test_source_or_incoming_mismatch_refused_before_evidence) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 1.036s
+
+OK

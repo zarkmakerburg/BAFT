@@ -1,0 +1,138 @@
+$ npm --prefix web/aurora test
+
+> @baft/aurora-foundation@0.0.0 test
+> npm run typecheck && npm run check:generated && npm run size && node --test tests/*.test.mjs && npm run test:dom
+
+
+> @baft/aurora-foundation@0.0.0 typecheck
+> tsc --noEmit && tsc -p tsconfig.type-tests.json
+
+
+> @baft/aurora-foundation@0.0.0 check:generated
+> node scripts/check-generated.mjs
+
+Generated assets verified: 8 files, compiler 6.0.3
+
+> @baft/aurora-foundation@0.0.0 size
+> node scripts/report-size.mjs
+
+{"foundationRawBytes":15508,"foundationGzipBytes":5106,"shellRawBytes":21877,"shellGzipBytes":7070,"cssRawBytes":8151,"cssGzipBytes":2037,"runtimeDependencies":0,"embeddedInBCC":false}
+✔ legacy BCC critical operational surfaces remain present (1.097404ms)
+✔ classic dashboard retains basic mobile and reduced-motion CSS (0.27865ms)
+✔ Aurora remains a separate opt-in preview, not a silently removed fallback (0.276477ms)
+✔ DEMO provider is deterministic and in-memory changes stay isolated (3.448868ms)
+✔ DEMO import and every operation work when fetch is forbidden (0.276757ms)
+✔ fresh-process mock imports do not touch a network or install polling (68.532977ms)
+✔ explicit same-origin GET adapter preserves session and protected base path (7.416658ms)
+✔ cross-origin, credential-bearing, normalized traversal and malformed bases are rejected before fetch (0.688658ms)
+✔ session expiry invokes caller boundary once and never exposes response text (0.678953ms)
+✔ HTTP, network, redirects, HTML, malformed JSON and schema errors stay sanitized (2.703495ms)
+✔ response budget covers declared size and actual streamed bytes (1.790068ms)
+✔ deadline covers an uncooperative fetch and a stalled body (21.484551ms)
+✔ caller cancellation and already-aborted signals do not start or revive requests (1.249874ms)
+✔ rejected response bodies are cancelled without reading arbitrary HTTP error data (0.589148ms)
+✔ catalogs have exact parity, nonempty copy, and explicit DEMO/unknown boundaries (2.092153ms)
+✔ preferences validate values and safely tolerate blocked or corrupted storage (0.742389ms)
+✔ only built views route; arbitrary hashes fall back without executing anything (0.19864ms)
+✔ runtime refuses a real provider before touching DOM (0.697632ms)
+✔ preview policy refuses operational network, forms and inline execution (0.509257ms)
+✔ shell owns safe text rendering, cancellation and explicit cleanup without real reads or polling (0.646855ms)
+✔ responsive/accessibility source hooks exist (not a visual or keyboard execution) (0.292931ms)
+✔ theme token text, accent, focus and control borders meet calculated contrast minima (0.900357ms)
+✔ actual overview concepts preserve unknown, zero, country anchors and scope (2.253877ms)
+✔ cached reassessment expires evidence at the boundary without renewing fetch time (0.360173ms)
+✔ future, absent and revoked node reports cannot imply healthy state (0.681587ms)
+✔ malformed types, out-of-range measurements, duplicate and wrong-scope resources reject (1.569745ms)
+✔ only selected presentation fields leave the adapter (0.337558ms)
+✔ uint64 counters retain exact decimals and reject rounded JSON numbers (0.374054ms)
+✔ RFC3339 accepts Go nanoseconds and timezone offsets without accepting invalid dates (0.249155ms)
+✔ tunnel desired phase and lifecycle timestamp never become delivery health (0.342967ms)
+✔ Go-handler shared fixtures decode through the real adapter without a live request (12.216932ms)
+✔ actual Go empty-list shapes remain empty, never zero-filled resources (1.052797ms)
+✔ wire timestamps do not renew cached node evidence or certify payload delivery (0.620846ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 166.754644
+
+> @baft/aurora-foundation@0.0.0 test:dom
+> node --experimental-vm-modules --test tests/dom/*.test.mjs
+
+(node:183) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ invalid host mode and real providers are refused before touching the root (66.19034ms)
+✔ embedded preferences stay inside the root for every language and theme (229.002257ms)
+✔ embedded navigation and skip use local focus without changing or consuming host routes (28.40437ms)
+✔ embedded pending completion preserves local focus and later host appearance (16.904888ms)
+✔ embedded teardown restores owned root attributes and rejects late data (20.108948ms)
+✔ embedded remount keeps one owner and stale teardown cannot remove a new shell (36.801937ms)
+✔ shared shell CSS scopes every selector including responsive and reduced-motion rules (62.683144ms)
+✔ loading shared CSS leaves host controls, headings, body and landmarks unchanged (30.62018ms)
+(node:184) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ mounted DOM loads historical DEMO evidence without reporting payload health (117.458436ms)
+✔ all four language/theme combinations mount, switch, persist and restore focus (167.808477ms)
+✔ completion preserves a control focused while data was pending (19.125225ms)
+✔ pending completion retains nav and skip links across every language and theme without activating them (310.288589ms)
+✔ pending rejection retains a focused nav link without exposing error detail (14.552984ms)
+✔ reload completion keeps the link chosen after starting refresh (26.152577ms)
+✔ navigation while pending keeps main focused after completion (18.302145ms)
+✔ completion never steals focus from a target outside the shell (16.588682ms)
+✔ errors are safe and explicit retry recovers without duplicate requests (19.048589ms)
+✔ empty and mislabeled real data never become DEMO resources (16.672478ms)
+✔ destroy aborts pending data, removes listeners and refuses late repaint (11.030004ms)
+✔ remount has one listener owner and stale destroy cannot remove new UI (22.53232ms)
+✔ resource text is inert even when synthetic aliases resemble HTML (13.896514ms)
+✔ blocked storage keeps preference controls functional and reports a safe notice (36.225558ms)
+✔ entry page lifecycle events tear down and remount on a persisted pageshow (22.373801ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1337.394707
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+$ node --test web/tests/bcc-app.test.cjs web/tests/bcc-hybrid-preservation.test.cjs web/tests/bcc-v3-dashboard-contract.test.cjs
+✔ Persian and English carry the same strings (2.361859ms)
+✔ every translated element in the page has a string (0.268535ms)
+✔ the country list matches the server (0.274373ms)
+✔ every menu route has a page and a name (0.213742ms)
+✔ demo numbers appear only in the labelled preview (0.31809ms)
+✔ text from the server is escaped before it reaches the page (0.336617ms)
+✔ the page only loads files that BCC embeds (0.42477ms)
+✔ theme and language are applied before the first paint (0.165139ms)
+✔ Hybrid retains modern BCC navigation, controls, visual assets and classic fallback (1.774064ms)
+✔ deleting any modern dashboard control is rejected independently of classic source (3.64249ms)
+✔ deleting or unembedding each visual dependency is rejected (3.511873ms)
+✔ removing fallback or reduced-motion support is rejected (0.76312ms)
+✔ reordering script dependencies is rejected (0.466623ms)
+✔ actual appearance bootstrap preserves fa/dark before app initialization (2.218774ms)
+✔ actual appearance bootstrap preserves fa/light before app initialization (0.66362ms)
+✔ actual appearance bootstrap preserves en/dark before app initialization (0.635197ms)
+✔ actual appearance bootstrap preserves en/light before app initialization (0.784162ms)
+✔ invalid or unavailable storage safely uses Farsi direction and system appearance (2.396782ms)
+✔ BCC dashboard keeps all existing operational sections (0.760046ms)
+✔ BCC visual tokens and focus states are present (0.131128ms)
+✔ BCC dashboard remains wired to existing operational loaders (0.16567ms)
+✔ operational dashboard includes focus-visible and disabled control styles (0.22576ms)
+✔ SSH enrollment always restores controls and clears credentials (0.187523ms)
+✔ Doctor cached PASS expires to NOT_ASSESSED at display time (0.937553ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 24
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 108.177522

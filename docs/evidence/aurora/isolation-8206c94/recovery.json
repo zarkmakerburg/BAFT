@@ -1,0 +1,46 @@
+{
+  "artifact_id": 11997416334,
+  "archive_sha256": "a148a9aea4300bfd4e7fde4cb3394fdcd0070737d6ad2415d29de261c2c5877e",
+  "bundle_sha256": "c80443abc8a4ad0e0d1602536f4995e20419fbc92276c52e01b7f7b04422acc4",
+  "manifest": {
+    "bundle_ref": "refs/baft-preflight/d6de9a1cb96ad0f733bd8d93e97379a4138dfb2d",
+    "bundle_self_contained": true,
+    "bundle_sha256": "c80443abc8a4ad0e0d1602536f4995e20419fbc92276c52e01b7f7b04422acc4",
+    "combined_commit": "d6de9a1cb96ad0f733bd8d93e97379a4138dfb2d",
+    "combined_tests_passed": true,
+    "combined_tree": "78b459700813b5f66a185dba6439d0b9462836fc",
+    "incoming_sha": "6c68887a23c4e7476cd3a80042eb2824e1a36fa1",
+    "limits": [
+      "Source regression evidence only",
+      "No browser or native lab acceptance",
+      "No mainline merge, release, deployment or live BCC activation"
+    ],
+    "outcomes": {
+      "aurora": "success",
+      "classic": "success",
+      "core": "success"
+    },
+    "parents": [
+      "8206c9496ebec0c52c5e1e191ce6b8b246363037",
+      "6c68887a23c4e7476cd3a80042eb2824e1a36fa1"
+    ],
+    "run_attempt": "1",
+    "run_id": "38784644966",
+    "schema": 1,
+    "source_sha": "8206c9496ebec0c52c5e1e191ce6b8b246363037",
+    "state": "TESTED",
+    "tracked_source_unchanged": true
+  },
+  "independent_download_recovery": "PASS",
+  "zip_crc": "PASS",
+  "full_fsck": "PASS",
+  "files": [
+    "aurora.log",
+    "classic.log",
+    "combined.bundle",
+    "combined.bundle.sha256",
+    "core.log",
+    "install.log",
+    "manifest.json"
+  ]
+}

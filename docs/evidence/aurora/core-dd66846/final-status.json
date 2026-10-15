@@ -1,0 +1,1200 @@
+{
+  "source": "dd66846f2f5053dbfe8572e215ffe93505c318c9",
+  "tree": "345c171988158f9c4b2347dfa19a96a5750068e4",
+  "runs": {
+    "workflow_runs": [
+      {
+        "id": 38774305973,
+        "name": "BCC UI tests",
+        "status": "completed",
+        "conclusion": "success",
+        "run_number": 245,
+        "jobs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38774305973/jobs",
+        "logs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38774305973/logs",
+        "workflow_id": 378490328
+      },
+      {
+        "id": 38774306017,
+        "name": "Core reconciliation preflight",
+        "status": "completed",
+        "conclusion": "success",
+        "run_number": 18,
+        "jobs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38774306017/jobs",
+        "logs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38774306017/logs",
+        "workflow_id": 385690093
+      },
+      {
+        "id": 38774306015,
+        "name": "static-analysis",
+        "status": "completed",
+        "conclusion": "success",
+        "run_number": 456,
+        "jobs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38774306015/jobs",
+        "logs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38774306015/logs",
+        "workflow_id": 374499129
+      },
+      {
+        "id": 38774305949,
+        "name": "Aurora x Core isolated merge preflight",
+        "status": "completed",
+        "conclusion": "success",
+        "run_number": 7,
+        "jobs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38774305949/jobs",
+        "logs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38774305949/logs",
+        "workflow_id": 385755945
+      },
+      {
+        "id": 38774305871,
+        "name": "r3.1-probabilistic-morphing",
+        "status": "completed",
+        "conclusion": "success",
+        "run_number": 628,
+        "jobs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38774305871/jobs",
+        "logs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38774305871/logs",
+        "workflow_id": 368593926
+      },
+      {
+        "id": 38774305763,
+        "name": "ci",
+        "status": "completed",
+        "conclusion": "success",
+        "run_number": 1726,
+        "jobs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38774305763/jobs",
+        "logs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38774305763/logs",
+        "workflow_id": 368246822
+      }
+    ]
+  },
+  "jobs": {
+    "jobs": [
+      {
+        "id": 116557838117,
+        "name": "test",
+        "status": "completed",
+        "conclusion": "success",
+        "run_id": 38774305763,
+        "logs_url": null,
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2
+          },
+          {
+            "name": "Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3
+          },
+          {
+            "name": "Toolchain",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4
+          },
+          {
+            "name": "CI supply-chain policy",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5
+          },
+          {
+            "name": "Verify module metadata",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6
+          },
+          {
+            "name": "Unit and integration tests",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7
+          },
+          {
+            "name": "Report failing tests",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 8
+          },
+          {
+            "name": "Node-local tunnel resource acceptance",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9
+          },
+          {
+            "name": "Configured service-account access acceptance",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10
+          },
+          {
+            "name": "Step 1 stability evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11
+          },
+          {
+            "name": "Step 2 sync integrity evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 12
+          },
+          {
+            "name": "Step 3 dynamic BCC evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 13
+          },
+          {
+            "name": "N-node invariant evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 14
+          },
+          {
+            "name": "Live identity-keyed topology reconciliation evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 15
+          },
+          {
+            "name": "Topology x ECRL authority isolation evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 16
+          },
+          {
+            "name": "Step 4 multi-peer mesh evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 17
+          },
+          {
+            "name": "Step 5.1 telemetry evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 18
+          },
+          {
+            "name": "Step 5.2 monitoring evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 19
+          },
+          {
+            "name": "Step 5.3 finance and monitoring completion evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 20
+          },
+          {
+            "name": "Step 5.4 BCC hardening evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 21
+          },
+          {
+            "name": "Step 5.5 backup restore and anchor evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 22
+          },
+          {
+            "name": "Step 5.6 persistent telemetry reliability evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 23
+          },
+          {
+            "name": "Step 5.7 ECRL runtime integration evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 24
+          },
+          {
+            "name": "Step 5.7 P0 distributed commit uncertainty evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 25
+          },
+          {
+            "name": "P0-R1 Class-A cancellation ownership stress",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 26
+          },
+          {
+            "name": "P0-R1 carrier-error lifecycle regressions",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 27
+          },
+          {
+            "name": "Race detector",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 28
+          },
+          {
+            "name": "Vet",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 29
+          },
+          {
+            "name": "Protocol fuzz smoke",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 30
+          },
+          {
+            "name": "Post Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 59
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 60
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 61
+          }
+        ]
+      },
+      {
+        "id": 116557838353,
+        "name": "third-party-licenses",
+        "status": "completed",
+        "conclusion": "success",
+        "run_id": 38774305763,
+        "logs_url": null,
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2
+          },
+          {
+            "name": "Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3
+          },
+          {
+            "name": "Check third-party licenses",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4
+          },
+          {
+            "name": "Post Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9
+          }
+        ]
+      },
+      {
+        "id": 116557838449,
+        "name": "e2e-install",
+        "status": "completed",
+        "conclusion": "success",
+        "run_id": 38774305763,
+        "logs_url": null,
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2
+          },
+          {
+            "name": "Let root clone this checkout with a blob filter",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3
+          },
+          {
+            "name": "Install EX and IR, pair, pass traffic",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9
+          }
+        ]
+      },
+      {
+        "id": 116557838509,
+        "name": "e2e-binaries",
+        "status": "completed",
+        "conclusion": "success",
+        "run_id": 38774305763,
+        "logs_url": null,
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2
+          },
+          {
+            "name": "Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3
+          },
+          {
+            "name": "Build",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4
+          },
+          {
+            "name": "Pair and pass traffic",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5
+          },
+          {
+            "name": "Pair and pass traffic (record shaping)",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6
+          },
+          {
+            "name": "WebSocket carrier (transport=ws, Cloudflare path)",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7
+          },
+          {
+            "name": "WebSocket carrier with uTLS fingerprint (ECDSA cert)",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8
+          },
+          {
+            "name": "Pair and pass traffic under CPU load",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9
+          },
+          {
+            "name": "Post Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 17
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 18
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 19
+          }
+        ]
+      },
+      {
+        "id": 116557838517,
+        "name": "e2e-ssh-bootstrap",
+        "status": "completed",
+        "conclusion": "success",
+        "run_id": 38774305763,
+        "logs_url": null,
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2
+          },
+          {
+            "name": "Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3
+          },
+          {
+            "name": "Build a signed release with throwaway keys",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4
+          },
+          {
+            "name": "Bootstrap this host over SSH",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5
+          },
+          {
+            "name": "Post Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11
+          }
+        ]
+      },
+      {
+        "id": 116557838534,
+        "name": "e2e-install-offline",
+        "status": "completed",
+        "conclusion": "success",
+        "run_id": 38774305763,
+        "logs_url": null,
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2
+          },
+          {
+            "name": "Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3
+          },
+          {
+            "name": "Build a signed release and its offline bundle",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4
+          },
+          {
+            "name": "A tampered bundle is refused",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5
+          },
+          {
+            "name": "Install EX and IR offline, pair, pass traffic",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6
+          },
+          {
+            "name": "Post Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 12
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 13
+          }
+        ]
+      },
+      {
+        "id": 116557838580,
+        "name": "e2e-launch1",
+        "status": "completed",
+        "conclusion": "success",
+        "run_id": 38774305763,
+        "logs_url": null,
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2
+          },
+          {
+            "name": "Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3
+          },
+          {
+            "name": "Build a signed release of this commit with throwaway keys",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4
+          },
+          {
+            "name": "Build, break and roll back a tunnel",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5
+          },
+          {
+            "name": "Post Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11
+          }
+        ]
+      },
+      {
+        "id": 116557838599,
+        "name": "e2e-agent-enroll",
+        "status": "completed",
+        "conclusion": "success",
+        "run_id": 38774305763,
+        "logs_url": null,
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2
+          },
+          {
+            "name": "Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3
+          },
+          {
+            "name": "Build a signed release with throwaway keys",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4
+          },
+          {
+            "name": "Enroll this host and run a signed job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5
+          },
+          {
+            "name": "Post Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11
+          }
+        ]
+      },
+      {
+        "id": 116557838614,
+        "name": "e2e-bcc-install",
+        "status": "completed",
+        "conclusion": "success",
+        "run_id": 38774305763,
+        "logs_url": null,
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2
+          },
+          {
+            "name": "Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3
+          },
+          {
+            "name": "Let root clone this checkout with a blob filter",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4
+          },
+          {
+            "name": "Build a signed release with throwaway keys",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5
+          },
+          {
+            "name": "Install BCC from release and source, verify handoff and rerun",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6
+          },
+          {
+            "name": "Post Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 12
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 13
+          }
+        ]
+      },
+      {
+        "id": 116557838631,
+        "name": "e2e-install-ssh",
+        "status": "completed",
+        "conclusion": "success",
+        "run_id": 38774305763,
+        "logs_url": null,
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2
+          },
+          {
+            "name": "Let root clone this checkout with a blob filter",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3
+          },
+          {
+            "name": "Install EX, which installs the IR over SSH, pair, pass traffic",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9
+          }
+        ]
+      },
+      {
+        "id": 116557838709,
+        "name": "e2e-bcc-schema-upgrade",
+        "status": "completed",
+        "conclusion": "success",
+        "run_id": 38774305763,
+        "logs_url": null,
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2
+          },
+          {
+            "name": "Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3
+          },
+          {
+            "name": "Drill old-binary refusal and new-binary recovery on loopback",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4
+          },
+          {
+            "name": "Post Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9
+          }
+        ]
+      },
+      {
+        "id": 116557838755,
+        "name": "release-dry-run",
+        "status": "completed",
+        "conclusion": "success",
+        "run_id": 38774305763,
+        "logs_url": null,
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2
+          },
+          {
+            "name": "Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3
+          },
+          {
+            "name": "Release dry run",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4
+          },
+          {
+            "name": "Post Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9
+          }
+        ]
+      },
+      {
+        "id": 116557838858,
+        "name": "e2e-install-release",
+        "status": "completed",
+        "conclusion": "success",
+        "run_id": 38774305763,
+        "logs_url": null,
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2
+          },
+          {
+            "name": "Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3
+          },
+          {
+            "name": "Build a signed release with throwaway keys",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4
+          },
+          {
+            "name": "Build the second release and two broken ones (same root key) for the upgrade and rollback checks",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5
+          },
+          {
+            "name": "Install EX and IR from the release, pair, pass traffic, rerun x5, upgrade, roll back",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6
+          },
+          {
+            "name": "Post Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 12
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 13
+          }
+        ]
+      },
+      {
+        "id": 116557838877,
+        "name": "e2e-uninstall",
+        "status": "completed",
+        "conclusion": "success",
+        "run_id": 38774305763,
+        "logs_url": null,
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2
+          },
+          {
+            "name": "Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3
+          },
+          {
+            "name": "Build two signed releases with one throwaway root",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4
+          },
+          {
+            "name": "Uninstall acceptance",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5
+          },
+          {
+            "name": "Report uninstall evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6
+          },
+          {
+            "name": "Post Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 12
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 13
+          }
+        ]
+      },
+      {
+        "id": 116557839110,
+        "name": "installer-faults",
+        "status": "completed",
+        "conclusion": "success",
+        "run_id": 38774305763,
+        "logs_url": null,
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2
+          },
+          {
+            "name": "Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3
+          },
+          {
+            "name": "Let root read this checkout",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4
+          },
+          {
+            "name": "Failure-injection and pre-confirmation checks",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5
+          },
+          {
+            "name": "Post Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11
+          }
+        ]
+      }
+    ]
+  },
+  "artifact": {
+    "artifacts": [
+      {
+        "id": 11992808888,
+        "name": "aurora-core-dd66846f2f5053dbfe8572e215ffe93505c318c9-1",
+        "size_in_bytes": 43715461,
+        "url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/artifacts/11992808888",
+        "archive_download_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/artifacts/11992808888/zip",
+        "expired": false,
+        "created_at": "2026-10-15T17:10:52Z",
+        "expires_at": "2027-01-13T17:04:42Z",
+        "updated_at": "2026-10-15T17:10:52Z",
+        "digest": "sha256:67e19e352ed49ebf0454018332608093b124b8edfe34203d15abc73f334bc407",
+        "workflow_run": {
+          "id": 38774305949,
+          "repository_id": 1390610216,
+          "head_repository_id": 1390610216,
+          "head_branch": "codex/aurora-core-evidence-stage182",
+          "head_sha": "dd66846f2f5053dbfe8572e215ffe93505c318c9"
+        }
+      }
+    ]
+  },
+  "recovery": {
+    "manifest": {
+      "bundle_ref": "refs/baft-preflight/fe9d241d54568dd93530b4d1ceb0c352c35bd4c5",
+      "bundle_self_contained": true,
+      "bundle_sha256": "5bfdee33b257cce81e0d63c9d5fe64a8f7be7cc26c8a7e5938173b15cbc9d006",
+      "combined_commit": "fe9d241d54568dd93530b4d1ceb0c352c35bd4c5",
+      "combined_tests_passed": true,
+      "combined_tree": "47a1b6bd435180e8a5957d48292dc989865bf029",
+      "incoming_sha": "86cb4317fbab16e71208f701851b70140e380e84",
+      "limits": [
+        "Source regression evidence only",
+        "No browser or native lab acceptance",
+        "No mainline merge, release, deployment or live BCC activation"
+      ],
+      "outcomes": {
+        "aurora": "success",
+        "classic": "success",
+        "core": "success"
+      },
+      "parents": [
+        "dd66846f2f5053dbfe8572e215ffe93505c318c9",
+        "86cb4317fbab16e71208f701851b70140e380e84"
+      ],
+      "run_attempt": "1",
+      "run_id": "38774305949",
+      "schema": 1,
+      "source_sha": "dd66846f2f5053dbfe8572e215ffe93505c318c9",
+      "state": "TESTED",
+      "tracked_source_unchanged": true
+    },
+    "recovery": {
+      "artifact_id": 11992808888,
+      "archive_sha256": "67e19e352ed49ebf0454018332608093b124b8edfe34203d15abc73f334bc407",
+      "bundle_sha256": "5bfdee33b257cce81e0d63c9d5fe64a8f7be7cc26c8a7e5938173b15cbc9d006",
+      "manifest": {
+        "bundle_ref": "refs/baft-preflight/fe9d241d54568dd93530b4d1ceb0c352c35bd4c5",
+        "bundle_self_contained": true,
+        "bundle_sha256": "5bfdee33b257cce81e0d63c9d5fe64a8f7be7cc26c8a7e5938173b15cbc9d006",
+        "combined_commit": "fe9d241d54568dd93530b4d1ceb0c352c35bd4c5",
+        "combined_tests_passed": true,
+        "combined_tree": "47a1b6bd435180e8a5957d48292dc989865bf029",
+        "incoming_sha": "86cb4317fbab16e71208f701851b70140e380e84",
+        "limits": [
+          "Source regression evidence only",
+          "No browser or native lab acceptance",
+          "No mainline merge, release, deployment or live BCC activation"
+        ],
+        "outcomes": {
+          "aurora": "success",
+          "classic": "success",
+          "core": "success"
+        },
+        "parents": [
+          "dd66846f2f5053dbfe8572e215ffe93505c318c9",
+          "86cb4317fbab16e71208f701851b70140e380e84"
+        ],
+        "run_attempt": "1",
+        "run_id": "38774305949",
+        "schema": 1,
+        "source_sha": "dd66846f2f5053dbfe8572e215ffe93505c318c9",
+        "state": "TESTED",
+        "tracked_source_unchanged": true
+      },
+      "independent_download_recovery": "PASS",
+      "zip_crc": "PASS",
+      "full_fsck": "PASS",
+      "files": [
+        "aurora.log",
+        "classic.log",
+        "combined.bundle",
+        "combined.bundle.sha256",
+        "core.log",
+        "install.log",
+        "manifest.json"
+      ]
+    }
+  },
+  "claim": 6197609113,
+  "scope": "P0 evidence slice only"
+}

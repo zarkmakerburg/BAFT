@@ -90,7 +90,7 @@ func TestSnapshotWorstCaseCapacityFailsWithoutReplacingFile(t *testing.T) {
  if _,err:=NewTracker(snapshot);err!=nil {t.Fatal(err)}
  encoded,err:=json.Marshal(snapshot)
  if err!=nil {t.Fatal(err)}
- if len(encoded)<=MaxSnapshotBytes {t.Skip("worst-case snapshot currently fits budget")}
+ if len(encoded)<=MaxSnapshotBytes {t.Fatalf("expected worst-case snapshot to exceed budget; got %d bytes, budget %d",len(encoded),MaxSnapshotBytes)}
  path:=filepath.Join(t.TempDir(),"incidents.json")
  original:=[]byte("{}")
  if err:=os.WriteFile(path,original,0600);err!=nil {t.Fatal(err)}

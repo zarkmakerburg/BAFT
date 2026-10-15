@@ -88,3 +88,20 @@ classic feature retention and secure feature-flagged route integration remain
 separate gates. Native two-node acceptance remains owner-deferred. Aurora must
 integrate with classic BCC, preserving its widgets, effects and reversible fallback.
 No merge/release/deploy approval is granted by this artifact.
+
+## Updated embedded-shell pin (HQ Stage197)
+
+The isolated follow-up from PR213 pins PR214
+`6c68887a23c4e7476cd3a80042eb2824e1a36fa1` and checks its live
+`codex/aurora-embedded-isolation-stage194` ref. This includes the optional DEMO
+embedded ownership/scoped CSS changes and their additional DOM regressions while
+retaining the current Core and default/classic preservation tests. The incoming
+source, corresponding live ref and fail-closed error are changed together; no
+freshness, suite, outcome, recovery, permission or credential guard is removed.
+
+This is a new tested-source candidate, not promotion of the UI into BCC. PR214's
+UI/static success and PR213's previous full green do not certify the new combined
+tree. Run every mandatory combined suite on the new exact source, retain its
+ordered parents and recoverable bundle, then inspect its own full CI. The default
+and classic product routes, real provider activation, feature flag, browser and
+owner-deferred native gates remain unchanged/open. No live write is introduced.

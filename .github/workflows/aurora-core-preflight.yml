@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 25
     env:
       SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
-      AURORA_SHA: 86cb4317fbab16e71208f701851b70140e380e84
+      AURORA_SHA: 6c68887a23c4e7476cd3a80042eb2824e1a36fa1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -35,10 +35,10 @@ jobs:
         run: |
           set -euo pipefail
           incoming="$AURORA_SHA"
-          current_aurora=$(git ls-remote origin refs/heads/codex/aurora-hybrid-parity-stage104 | cut -f1)
+          current_aurora=$(git ls-remote origin refs/heads/codex/aurora-embedded-isolation-stage194 | cut -f1)
           test -n "$current_aurora" || { echo "::error::Aurora source branch not found"; exit 1; }
           if [ "$current_aurora" != "$incoming" ]; then
-            echo "::error::Aurora PR208 advanced; update pinned incoming SHA and rerun merged-workspace tests"
+            echo "::error::Aurora PR214 advanced; update pinned incoming SHA and rerun merged-workspace tests"
             exit 1
           fi
           git fetch --no-tags origin "$incoming"

@@ -1,0 +1,35 @@
+a55b6faca2182ab2c1495a4ad40e0b09bbcb9b66
+490dc295f6b1863a84e0ea590fa1534886b3eb20
+✔ Persian and English carry the same strings (2.204781ms)
+✔ every translated element in the page has a string (0.241053ms)
+✔ the country list matches the server (0.266532ms)
+✔ every menu route has a page and a name (0.17205ms)
+✔ demo numbers appear only in the labelled preview (0.332831ms)
+✔ text from the server is escaped before it reaches the page (0.297698ms)
+✔ the page only loads files that BCC embeds (0.358289ms)
+✔ theme and language are applied before the first paint (0.113311ms)
+✔ Hybrid retains modern BCC navigation, controls, visual assets and classic fallback (1.73305ms)
+✔ deleting any modern dashboard control is rejected independently of classic source (3.26681ms)
+✔ deleting or unembedding each visual dependency is rejected (3.483195ms)
+✔ removing fallback or reduced-motion support is rejected (0.791723ms)
+✔ reordering script dependencies is rejected (0.480514ms)
+✔ actual appearance bootstrap preserves fa/dark before app initialization (2.369619ms)
+✔ actual appearance bootstrap preserves fa/light before app initialization (0.731061ms)
+✔ actual appearance bootstrap preserves en/dark before app initialization (0.699734ms)
+✔ actual appearance bootstrap preserves en/light before app initialization (0.828298ms)
+✔ invalid or unavailable storage safely uses Farsi direction and system appearance (3.016097ms)
+✔ BCC dashboard keeps all existing operational sections (0.796349ms)
+✔ BCC visual tokens and focus states are present (0.161423ms)
+✔ BCC dashboard remains wired to existing operational loaders (0.175164ms)
+✔ operational dashboard includes focus-visible and disabled control styles (0.207082ms)
+✔ SSH enrollment always restores controls and clears credentials (0.187813ms)
+✔ Doctor cached PASS expires to NOT_ASSESSED at display time (0.90997ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 24
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 99.903316
+CI supply-chain policy: PASS (15 workflows); release secrets absent

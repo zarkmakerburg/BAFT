@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/zarkmakerburg/baft/internal/telemetry"
+	"github.com/zarkmakerburg/baft/internal/incidentclass"
 )
 
 func populatedState(t *testing.T, path string) *Store {
@@ -224,4 +225,33 @@ func TestReleasedV020SchemaUpgradesWithoutLosingNode(t *testing.T) {
 	defer check.Close()
 	if err := check.QueryRow(`SELECT doc FROM nodes WHERE id = ?`, want.ID).Scan(&saved); err != nil { t.Fatal(err) }
 	if saved != string(doc) { t.Fatalf("migration rewrote existing node: got %q, want %q", saved, doc) }
+}
+
+func TestIncidentSnapshotSQLiteRoundTripAndRejectsInvalid(t *testing.T) {
+ path:=filepath.Join(t.TempDir(),"state.db")
+ var st state
+ normalizeState(&st)
+ now:=time.Now().UTC().Truncate(time.Second)
+ st.IncidentSnapshot.Active["tunnel-1"]=incidentclass.Incident{InstanceID:"tunnel-1",Status:incidentclass.NodeOffline,Reason:"node offline",StartedAt:now,LastObservedAt:now,Observations:1}
+ if err:=writeStateDB(path,st);err!=nil {t.Fatal(err)}
+ got,err:=readStateDB(path)
+ if err!=nil {t.Fatal(err)}
+ if !bytes.Equal(canonicalStateJSON(st),canonicalStateJSON(got)) {t.Fatal("incident snapshot lost across SQLite roundtrip")}
+ got.IncidentSnapshot.Active["tunnel-2"]=incidentclass.Incident{InstanceID:"mismatched",Status:incidentclass.NodeOffline,StartedAt:now,LastObservedAt:now,Observations:1}
+ if err:=writeStateDB(path,got);err==nil {t.Fatal("invalid incident snapshot accepted")}
+ after,err:=readStateDB(path)
+ if err!=nil {t.Fatal(err)}
+ if !bytes.Equal(canonicalStateJSON(st),canonicalStateJSON(after)) {t.Fatal("invalid write replaced valid persisted state")}
+}
+
+func TestIncidentSnapshotSQLiteCorruptionFailsClosed(t *testing.T) {
+ path:=filepath.Join(t.TempDir(),"state.db")
+ var st state
+ normalizeState(&st)
+ if err:=writeStateDB(path,st);err!=nil {t.Fatal(err)}
+ db,err:=openStateDB(path)
+ if err!=nil {t.Fatal(err)}
+ if _,err:=db.Exec("UPDATE incident_snapshot SET doc = ?", "{bad json");err!=nil {t.Fatal(err)}
+ db.Close()
+ if _,err:=readStateDB(path);err==nil {t.Fatal("corrupt incident snapshot accepted")}
 }

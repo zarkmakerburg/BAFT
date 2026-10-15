@@ -410,12 +410,15 @@ func readStateDB(path string) (state, error) {
 		}
 		return nil
 	}
+	incidentRows := 0
 	steps := []struct {
 		query string
 		fn    func(string, int64, []byte) error
 	}{
 		{`SELECT CAST(id AS TEXT), 0, doc FROM incident_snapshot`, func(k string, _ int64, d []byte) error {
 			if k != "1" { return fmt.Errorf("invalid incident snapshot key %q", k) }
+			incidentRows++
+			if incidentRows != 1 { return errors.New("duplicate incident snapshot rows") }
 			if len(d)>incidentclass.MaxSnapshotBytes { return errors.New("incident snapshot exceeds size limit") }
 			var v incidentclass.Snapshot
 			if err := decode("incident_snapshot", d, &v); err != nil { return err }
@@ -587,6 +590,7 @@ func readStateDB(path string) (state, error) {
 			return st, err
 		}
 	}
+	if incidentRows != 1 { return st, errors.New("missing incident snapshot row") }
 	normalizeState(&st)
 	return st, nil
 }

@@ -1,0 +1,104 @@
+name: Aurora x Core isolated merge preflight
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/aurora-core-preflight.yml'
+      - 'web/aurora/**'
+      - 'internal/bcc/**'
+      - 'scripts/ci/aurora_core_evidence.py'
+      - 'scripts/ci/tests/test_aurora_core_evidence.py'
+
+permissions:
+  contents: read
+
+jobs:
+  three-way:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
+      AURORA_SHA: 86cb4317fbab16e71208f701851b70140e380e84
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Set runner-local evidence directory
+        run: printf 'EVIDENCE_DIR=%s/aurora-core-evidence\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+      - name: Evidence recovery and failure-path regressions
+        run: python3 -m unittest discover -s scripts/ci/tests -p test_aurora_core_evidence.py -v
+      - name: Three-way merge probe (no push)
+        shell: bash
+        run: |
+          set -euo pipefail
+          incoming="$AURORA_SHA"
+          current_aurora=$(git ls-remote origin refs/heads/codex/aurora-hybrid-parity-stage104 | cut -f1)
+          test -n "$current_aurora" || { echo "::error::Aurora source branch not found"; exit 1; }
+          if [ "$current_aurora" != "$incoming" ]; then
+            echo "::error::Aurora PR208 advanced; update pinned incoming SHA and rerun merged-workspace tests"
+            exit 1
+          fi
+          git fetch --no-tags origin "$incoming"
+          git merge-base --is-ancestor 9bc830241fa2531199ed7cb697149b953217e722 HEAD
+          git config user.name "BAFT Aurora preflight"
+          git config user.email "aurora-preflight@users.noreply.github.com"
+          if git merge --no-commit --no-ff "$incoming"; then
+            echo "AURORA_CORE_TEXT_MERGE=CLEAN"
+          else
+            echo "AURORA_CORE_TEXT_MERGE=CONFLICT"
+            git status --short
+            git ls-files -u
+            echo "::error::Aurora x Core needs reviewed conflict resolution"
+            exit 1
+          fi
+          git diff --cached --check
+          test -f web/aurora/src/shell.ts
+          test -f internal/incidentclass/tracker.go
+          grep -q 'TunnelVerification' internal/bcc/store.go
+          echo "AURORA_CORE_TREE_SHA=$(git write-tree)"
+          echo "Source merge only; browser/RTL/dark-light/visual parity NOT certified."
+      - name: Preserve exact combined commit and tree locally
+        id: evidence
+        run: python3 scripts/ci/aurora_core_evidence.py prepare "$EVIDENCE_DIR" "$SOURCE_SHA" "$AURORA_SHA"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22.22.2'
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          check-latest: false
+          cache: false
+      - name: Combined Aurora source and parity tests
+        id: aurora
+        run: |
+          set -euo pipefail
+          npm --prefix web/aurora ci --ignore-scripts --no-audit --no-fund 2>&1 | tee "$EVIDENCE_DIR/install.log"
+          npm --prefix web/aurora test 2>&1 | tee "$EVIDENCE_DIR/aurora.log"
+      - name: Combined Core BCC and incident tests
+        id: core
+        run: |
+          set -euo pipefail
+          go test ./internal/bcc ./internal/incidentclass -count=1 2>&1 | tee "$EVIDENCE_DIR/core.log"
+      - name: Classic BCC UI regression
+        id: classic
+        run: |
+          set -euo pipefail
+          node --test web/tests/*.test.cjs 2>&1 | tee "$EVIDENCE_DIR/classic.log"
+      - name: Record exact-source outcomes (never infer skipped tests passed)
+        if: ${{ always() && steps.evidence.outcome == 'success' }}
+        env:
+          AURORA_OUTCOME: ${{ steps.aurora.outcome }}
+          CORE_OUTCOME: ${{ steps.core.outcome }}
+          CLASSIC_OUTCOME: ${{ steps.classic.outcome }}
+        run: python3 scripts/ci/aurora_core_evidence.py record "$EVIDENCE_DIR" "$AURORA_OUTCOME" "$CORE_OUTCOME" "$CLASSIC_OUTCOME"
+      - name: Upload recoverable source evidence (90-day retention)
+        if: ${{ always() && steps.evidence.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: aurora-core-${{ github.event.pull_request.head.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/aurora-core-evidence/
+          if-no-files-found: error
+          retention-days: 90

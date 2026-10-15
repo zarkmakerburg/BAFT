@@ -48,6 +48,9 @@ func (h *procHost) Systemctl(ctx context.Context, args ...string) (string, error
 	case "is-enabled":
 		return "enabled", nil
 	case "show":
+		if len(args) > 2 && args[2] == "MainPID" && h.cmd != nil {
+			return strconv.Itoa(h.cmd.Process.Pid), nil
+		}
 		return "0", nil
 	}
 	return "", nil

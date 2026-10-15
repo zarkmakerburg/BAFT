@@ -13,16 +13,18 @@ import (
 // measurement is null, never zero or an estimate.
 
 type OverviewNode struct {
-	ID        string     `json:"id"`
-	Alias     string     `json:"alias"`
-	Role      string     `json:"role"`
-	Status    string     `json:"status"`
-	LatencyMS *int64     `json:"latency_ms"`
-	Country   string     `json:"country,omitempty"`
-	Lat       *float64   `json:"lat,omitempty"`
-	Lon       *float64   `json:"lon,omitempty"`
-	LastSeen  *time.Time `json:"last_seen,omitempty"`
-	Revoked   bool       `json:"revoked,omitempty"`
+	ID            string     `json:"id"`
+	Alias         string     `json:"alias"`
+	Role          string     `json:"role"`
+	Status        string     `json:"status"`
+	LatencyMS     *int64     `json:"latency_ms"`
+	Country       string     `json:"country,omitempty"`
+	CountryAuto   bool       `json:"country_auto,omitempty"`
+	CountryManual bool       `json:"country_manual,omitempty"`
+	Lat           *float64   `json:"lat,omitempty"`
+	Lon           *float64   `json:"lon,omitempty"`
+	LastSeen      *time.Time `json:"last_seen,omitempty"`
+	Revoked       bool       `json:"revoked,omitempty"`
 	// Spark is the node's recent health-check latency, oldest first.
 	Spark []int64 `json:"spark"`
 	// InBps/OutBps are the node's latest measured rate while it is reporting.
@@ -180,7 +182,7 @@ func (s *Server) Overview(now time.Time, window time.Duration) Overview {
 	o.Nodes = []OverviewNode{}
 	for _, n := range s.store.ListNodes() {
 		m := monitor[n.ID]
-		on := OverviewNode{ID: n.ID, Alias: n.Alias, Role: n.Role, Status: m.Status, Country: n.Country, Revoked: n.Revoked, Spark: []int64{}}
+		on := OverviewNode{ID: n.ID, Alias: n.Alias, Role: n.Role, Status: m.Status, Country: n.Country, CountryAuto: n.CountryAuto, CountryManual: n.CountryManual, Revoked: n.Revoked, Spark: []int64{}}
 		if on.Status == "" || n.Revoked {
 			on.Status = "unknown"
 			if n.Revoked {

@@ -97,6 +97,10 @@ func run(ctx context.Context, args []string, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "baft-agent: --bcc-url must be https:// (the agent token travels on it)")
 		return 2
 	}
+	if strings.TrimSpace(*serviceUser) == "" {
+		fmt.Fprintln(stderr, "baft-agent: --service-user must name the BAFT service account")
+		return 2
+	}
 	token, err := readSecret(*tokenFile)
 	if err != nil {
 		fmt.Fprintln(stderr, "baft-agent: token:", err)

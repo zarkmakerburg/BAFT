@@ -1,0 +1,14 @@
+--- FAIL: TestRollbackReportsServiceFailuresAndRemainsRetryable (0.30s)
+    --- FAIL: TestRollbackReportsServiceFailuresAndRemainsRetryable/daemon-reload (0.10s)
+        rollback_errors_test.go:25: rollback error hidden: "rolled back" <nil>
+    --- FAIL: TestRollbackReportsServiceFailuresAndRemainsRetryable/stop (0.10s)
+        rollback_errors_test.go:25: rollback error hidden: "rolled back" <nil>
+    --- FAIL: TestRollbackReportsServiceFailuresAndRemainsRetryable/disable (0.10s)
+        rollback_errors_test.go:25: rollback error hidden: "rolled back" <nil>
+--- FAIL: TestRollbackRefusesCorruptTransactionInsteadOfReportingNothing (0.10s)
+    rollback_errors_test.go:36: corrupt transaction falsely acknowledged: "nothing to roll back"
+--- FAIL: TestRollbackDoesNotAcknowledgeFailedCompletionReceipt (0.10s)
+    rollback_errors_test.go:47: receipt failure falsely acknowledged: "rolled back"
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/tunnelnode	14.284s
+FAIL

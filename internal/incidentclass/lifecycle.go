@@ -14,11 +14,14 @@ type Incident struct {
  Observations uint64 `json:"observations"`
 }
 
+const MaxInstanceIDBytes = 256
+const MaxReasonBytes = 1024
+
 // Advance returns the new active incident and an optional completed incident.
 // Unknown evidence cannot close an incident. The caller should key state by
 // instance ID to avoid contaminating unrelated sibling tunnels.
 func Advance(instanceID string, active *Incident, observation Result) (*Incident, *Incident) {
- if instanceID == "" || observation.ObservedAt.IsZero() {
+ if instanceID == "" || len(instanceID)>MaxInstanceIDBytes || len(observation.Reason)>MaxReasonBytes || observation.ObservedAt.IsZero() {
   return active, nil
  }
  if active != nil && !observation.ObservedAt.After(active.LastObservedAt) {

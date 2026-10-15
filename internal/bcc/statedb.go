@@ -71,7 +71,8 @@ var stateMigrations = []string{
 	// 12: append-only managed configuration change ledger (OPS-P5).
 	`CREATE TABLE change_ledger (seq INTEGER PRIMARY KEY, doc TEXT NOT NULL);`,
 	// 13: atomic singleton incident lifecycle snapshot.
-	`CREATE TABLE incident_snapshot (id INTEGER PRIMARY KEY CHECK (id = 1), doc TEXT NOT NULL);`,
+	`CREATE TABLE incident_snapshot (id INTEGER PRIMARY KEY CHECK (id = 1), doc TEXT NOT NULL);
+	 INSERT INTO incident_snapshot (id, doc) VALUES (1, '{"active":{},"history":[]}');`,
 }
 
 var stateTables = []string{

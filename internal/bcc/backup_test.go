@@ -430,6 +430,7 @@ func TestEncryptedBackupPreservesIncidentSnapshotAndRejectsInvalidLifecycle(t *t
  now:=time.Date(2026,10,15,5,0,0,0,time.UTC)
  incident:=incidentclass.Incident{InstanceID:"tunnel-1",Status:incidentclass.NodeOffline,StartedAt:now,LastObservedAt:now,Reason:"node offline",Observations:1}
  store.mu.Lock()
+ normalizeState(&store.st)
  store.st.IncidentSnapshot.Active["tunnel-1"]=incident
  if err:=writeStateDB(store.path,store.st);err!=nil {store.mu.Unlock();t.Fatal(err)}
  store.mu.Unlock()

@@ -255,3 +255,19 @@ func TestIncidentSnapshotSQLiteCorruptionFailsClosed(t *testing.T) {
  db.Close()
  if _,err:=readStateDB(path);err==nil {t.Fatal("corrupt incident snapshot accepted")}
 }
+
+func TestIncidentSnapshotMigrationFromV12PreservesExistingState(t *testing.T) {
+ path:=filepath.Join(t.TempDir(),"state.db")
+ store:=populatedState(t,path)
+ before:=canonicalStateJSON(store.st)
+ db,err:=openStateDB(path)
+ if err!=nil {t.Fatal(err)}
+ if _,err:=db.Exec("DROP TABLE incident_snapshot");err!=nil {t.Fatal(err)}
+ if _,err:=db.Exec("DELETE FROM schema_migrations WHERE version = 13");err!=nil {t.Fatal(err)}
+ if err:=db.Close();err!=nil {t.Fatal(err)}
+ got,err:=OpenStore(path)
+ if err!=nil {t.Fatalf("v12 upgrade failed: %v",err)}
+ if !bytes.Equal(before,canonicalStateJSON(got.st)) {t.Fatal("v12 migration changed existing BCC state")}
+ version,err:=stateSchemaVersion(path)
+ if err!=nil || version!=13 {t.Fatalf("migration version %d: %v",version,err)}
+}

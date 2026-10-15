@@ -305,3 +305,31 @@ func TestFreshStoreInitializesIncidentLifecycleMap(t *testing.T) {
  if _,ok:=reopened.st.IncidentSnapshot.Active["fresh-tunnel"];!ok {t.Fatal("fresh incident not persisted")}
 }
 
+
+func TestObserveTunnelIncidentScopedDurableAndStaleSafe(t *testing.T) {
+ path:=filepath.Join(t.TempDir(),"incident.db")
+ store,err:=OpenStore(path)
+ if err!=nil {t.Fatal(err)}
+ now:=time.Date(2026,10,15,6,0,0,0,time.UTC)
+ failed:=incidentclass.Evidence{ObservedAt:now,HeartbeatKnown:true,HeartbeatFresh:false}
+ result,err:=store.ObserveTunnelIncident("tunnel-a",now,time.Minute,failed)
+ if err!=nil {t.Fatal(err)}
+ if result.Status!=incidentclass.NodeOffline {t.Fatalf("unexpected classification: %+v",result)}
+ reopened,err:=OpenStore(path)
+ if err!=nil {t.Fatal(err)}
+ if _,ok:=reopened.st.IncidentSnapshot.Active["tunnel-a"];!ok {t.Fatal("incident not persisted")}
+ if len(reopened.st.IncidentSnapshot.Active)!=1 {t.Fatal("unexpected sibling incident")}
+ stale:=incidentclass.Evidence{ObservedAt:now.Add(-2*time.Minute),HeartbeatKnown:true,HeartbeatFresh:true,ServiceKnown:true,ServiceRunning:true,HandshakeKnown:true,HandshakeOK:true,DataPathKnown:true,DataPathOK:true}
+ result,err=store.ObserveTunnelIncident("tunnel-a",now.Add(time.Second),time.Minute,stale)
+ if err!=nil {t.Fatal(err)}
+ if result.Status!=incidentclass.Unknown {t.Fatalf("stale evidence was accepted: %+v",result)}
+ if len(store.st.IncidentSnapshot.Active)!=1 {t.Fatal("stale evidence closed incident")}
+ healthy:=stale
+ healthy.ObservedAt=now.Add(2*time.Second)
+ result,err=store.ObserveTunnelIncident("tunnel-a",now.Add(2*time.Second),time.Minute,healthy)
+ if err!=nil {t.Fatal(err)}
+ if result.Status!=incidentclass.Recovered {t.Fatalf("unexpected recovery: %+v",result)}
+ reopened,err=OpenStore(path)
+ if err!=nil {t.Fatal(err)}
+ if len(reopened.st.IncidentSnapshot.Active)!=0 || len(reopened.st.IncidentSnapshot.History)!=1 {t.Fatal("recovery not durably recorded")}
+}

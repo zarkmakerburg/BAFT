@@ -333,3 +333,21 @@ func TestObserveTunnelIncidentScopedDurableAndStaleSafe(t *testing.T) {
  if err!=nil {t.Fatal(err)}
  if len(reopened.st.IncidentSnapshot.Active)!=0 || len(reopened.st.IncidentSnapshot.History)!=1 {t.Fatal("recovery not durably recorded")}
 }
+
+func TestObserveTunnelIncidentFailedWriteRestoresMemory(t *testing.T) {
+ dir:=t.TempDir()
+ path:=filepath.Join(dir,"incident.db")
+ store,err:=OpenStore(path)
+ if err!=nil {t.Fatal(err)}
+ now:=time.Date(2026,10,15,7,0,0,0,time.UTC)
+ // Force the SQLite opener to fail without changing any durable state.
+ store.path=filepath.Join(dir,"nonexistent","state.db")
+ result,err:=store.ObserveTunnelIncident("rollback-tunnel",now,time.Minute,incidentclass.Evidence{
+  ObservedAt:now,HeartbeatKnown:true,HeartbeatFresh:false,
+ })
+ if err==nil {t.Fatal("expected persistence failure")}
+ if result.Status!=incidentclass.NodeOffline {t.Fatalf("unexpected classification: %+v",result)}
+ if len(store.st.IncidentSnapshot.Active)!=0 || len(store.st.IncidentSnapshot.History)!=0 {
+  t.Fatal("failed persistence published incident in memory")
+ }
+}

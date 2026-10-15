@@ -47,4 +47,3 @@ jobs:
           git diff --cached --check
           go test ./internal/bcc ./internal/incidentclass
           echo "Merged source was tested in CI workspace only; no commit or push."
-          fi

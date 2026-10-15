@@ -1,0 +1,49 @@
+{
+  "source_sha": "3d5511cf7a1b25a047de7d7464522e42f53e5a85",
+  "source_tree": "7e2b10ba53024bc63ef9b3e1602becdc1afab31b",
+  "run_id": 38702691143,
+  "failed_job_id": 116314453057,
+  "failed_job_url": "https://github.com/zarkmakerburg/BAFT/actions/runs/38702691143/job/116314453057",
+  "failed_step": "Race detector",
+  "test": "TestIRToIRNoiseMeshRoundTrip",
+  "error": "mesh_noise_test.go:79: read tcp loopback: i/o timeout",
+  "test_elapsed_seconds": 5.03,
+  "package_elapsed_seconds": 116.143,
+  "root_cause": "UNDETERMINED",
+  "data_race_reported": false,
+  "original_log": {
+    "raw_bytes": 3375078,
+    "raw_sha256": "bf622165513e2053b82e15073e736f2233cd712de72fba8a31ae5402c03cb1c7",
+    "gzip_bytes": 285849,
+    "gzip_sha256": "93a4929e069e5e322d1cefbd529dcf16730bdf775477bf0579354b2112f4493a",
+    "encoding": "gzip+base64",
+    "file": "failed-job-116314453057.log.gz.b64",
+    "roundtrip_verified": true
+  },
+  "attempts": [
+    {
+      "attempt": "original",
+      "result": "FAIL",
+      "detail": "mesh payload read deadline; 14 other main jobs success; static analysis success"
+    },
+    {
+      "attempt": "bounded_same_sha_retry_request",
+      "job_id": 116314453057,
+      "api_result": "success",
+      "result": "PENDING",
+      "source_or_timeout_changes": false
+    },
+    {
+      "attempt": "initial_archive_export",
+      "result": "REFUSED",
+      "detail": "JSON/base64 output was truncated; no truncated archive published; replaced with exact-length chunked export"
+    }
+  ],
+  "limits": [
+    "No local Go reproduction: toolchain unavailable",
+    "No new UI/runtime change",
+    "No live IR/EX acceptance",
+    "Not attributed to earlier Argon2 timeout",
+    "No source/deadline/authentication weakening"
+  ]
+}

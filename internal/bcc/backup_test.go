@@ -422,6 +422,47 @@ func TestRestoreRejectsCorruptCurrentAuditBeforeMutation(t *testing.T){
 	t.Log("PASS corrupt current audit rejected before any restore mutation")
 }
 
+func TestRestoreFaultAfterStateCommitPreservesActiveIncident(t *testing.T) {
+ dir:=t.TempDir()
+ store,err:=OpenStore(filepath.Join(dir,"state.db"))
+ if err!=nil {t.Fatal(err)}
+ now:=time.Date(2026,10,15,5,0,0,0,time.UTC)
+ incident:=incidentclass.Incident{InstanceID:"tunnel-rollback",Status:incidentclass.NodeOffline,StartedAt:now,LastObservedAt:now,Observations:1}
+ store.mu.Lock()
+ normalizeState(&store.st)
+ store.st.IncidentSnapshot.Active["tunnel-rollback"]=incident
+ if err:=writeStateDB(store.path,store.st);err!=nil {store.mu.Unlock();t.Fatal(err)}
+ store.mu.Unlock()
+ app,err:=NewServer(store,"admin")
+ if err!=nil {t.Fatal(err)}
+ backupPath:=filepath.Join(dir,"incident.baftbak")
+ if _,err:=app.BackupToFile(backupPath,backupTestKey(),now);err!=nil {t.Fatal(err)}
+ // Ensure candidate backup differs from the current incident snapshot.
+ store.mu.Lock()
+ delete(store.st.IncidentSnapshot.Active,"tunnel-rollback")
+ if err:=writeStateDB(store.path,store.st);err!=nil {store.mu.Unlock();t.Fatal(err)}
+ store.mu.Unlock()
+ beforeRAM:=stateJSONForTest(t,store)
+ beforeDisk:=diskStateJSONForTest(t,store)
+ beforeAudit,err:=os.ReadFile(app.audit.path)
+ if err!=nil {t.Fatal(err)}
+ app.restoreFault=func(stage string) error {
+  if stage=="after_state_commit" {return errors.New("injected post-state-commit failure")}
+  return nil
+ }
+ err=app.RestoreFromFile(backupPath,backupTestKey())
+ app.restoreFault=nil
+ if err==nil {t.Fatal("restore unexpectedly succeeded")}
+ if !bytes.Equal(beforeRAM,stateJSONForTest(t,store)) {t.Fatal("failed restore changed RAM incident state")}
+ if !bytes.Equal(beforeDisk,diskStateJSONForTest(t,store)) {t.Fatal("failed restore changed SQLite incident state")}
+ afterAudit,err:=os.ReadFile(app.audit.path)
+ if err!=nil {t.Fatal(err)}
+ if !bytes.Equal(beforeAudit,afterAudit) {t.Fatal("failed restore changed audit")}
+ reopened,err:=OpenStore(store.path)
+ if err!=nil {t.Fatal(err)}
+ if !bytes.Equal(beforeDisk,canonicalStateJSON(reopened.st)) {t.Fatal("restart after rollback changed incident state")}
+}
+
 func TestEncryptedBackupPreservesIncidentSnapshotAndRejectsInvalidLifecycle(t *testing.T) {
  dir:=t.TempDir()
  sourcePath:=filepath.Join(dir,"source.db")

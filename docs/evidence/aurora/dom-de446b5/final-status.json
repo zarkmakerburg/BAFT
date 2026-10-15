@@ -1,0 +1,154 @@
+{
+  "source_sha": "de446b5df8f045c69ca388b3c500515143f7812a",
+  "source_tree": "6e2c84745b1f85bf9d6931e34a774136a55d3291",
+  "unchanged": true,
+  "workflows": [
+    {
+      "id": 38733967940,
+      "name": "BCC UI tests",
+      "status": "completed",
+      "conclusion": "success",
+      "run_number": 222,
+      "jobs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38733967940/jobs",
+      "logs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38733967940/logs",
+      "workflow_id": 378490328
+    },
+    {
+      "id": 38733967944,
+      "name": "static-analysis",
+      "status": "completed",
+      "conclusion": "success",
+      "run_number": 433,
+      "jobs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38733967944/jobs",
+      "logs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38733967944/logs",
+      "workflow_id": 374499129
+    },
+    {
+      "id": 38733968062,
+      "name": "ci",
+      "status": "completed",
+      "conclusion": "success",
+      "run_number": 1703,
+      "jobs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38733968062/jobs",
+      "logs_url": "https://api.github.com/repos/zarkmakerburg/BAFT/actions/runs/38733968062/logs",
+      "workflow_id": 368246822
+    }
+  ],
+  "jobs": [
+    {
+      "id": 116418431891,
+      "name": "release-dry-run",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 116418432155,
+      "name": "e2e-install",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 116418432193,
+      "name": "e2e-install-ssh",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 116418432244,
+      "name": "e2e-binaries",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 116418432247,
+      "name": "test",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 116418432274,
+      "name": "e2e-bcc-schema-upgrade",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 116418432372,
+      "name": "installer-faults",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 116418432376,
+      "name": "e2e-launch1",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 116418432397,
+      "name": "e2e-install-offline",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 116418432398,
+      "name": "e2e-bcc-install",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 116418432437,
+      "name": "third-party-licenses",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 116418432445,
+      "name": "e2e-uninstall",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 116418432520,
+      "name": "e2e-agent-enroll",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 116418432621,
+      "name": "e2e-ssh-bootstrap",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 116418432698,
+      "name": "e2e-install-release",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "source_checks": {
+    "aurora_contracts": 27,
+    "dom_behavior": 12,
+    "classic_contracts": 14,
+    "failed": 0,
+    "skipped": 0,
+    "strict_types": "PASS",
+    "generated_rebuild": "8 modules exact",
+    "registry_audit": "0 known findings (point-in-time)"
+  },
+  "previous_attempts_retained": [
+    "initial DOM7PASS/2FAIL",
+    "first fix TS18047 failure",
+    "all previous A1/A2/bootstrap evidence"
+  ],
+  "reviews": 0,
+  "inline_threads": 0,
+  "rerun_requested_by_this_execution": false,
+  "not_run": [
+    "real browser/screenshot/layout/mobile320/rendered accessibility/performance",
+    "local Go execution",
+    "owner-deferred IR/EX candidate pre-cutover"
+  ],
+  "claim": 6191773369,
+  "claim_release": "explicit final board report after evidence verification"
+}

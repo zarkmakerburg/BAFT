@@ -1,0 +1,9 @@
+# Final exact-source DOM qualification
+
+PR204 source `de446b5df8f045c69ca388b3c500515143f7812a`, tree `6e2c84745b1f85bf9d6931e34a774136a55d3291` unchanged/draft/unmerged. All THREE source-associated workflows SUCCESS: UI38733967940, static38733967944, main38733968062; all15 main jobs SUCCESS, including test116418432247 and e2e-launch1116418432376. No rerun requested by this execution. These Go/native conclusions are job/run status records, not a new complete log review or IR/EX field test.
+
+Earlier full logs/manifest remain immutable in parent evidence95e32d68. Final local exact-source strict/negative build,8-module byte-identical rebuild/size guard,27 Aurora +12 DOM +14 classic tests PASS/0 SKIP; complete UI job log retained. Initial7PASS/2FAIL DOM regressions and first-fix TypeScript error remain visible. Prior A1/A2/bootstrap attempts are not erased or claimed fixed by this bounded focus change.
+
+Node DOM tests execute the shell's real compiled code and lifecycle events, without rendering, browser control or network. Browser/mobile320/screenshot/visual/rendered accessibility/performance acceptance remains OPEN/NOT RUN, as do owner-deferred native candidate tests. No new source execution is claimed by this final status read. Source checkout remains clean. No submitted reviews/inline threads observed. Test-only dependency admission/cost/engine/limits remain in source docs/aurora/dom-test-admission.md.
+
+This evidence update adds only FINAL.md/final-status.json. Branch publication must use expected SHA95e32d68 and force=false, then verify fetched content. Claim6191773369 is released by the subsequent explicit #67/#199 final report. Next scoped owner must retain current source/history and qualify browser/mobile when supported capability exists; independent Core work can continue under its own ownership. No production, main merge/tag/release, transport/shaping, pool/exit switching, restart-resume or standby action.

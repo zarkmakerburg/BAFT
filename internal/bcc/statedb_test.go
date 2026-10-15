@@ -353,3 +353,33 @@ func TestObserveTunnelIncidentFailedWriteRestoresMemory(t *testing.T) {
   t.Fatal("failed persistence published incident in memory")
  }
 }
+
+func TestObserveTunnelIncidentRecoveryPreservesSibling(t *testing.T) {
+ path:=filepath.Join(t.TempDir(),"incident.db")
+ store,err:=OpenStore(path)
+ if err!=nil {t.Fatal(err)}
+ now:=time.Date(2026,10,15,8,0,0,0,time.UTC)
+ failed:=incidentclass.Evidence{ObservedAt:now,HeartbeatKnown:true,HeartbeatFresh:false}
+ for _,id:=range []string{"tunnel-a","tunnel-b"} {
+  if _,err:=store.ObserveTunnelIncident(id,now,time.Minute,failed);err!=nil {t.Fatal(err)}
+ }
+ before:=store.st.IncidentSnapshot.Active["tunnel-b"]
+ healthy:=incidentclass.Evidence{
+  ObservedAt:now.Add(time.Second),HeartbeatKnown:true,HeartbeatFresh:true,
+  ServiceKnown:true,ServiceRunning:true,HandshakeKnown:true,HandshakeOK:true,
+  DataPathKnown:true,DataPathOK:true,
+ }
+ result,err:=store.ObserveTunnelIncident("tunnel-a",healthy.ObservedAt,time.Minute,healthy)
+ if err!=nil {t.Fatal(err)}
+ if result.Status!=incidentclass.Recovered {t.Fatalf("unexpected recovery: %+v",result)}
+ reopened,err:=OpenStore(path)
+ if err!=nil {t.Fatal(err)}
+ snapshot:=reopened.st.IncidentSnapshot
+ if len(snapshot.Active)!=1 {t.Fatalf("unexpected active incidents: %+v",snapshot.Active)}
+ if got,ok:=snapshot.Active["tunnel-b"];!ok || got!=before {
+  t.Fatalf("sibling changed after unrelated recovery: got=%+v want=%+v",got,before)
+ }
+ if len(snapshot.History)!=1 || snapshot.History[0].InstanceID!="tunnel-a" {
+  t.Fatalf("unexpected recovery history: %+v",snapshot.History)
+ }
+}

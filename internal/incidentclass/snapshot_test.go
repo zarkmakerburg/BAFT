@@ -79,23 +79,25 @@ func TestSnapshotAtActiveCapacityFitsConfiguredSize(t *testing.T) {
  }
 }
 
-func TestSnapshotWorstCaseCapacityFailsWithoutReplacingFile(t *testing.T) {
+func TestSnapshotWorstCaseCapacityFitsBudget(t *testing.T) {
  now:=time.Now().UTC()
  active:=make(map[string]Incident,MaxActive)
  for i:=0;i<MaxActive;i++ {
-  id:=fmt.Sprintf("instance-%04d",i)
-  active[id]=Incident{InstanceID:id,Status:NodeOffline,StartedAt:now,LastObservedAt:now,Observations:1,Reason:strings.Repeat("r",MaxReasonBytes)}
+  id:=fmt.Sprintf("%0256d",i)
+  active[id]=Incident{InstanceID:id,Status:NetworkPathFailure,StartedAt:now,LastObservedAt:now,Observations:1,Reason:strings.Repeat("r",MaxReasonBytes)}
  }
- snapshot:=Snapshot{Active:active}
+ history:=make([]Incident,MaxHistory)
+ for i:=range history {
+  id:=fmt.Sprintf("%0256d",i)
+  history[i]=Incident{InstanceID:id,Status:TransportFailure,StartedAt:now,LastObservedAt:now,RecoveredAt:&now,Observations:1,Reason:strings.Repeat("r",MaxReasonBytes)}
+ }
+ snapshot:=Snapshot{Active:active,History:history}
  if _,err:=NewTracker(snapshot);err!=nil {t.Fatal(err)}
  encoded,err:=json.Marshal(snapshot)
  if err!=nil {t.Fatal(err)}
- if len(encoded)<=MaxSnapshotBytes {t.Fatalf("expected worst-case snapshot to exceed budget; got %d bytes, budget %d",len(encoded),MaxSnapshotBytes)}
+ if len(encoded)>MaxSnapshotBytes {t.Fatalf("maximum bounded snapshot needs %d bytes; budget %d",len(encoded),MaxSnapshotBytes)}
  path:=filepath.Join(t.TempDir(),"incidents.json")
- original:=[]byte("{}")
- if err:=os.WriteFile(path,original,0600);err!=nil {t.Fatal(err)}
- if err:=SaveSnapshot(path,snapshot);err==nil {t.Fatal("oversized snapshot accepted")}
- got,err:=os.ReadFile(path)
- if err!=nil {t.Fatal(err)}
- if string(got)!=string(original) {t.Fatal("oversized snapshot replaced durable file")}
+ if err:=os.WriteFile(path,[]byte("{}"),0600);err!=nil {t.Fatal(err)}
+ if err:=SaveSnapshot(path,snapshot);err!=nil {t.Fatal(err)}
+ if _,err:=LoadSnapshot(path);err!=nil {t.Fatal(err)}
 }

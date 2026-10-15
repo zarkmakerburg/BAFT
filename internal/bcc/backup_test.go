@@ -444,7 +444,7 @@ func TestRestoreFaultAfterStateCommitPreservesActiveIncident(t *testing.T) {
  store.mu.Unlock()
  beforeRAM:=stateJSONForTest(t,store)
  beforeDisk:=diskStateJSONForTest(t,store)
- beforeAudit,err:=os.ReadFile(app.audit.path)
+ beforeAudit,hadAudit,err:=readMaybe(app.audit.path)
  if err!=nil {t.Fatal(err)}
  app.restoreFault=func(stage string) error {
   if stage=="after_state_commit" {return errors.New("injected post-state-commit failure")}
@@ -455,9 +455,9 @@ func TestRestoreFaultAfterStateCommitPreservesActiveIncident(t *testing.T) {
  if err==nil {t.Fatal("restore unexpectedly succeeded")}
  if !bytes.Equal(beforeRAM,stateJSONForTest(t,store)) {t.Fatal("failed restore changed RAM incident state")}
  if !bytes.Equal(beforeDisk,diskStateJSONForTest(t,store)) {t.Fatal("failed restore changed SQLite incident state")}
- afterAudit,err:=os.ReadFile(app.audit.path)
+ afterAudit,hasAudit,err:=readMaybe(app.audit.path)
  if err!=nil {t.Fatal(err)}
- if !bytes.Equal(beforeAudit,afterAudit) {t.Fatal("failed restore changed audit")}
+ if hadAudit!=hasAudit || !bytes.Equal(beforeAudit,afterAudit) {t.Fatal("failed restore changed audit")}
  reopened,err:=OpenStore(store.path)
  if err!=nil {t.Fatal(err)}
  if !bytes.Equal(beforeDisk,canonicalStateJSON(reopened.st)) {t.Fatal("restart after rollback changed incident state")}

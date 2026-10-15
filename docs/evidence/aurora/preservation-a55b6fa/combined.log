@@ -1,0 +1,1198 @@
+﻿2026-10-15T17:52:44.2225720Z Current runner version: '2.337.0'
+2026-10-15T17:52:44.2251416Z ##[group]Runner Image Provisioner
+2026-10-15T17:52:44.2252277Z Hosted Compute Agent
+2026-10-15T17:52:44.2253211Z Version: 20261012.601
+2026-10-15T17:52:44.2253866Z Commit: f3dc54e1fb89da6852db922499a0233137369e1d
+2026-10-15T17:52:44.2254649Z Build Date: 2026-10-12T17:48:21Z
+2026-10-15T17:52:44.2255639Z Worker ID: {41de07b5-4ee0-4c80-a3b3-20869141ca8d}
+2026-10-15T17:52:44.2256397Z Region: eastus2
+2026-10-15T17:52:44.2257068Z Cloud: Azure
+2026-10-15T17:52:44.2257664Z ##[endgroup]
+2026-10-15T17:52:44.2259490Z ##[group]Operating System
+2026-10-15T17:52:44.2260213Z Ubuntu
+2026-10-15T17:52:44.2260796Z 24.04.5
+2026-10-15T17:52:44.2261474Z LTS
+2026-10-15T17:52:44.2262057Z ##[endgroup]
+2026-10-15T17:52:44.2262652Z ##[group]Runner Image
+2026-10-15T17:52:44.2263378Z Image: ubuntu-24.04
+2026-10-15T17:52:44.2264013Z Version: 20261012.334.1
+2026-10-15T17:52:44.2265413Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-15T17:52:44.2267356Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261012.334
+2026-10-15T17:52:44.2269470Z ##[endgroup]
+2026-10-15T17:52:44.2271293Z ##[group]GITHUB_TOKEN Permissions
+2026-10-15T17:52:44.2273913Z Contents: read
+2026-10-15T17:52:44.2274556Z Metadata: read
+2026-10-15T17:52:44.2275281Z ##[endgroup]
+2026-10-15T17:52:44.2277521Z Secret source: Actions
+2026-10-15T17:52:44.2278593Z Cache mode: write
+2026-10-15T17:52:44.2279789Z Prepare workflow directory
+2026-10-15T17:52:44.2814630Z Prepare all required actions
+2026-10-15T17:52:44.2861835Z Getting action download info
+2026-10-15T17:52:44.5861297Z Download action repository 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-10-15T17:52:44.7034934Z Download action repository 'actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+2026-10-15T17:52:44.8043912Z Download action repository 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e' (SHA:b7ad1dad31e06c5925ef5d2fc7ad053ef454303e)
+2026-10-15T17:52:45.0433963Z Download action repository 'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-10-15T17:52:45.2540493Z Complete job name: three-way
+2026-10-15T17:52:45.3344042Z ##[group]Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+2026-10-15T17:52:45.3345152Z with:
+2026-10-15T17:52:45.3345630Z   fetch-depth: 0
+2026-10-15T17:52:45.3346132Z   persist-credentials: false
+2026-10-15T17:52:45.3346714Z   ref: a55b6faca2182ab2c1495a4ad40e0b09bbcb9b66
+2026-10-15T17:52:45.3347358Z   repository: zarkmakerburg/BAFT
+2026-10-15T17:52:45.3351426Z   token: ***
+2026-10-15T17:52:45.3351902Z   ssh-strict: true
+2026-10-15T17:52:45.3352355Z   ssh-user: git
+2026-10-15T17:52:45.3352806Z   clean: true
+2026-10-15T17:52:45.3353274Z   sparse-checkout-cone-mode: true
+2026-10-15T17:52:45.3353858Z   fetch-tags: false
+2026-10-15T17:52:45.3354462Z   show-progress: true
+2026-10-15T17:52:45.3354936Z   lfs: false
+2026-10-15T17:52:45.3355400Z   submodules: false
+2026-10-15T17:52:45.3355876Z   set-safe-directory: true
+2026-10-15T17:52:45.3356441Z   allow-unsafe-pr-checkout: false
+2026-10-15T17:52:45.3357245Z env:
+2026-10-15T17:52:45.3357815Z   SOURCE_SHA: a55b6faca2182ab2c1495a4ad40e0b09bbcb9b66
+2026-10-15T17:52:45.3358524Z   AURORA_SHA: 86cb4317fbab16e71208f701851b70140e380e84
+2026-10-15T17:52:45.3359365Z ##[endgroup]
+2026-10-15T17:52:45.4420293Z Syncing repository: zarkmakerburg/BAFT
+2026-10-15T17:52:45.4521859Z ##[group]Getting Git version info
+2026-10-15T17:52:45.4523447Z Working directory is '/home/runner/work/BAFT/BAFT'
+2026-10-15T17:52:45.4525498Z [command]/usr/bin/git version
+2026-10-15T17:52:45.4532973Z git version 2.55.0
+2026-10-15T17:52:45.4537773Z ##[endgroup]
+2026-10-15T17:52:45.4545557Z Temporarily overriding HOME='/home/runner/work/_temp/1eda353b-55b6-4d4f-b02b-23b67c7ea672' before making global git config changes
+2026-10-15T17:52:45.4548575Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-15T17:52:45.4551111Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/BAFT/BAFT
+2026-10-15T17:52:45.4559505Z Deleting the contents of '/home/runner/work/BAFT/BAFT'
+2026-10-15T17:52:45.4563029Z ##[group]Determining repository object format
+2026-10-15T17:52:45.4565119Z ##[endgroup]
+2026-10-15T17:52:45.4566986Z ##[group]Initializing the repository
+2026-10-15T17:52:45.4568814Z [command]/usr/bin/git init /home/runner/work/BAFT/BAFT
+2026-10-15T17:52:45.4667185Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-15T17:52:45.4669215Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-15T17:52:45.4671184Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-15T17:52:45.4672692Z hint: call:
+2026-10-15T17:52:45.4673529Z hint:
+2026-10-15T17:52:45.4674587Z hint: 	git config --global init.defaultBranch <name>
+2026-10-15T17:52:45.4675766Z hint:
+2026-10-15T17:52:45.4676831Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-15T17:52:45.4678516Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-15T17:52:45.4680454Z hint:
+2026-10-15T17:52:45.4681514Z hint: 	git branch -m <name>
+2026-10-15T17:52:45.4682893Z hint:
+2026-10-15T17:52:45.4684546Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-15T17:52:45.4686581Z Initialized empty Git repository in /home/runner/work/BAFT/BAFT/.git/
+2026-10-15T17:52:45.4689626Z [command]/usr/bin/git remote add origin https://github.com/zarkmakerburg/BAFT
+2026-10-15T17:52:45.4739349Z ##[endgroup]
+2026-10-15T17:52:45.4740874Z ##[group]Disabling automatic garbage collection
+2026-10-15T17:52:45.4743182Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-15T17:52:45.4778881Z ##[endgroup]
+2026-10-15T17:52:45.4780714Z ##[group]Setting up auth
+2026-10-15T17:52:45.4782106Z Removing SSH command configuration
+2026-10-15T17:52:45.4787143Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-15T17:52:45.4823233Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-15T17:52:45.5193283Z Removing HTTP extra header
+2026-10-15T17:52:45.5199333Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-15T17:52:45.5235570Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-15T17:52:45.5482734Z Removing includeIf entries pointing to credentials config files
+2026-10-15T17:52:45.5490554Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-15T17:52:45.5541122Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-15T17:52:45.5778918Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-478a4985-deac-4021-9e44-865afd1f9ae8.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-15T17:52:45.5820093Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/BAFT/BAFT/.git.path /home/runner/work/_temp/git-credentials-478a4985-deac-4021-9e44-865afd1f9ae8.config
+2026-10-15T17:52:45.5855148Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/BAFT/BAFT/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-478a4985-deac-4021-9e44-865afd1f9ae8.config
+2026-10-15T17:52:45.5893911Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-478a4985-deac-4021-9e44-865afd1f9ae8.config
+2026-10-15T17:52:45.5930682Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-478a4985-deac-4021-9e44-865afd1f9ae8.config
+2026-10-15T17:52:45.5962383Z ##[endgroup]
+2026-10-15T17:52:45.5963176Z ##[group]Fetching the repository
+2026-10-15T17:52:45.5971564Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/*
+2026-10-15T17:52:46.9550400Z From https://github.com/zarkmakerburg/BAFT
+2026-10-15T17:52:46.9553925Z  * [new branch]      adversarial-reports     -> origin/adversarial-reports
+2026-10-15T17:52:46.9556757Z  * [new branch]      bench/stage-e           -> origin/bench/stage-e
+2026-10-15T17:52:46.9561511Z  * [new branch]      bench/stage-e-current-20261008 -> origin/bench/stage-e-current-20261008
+2026-10-15T17:52:46.9565203Z  * [new branch]      bench/stage-e-foundation -> origin/bench/stage-e-foundation
+2026-10-15T17:52:46.9568709Z  * [new branch]      chore/third-party-licenses -> origin/chore/third-party-licenses
+2026-10-15T17:52:46.9573116Z  * [new branch]      claude/abortive-close-rst -> origin/claude/abortive-close-rst
+2026-10-15T17:52:46.9576444Z  * [new branch]      claude/alert-alignment  -> origin/claude/alert-alignment
+2026-10-15T17:52:46.9579730Z  * [new branch]      claude/baft-menu        -> origin/claude/baft-menu
+2026-10-15T17:52:46.9582631Z  * [new branch]      claude/bcc-nodes-auth   -> origin/claude/bcc-nodes-auth
+2026-10-15T17:52:46.9584893Z  * [new branch]      claude/bcc-web-hardening -> origin/claude/bcc-web-hardening
+2026-10-15T17:52:46.9587169Z  * [new branch]      claude/canonical-main   -> origin/claude/canonical-main
+2026-10-15T17:52:46.9589689Z  * [new branch]      claude/copyright-notice -> origin/claude/copyright-notice
+2026-10-15T17:52:46.9593050Z  * [new branch]      claude/dashboard-servers-tunnels -> origin/claude/dashboard-servers-tunnels
+2026-10-15T17:52:46.9596202Z  * [new branch]      claude/docs-schema-sync -> origin/claude/docs-schema-sync
+2026-10-15T17:52:46.9598629Z  * [new branch]      claude/doctor-v2        -> origin/claude/doctor-v2
+2026-10-15T17:52:46.9601302Z  * [new branch]      claude/drift-detection  -> origin/claude/drift-detection
+2026-10-15T17:52:46.9604387Z  * [new branch]      claude/finance-exact-and-fixture -> origin/claude/finance-exact-and-fixture
+2026-10-15T17:52:46.9608375Z  * [new branch]      claude/fix-welcome-format -> origin/claude/fix-welcome-format
+2026-10-15T17:52:46.9612293Z  * [new branch]      claude/fixture-target-baseline -> origin/claude/fixture-target-baseline
+2026-10-15T17:52:46.9615476Z  * [new branch]      claude/installer-key-ownership -> origin/claude/installer-key-ownership
+2026-10-15T17:52:46.9618399Z  * [new branch]      claude/installer-logo   -> origin/claude/installer-logo
+2026-10-15T17:52:46.9621528Z  * [new branch]      claude/installer-rerun  -> origin/claude/installer-rerun
+2026-10-15T17:52:46.9623985Z  * [new branch]      claude/launch-1-roadmap -> origin/claude/launch-1-roadmap
+2026-10-15T17:52:46.9626492Z  * [new branch]      claude/layered-health   -> origin/claude/layered-health
+2026-10-15T17:52:46.9629368Z  * [new branch]      claude/offline-bundle   -> origin/claude/offline-bundle
+2026-10-15T17:52:46.9631788Z  * [new branch]      claude/overnight-fixes  -> origin/claude/overnight-fixes
+2026-10-15T17:52:46.9634289Z  * [new branch]      claude/ownership-markers -> origin/claude/ownership-markers
+2026-10-15T17:52:46.9637069Z  * [new branch]      claude/p0-r1-session-lifetime -> origin/claude/p0-r1-session-lifetime
+2026-10-15T17:52:46.9639910Z  * [new branch]      claude/p1b-cli          -> origin/claude/p1b-cli
+2026-10-15T17:52:46.9642228Z  * [new branch]      claude/p1b-installer    -> origin/claude/p1b-installer
+2026-10-15T17:52:46.9644936Z  * [new branch]      claude/p1b-revocation-rollback -> origin/claude/p1b-revocation-rollback
+2026-10-15T17:52:46.9647622Z  * [new branch]      claude/p1c-bcc-access   -> origin/claude/p1c-bcc-access
+2026-10-15T17:52:46.9650165Z  * [new branch]      claude/p1c-bcc-sqlite   -> origin/claude/p1c-bcc-sqlite
+2026-10-15T17:52:46.9652919Z  * [new branch]      claude/p1d-agent        -> origin/claude/p1d-agent
+2026-10-15T17:52:46.9655488Z  * [new branch]      claude/p1d-agent-install -> origin/claude/p1d-agent-install
+2026-10-15T17:52:46.9658222Z  * [new branch]      claude/p1d-signed-jobs  -> origin/claude/p1d-signed-jobs
+2026-10-15T17:52:46.9660810Z  * [new branch]      claude/p1d-ssh-bootstrap -> origin/claude/p1d-ssh-bootstrap
+2026-10-15T17:52:46.9663465Z  * [new branch]      claude/p1e-tunnel-builder -> origin/claude/p1e-tunnel-builder
+2026-10-15T17:52:46.9666055Z  * [new branch]      claude/p1f-e2e          -> origin/claude/p1f-e2e
+2026-10-15T17:52:46.9668355Z  * [new branch]      claude/pin-release-root -> origin/claude/pin-release-root
+2026-10-15T17:52:46.9671874Z  * [new branch]      claude/plan-observe-generation -> origin/claude/plan-observe-generation
+2026-10-15T17:52:46.9674838Z  * [new branch]      claude/project-thread-445vay -> origin/claude/project-thread-445vay
+2026-10-15T17:52:46.9678377Z  * [new branch]      claude/project-thread-9apyq4 -> origin/claude/project-thread-9apyq4
+2026-10-15T17:52:46.9681233Z  * [new branch]      claude/project-thread-fkm1my -> origin/claude/project-thread-fkm1my
+2026-10-15T17:52:46.9684077Z  * [new branch]      claude/project-thread-ktdkys -> origin/claude/project-thread-ktdkys
+2026-10-15T17:52:46.9686917Z  * [new branch]      claude/project-thread-ote4kv -> origin/claude/project-thread-ote4kv
+2026-10-15T17:52:46.9690010Z  * [new branch]      claude/recovery-transitional-flows -> origin/claude/recovery-transitional-flows
+2026-10-15T17:52:46.9694200Z  * [new branch]      claude/release-accept   -> origin/claude/release-accept
+2026-10-15T17:52:46.9697849Z  * [new branch]      claude/release-secret-check -> origin/claude/release-secret-check
+2026-10-15T17:52:46.9701679Z  * [new branch]      claude/release-v0.1.1   -> origin/claude/release-v0.1.1
+2026-10-15T17:52:46.9705180Z  * [new branch]      claude/remaining-decisions -> origin/claude/remaining-decisions
+2026-10-15T17:52:46.9708931Z  * [new branch]      claude/remove-enroll-peer -> origin/claude/remove-enroll-peer
+2026-10-15T17:52:46.9711744Z  * [new branch]      claude/restore-preview  -> origin/claude/restore-preview
+2026-10-15T17:52:46.9714820Z  * [new branch]      claude/runnable-e2e     -> origin/claude/runnable-e2e
+2026-10-15T17:52:46.9717276Z  * [new branch]      claude/safe-uninstall   -> origin/claude/safe-uninstall
+2026-10-15T17:52:46.9720636Z  * [new branch]      claude/ssh-bootstrap-e2e -> origin/claude/ssh-bootstrap-e2e
+2026-10-15T17:52:46.9723307Z  * [new branch]      claude/stage-f-cert-rotation -> origin/claude/stage-f-cert-rotation
+2026-10-15T17:52:46.9725810Z  * [new branch]      claude/support-bundle   -> origin/claude/support-bundle
+2026-10-15T17:52:46.9728318Z  * [new branch]      claude/tunnel-discovery -> origin/claude/tunnel-discovery
+2026-10-15T17:52:46.9731396Z  * [new branch]      codex/account-identity-evidence-716 -> origin/codex/account-identity-evidence-716
+2026-10-15T17:52:46.9734458Z  * [new branch]      codex/aurora-a1-evidence-b5548eb -> origin/codex/aurora-a1-evidence-b5548eb
+2026-10-15T17:52:46.9737371Z  * [new branch]      codex/aurora-a2-evidence-2abb0f4 -> origin/codex/aurora-a2-evidence-2abb0f4
+2026-10-15T17:52:46.9741299Z  * [new branch]      codex/aurora-b1-evidence-00876e4 -> origin/codex/aurora-b1-evidence-00876e4
+2026-10-15T17:52:46.9744075Z  * [new branch]      codex/aurora-b1-navigation -> origin/codex/aurora-b1-navigation
+2026-10-15T17:52:46.9747177Z  * [new branch]      codex/aurora-bootstrap-evidence-3d5511c -> origin/codex/aurora-bootstrap-evidence-3d5511c
+2026-10-15T17:52:46.9751049Z  * [new branch]      codex/aurora-core-evidence-stage182 -> origin/codex/aurora-core-evidence-stage182
+2026-10-15T17:52:46.9754437Z  * [new branch]      codex/aurora-core-preflight-stage159 -> origin/codex/aurora-core-preflight-stage159
+2026-10-15T17:52:46.9757714Z  * [new branch]      codex/aurora-dom-evidence-de446b5 -> origin/codex/aurora-dom-evidence-de446b5
+2026-10-15T17:52:46.9760902Z  * [new branch]      codex/aurora-foundation -> origin/codex/aurora-foundation
+2026-10-15T17:52:46.9763763Z  * [new branch]      codex/aurora-hybrid-parity-stage104 -> origin/codex/aurora-hybrid-parity-stage104
+2026-10-15T17:52:46.9766849Z  * [new branch]      codex/aurora-integration-stage102 -> origin/codex/aurora-integration-stage102
+2026-10-15T17:52:46.9769815Z  * [new branch]      codex/aurora-wire-contract -> origin/codex/aurora-wire-contract
+2026-10-15T17:52:46.9772613Z  * [new branch]      codex/aurora-wire-evidence-e646fac -> origin/codex/aurora-wire-evidence-e646fac
+2026-10-15T17:52:46.9775377Z  * [new branch]      codex/bcc-auto-ip-location -> origin/codex/bcc-auto-ip-location
+2026-10-15T17:52:46.9778347Z  * [new branch]      codex/bcc-hybrid-preservation-stage189 -> origin/codex/bcc-hybrid-preservation-stage189
+2026-10-15T17:52:46.9781668Z  * [new branch]      codex/bcc-incident-sqlite-v13 -> origin/codex/bcc-incident-sqlite-v13
+2026-10-15T17:52:46.9784572Z  * [new branch]      codex/candidate-binary-evidence-f0 -> origin/codex/candidate-binary-evidence-f0
+2026-10-15T17:52:46.9787663Z  * [new branch]      codex/candidate-config-evidence-425 -> origin/codex/candidate-config-evidence-425
+2026-10-15T17:52:46.9790973Z  * [new branch]      codex/candidate-jobs-evidence-4d9 -> origin/codex/candidate-jobs-evidence-4d9
+2026-10-15T17:52:46.9793815Z  * [new branch]      codex/core-integrated-stage138 -> origin/codex/core-integrated-stage138
+2026-10-15T17:52:46.9796490Z  * [new branch]      codex/core-reconcile-stage110 -> origin/codex/core-reconcile-stage110
+2026-10-15T17:52:46.9799298Z  * [new branch]      codex/incident-classifier-p1 -> origin/codex/incident-classifier-p1
+2026-10-15T17:52:46.9802076Z  * [new branch]      codex/service-access-evidence-a59 -> origin/codex/service-access-evidence-a59
+2026-10-15T17:52:46.9804624Z  * [new branch]      codex/smart-tunnel-p0   -> origin/codex/smart-tunnel-p0
+2026-10-15T17:52:46.9807242Z  * [new branch]      codex/smart-tunnel-p0-data-evidence -> origin/codex/smart-tunnel-p0-data-evidence
+2026-10-15T17:52:46.9810335Z  * [new branch]      codex/smart-tunnel-p0-evidence -> origin/codex/smart-tunnel-p0-evidence
+2026-10-15T17:52:46.9813182Z  * [new branch]      codex/smart-tunnel-p0-pki-evidence -> origin/codex/smart-tunnel-p0-pki-evidence
+2026-10-15T17:52:46.9816771Z  * [new branch]      codex/smart-tunnel-p0-review-evidence-20261014 -> origin/codex/smart-tunnel-p0-review-evidence-20261014
+2026-10-15T17:52:46.9820615Z  * [new branch]      codex/smart-tunnel-resource-evidence-4f9 -> origin/codex/smart-tunnel-resource-evidence-4f9
+2026-10-15T17:52:46.9824111Z  * [new branch]      codex/smart-tunnel-staged-pki-evidence-59c -> origin/codex/smart-tunnel-staged-pki-evidence-59c
+2026-10-15T17:52:46.9827230Z  * [new branch]      codex/stage182-evidence-dd66846 -> origin/codex/stage182-evidence-dd66846
+2026-10-15T17:52:46.9830035Z  * [new branch]      design/readme-clean-rtl-v3 -> origin/design/readme-clean-rtl-v3
+2026-10-15T17:52:46.9832221Z  * [new branch]      diag/cor-t1-ab          -> origin/diag/cor-t1-ab
+2026-10-15T17:52:46.9834364Z  * [new branch]      diag/cor-t1-stall-evidence -> origin/diag/cor-t1-stall-evidence
+2026-10-15T17:52:46.9836620Z  * [new branch]      docs/concept-project    -> origin/docs/concept-project
+2026-10-15T17:52:46.9839175Z  * [new branch]      docs/p0-i-step57-qualification -> origin/docs/p0-i-step57-qualification
+2026-10-15T17:52:46.9841754Z  * [new branch]      docs/readme-header-english -> origin/docs/readme-header-english
+2026-10-15T17:52:46.9844021Z  * [new branch]      docs/readme-landing-v2  -> origin/docs/readme-landing-v2
+2026-10-15T17:52:46.9846174Z  * [new branch]      docs/readme-poster-v2   -> origin/docs/readme-poster-v2
+2026-10-15T17:52:46.9848294Z  * [new branch]      docs/support-section    -> origin/docs/support-section
+2026-10-15T17:52:46.9850818Z  * [new branch]      feat/advanced-adversary-gate -> origin/feat/advanced-adversary-gate
+2026-10-15T17:52:46.9853129Z  * [new branch]      feat/adversary-report   -> origin/feat/adversary-report
+2026-10-15T17:52:46.9855418Z  * [new branch]      feat/adversary-suite    -> origin/feat/adversary-suite
+2026-10-15T17:52:46.9857591Z  * [new branch]      feat/bcc-desired-topology -> origin/feat/bcc-desired-topology
+2026-10-15T17:52:46.9860199Z  * [new branch]      feat/bcc-first-class-install -> origin/feat/bcc-first-class-install
+2026-10-15T17:52:46.9862807Z  * [new branch]      feat/carrier-camouflage-measure -> origin/feat/carrier-camouflage-measure
+2026-10-15T17:52:46.9865348Z  * [new branch]      feat/carrier-failover-h2-ws -> origin/feat/carrier-failover-h2-ws
+2026-10-15T17:52:46.9867866Z  * [new branch]      feat/carrier-transport-select -> origin/feat/carrier-transport-select
+2026-10-15T17:52:46.9870361Z  * [new branch]      feat/carrier-utls       -> origin/feat/carrier-utls
+2026-10-15T17:52:46.9872439Z  * [new branch]      feat/carrier-websocket  -> origin/feat/carrier-websocket
+2026-10-15T17:52:46.9874545Z  * [new branch]      feat/carrier-ws-utls    -> origin/feat/carrier-ws-utls
+2026-10-15T17:52:46.9876870Z  * [new branch]      feat/install-interactive-role -> origin/feat/install-interactive-role
+2026-10-15T17:52:46.9879482Z  * [new branch]      feat/install-ir-over-ssh -> origin/feat/install-ir-over-ssh
+2026-10-15T17:52:46.9881898Z  * [new branch]      feat/ir-health-active-standby -> origin/feat/ir-health-active-standby
+2026-10-15T17:52:46.9884446Z  * [new branch]      feat/ir-weighted-distribution -> origin/feat/ir-weighted-distribution
+2026-10-15T17:52:46.9887058Z  * [new branch]      feat/m018b-bcc-bootstrap-wiring -> origin/feat/m018b-bcc-bootstrap-wiring
+2026-10-15T17:52:46.9889894Z  * [new branch]      feat/m018c-tunnel-decommission -> origin/feat/m018c-tunnel-decommission
+2026-10-15T17:52:46.9892613Z  * [new branch]      feat/multi-ir-instance-foundation -> origin/feat/multi-ir-instance-foundation
+2026-10-15T17:52:46.9895069Z  * [new branch]      feat/opsp1-path-probe   -> origin/feat/opsp1-path-probe
+2026-10-15T17:52:46.9897440Z  * [new branch]      feat/opsp2-connectivity-matrix -> origin/feat/opsp2-connectivity-matrix
+2026-10-15T17:52:46.9900047Z  * [new branch]      feat/opsp3-route-doctor -> origin/feat/opsp3-route-doctor
+2026-10-15T17:52:46.9902434Z  * [new branch]      feat/opsp4-safe-ssh-migration -> origin/feat/opsp4-safe-ssh-migration
+2026-10-15T17:52:46.9905268Z  * [new branch]      feat/opsp5-config-snapshot-ledger -> origin/feat/opsp5-config-snapshot-ledger
+2026-10-15T17:52:46.9907807Z  * [new branch]      feat/opsp6-canary-upgrade -> origin/feat/opsp6-canary-upgrade
+2026-10-15T17:52:46.9910433Z  * [new branch]      feat/receive-window-autotune -> origin/feat/receive-window-autotune
+2026-10-15T17:52:46.9913196Z  * [new branch]      feat/smart-ingress-cloudflare-dryrun -> origin/feat/smart-ingress-cloudflare-dryrun
+2026-10-15T17:52:46.9916064Z  * [new branch]      feat/smart-ingress-desired-state -> origin/feat/smart-ingress-desired-state
+2026-10-15T17:52:46.9918784Z  * [new branch]      feat/smart-ingress-live-provider -> origin/feat/smart-ingress-live-provider
+2026-10-15T17:52:46.9921364Z  * [new branch]      feat/zeroday-fuzz       -> origin/feat/zeroday-fuzz
+2026-10-15T17:52:46.9923674Z  * [new branch]      feature/a5-admin-restore-preview -> origin/feature/a5-admin-restore-preview
+2026-10-15T17:52:46.9926232Z  * [new branch]      feature/a6-local-restore-cli -> origin/feature/a6-local-restore-cli
+2026-10-15T17:52:46.9928635Z  * [new branch]      field/hq-live-noise-20261006 -> origin/field/hq-live-noise-20261006
+2026-10-15T17:52:46.9931204Z  * [new branch]      fix/bcc-dashboard-polling -> origin/fix/bcc-dashboard-polling
+2026-10-15T17:52:46.9933604Z  * [new branch]      fix/carrier-hardening-alpn-ws -> origin/fix/carrier-hardening-alpn-ws
+2026-10-15T17:52:46.9936087Z  * [new branch]      fix/ci-r2-telemetry-readiness -> origin/fix/ci-r2-telemetry-readiness
+2026-10-15T17:52:46.9938604Z  * [new branch]      fix/ci-sec-rogue-route-verdict -> origin/fix/ci-sec-rogue-route-verdict
+2026-10-15T17:52:46.9941246Z  * [new branch]      fix/cor-t1-app-socket-buffers -> origin/fix/cor-t1-app-socket-buffers
+2026-10-15T17:52:46.9944122Z  * [new branch]      fix/cor-t1-target-write-progress -> origin/fix/cor-t1-target-write-progress
+2026-10-15T17:52:46.9946611Z  * [new branch]      fix/finished-flow-late-fin -> origin/fix/finished-flow-late-fin
+2026-10-15T17:52:46.9948892Z  * [new branch]      fix/offline-bundle-modes -> origin/fix/offline-bundle-modes
+2026-10-15T17:52:46.9951854Z  * [new branch]      fix/p0-field-a-installer-path-preflight -> origin/fix/p0-field-a-installer-path-preflight
+2026-10-15T17:52:46.9955097Z  * [new branch]      fix/p0-field-b-h2-noise-phase-diagnostics -> origin/fix/p0-field-b-h2-noise-phase-diagnostics
+2026-10-15T17:52:46.9958091Z  * [new branch]      fix/p0-r1-carrier-error-lifecycle -> origin/fix/p0-r1-carrier-error-lifecycle
+2026-10-15T17:52:46.9961015Z  * [new branch]      fix/p0-r1-recoverable-sender-cancel -> origin/fix/p0-r1-recoverable-sender-cancel
+2026-10-15T17:52:46.9963605Z  * [new branch]      fix/p0-r1-session-lifecycle -> origin/fix/p0-r1-session-lifecycle
+2026-10-15T17:52:46.9966069Z  * [new branch]      fix/p1-field-release-provenance -> origin/fix/p1-field-release-provenance
+2026-10-15T17:52:46.9968460Z  * [new branch]      fix/security-audit-outbox -> origin/fix/security-audit-outbox
+2026-10-15T17:52:46.9971090Z  * [new branch]      fix/security-release-blockers -> origin/fix/security-release-blockers
+2026-10-15T17:52:46.9973361Z  * [new branch]      fix/utls-alpn-profile   -> origin/fix/utls-alpn-profile
+2026-10-15T17:52:46.9975400Z  * [new branch]      fix/ws-fragment-stream  -> origin/fix/ws-fragment-stream
+2026-10-15T17:52:46.9977783Z  * [new branch]      fix/ws-single-write-field-carrier -> origin/fix/ws-single-write-field-carrier
+2026-10-15T17:52:46.9980295Z  * [new branch]      fix/ws-ua-utls-align    -> origin/fix/ws-ua-utls-align
+2026-10-15T17:52:46.9982257Z  * [new branch]      hq/autotune-bench       -> origin/hq/autotune-bench
+2026-10-15T17:52:46.9985079Z  * [new branch]      hq/backend-p0-integrated-partial-commit-20261010 -> origin/hq/backend-p0-integrated-partial-commit-20261010
+2026-10-15T17:52:46.9988224Z  * [new branch]      hq/bcc-commit-reconcile-20261010 -> origin/hq/bcc-commit-reconcile-20261010
+2026-10-15T17:52:46.9991615Z  * [new branch]      hq/bcc-migration-commit-reconcile-20261010 -> origin/hq/bcc-migration-commit-reconcile-20261010
+2026-10-15T17:52:46.9995034Z  * [new branch]      hq/bcc-rollback-recovery-candidate-20261010 -> origin/hq/bcc-rollback-recovery-candidate-20261010
+2026-10-15T17:52:46.9998315Z  * [new branch]      hq/bcc-uncertain-api-fail-closed-20261010 -> origin/hq/bcc-uncertain-api-fail-closed-20261010
+2026-10-15T17:52:47.0001847Z  * [new branch]      hq/bcc-v020-real-binary-rollback-drill-20261010 -> origin/hq/bcc-v020-real-binary-rollback-drill-20261010
+2026-10-15T17:52:47.0005437Z  * [new branch]      hq/bcc-v020-schema-migration-regression-20261010 -> origin/hq/bcc-v020-schema-migration-regression-20261010
+2026-10-15T17:52:47.0008180Z  * [new branch]      hq/cor-t1-diag          -> origin/hq/cor-t1-diag
+2026-10-15T17:52:47.0010255Z  * [new branch]      hq/cor-t1-e1            -> origin/hq/cor-t1-e1
+2026-10-15T17:52:47.0012022Z  * [new branch]      hq/cor-t1-e2            -> origin/hq/cor-t1-e2
+2026-10-15T17:52:47.0013835Z  * [new branch]      hq/cor-t1-fix-ab        -> origin/hq/cor-t1-fix-ab
+2026-10-15T17:52:47.0015781Z  * [new branch]      hq/d010c-cor01-d1ea979  -> origin/hq/d010c-cor01-d1ea979
+2026-10-15T17:52:47.0017784Z  * [new branch]      hq/d010c-soak6-d1ea979  -> origin/hq/d010c-soak6-d1ea979
+2026-10-15T17:52:47.0019912Z  * [new branch]      hq/d010c-soak7-d1ea979  -> origin/hq/d010c-soak7-d1ea979
+2026-10-15T17:52:47.0022678Z  * [new branch]      hq/ecrl-finack-symmetric-confirmation-20261010 -> origin/hq/ecrl-finack-symmetric-confirmation-20261010
+2026-10-15T17:52:47.0026316Z  * [new branch]      hq/ecrl-finack-symmetric-confirmation-ci-20261010 -> origin/hq/ecrl-finack-symmetric-confirmation-ci-20261010
+2026-10-15T17:52:47.0029909Z  * [new branch]      hq/ecrl-partial-commit-frame-20261010 -> origin/hq/ecrl-partial-commit-frame-20261010
+2026-10-15T17:52:47.0033262Z  * [new branch]      hq/integration-all-backend-ui-main-20261010 -> origin/hq/integration-all-backend-ui-main-20261010
+2026-10-15T17:52:47.0036567Z  * [new branch]      hq/integration-backend-failclosed-20261010 -> origin/hq/integration-backend-failclosed-20261010
+2026-10-15T17:52:47.0039889Z  * [new branch]      hq/integration-backend-ui-main-20261010 -> origin/hq/integration-backend-ui-main-20261010
+2026-10-15T17:52:47.0043023Z  * [new branch]      hq/integration-migration-backend-20261010 -> origin/hq/integration-migration-backend-20261010
+2026-10-15T17:52:47.0046114Z  * [new branch]      hq/integration-restore-atomic-20261009 -> origin/hq/integration-restore-atomic-20261009
+2026-10-15T17:52:47.0049498Z  * [new branch]      hq/integration-ui-main-persistence-20261010 -> origin/hq/integration-ui-main-persistence-20261010
+2026-10-15T17:52:47.0052484Z  * [new branch]      hq/p0-atomic-backup-temp-20261009 -> origin/hq/p0-atomic-backup-temp-20261009
+2026-10-15T17:52:47.0055341Z  * [new branch]      hq/p0-bcc-store-write-rollback-20261008 -> origin/hq/p0-bcc-store-write-rollback-20261008
+2026-10-15T17:52:47.0058352Z  * [new branch]      hq/p0-commit-send-uncertainty-20261009 -> origin/hq/p0-commit-send-uncertainty-20261009
+2026-10-15T17:52:47.0061560Z  * [new branch]      hq/p0-installer-rollback-status-20261009 -> origin/hq/p0-installer-rollback-status-20261009
+2026-10-15T17:52:47.0064628Z  * [new branch]      hq/p0-restore-journal-recovery-20261008 -> origin/hq/p0-restore-journal-recovery-20261008
+2026-10-15T17:52:47.0067470Z  * [new branch]      hq/p1-finance-csv-formula-20261009 -> origin/hq/p1-finance-csv-formula-20261009
+2026-10-15T17:52:47.0069925Z  * [new branch]      hq/p77-cor1             -> origin/hq/p77-cor1
+2026-10-15T17:52:47.0071674Z  * [new branch]      hq/p77-cor10            -> origin/hq/p77-cor10
+2026-10-15T17:52:47.0073418Z  * [new branch]      hq/p77-cor2             -> origin/hq/p77-cor2
+2026-10-15T17:52:47.0075148Z  * [new branch]      hq/p77-cor3             -> origin/hq/p77-cor3
+2026-10-15T17:52:47.0076861Z  * [new branch]      hq/p77-cor4             -> origin/hq/p77-cor4
+2026-10-15T17:52:47.0078570Z  * [new branch]      hq/p77-cor5             -> origin/hq/p77-cor5
+2026-10-15T17:52:47.0080649Z  * [new branch]      hq/p77-cor6             -> origin/hq/p77-cor6
+2026-10-15T17:52:47.0082362Z  * [new branch]      hq/p77-cor7             -> origin/hq/p77-cor7
+2026-10-15T17:52:47.0084061Z  * [new branch]      hq/p77-cor8             -> origin/hq/p77-cor8
+2026-10-15T17:52:47.0085777Z  * [new branch]      hq/p77-cor9             -> origin/hq/p77-cor9
+2026-10-15T17:52:47.0087525Z  * [new branch]      hq/p77-soak1            -> origin/hq/p77-soak1
+2026-10-15T17:52:47.0089473Z  * [new branch]      hq/p77-soak2            -> origin/hq/p77-soak2
+2026-10-15T17:52:47.0091265Z  * [new branch]      hq/p77-soak3            -> origin/hq/p77-soak3
+2026-10-15T17:52:47.0092991Z  * [new branch]      hq/p77-soak4            -> origin/hq/p77-soak4
+2026-10-15T17:52:47.0094757Z  * [new branch]      hq/p77-soak5            -> origin/hq/p77-soak5
+2026-10-15T17:52:47.0096637Z  * [new branch]      hq/stage-e-comparators  -> origin/hq/stage-e-comparators
+2026-10-15T17:52:47.0098553Z  * [new branch]      hq/stage-e-d008b        -> origin/hq/stage-e-d008b
+2026-10-15T17:52:47.0100907Z  * [new branch]      hq/ws-e2e-distinct-ports-20261010 -> origin/hq/ws-e2e-distinct-ports-20261010
+2026-10-15T17:52:47.0103567Z  * [new branch]      legal/baft-proprietary-license-v1 -> origin/legal/baft-proprietary-license-v1
+2026-10-15T17:52:47.0105660Z  * [new branch]      main                    -> origin/main
+2026-10-15T17:52:47.0107486Z  * [new branch]      perf/decode-buffer-reuse -> origin/perf/decode-buffer-reuse
+2026-10-15T17:52:47.0109829Z  * [new branch]      perf/frame-single-write -> origin/perf/frame-single-write
+2026-10-15T17:52:47.0111743Z  * [new branch]      r2-noise-v01            -> origin/r2-noise-v01
+2026-10-15T17:52:47.0113777Z  * [new branch]      r3-record-shaping-safe  -> origin/r3-record-shaping-safe
+2026-10-15T17:52:47.0115934Z  * [new branch]      r3.1-probabilistic-morphing -> origin/r3.1-probabilistic-morphing
+2026-10-15T17:52:47.0118032Z  * [new branch]      release-v1-goldapp      -> origin/release-v1-goldapp
+2026-10-15T17:52:47.0120056Z  * [new branch]      release/v0.2.0-notes    -> origin/release/v0.2.0-notes
+2026-10-15T17:52:47.0122271Z  * [new branch]      step1-master-six-node-stability -> origin/step1-master-six-node-stability
+2026-10-15T17:52:47.0124640Z  * [new branch]      step2-cluster-sync-engine -> origin/step2-cluster-sync-engine
+2026-10-15T17:52:47.0126760Z  * [new branch]      step3-bcc-dynamic-nodes -> origin/step3-bcc-dynamic-nodes
+2026-10-15T17:52:47.0128766Z  * [new branch]      step4-multipeer-mesh    -> origin/step4-multipeer-mesh
+2026-10-15T17:52:47.0130700Z  * [new branch]      study/r003              -> origin/study/r003
+2026-10-15T17:52:47.0132752Z  * [new branch]      test/ci-r1-precommit-authority -> origin/test/ci-r1-precommit-authority
+2026-10-15T17:52:47.0134991Z  * [new branch]      test/d010c-soak-d1ea979 -> origin/test/d010c-soak-d1ea979
+2026-10-15T17:52:47.0137064Z  * [new branch]      tester/d010c-soak-d1ea979 -> origin/tester/d010c-soak-d1ea979
+2026-10-15T17:52:47.0139280Z  * [new branch]      tester/d010c-soak3-d1ea979 -> origin/tester/d010c-soak3-d1ea979
+2026-10-15T17:52:47.0141486Z  * [new branch]      tester/d010c-soak4-d1ea979 -> origin/tester/d010c-soak4-d1ea979
+2026-10-15T17:52:47.0143637Z  * [new branch]      tester/d010c-soak5-d1ea979 -> origin/tester/d010c-soak5-d1ea979
+2026-10-15T17:52:47.0145744Z  * [new branch]      tester/d012-base-f682111 -> origin/tester/d012-base-f682111
+2026-10-15T17:52:47.0147910Z  * [new branch]      tester/d012-deployed-62bb4a4 -> origin/tester/d012-deployed-62bb4a4
+2026-10-15T17:52:47.0150312Z  * [new branch]      tester/d012-main-5f1502d -> origin/tester/d012-main-5f1502d
+2026-10-15T17:52:47.0152330Z  * [new branch]      triage/cor-t1-debug-a1  -> origin/triage/cor-t1-debug-a1
+2026-10-15T17:52:47.0154312Z  * [new branch]      triage/cor-t1-debug-a2  -> origin/triage/cor-t1-debug-a2
+2026-10-15T17:52:47.0156267Z  * [new branch]      triage/cor-t1-debug-a3  -> origin/triage/cor-t1-debug-a3
+2026-10-15T17:52:47.0158581Z  * [new branch]      triage/cor-t1-debug-endpoints -> origin/triage/cor-t1-debug-endpoints
+2026-10-15T17:52:47.0161119Z  * [new branch]      triage/cor-t1-debug-endpoints2 -> origin/triage/cor-t1-debug-endpoints2
+2026-10-15T17:52:47.0163521Z  * [new branch]      triage/cor-t1-debug-endpoints3 -> origin/triage/cor-t1-debug-endpoints3
+2026-10-15T17:52:47.0165786Z  * [new branch]      triage/cor-t1-debug-fast1 -> origin/triage/cor-t1-debug-fast1
+2026-10-15T17:52:47.0167897Z  * [new branch]      triage/cor-t1-debug-fast2 -> origin/triage/cor-t1-debug-fast2
+2026-10-15T17:52:47.0170056Z  * [new branch]      triage/cor-t1-issue65   -> origin/triage/cor-t1-issue65
+2026-10-15T17:52:47.0172035Z  * [new branch]      triage/cor01-dcc6d92-a1 -> origin/triage/cor01-dcc6d92-a1
+2026-10-15T17:52:47.0174046Z  * [new branch]      triage/cor01-dcc6d92-a2 -> origin/triage/cor01-dcc6d92-a2
+2026-10-15T17:52:47.0176048Z  * [new branch]      triage/cor01-dcc6d92-a3 -> origin/triage/cor01-dcc6d92-a3
+2026-10-15T17:52:47.0178022Z  * [new branch]      triage/cor01-debug-b1   -> origin/triage/cor01-debug-b1
+2026-10-15T17:52:47.0180070Z  * [new branch]      triage/cor01-debug-b2   -> origin/triage/cor01-debug-b2
+2026-10-15T17:52:47.0182005Z  * [new branch]      triage/cor01-debug-b3   -> origin/triage/cor01-debug-b3
+2026-10-15T17:52:47.0183933Z  * [new branch]      triage/cor01-debug-c1   -> origin/triage/cor01-debug-c1
+2026-10-15T17:52:47.0185865Z  * [new branch]      triage/cor01-debug-c2   -> origin/triage/cor01-debug-c2
+2026-10-15T17:52:47.0187803Z  * [new branch]      triage/cor01-debug-c3   -> origin/triage/cor01-debug-c3
+2026-10-15T17:52:47.0190001Z  * [new branch]      triage/cor01-debug-d1   -> origin/triage/cor01-debug-d1
+2026-10-15T17:52:47.0191945Z  * [new branch]      triage/cor01-debug-d2   -> origin/triage/cor01-debug-d2
+2026-10-15T17:52:47.0194048Z  * [new branch]      triage/cor01-debug-d3   -> origin/triage/cor01-debug-d3
+2026-10-15T17:52:47.0195976Z  * [new branch]      triage/cor01-debug-e1   -> origin/triage/cor01-debug-e1
+2026-10-15T17:52:47.0197920Z  * [new branch]      triage/cor01-debug-e2   -> origin/triage/cor01-debug-e2
+2026-10-15T17:52:47.0200001Z  * [new branch]      triage/cor01-debug-e3   -> origin/triage/cor01-debug-e3
+2026-10-15T17:52:47.0201922Z  * [new branch]      triage/cor01-inst-a1    -> origin/triage/cor01-inst-a1
+2026-10-15T17:52:47.0203817Z  * [new branch]      triage/cor01-inst-a2    -> origin/triage/cor01-inst-a2
+2026-10-15T17:52:47.0205714Z  * [new branch]      triage/cor01-inst-a3    -> origin/triage/cor01-inst-a3
+2026-10-15T17:52:47.0207939Z  * [new branch]      triage/d010c-churn-qualification -> origin/triage/d010c-churn-qualification
+2026-10-15T17:52:47.0210345Z  * [new branch]      ui/bcc-command-center-v3 -> origin/ui/bcc-command-center-v3
+2026-10-15T17:52:47.0212805Z  * [new branch]      ui/bcc-swiss-gold-navigation-20261008 -> origin/ui/bcc-swiss-gold-navigation-20261008
+2026-10-15T17:52:47.0214932Z  * [new tag]         v0.1.0                  -> v0.1.0
+2026-10-15T17:52:47.0216301Z  * [new tag]         v0.1.1                  -> v0.1.1
+2026-10-15T17:52:47.0217696Z  * [new tag]         v0.2.0                  -> v0.2.0
+2026-10-15T17:52:47.0219180Z  * [new tag]         v0.3.0                  -> v0.3.0
+2026-10-15T17:52:47.0220581Z  * [new tag]         v0.3.1                  -> v0.3.1
+2026-10-15T17:52:47.0224833Z [command]/usr/bin/git rev-parse --verify --quiet a55b6faca2182ab2c1495a4ad40e0b09bbcb9b66^{object}
+2026-10-15T17:52:47.0226827Z a55b6faca2182ab2c1495a4ad40e0b09bbcb9b66
+2026-10-15T17:52:47.0230573Z ##[endgroup]
+2026-10-15T17:52:47.0232326Z ##[group]Determining the checkout info
+2026-10-15T17:52:47.0234294Z ##[endgroup]
+2026-10-15T17:52:47.0235295Z [command]/usr/bin/git sparse-checkout disable
+2026-10-15T17:52:47.0238412Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-15T17:52:47.0242441Z ##[group]Checking out the ref
+2026-10-15T17:52:47.0244121Z [command]/usr/bin/git checkout --progress --force a55b6faca2182ab2c1495a4ad40e0b09bbcb9b66
+2026-10-15T17:52:47.0745103Z Note: switching to 'a55b6faca2182ab2c1495a4ad40e0b09bbcb9b66'.
+2026-10-15T17:52:47.0748261Z 
+2026-10-15T17:52:47.0749996Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-10-15T17:52:47.0753467Z changes and commit them, and you can discard any commits you make in this
+2026-10-15T17:52:47.0756713Z state without impacting any branches by switching back to a branch.
+2026-10-15T17:52:47.0759452Z 
+2026-10-15T17:52:47.0760725Z If you want to create a new branch to retain commits you create, you may
+2026-10-15T17:52:47.0763474Z do so (now or later) by using -c with the switch command. Example:
+2026-10-15T17:52:47.0764783Z 
+2026-10-15T17:52:47.0765324Z   git switch -c <new-branch-name>
+2026-10-15T17:52:47.0766253Z 
+2026-10-15T17:52:47.0766781Z Or undo this operation with:
+2026-10-15T17:52:47.0767629Z 
+2026-10-15T17:52:47.0768103Z   git switch -
+2026-10-15T17:52:47.0768769Z 
+2026-10-15T17:52:47.0769947Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-10-15T17:52:47.0771466Z 
+2026-10-15T17:52:47.0772821Z HEAD is now at a55b6fa test(bcc): reject same-length invalid CSRF in Hybrid preservation
+2026-10-15T17:52:47.0777374Z ##[endgroup]
+2026-10-15T17:52:47.0824533Z [command]/usr/bin/git log -1 --format=%H
+2026-10-15T17:52:47.0857226Z a55b6faca2182ab2c1495a4ad40e0b09bbcb9b66
+2026-10-15T17:52:47.0871295Z ##[group]Removing auth
+2026-10-15T17:52:47.0872418Z Removing SSH command configuration
+2026-10-15T17:52:47.0876563Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-15T17:52:47.0919586Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-15T17:52:47.1154209Z Removing HTTP extra header
+2026-10-15T17:52:47.1157720Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-15T17:52:47.1205698Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-15T17:52:47.1431391Z Removing includeIf entries pointing to credentials config files
+2026-10-15T17:52:47.1433908Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-15T17:52:47.1464330Z includeif.gitdir:/home/runner/work/BAFT/BAFT/.git.path
+2026-10-15T17:52:47.1466073Z includeif.gitdir:/home/runner/work/BAFT/BAFT/.git/worktrees/*.path
+2026-10-15T17:52:47.1467648Z includeif.gitdir:/github/workspace/.git.path
+2026-10-15T17:52:47.1469379Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-15T17:52:47.1473531Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/BAFT/BAFT/.git.path
+2026-10-15T17:52:47.1505782Z /home/runner/work/_temp/git-credentials-478a4985-deac-4021-9e44-865afd1f9ae8.config
+2026-10-15T17:52:47.1518069Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/BAFT/BAFT/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-478a4985\-deac\-4021\-9e44\-865afd1f9ae8\.config
+2026-10-15T17:52:47.1558943Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/BAFT/BAFT/.git/worktrees/*.path
+2026-10-15T17:52:47.1586772Z /home/runner/work/_temp/git-credentials-478a4985-deac-4021-9e44-865afd1f9ae8.config
+2026-10-15T17:52:47.1598489Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/BAFT/BAFT/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-478a4985\-deac\-4021\-9e44\-865afd1f9ae8\.config
+2026-10-15T17:52:47.1640769Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-10-15T17:52:47.1668415Z /github/runner_temp/git-credentials-478a4985-deac-4021-9e44-865afd1f9ae8.config
+2026-10-15T17:52:47.1678619Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-478a4985\-deac\-4021\-9e44\-865afd1f9ae8\.config
+2026-10-15T17:52:47.1755223Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-15T17:52:47.1800464Z /github/runner_temp/git-credentials-478a4985-deac-4021-9e44-865afd1f9ae8.config
+2026-10-15T17:52:47.1809309Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-478a4985\-deac\-4021\-9e44\-865afd1f9ae8\.config
+2026-10-15T17:52:47.1851994Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-15T17:52:47.2175915Z Removing credentials config '/home/runner/work/_temp/git-credentials-478a4985-deac-4021-9e44-865afd1f9ae8.config'
+2026-10-15T17:52:47.2188672Z ##[endgroup]
+2026-10-15T17:52:47.2457902Z ##[group]Run printf 'EVIDENCE_DIR=%s/aurora-core-evidence\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+2026-10-15T17:52:47.2460579Z [36;1mprintf 'EVIDENCE_DIR=%s/aurora-core-evidence\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"[0m
+2026-10-15T17:52:47.2728565Z shell: /usr/bin/bash -e {0}
+2026-10-15T17:52:47.2730348Z env:
+2026-10-15T17:52:47.2731653Z   SOURCE_SHA: a55b6faca2182ab2c1495a4ad40e0b09bbcb9b66
+2026-10-15T17:52:47.2733532Z   AURORA_SHA: 86cb4317fbab16e71208f701851b70140e380e84
+2026-10-15T17:52:47.2735151Z ##[endgroup]
+2026-10-15T17:52:47.2952067Z ##[group]Run python3 -m unittest discover -s scripts/ci/tests -p test_aurora_core_evidence.py -v
+2026-10-15T17:52:47.2954445Z [36;1mpython3 -m unittest discover -s scripts/ci/tests -p test_aurora_core_evidence.py -v[0m
+2026-10-15T17:52:47.3022986Z shell: /usr/bin/bash -e {0}
+2026-10-15T17:52:47.3024105Z env:
+2026-10-15T17:52:47.3025044Z   SOURCE_SHA: a55b6faca2182ab2c1495a4ad40e0b09bbcb9b66
+2026-10-15T17:52:47.3026379Z   AURORA_SHA: 86cb4317fbab16e71208f701851b70140e380e84
+2026-10-15T17:52:47.3027787Z   EVIDENCE_DIR: /home/runner/work/_temp/aurora-core-evidence
+2026-10-15T17:52:47.3029310Z ##[endgroup]
+2026-10-15T17:52:47.6688019Z test_bundle_tampering_cannot_be_accepted (test_aurora_core_evidence.MergeEvidenceTest.test_bundle_tampering_cannot_be_accepted) ... ok
+2026-10-15T17:52:47.8274358Z test_dirty_tracked_source_is_refused (test_aurora_core_evidence.MergeEvidenceTest.test_dirty_tracked_source_is_refused) ... ok
+2026-10-15T17:52:48.4004107Z test_failed_skipped_cancelled_checks_cannot_be_accepted (test_aurora_core_evidence.MergeEvidenceTest.test_failed_skipped_cancelled_checks_cannot_be_accepted) ... ok
+2026-10-15T17:52:48.6155195Z test_post_test_worktree_change_cannot_be_accepted (test_aurora_core_evidence.MergeEvidenceTest.test_post_test_worktree_change_cannot_be_accepted) ... ok
+2026-10-15T17:52:48.7827619Z test_same_parents_and_tree_produce_same_commit (test_aurora_core_evidence.MergeEvidenceTest.test_same_parents_and_tree_produce_same_commit) ... ok
+2026-10-15T17:52:48.9596497Z test_self_contained_bundle_restores_exact_commit_tree_and_parents (test_aurora_core_evidence.MergeEvidenceTest.test_self_contained_bundle_restores_exact_commit_tree_and_parents) ... ok
+2026-10-15T17:52:49.2127471Z test_source_or_incoming_mismatch_refused_before_evidence (test_aurora_core_evidence.MergeEvidenceTest.test_source_or_incoming_mismatch_refused_before_evidence) ... ok
+2026-10-15T17:52:49.2128871Z 
+2026-10-15T17:52:49.2129433Z ----------------------------------------------------------------------
+2026-10-15T17:52:49.2130067Z Ran 7 tests in 1.817s
+2026-10-15T17:52:49.2130233Z 
+2026-10-15T17:52:49.2130314Z OK
+2026-10-15T17:52:49.2283812Z ##[group]Run set -euo pipefail
+2026-10-15T17:52:49.2284199Z [36;1mset -euo pipefail[0m
+2026-10-15T17:52:49.2284460Z [36;1mincoming="$AURORA_SHA"[0m
+2026-10-15T17:52:49.2284974Z [36;1mcurrent_aurora=$(git ls-remote origin refs/heads/codex/aurora-hybrid-parity-stage104 | cut -f1)[0m
+2026-10-15T17:52:49.2285647Z [36;1mtest -n "$current_aurora" || { echo "::error::Aurora source branch not found"; exit 1; }[0m
+2026-10-15T17:52:49.2286130Z [36;1mif [ "$current_aurora" != "$incoming" ]; then[0m
+2026-10-15T17:52:49.2286646Z [36;1m  echo "::error::Aurora PR208 advanced; update pinned incoming SHA and rerun merged-workspace tests"[0m
+2026-10-15T17:52:49.2287125Z [36;1m  exit 1[0m
+2026-10-15T17:52:49.2287318Z [36;1mfi[0m
+2026-10-15T17:52:49.2287541Z [36;1mgit fetch --no-tags origin "$incoming"[0m
+2026-10-15T17:52:49.2287967Z [36;1mgit merge-base --is-ancestor 9bc830241fa2531199ed7cb697149b953217e722 HEAD[0m
+2026-10-15T17:52:49.2288455Z [36;1mgit config user.name "BAFT Aurora preflight"[0m
+2026-10-15T17:52:49.2288885Z [36;1mgit config user.email "aurora-preflight@users.noreply.github.com"[0m
+2026-10-15T17:52:49.2289756Z [36;1mif git merge --no-commit --no-ff "$incoming"; then[0m
+2026-10-15T17:52:49.2290124Z [36;1m  echo "AURORA_CORE_TEXT_MERGE=CLEAN"[0m
+2026-10-15T17:52:49.2290403Z [36;1melse[0m
+2026-10-15T17:52:49.2290632Z [36;1m  echo "AURORA_CORE_TEXT_MERGE=CONFLICT"[0m
+2026-10-15T17:52:49.2290928Z [36;1m  git status --short[0m
+2026-10-15T17:52:49.2291180Z [36;1m  git ls-files -u[0m
+2026-10-15T17:52:49.2291515Z [36;1m  echo "::error::Aurora x Core needs reviewed conflict resolution"[0m
+2026-10-15T17:52:49.2291871Z [36;1m  exit 1[0m
+2026-10-15T17:52:49.2292061Z [36;1mfi[0m
+2026-10-15T17:52:49.2292263Z [36;1mgit diff --cached --check[0m
+2026-10-15T17:52:49.2292537Z [36;1mtest -f web/aurora/src/shell.ts[0m
+2026-10-15T17:52:49.2292866Z [36;1mtest -f internal/incidentclass/tracker.go[0m
+2026-10-15T17:52:49.2293253Z [36;1mgrep -q 'TunnelVerification' internal/bcc/store.go[0m
+2026-10-15T17:52:49.2293628Z [36;1mecho "AURORA_CORE_TREE_SHA=$(git write-tree)"[0m
+2026-10-15T17:52:49.2294084Z [36;1mecho "Source merge only; browser/RTL/dark-light/visual parity NOT certified."[0m
+2026-10-15T17:52:49.2358183Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-10-15T17:52:49.2358541Z env:
+2026-10-15T17:52:49.2358789Z   SOURCE_SHA: a55b6faca2182ab2c1495a4ad40e0b09bbcb9b66
+2026-10-15T17:52:49.2359368Z   AURORA_SHA: 86cb4317fbab16e71208f701851b70140e380e84
+2026-10-15T17:52:49.2359742Z   EVIDENCE_DIR: /home/runner/work/_temp/aurora-core-evidence
+2026-10-15T17:52:49.2360069Z ##[endgroup]
+2026-10-15T17:52:49.3920276Z From https://github.com/zarkmakerburg/BAFT
+2026-10-15T17:52:49.3921029Z  * branch            86cb4317fbab16e71208f701851b70140e380e84 -> FETCH_HEAD
+2026-10-15T17:52:49.4580153Z Automatic merge went well; stopped before committing as requested
+2026-10-15T17:52:49.4584109Z AURORA_CORE_TEXT_MERGE=CLEAN
+2026-10-15T17:52:49.4664421Z AURORA_CORE_TREE_SHA=bb3b1afe1159b14b4912a71a7e9e32f779f19178
+2026-10-15T17:52:49.4665003Z Source merge only; browser/RTL/dark-light/visual parity NOT certified.
+2026-10-15T17:52:49.4698094Z ##[group]Run python3 scripts/ci/aurora_core_evidence.py prepare "$EVIDENCE_DIR" "$SOURCE_SHA" "$AURORA_SHA"
+2026-10-15T17:52:49.4698888Z [36;1mpython3 scripts/ci/aurora_core_evidence.py prepare "$EVIDENCE_DIR" "$SOURCE_SHA" "$AURORA_SHA"[0m
+2026-10-15T17:52:49.4761392Z shell: /usr/bin/bash -e {0}
+2026-10-15T17:52:49.4761640Z env:
+2026-10-15T17:52:49.4761884Z   SOURCE_SHA: a55b6faca2182ab2c1495a4ad40e0b09bbcb9b66
+2026-10-15T17:52:49.4762246Z   AURORA_SHA: 86cb4317fbab16e71208f701851b70140e380e84
+2026-10-15T17:52:49.4762626Z   EVIDENCE_DIR: /home/runner/work/_temp/aurora-core-evidence
+2026-10-15T17:52:49.4762952Z ##[endgroup]
+2026-10-15T17:52:49.7574754Z /home/runner/work/_temp/aurora-core-evidence/combined.bundle is okay
+2026-10-15T17:52:49.7950276Z {"bundle_ref": "refs/baft-preflight/195e2eadbc186d4aa408227d84231ecbfaf48653", "bundle_self_contained": true, "bundle_sha256": "0dc79fa99ad3eb149a3c2592005b10ce5de6dd6c81467a6d2faa3221db05d158", "combined_commit": "195e2eadbc186d4aa408227d84231ecbfaf48653", "combined_tests_passed": false, "combined_tree": "bb3b1afe1159b14b4912a71a7e9e32f779f19178", "incoming_sha": "86cb4317fbab16e71208f701851b70140e380e84", "limits": ["Source regression evidence only", "No browser or native lab acceptance", "No mainline merge, release, deployment or live BCC activation"], "parents": ["a55b6faca2182ab2c1495a4ad40e0b09bbcb9b66", "86cb4317fbab16e71208f701851b70140e380e84"], "run_attempt": "1", "run_id": "38780966063", "schema": 1, "source_sha": "a55b6faca2182ab2c1495a4ad40e0b09bbcb9b66", "state": "PREPARED"}
+2026-10-15T17:52:49.8935300Z ##[group]Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+2026-10-15T17:52:49.8935717Z with:
+2026-10-15T17:52:49.8935925Z   node-version: 22.22.2
+2026-10-15T17:52:49.8936147Z   always-auth: false
+2026-10-15T17:52:49.8936359Z   check-latest: false
+2026-10-15T17:52:49.8938738Z   token: ***
+2026-10-15T17:52:49.8938928Z env:
+2026-10-15T17:52:49.8939377Z   SOURCE_SHA: a55b6faca2182ab2c1495a4ad40e0b09bbcb9b66
+2026-10-15T17:52:49.8939728Z   AURORA_SHA: 86cb4317fbab16e71208f701851b70140e380e84
+2026-10-15T17:52:49.8940115Z   EVIDENCE_DIR: /home/runner/work/_temp/aurora-core-evidence
+2026-10-15T17:52:49.8940435Z ##[endgroup]
+2026-10-15T17:52:50.0767254Z Attempting to download 22.22.2...
+2026-10-15T17:52:50.0928959Z (node:2745) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-15T17:52:50.0930493Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-15T17:52:50.6335150Z Acquiring 22.22.2 - x64 from https://github.com/actions/node-versions/releases/download/22.22.2-23521889093/node-22.22.2-linux-x64.tar.gz
+2026-10-15T17:52:51.0319536Z Extracting ...
+2026-10-15T17:52:51.0429788Z [command]/usr/bin/tar xz --strip 1 --warning=no-unknown-keyword --overwrite -C /home/runner/work/_temp/dd9f629c-a554-4e44-8f9f-62409b7eb7ef -f /home/runner/work/_temp/a437848a-e10d-45b6-9576-a0f83fccff53
+2026-10-15T17:52:52.3285630Z Adding to the cache ...
+2026-10-15T17:52:54.6196166Z ##[group]Environment details
+2026-10-15T17:52:54.8525923Z node: v22.22.2
+2026-10-15T17:52:54.8526520Z npm: 10.9.7
+2026-10-15T17:52:54.8526877Z yarn: 1.22.22
+2026-10-15T17:52:54.8527626Z ##[endgroup]
+2026-10-15T17:52:54.8709629Z ##[group]Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+2026-10-15T17:52:54.8710042Z with:
+2026-10-15T17:52:54.8710246Z   go-version-file: go.mod
+2026-10-15T17:52:54.8710479Z   check-latest: false
+2026-10-15T17:52:54.8710694Z   cache: false
+2026-10-15T17:52:54.8713001Z   token: ***
+2026-10-15T17:52:54.8713192Z env:
+2026-10-15T17:52:54.8713432Z   SOURCE_SHA: a55b6faca2182ab2c1495a4ad40e0b09bbcb9b66
+2026-10-15T17:52:54.8713776Z   AURORA_SHA: 86cb4317fbab16e71208f701851b70140e380e84
+2026-10-15T17:52:54.8714136Z   EVIDENCE_DIR: /home/runner/work/_temp/aurora-core-evidence
+2026-10-15T17:52:54.8714456Z ##[endgroup]
+2026-10-15T17:52:54.9848552Z Setup go version spec 1.27.1
+2026-10-15T17:52:54.9852382Z Attempting to download 1.27.1...
+2026-10-15T17:52:55.5100439Z matching 1.27.1...
+2026-10-15T17:52:55.5280711Z Acquiring 1.27.1 from https://github.com/actions/go-versions/releases/download/1.27.1-33583469715/go-1.27.1-linux-x64.tar.gz
+2026-10-15T17:52:56.1346513Z Extracting Go...
+2026-10-15T17:52:56.1493458Z [command]/usr/bin/tar xz --warning=no-unknown-keyword --overwrite -C /home/runner/work/_temp/fac3c6a1-d658-454d-a66f-77bf44a8bf55 -f /home/runner/work/_temp/da2e4d7d-832f-43bf-8dcc-0400c372b9d8
+2026-10-15T17:52:57.8772857Z Successfully extracted go to /home/runner/work/_temp/fac3c6a1-d658-454d-a66f-77bf44a8bf55
+2026-10-15T17:52:57.8773524Z Adding to the cache ...
+2026-10-15T17:53:03.9813298Z Successfully cached go to /opt/hostedtoolcache/go/1.27.1/x64
+2026-10-15T17:53:03.9816341Z Added go to the path
+2026-10-15T17:53:03.9818380Z Successfully set up Go version 1.27.1
+2026-10-15T17:53:04.0018004Z go version go1.27.1 linux/amd64
+2026-10-15T17:53:04.0018408Z 
+2026-10-15T17:53:04.0019380Z ##[group]go env
+2026-10-15T17:53:04.1321686Z AR='ar'
+2026-10-15T17:53:04.1322134Z CC='gcc'
+2026-10-15T17:53:04.1322524Z CGO_CFLAGS='-O2 -g'
+2026-10-15T17:53:04.1322950Z CGO_CPPFLAGS=''
+2026-10-15T17:53:04.1323346Z CGO_CXXFLAGS='-O2 -g'
+2026-10-15T17:53:04.1323731Z CGO_ENABLED='1'
+2026-10-15T17:53:04.1324116Z CGO_FFLAGS='-O2 -g'
+2026-10-15T17:53:04.1324507Z CGO_LDFLAGS='-O2 -g'
+2026-10-15T17:53:04.1324865Z CXX='g++'
+2026-10-15T17:53:04.1325191Z GCCGO='gccgo'
+2026-10-15T17:53:04.1325536Z GO111MODULE=''
+2026-10-15T17:53:04.1325998Z GOAMD64='v1'
+2026-10-15T17:53:04.1326333Z GOARCH='amd64'
+2026-10-15T17:53:04.1326665Z GOAUTH='netrc'
+2026-10-15T17:53:04.1327057Z GOBIN='/home/runner/go/bin'
+2026-10-15T17:53:04.1327656Z GOCACHE='/home/runner/.cache/go-build'
+2026-10-15T17:53:04.1328153Z GOCACHEPROG=''
+2026-10-15T17:53:04.1328489Z GODEBUG=''
+2026-10-15T17:53:04.1328955Z GOENV='/home/runner/.config/go/env'
+2026-10-15T17:53:04.1329731Z GOEXE=''
+2026-10-15T17:53:04.1330060Z GOEXPERIMENT=''
+2026-10-15T17:53:04.1330407Z GOFIPS140='off'
+2026-10-15T17:53:04.1330741Z GOFLAGS=''
+2026-10-15T17:53:04.1332213Z GOGCCFLAGS='-fPIC -m64 -pthread -Wl,--no-gc-sections -fmessage-length=0 -ffile-prefix-map=/tmp/go-build3600412416=/tmp/go-build -gno-record-gcc-switches'
+2026-10-15T17:53:04.1333458Z GOHOSTARCH='amd64'
+2026-10-15T17:53:04.1333826Z GOHOSTOS='linux'
+2026-10-15T17:53:04.1334181Z GOINSECURE=''
+2026-10-15T17:53:04.1334661Z GOMOD='/home/runner/work/BAFT/BAFT/go.mod'
+2026-10-15T17:53:04.1335261Z GOMODCACHE='/home/runner/go/pkg/mod'
+2026-10-15T17:53:04.1335723Z GONOPROXY=''
+2026-10-15T17:53:04.1336052Z GONOSUMDB=''
+2026-10-15T17:53:04.1336374Z GOOS='linux'
+2026-10-15T17:53:04.1336741Z GOPACKAGESDRIVER=''
+2026-10-15T17:53:04.1337148Z GOPATH='/home/runner/go'
+2026-10-15T17:53:04.1337536Z GOPRIVATE=''
+2026-10-15T17:53:04.1338044Z GOPROXY='https://proxy.golang.org,direct'
+2026-10-15T17:53:04.1338687Z GOROOT='/opt/hostedtoolcache/go/1.27.1/x64'
+2026-10-15T17:53:04.1339425Z GOSUMDB='sum.golang.org'
+2026-10-15T17:53:04.1339847Z GOTELEMETRY='local'
+2026-10-15T17:53:04.1340402Z GOTELEMETRYDIR='/home/runner/.config/go/telemetry'
+2026-10-15T17:53:04.1340935Z GOTMPDIR=''
+2026-10-15T17:53:04.1341563Z GOTOOLCHAIN='local'
+2026-10-15T17:53:04.1342255Z GOTOOLDIR='/opt/hostedtoolcache/go/1.27.1/x64/pkg/tool/linux_amd64'
+2026-10-15T17:53:04.1343090Z GOVCS=''
+2026-10-15T17:53:04.1343450Z GOVERSION='go1.27.1'
+2026-10-15T17:53:04.1343808Z GOWORK=''
+2026-10-15T17:53:04.1344184Z PKG_CONFIG='pkg-config'
+2026-10-15T17:53:04.1344431Z 
+2026-10-15T17:53:04.1344908Z ##[endgroup]
+2026-10-15T17:53:04.1550875Z ##[group]Run set -euo pipefail
+2026-10-15T17:53:04.1551203Z [36;1mset -euo pipefail[0m
+2026-10-15T17:53:04.1551693Z [36;1mnpm --prefix web/aurora ci --ignore-scripts --no-audit --no-fund 2>&1 | tee "$EVIDENCE_DIR/install.log"[0m
+2026-10-15T17:53:04.1552327Z [36;1mnpm --prefix web/aurora test 2>&1 | tee "$EVIDENCE_DIR/aurora.log"[0m
+2026-10-15T17:53:04.1615866Z shell: /usr/bin/bash -e {0}
+2026-10-15T17:53:04.1616118Z env:
+2026-10-15T17:53:04.1616364Z   SOURCE_SHA: a55b6faca2182ab2c1495a4ad40e0b09bbcb9b66
+2026-10-15T17:53:04.1616714Z   AURORA_SHA: 86cb4317fbab16e71208f701851b70140e380e84
+2026-10-15T17:53:04.1617097Z   EVIDENCE_DIR: /home/runner/work/_temp/aurora-core-evidence
+2026-10-15T17:53:04.1617433Z   GOTOOLCHAIN: local
+2026-10-15T17:53:04.1617647Z ##[endgroup]
+2026-10-15T17:53:05.9452430Z 
+2026-10-15T17:53:05.9453085Z added 37 packages in 2s
+2026-10-15T17:53:06.0861008Z 
+2026-10-15T17:53:06.0861810Z > @baft/aurora-foundation@0.0.0 test
+2026-10-15T17:53:06.0863118Z > npm run typecheck && npm run check:generated && npm run size && node --test tests/*.test.mjs && npm run test:dom
+2026-10-15T17:53:06.0863859Z 
+2026-10-15T17:53:06.1858207Z 
+2026-10-15T17:53:06.1860102Z > @baft/aurora-foundation@0.0.0 typecheck
+2026-10-15T17:53:06.1860996Z > tsc --noEmit && tsc -p tsconfig.type-tests.json
+2026-10-15T17:53:06.1861405Z 
+2026-10-15T17:53:09.7442935Z 
+2026-10-15T17:53:09.7443683Z > @baft/aurora-foundation@0.0.0 check:generated
+2026-10-15T17:53:09.7444215Z > node scripts/check-generated.mjs
+2026-10-15T17:53:09.7444448Z 
+2026-10-15T17:53:11.5151444Z Generated assets verified: 8 files, compiler 6.0.3
+2026-10-15T17:53:11.6173280Z 
+2026-10-15T17:53:11.6173990Z > @baft/aurora-foundation@0.0.0 size
+2026-10-15T17:53:11.6174721Z > node scripts/report-size.mjs
+2026-10-15T17:53:11.6175066Z 
+2026-10-15T17:53:11.6508643Z {"foundationRawBytes":15508,"foundationGzipBytes":5106,"shellRawBytes":20314,"shellGzipBytes":6698,"cssRawBytes":6046,"cssGzipBytes":2006,"runtimeDependencies":0,"embeddedInBCC":false}
+2026-10-15T17:53:11.7072135Z TAP version 13
+2026-10-15T17:53:11.7522296Z # Subtest: legacy BCC critical operational surfaces remain present
+2026-10-15T17:53:11.7550274Z ok 1 - legacy BCC critical operational surfaces remain present
+2026-10-15T17:53:11.7551199Z   ---
+2026-10-15T17:53:11.7551823Z   duration_ms: 2.909244
+2026-10-15T17:53:11.7552469Z   type: 'test'
+2026-10-15T17:53:11.7553006Z   ...
+2026-10-15T17:53:11.7553912Z # Subtest: classic dashboard retains basic mobile and reduced-motion CSS
+2026-10-15T17:53:11.7555157Z ok 2 - classic dashboard retains basic mobile and reduced-motion CSS
+2026-10-15T17:53:11.7556001Z   ---
+2026-10-15T17:53:11.7556541Z   duration_ms: 0.313004
+2026-10-15T17:53:11.7557129Z   type: 'test'
+2026-10-15T17:53:11.7557627Z   ...
+2026-10-15T17:53:11.7558616Z # Subtest: Aurora remains a separate opt-in preview, not a silently removed fallback
+2026-10-15T17:53:11.7560246Z ok 3 - Aurora remains a separate opt-in preview, not a silently removed fallback
+2026-10-15T17:53:11.7561156Z   ---
+2026-10-15T17:53:11.7561702Z   duration_ms: 0.323473
+2026-10-15T17:53:11.7562293Z   type: 'test'
+2026-10-15T17:53:11.7563069Z   ...
+2026-10-15T17:53:11.7845001Z # Subtest: DEMO provider is deterministic and in-memory changes stay isolated
+2026-10-15T17:53:11.7880821Z ok 4 - DEMO provider is deterministic and in-memory changes stay isolated
+2026-10-15T17:53:11.7890175Z   ---
+2026-10-15T17:53:11.7890855Z   duration_ms: 4.828342
+2026-10-15T17:53:11.7905100Z   type: 'test'
+2026-10-15T17:53:11.7906091Z   ...
+2026-10-15T17:53:11.7907164Z # Subtest: DEMO import and every operation work when fetch is forbidden
+2026-10-15T17:53:11.7908982Z ok 5 - DEMO import and every operation work when fetch is forbidden
+2026-10-15T17:53:11.7910238Z   ---
+2026-10-15T17:53:11.7910911Z   duration_ms: 0.485325
+2026-10-15T17:53:11.7911772Z   type: 'test'
+2026-10-15T17:53:11.7914189Z   ...
+2026-10-15T17:53:11.7915381Z # Subtest: fresh-process mock imports do not touch a network or install polling
+2026-10-15T17:53:11.7917248Z ok 6 - fresh-process mock imports do not touch a network or install polling
+2026-10-15T17:53:11.7918235Z   ---
+2026-10-15T17:53:11.7918790Z   duration_ms: 37.595762
+2026-10-15T17:53:11.7919630Z   type: 'test'
+2026-10-15T17:53:11.7920136Z   ...
+2026-10-15T17:53:11.8129710Z # Subtest: explicit same-origin GET adapter preserves session and protected base path
+2026-10-15T17:53:11.8171171Z ok 7 - explicit same-origin GET adapter preserves session and protected base path
+2026-10-15T17:53:11.8172464Z   ---
+2026-10-15T17:53:11.8173052Z   duration_ms: 40.503604
+2026-10-15T17:53:11.8173668Z   type: 'test'
+2026-10-15T17:53:11.8174169Z   ...
+2026-10-15T17:53:11.8175441Z # Subtest: cross-origin, credential-bearing, normalized traversal and malformed bases are rejected before fetch
+2026-10-15T17:53:11.8177234Z ok 8 - cross-origin, credential-bearing, normalized traversal and malformed bases are rejected before fetch
+2026-10-15T17:53:11.8178317Z   ---
+2026-10-15T17:53:11.8178855Z   duration_ms: 1.139244
+2026-10-15T17:53:11.8179812Z   type: 'test'
+2026-10-15T17:53:11.8180333Z   ...
+2026-10-15T17:53:11.8181325Z # Subtest: session expiry invokes caller boundary once and never exposes response text
+2026-10-15T17:53:11.8182765Z ok 9 - session expiry invokes caller boundary once and never exposes response text
+2026-10-15T17:53:11.8183666Z   ---
+2026-10-15T17:53:11.8184208Z   duration_ms: 0.834366
+2026-10-15T17:53:11.8184778Z   type: 'test'
+2026-10-15T17:53:11.8185275Z   ...
+2026-10-15T17:53:11.8186292Z # Subtest: HTTP, network, redirects, HTML, malformed JSON and schema errors stay sanitized
+2026-10-15T17:53:11.8187735Z ok 10 - HTTP, network, redirects, HTML, malformed JSON and schema errors stay sanitized
+2026-10-15T17:53:11.8188655Z   ---
+2026-10-15T17:53:11.8189372Z   duration_ms: 4.2591
+2026-10-15T17:53:11.8195520Z   type: 'test'
+2026-10-15T17:53:11.8196062Z   ...
+2026-10-15T17:53:11.8196969Z # Subtest: response budget covers declared size and actual streamed bytes
+2026-10-15T17:53:11.8198218Z ok 11 - response budget covers declared size and actual streamed bytes
+2026-10-15T17:53:11.8199263Z   ---
+2026-10-15T17:53:11.8199837Z   duration_ms: 2.171699
+2026-10-15T17:53:11.8200421Z   type: 'test'
+2026-10-15T17:53:11.8200927Z   ...
+2026-10-15T17:53:11.8263204Z # Subtest: deadline covers an uncooperative fetch and a stalled body
+2026-10-15T17:53:11.8300045Z ok 12 - deadline covers an uncooperative fetch and a stalled body
+2026-10-15T17:53:11.8315797Z   ---
+2026-10-15T17:53:11.8353097Z   duration_ms: 21.331863
+2026-10-15T17:53:11.8379536Z   type: 'test'
+2026-10-15T17:53:11.8381080Z   ...
+2026-10-15T17:53:11.8382225Z # Subtest: caller cancellation and already-aborted signals do not start or revive requests
+2026-10-15T17:53:11.8383712Z ok 13 - caller cancellation and already-aborted signals do not start or revive requests
+2026-10-15T17:53:11.8384754Z   ---
+2026-10-15T17:53:11.8385333Z   duration_ms: 2.637357
+2026-10-15T17:53:11.8385889Z   type: 'test'
+2026-10-15T17:53:11.8386377Z   ...
+2026-10-15T17:53:11.8387387Z # Subtest: rejected response bodies are cancelled without reading arbitrary HTTP error data
+2026-10-15T17:53:11.8388812Z ok 14 - rejected response bodies are cancelled without reading arbitrary HTTP error data
+2026-10-15T17:53:11.8390051Z   ---
+2026-10-15T17:53:11.8390565Z   duration_ms: 1.196441
+2026-10-15T17:53:11.8391153Z   type: 'test'
+2026-10-15T17:53:11.8391630Z   ...
+2026-10-15T17:53:11.8801631Z # Subtest: catalogs have exact parity, nonempty copy, and explicit DEMO/unknown boundaries
+2026-10-15T17:53:11.8845601Z ok 15 - catalogs have exact parity, nonempty copy, and explicit DEMO/unknown boundaries
+2026-10-15T17:53:11.8855879Z   ---
+2026-10-15T17:53:11.8858215Z   duration_ms: 2.790012
+2026-10-15T17:53:11.8858824Z   type: 'test'
+2026-10-15T17:53:11.8859578Z   ...
+2026-10-15T17:53:11.8860602Z # Subtest: preferences validate values and safely tolerate blocked or corrupted storage
+2026-10-15T17:53:11.8861999Z ok 16 - preferences validate values and safely tolerate blocked or corrupted storage
+2026-10-15T17:53:11.8862882Z   ---
+2026-10-15T17:53:11.8863633Z   duration_ms: 0.657186
+2026-10-15T17:53:11.8864227Z   type: 'test'
+2026-10-15T17:53:11.8864720Z   ...
+2026-10-15T17:53:11.8865707Z # Subtest: only built views route; arbitrary hashes fall back without executing anything
+2026-10-15T17:53:11.8867102Z ok 17 - only built views route; arbitrary hashes fall back without executing anything
+2026-10-15T17:53:11.8867987Z   ---
+2026-10-15T17:53:11.8868522Z   duration_ms: 0.258702
+2026-10-15T17:53:11.8869268Z   type: 'test'
+2026-10-15T17:53:11.8869837Z   ...
+2026-10-15T17:53:11.8880067Z # Subtest: runtime refuses a real provider before touching DOM
+2026-10-15T17:53:11.8881364Z ok 18 - runtime refuses a real provider before touching DOM
+2026-10-15T17:53:11.8882091Z   ---
+2026-10-15T17:53:11.8882567Z   duration_ms: 0.671913
+2026-10-15T17:53:11.8883183Z   type: 'test'
+2026-10-15T17:53:11.8883719Z   ...
+2026-10-15T17:53:11.8885052Z # Subtest: preview policy refuses operational network, forms and inline execution
+2026-10-15T17:53:11.8886770Z ok 19 - preview policy refuses operational network, forms and inline execution
+2026-10-15T17:53:11.8887672Z   ---
+2026-10-15T17:53:11.8888246Z   duration_ms: 0.746171
+2026-10-15T17:53:11.8888832Z   type: 'test'
+2026-10-15T17:53:11.8889536Z   ...
+2026-10-15T17:53:11.8890772Z # Subtest: shell owns safe text rendering, cancellation and explicit cleanup without real reads or polling
+2026-10-15T17:53:11.8892624Z ok 20 - shell owns safe text rendering, cancellation and explicit cleanup without real reads or polling
+2026-10-15T17:53:11.8893771Z   ---
+2026-10-15T17:53:11.8894390Z   duration_ms: 0.618603
+2026-10-15T17:53:11.8895070Z   type: 'test'
+2026-10-15T17:53:11.8895637Z   ...
+2026-10-15T17:53:11.8896843Z # Subtest: responsive/accessibility source hooks exist (not a visual or keyboard execution)
+2026-10-15T17:53:11.8898580Z ok 21 - responsive/accessibility source hooks exist (not a visual or keyboard execution)
+2026-10-15T17:53:11.8899897Z   ---
+2026-10-15T17:53:11.8900482Z   duration_ms: 0.457343
+2026-10-15T17:53:11.8901104Z   type: 'test'
+2026-10-15T17:53:11.8901655Z   ...
+2026-10-15T17:53:11.8902750Z # Subtest: theme token text, accent, focus and control borders meet calculated contrast minima
+2026-10-15T17:53:11.8904322Z ok 22 - theme token text, accent, focus and control borders meet calculated contrast minima
+2026-10-15T17:53:11.8905322Z   ---
+2026-10-15T17:53:11.8905863Z   duration_ms: 1.08885
+2026-10-15T17:53:11.8906455Z   type: 'test'
+2026-10-15T17:53:11.8906955Z   ...
+2026-10-15T17:53:11.8934320Z # Subtest: actual overview concepts preserve unknown, zero, country anchors and scope
+2026-10-15T17:53:11.8935794Z ok 23 - actual overview concepts preserve unknown, zero, country anchors and scope
+2026-10-15T17:53:11.8936789Z   ---
+2026-10-15T17:53:11.8937304Z   duration_ms: 4.276292
+2026-10-15T17:53:11.8937902Z   type: 'test'
+2026-10-15T17:53:11.8938386Z   ...
+2026-10-15T17:53:11.8940244Z # Subtest: cached reassessment expires evidence at the boundary without renewing fetch time
+2026-10-15T17:53:11.8941811Z ok 24 - cached reassessment expires evidence at the boundary without renewing fetch time
+2026-10-15T17:53:11.8942826Z   ---
+2026-10-15T17:53:11.8943351Z   duration_ms: 0.46124
+2026-10-15T17:53:11.8943914Z   type: 'test'
+2026-10-15T17:53:11.8944398Z   ...
+2026-10-15T17:53:11.8950793Z # Subtest: future, absent and revoked node reports cannot imply healthy state
+2026-10-15T17:53:11.8955623Z ok 25 - future, absent and revoked node reports cannot imply healthy state
+2026-10-15T17:53:11.8956348Z   ---
+2026-10-15T17:53:11.8956746Z   duration_ms: 0.90631
+2026-10-15T17:53:11.8957174Z   type: 'test'
+2026-10-15T17:53:11.8957536Z   ...
+2026-10-15T17:53:11.8958813Z # Subtest: malformed types, out-of-range measurements, duplicate and wrong-scope resources reject
+2026-10-15T17:53:11.8960582Z ok 26 - malformed types, out-of-range measurements, duplicate and wrong-scope resources reject
+2026-10-15T17:53:11.8961517Z   ---
+2026-10-15T17:53:11.8961908Z   duration_ms: 1.86154
+2026-10-15T17:53:11.8962349Z   type: 'test'
+2026-10-15T17:53:11.8962962Z   ...
+2026-10-15T17:53:11.8963670Z # Subtest: only selected presentation fields leave the adapter
+2026-10-15T17:53:11.8964614Z ok 27 - only selected presentation fields leave the adapter
+2026-10-15T17:53:11.8965220Z   ---
+2026-10-15T17:53:11.8965617Z   duration_ms: 0.420193
+2026-10-15T17:53:11.8966075Z   type: 'test'
+2026-10-15T17:53:11.8966439Z   ...
+2026-10-15T17:53:11.8967239Z # Subtest: uint64 counters retain exact decimals and reject rounded JSON numbers
+2026-10-15T17:53:11.8968456Z ok 28 - uint64 counters retain exact decimals and reject rounded JSON numbers
+2026-10-15T17:53:11.8970869Z   ---
+2026-10-15T17:53:11.8971313Z   duration_ms: 0.43954
+2026-10-15T17:53:11.8971758Z   type: 'test'
+2026-10-15T17:53:11.8972126Z   ...
+2026-10-15T17:53:11.8973073Z # Subtest: RFC3339 accepts Go nanoseconds and timezone offsets without accepting invalid dates
+2026-10-15T17:53:11.8974484Z ok 29 - RFC3339 accepts Go nanoseconds and timezone offsets without accepting invalid dates
+2026-10-15T17:53:11.8975290Z   ---
+2026-10-15T17:53:11.8975692Z   duration_ms: 0.274783
+2026-10-15T17:53:11.8976137Z   type: 'test'
+2026-10-15T17:53:11.8976498Z   ...
+2026-10-15T17:53:11.8977364Z # Subtest: tunnel desired phase and lifecycle timestamp never become delivery health
+2026-10-15T17:53:11.8978663Z ok 30 - tunnel desired phase and lifecycle timestamp never become delivery health
+2026-10-15T17:53:11.8979691Z   ---
+2026-10-15T17:53:11.8980089Z   duration_ms: 0.40743
+2026-10-15T17:53:11.8980537Z   type: 'test'
+2026-10-15T17:53:11.8980896Z   ...
+2026-10-15T17:53:11.9349334Z # Subtest: Go-handler shared fixtures decode through the real adapter without a live request
+2026-10-15T17:53:11.9380543Z ok 31 - Go-handler shared fixtures decode through the real adapter without a live request
+2026-10-15T17:53:11.9381376Z   ---
+2026-10-15T17:53:11.9381783Z   duration_ms: 28.5245
+2026-10-15T17:53:11.9382198Z   type: 'test'
+2026-10-15T17:53:11.9382535Z   ...
+2026-10-15T17:53:11.9383332Z # Subtest: actual Go empty-list shapes remain empty, never zero-filled resources
+2026-10-15T17:53:11.9384448Z ok 32 - actual Go empty-list shapes remain empty, never zero-filled resources
+2026-10-15T17:53:11.9385108Z   ---
+2026-10-15T17:53:11.9385477Z   duration_ms: 1.081557
+2026-10-15T17:53:11.9385880Z   type: 'test'
+2026-10-15T17:53:11.9386210Z   ...
+2026-10-15T17:53:11.9387038Z # Subtest: wire timestamps do not renew cached node evidence or certify payload delivery
+2026-10-15T17:53:11.9388245Z ok 33 - wire timestamps do not renew cached node evidence or certify payload delivery
+2026-10-15T17:53:11.9388950Z   ---
+2026-10-15T17:53:11.9389538Z   duration_ms: 0.885592
+2026-10-15T17:53:11.9389955Z   type: 'test'
+2026-10-15T17:53:11.9390310Z   ...
+2026-10-15T17:53:11.9517579Z 1..33
+2026-10-15T17:53:11.9540009Z # tests 33
+2026-10-15T17:53:11.9550468Z # suites 0
+2026-10-15T17:53:11.9550881Z # pass 33
+2026-10-15T17:53:11.9551242Z # fail 0
+2026-10-15T17:53:11.9551748Z # cancelled 0
+2026-10-15T17:53:11.9552103Z # skipped 0
+2026-10-15T17:53:11.9552467Z # todo 0
+2026-10-15T17:53:11.9552884Z # duration_ms 263.976724
+2026-10-15T17:53:12.0532005Z 
+2026-10-15T17:53:12.0533021Z > @baft/aurora-foundation@0.0.0 test:dom
+2026-10-15T17:53:12.0533650Z > node --experimental-vm-modules --test tests/dom/*.test.mjs
+2026-10-15T17:53:12.0533974Z 
+2026-10-15T17:53:12.0978419Z TAP version 13
+2026-10-15T17:53:12.8095274Z # (node:3049) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+2026-10-15T17:53:12.8100222Z # (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-15T17:53:12.8443176Z # Subtest: mounted DOM loads historical DEMO evidence without reporting payload health
+2026-10-15T17:53:12.8450412Z ok 1 - mounted DOM loads historical DEMO evidence without reporting payload health
+2026-10-15T17:53:12.8452771Z   ---
+2026-10-15T17:53:12.8453440Z   duration_ms: 145.446226
+2026-10-15T17:53:12.8454067Z   type: 'test'
+2026-10-15T17:53:12.8454562Z   ...
+2026-10-15T17:53:13.0929290Z # Subtest: all four language/theme combinations mount, switch, persist and restore focus
+2026-10-15T17:53:13.0934436Z ok 2 - all four language/theme combinations mount, switch, persist and restore focus
+2026-10-15T17:53:13.0935298Z   ---
+2026-10-15T17:53:13.0935744Z   duration_ms: 246.92981
+2026-10-15T17:53:13.0936251Z   type: 'test'
+2026-10-15T17:53:13.0936657Z   ...
+2026-10-15T17:53:13.1169871Z # Subtest: completion preserves a control focused while data was pending
+2026-10-15T17:53:13.1190498Z ok 3 - completion preserves a control focused while data was pending
+2026-10-15T17:53:13.1191441Z   ---
+2026-10-15T17:53:13.1192009Z   duration_ms: 25.30077
+2026-10-15T17:53:13.1192561Z   type: 'test'
+2026-10-15T17:53:13.1193070Z   ...
+2026-10-15T17:53:13.4986163Z # Subtest: pending completion retains nav and skip links across every language and theme without activating them
+2026-10-15T17:53:13.4988228Z ok 4 - pending completion retains nav and skip links across every language and theme without activating them
+2026-10-15T17:53:13.4988816Z   ---
+2026-10-15T17:53:13.4989327Z   duration_ms: 388.802671
+2026-10-15T17:53:13.4989613Z   type: 'test'
+2026-10-15T17:53:13.4989824Z   ...
+2026-10-15T17:53:13.5139402Z # Subtest: pending rejection retains a focused nav link without exposing error detail
+2026-10-15T17:53:13.5141038Z ok 5 - pending rejection retains a focused nav link without exposing error detail
+2026-10-15T17:53:13.5141799Z   ---
+2026-10-15T17:53:13.5142173Z   duration_ms: 16.626738
+2026-10-15T17:53:13.5142585Z   type: 'test'
+2026-10-15T17:53:13.5142917Z   ...
+2026-10-15T17:53:13.5400639Z # Subtest: reload completion keeps the link chosen after starting refresh
+2026-10-15T17:53:13.5402100Z ok 6 - reload completion keeps the link chosen after starting refresh
+2026-10-15T17:53:13.5402844Z   ---
+2026-10-15T17:53:13.5403265Z   duration_ms: 27.572415
+2026-10-15T17:53:13.5403743Z   type: 'test'
+2026-10-15T17:53:13.5404118Z   ...
+2026-10-15T17:53:13.5650077Z # Subtest: navigation while pending keeps main focused after completion
+2026-10-15T17:53:13.5651721Z ok 7 - navigation while pending keeps main focused after completion
+2026-10-15T17:53:13.5652840Z   ---
+2026-10-15T17:53:13.5653288Z   duration_ms: 21.215785
+2026-10-15T17:53:13.5653745Z   type: 'test'
+2026-10-15T17:53:13.5654104Z   ...
+2026-10-15T17:53:13.5801525Z # Subtest: completion never steals focus from a target outside the shell
+2026-10-15T17:53:13.5802664Z ok 8 - completion never steals focus from a target outside the shell
+2026-10-15T17:53:13.5803296Z   ---
+2026-10-15T17:53:13.5803685Z   duration_ms: 17.155664
+2026-10-15T17:53:13.5804093Z   type: 'test'
+2026-10-15T17:53:13.5804417Z   ...
+2026-10-15T17:53:13.6090039Z # Subtest: errors are safe and explicit retry recovers without duplicate requests
+2026-10-15T17:53:13.6091668Z ok 9 - errors are safe and explicit retry recovers without duplicate requests
+2026-10-15T17:53:13.6092398Z   ---
+2026-10-15T17:53:13.6092787Z   duration_ms: 28.263864
+2026-10-15T17:53:13.6093213Z   type: 'test'
+2026-10-15T17:53:13.6093559Z   ...
+2026-10-15T17:53:13.6283974Z # Subtest: empty and mislabeled real data never become DEMO resources
+2026-10-15T17:53:13.6288064Z ok 10 - empty and mislabeled real data never become DEMO resources
+2026-10-15T17:53:13.6288738Z   ---
+2026-10-15T17:53:13.6289621Z   duration_ms: 20.528213
+2026-10-15T17:53:13.6290160Z   type: 'test'
+2026-10-15T17:53:13.6290549Z   ...
+2026-10-15T17:53:13.6439576Z # Subtest: destroy aborts pending data, removes listeners and refuses late repaint
+2026-10-15T17:53:13.6440779Z ok 11 - destroy aborts pending data, removes listeners and refuses late repaint
+2026-10-15T17:53:13.6469949Z   ---
+2026-10-15T17:53:13.6480644Z   duration_ms: 14.117991
+2026-10-15T17:53:13.6480990Z   type: 'test'
+2026-10-15T17:53:13.6481487Z   ...
+2026-10-15T17:53:13.6733766Z # Subtest: remount has one listener owner and stale destroy cannot remove new UI
+2026-10-15T17:53:13.6735080Z ok 12 - remount has one listener owner and stale destroy cannot remove new UI
+2026-10-15T17:53:13.6736092Z   ---
+2026-10-15T17:53:13.6736730Z   duration_ms: 30.509621
+2026-10-15T17:53:13.6737644Z   type: 'test'
+2026-10-15T17:53:13.6737900Z   ...
+2026-10-15T17:53:13.6900471Z # Subtest: resource text is inert even when synthetic aliases resemble HTML
+2026-10-15T17:53:13.6903830Z ok 13 - resource text is inert even when synthetic aliases resemble HTML
+2026-10-15T17:53:13.6904504Z   ---
+2026-10-15T17:53:13.6904884Z   duration_ms: 16.951183
+2026-10-15T17:53:13.6905308Z   type: 'test'
+2026-10-15T17:53:13.6905640Z   ...
+2026-10-15T17:53:13.7180202Z # Subtest: blocked storage keeps preference controls functional and reports a safe notice
+2026-10-15T17:53:13.7181963Z ok 14 - blocked storage keeps preference controls functional and reports a safe notice
+2026-10-15T17:53:13.7182880Z   ---
+2026-10-15T17:53:13.7183416Z   duration_ms: 21.62094
+2026-10-15T17:53:13.7183833Z   type: 'test'
+2026-10-15T17:53:13.7184161Z   ...
+2026-10-15T17:53:13.7303157Z # Subtest: entry page lifecycle events tear down and remount on a persisted pageshow
+2026-10-15T17:53:13.7304654Z ok 15 - entry page lifecycle events tear down and remount on a persisted pageshow
+2026-10-15T17:53:13.7305639Z   ---
+2026-10-15T17:53:13.7306117Z   duration_ms: 31.614131
+2026-10-15T17:53:13.7306722Z   type: 'test'
+2026-10-15T17:53:13.7307141Z   ...
+2026-10-15T17:53:13.7572929Z 1..15
+2026-10-15T17:53:13.7575683Z # tests 15
+2026-10-15T17:53:13.7576052Z # suites 0
+2026-10-15T17:53:13.7576379Z # pass 15
+2026-10-15T17:53:13.7576694Z # fail 0
+2026-10-15T17:53:13.7577017Z # cancelled 0
+2026-10-15T17:53:13.7577359Z # skipped 0
+2026-10-15T17:53:13.7581948Z # todo 0
+2026-10-15T17:53:13.7582236Z # duration_ms 1672.32765
+2026-10-15T17:53:13.7758534Z ##[group]Run set -euo pipefail
+2026-10-15T17:53:13.7758893Z [36;1mset -euo pipefail[0m
+2026-10-15T17:53:13.7759749Z [36;1mgo test ./internal/bcc ./internal/incidentclass -count=1 2>&1 | tee "$EVIDENCE_DIR/core.log"[0m
+2026-10-15T17:53:13.7823130Z shell: /usr/bin/bash -e {0}
+2026-10-15T17:53:13.7823382Z env:
+2026-10-15T17:53:13.7823626Z   SOURCE_SHA: a55b6faca2182ab2c1495a4ad40e0b09bbcb9b66
+2026-10-15T17:53:13.7823979Z   AURORA_SHA: 86cb4317fbab16e71208f701851b70140e380e84
+2026-10-15T17:53:13.7824359Z   EVIDENCE_DIR: /home/runner/work/_temp/aurora-core-evidence
+2026-10-15T17:53:13.7824702Z   GOTOOLCHAIN: local
+2026-10-15T17:53:13.7824908Z ##[endgroup]
+2026-10-15T17:53:13.8210882Z go: downloading golang.org/x/crypto v0.57.0
+2026-10-15T17:53:13.8228351Z go: downloading modernc.org/sqlite v1.60.1
+2026-10-15T17:53:14.0917779Z go: downloading golang.org/x/sys v0.48.0
+2026-10-15T17:53:14.1173880Z go: downloading go.yaml.in/yaml/v3 v3.0.5
+2026-10-15T17:53:14.1500355Z go: downloading github.com/flynn/noise v1.1.0
+2026-10-15T17:53:15.3045491Z go: downloading modernc.org/libc v1.77.1
+2026-10-15T17:53:16.5736934Z go: downloading modernc.org/mathutil v1.7.1
+2026-10-15T17:53:16.5738507Z go: downloading github.com/dustin/go-humanize v1.0.1
+2026-10-15T17:53:16.5740204Z go: downloading modernc.org/memory v1.12.1
+2026-10-15T17:53:16.5741664Z go: downloading github.com/google/uuid v1.6.0
+2026-10-15T17:53:16.6091172Z go: downloading github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec
+2026-10-15T17:54:58.7344343Z ok  	github.com/zarkmakerburg/baft/internal/bcc	70.008s
+2026-10-15T17:54:58.7345286Z ok  	github.com/zarkmakerburg/baft/internal/incidentclass	0.158s
+2026-10-15T17:54:58.8889502Z ##[group]Run set -euo pipefail
+2026-10-15T17:54:58.8889846Z [36;1mset -euo pipefail[0m
+2026-10-15T17:54:58.8890232Z [36;1mnode --test web/tests/*.test.cjs 2>&1 | tee "$EVIDENCE_DIR/classic.log"[0m
+2026-10-15T17:54:58.8954026Z shell: /usr/bin/bash -e {0}
+2026-10-15T17:54:58.8954277Z env:
+2026-10-15T17:54:58.8954523Z   SOURCE_SHA: a55b6faca2182ab2c1495a4ad40e0b09bbcb9b66
+2026-10-15T17:54:58.8955072Z   AURORA_SHA: 86cb4317fbab16e71208f701851b70140e380e84
+2026-10-15T17:54:58.8955437Z   EVIDENCE_DIR: /home/runner/work/_temp/aurora-core-evidence
+2026-10-15T17:54:58.8955765Z   GOTOOLCHAIN: local
+2026-10-15T17:54:58.8955972Z ##[endgroup]
+2026-10-15T17:54:58.9510535Z TAP version 13
+2026-10-15T17:54:59.0057585Z # Subtest: Persian and English carry the same strings
+2026-10-15T17:54:59.0081777Z ok 1 - Persian and English carry the same strings
+2026-10-15T17:54:59.0089828Z   ---
+2026-10-15T17:54:59.0110378Z   duration_ms: 4.391015
+2026-10-15T17:54:59.0124364Z   type: 'test'
+2026-10-15T17:54:59.0140060Z   ...
+2026-10-15T17:54:59.0141184Z # Subtest: every translated element in the page has a string
+2026-10-15T17:54:59.0142296Z ok 2 - every translated element in the page has a string
+2026-10-15T17:54:59.0143011Z   ---
+2026-10-15T17:54:59.0143478Z   duration_ms: 0.436914
+2026-10-15T17:54:59.0143988Z   type: 'test'
+2026-10-15T17:54:59.0144405Z   ...
+2026-10-15T17:54:59.0145027Z # Subtest: the country list matches the server
+2026-10-15T17:54:59.0145883Z ok 3 - the country list matches the server
+2026-10-15T17:54:59.0146516Z   ---
+2026-10-15T17:54:59.0146949Z   duration_ms: 0.4451
+2026-10-15T17:54:59.0147455Z   type: 'test'
+2026-10-15T17:54:59.0147881Z   ...
+2026-10-15T17:54:59.0148523Z # Subtest: every menu route has a page and a name
+2026-10-15T17:54:59.0149755Z ok 4 - every menu route has a page and a name
+2026-10-15T17:54:59.0150374Z   ---
+2026-10-15T17:54:59.0150830Z   duration_ms: 0.325427
+2026-10-15T17:54:59.0151310Z   type: 'test'
+2026-10-15T17:54:59.0151702Z   ...
+2026-10-15T17:54:59.0152432Z # Subtest: demo numbers appear only in the labelled preview
+2026-10-15T17:54:59.0153335Z ok 5 - demo numbers appear only in the labelled preview
+2026-10-15T17:54:59.0153924Z   ---
+2026-10-15T17:54:59.0154317Z   duration_ms: 0.550075
+2026-10-15T17:54:59.0154762Z   type: 'test'
+2026-10-15T17:54:59.0155183Z   ...
+2026-10-15T17:54:59.0155991Z # Subtest: text from the server is escaped before it reaches the page
+2026-10-15T17:54:59.0157248Z ok 6 - text from the server is escaped before it reaches the page
+2026-10-15T17:54:59.0158143Z   ---
+2026-10-15T17:54:59.0158563Z   duration_ms: 0.478532
+2026-10-15T17:54:59.0159394Z   type: 'test'
+2026-10-15T17:54:59.0159797Z   ...
+2026-10-15T17:54:59.0160412Z # Subtest: the page only loads files that BCC embeds
+2026-10-15T17:54:59.0161238Z ok 7 - the page only loads files that BCC embeds
+2026-10-15T17:54:59.0161798Z   ---
+2026-10-15T17:54:59.0162199Z   duration_ms: 0.836991
+2026-10-15T17:54:59.0162660Z   type: 'test'
+2026-10-15T17:54:59.0163028Z   ...
+2026-10-15T17:54:59.0163721Z # Subtest: theme and language are applied before the first paint
+2026-10-15T17:54:59.0164723Z ok 8 - theme and language are applied before the first paint
+2026-10-15T17:54:59.0165348Z   ---
+2026-10-15T17:54:59.0165750Z   duration_ms: 0.225892
+2026-10-15T17:54:59.0166204Z   type: 'test'
+2026-10-15T17:54:59.0166574Z   ...
+2026-10-15T17:54:59.0219413Z # Subtest: Hybrid retains modern BCC navigation, controls, visual assets and classic fallback
+2026-10-15T17:54:59.0220783Z ok 9 - Hybrid retains modern BCC navigation, controls, visual assets and classic fallback
+2026-10-15T17:54:59.0221532Z   ---
+2026-10-15T17:54:59.0221900Z   duration_ms: 2.077253
+2026-10-15T17:54:59.0222298Z   type: 'test'
+2026-10-15T17:54:59.0222625Z   ...
+2026-10-15T17:54:59.0223487Z # Subtest: deleting any modern dashboard control is rejected independently of classic source
+2026-10-15T17:54:59.0224784Z ok 10 - deleting any modern dashboard control is rejected independently of classic source
+2026-10-15T17:54:59.0225515Z   ---
+2026-10-15T17:54:59.0226207Z   duration_ms: 5.592826
+2026-10-15T17:54:59.0226620Z   type: 'test'
+2026-10-15T17:54:59.0226950Z   ...
+2026-10-15T17:54:59.0227623Z # Subtest: deleting or unembedding each visual dependency is rejected
+2026-10-15T17:54:59.0228580Z ok 11 - deleting or unembedding each visual dependency is rejected
+2026-10-15T17:54:59.0229397Z   ---
+2026-10-15T17:54:59.0230000Z   duration_ms: 4.118818
+2026-10-15T17:54:59.0230636Z   type: 'test'
+2026-10-15T17:54:59.0230965Z   ...
+2026-10-15T17:54:59.0231634Z # Subtest: removing fallback or reduced-motion support is rejected
+2026-10-15T17:54:59.0232637Z ok 12 - removing fallback or reduced-motion support is rejected
+2026-10-15T17:54:59.0233251Z   ---
+2026-10-15T17:54:59.0233657Z   duration_ms: 0.888978
+2026-10-15T17:54:59.0234110Z   type: 'test'
+2026-10-15T17:54:59.0234446Z   ...
+2026-10-15T17:54:59.0234995Z # Subtest: reordering script dependencies is rejected
+2026-10-15T17:54:59.0235774Z ok 13 - reordering script dependencies is rejected
+2026-10-15T17:54:59.0236105Z   ---
+2026-10-15T17:54:59.0236324Z   duration_ms: 0.527884
+2026-10-15T17:54:59.0236560Z   type: 'test'
+2026-10-15T17:54:59.0236750Z   ...
+2026-10-15T17:54:59.0237217Z # Subtest: actual appearance bootstrap preserves fa/dark before app initialization
+2026-10-15T17:54:59.0240603Z ok 14 - actual appearance bootstrap preserves fa/dark before app initialization
+2026-10-15T17:54:59.0241338Z   ---
+2026-10-15T17:54:59.0241715Z   duration_ms: 1.370996
+2026-10-15T17:54:59.0242119Z   type: 'test'
+2026-10-15T17:54:59.0242325Z   ...
+2026-10-15T17:54:59.0242797Z # Subtest: actual appearance bootstrap preserves fa/light before app initialization
+2026-10-15T17:54:59.0243758Z ok 15 - actual appearance bootstrap preserves fa/light before app initialization
+2026-10-15T17:54:59.0244359Z   ---
+2026-10-15T17:54:59.0244663Z   duration_ms: 1.038155
+2026-10-15T17:54:59.0244982Z   type: 'test'
+2026-10-15T17:54:59.0245182Z   ...
+2026-10-15T17:54:59.0245802Z # Subtest: actual appearance bootstrap preserves en/dark before app initialization
+2026-10-15T17:54:59.0246615Z ok 16 - actual appearance bootstrap preserves en/dark before app initialization
+2026-10-15T17:54:59.0247109Z   ---
+2026-10-15T17:54:59.0247415Z   duration_ms: 1.052803
+2026-10-15T17:54:59.0247669Z   type: 'test'
+2026-10-15T17:54:59.0247953Z   ...
+2026-10-15T17:54:59.0248504Z # Subtest: actual appearance bootstrap preserves en/light before app initialization
+2026-10-15T17:54:59.0249824Z ok 17 - actual appearance bootstrap preserves en/light before app initialization
+2026-10-15T17:54:59.0250416Z   ---
+2026-10-15T17:54:59.0250744Z   duration_ms: 1.229582
+2026-10-15T17:54:59.0250994Z   type: 'test'
+2026-10-15T17:54:59.0251186Z   ...
+2026-10-15T17:54:59.0251740Z # Subtest: invalid or unavailable storage safely uses Farsi direction and system appearance
+2026-10-15T17:54:59.0252630Z ok 18 - invalid or unavailable storage safely uses Farsi direction and system appearance
+2026-10-15T17:54:59.0253044Z   ---
+2026-10-15T17:54:59.0253257Z   duration_ms: 3.567861
+2026-10-15T17:54:59.0253507Z   type: 'test'
+2026-10-15T17:54:59.0253698Z   ...
+2026-10-15T17:54:59.0254057Z # Subtest: BCC dashboard keeps all existing operational sections
+2026-10-15T17:54:59.0254546Z ok 19 - BCC dashboard keeps all existing operational sections
+2026-10-15T17:54:59.0254861Z   ---
+2026-10-15T17:54:59.0255062Z   duration_ms: 2.076832
+2026-10-15T17:54:59.0255295Z   type: 'test'
+2026-10-15T17:54:59.0255480Z   ...
+2026-10-15T17:54:59.0255800Z # Subtest: BCC visual tokens and focus states are present
+2026-10-15T17:54:59.0256223Z ok 20 - BCC visual tokens and focus states are present
+2026-10-15T17:54:59.0256508Z   ---
+2026-10-15T17:54:59.0256703Z   duration_ms: 0.234828
+2026-10-15T17:54:59.0256923Z   type: 'test'
+2026-10-15T17:54:59.0257108Z   ...
+2026-10-15T17:54:59.0257476Z # Subtest: BCC dashboard remains wired to existing operational loaders
+2026-10-15T17:54:59.0258003Z ok 21 - BCC dashboard remains wired to existing operational loaders
+2026-10-15T17:54:59.0258331Z   ---
+2026-10-15T17:54:59.0258750Z   duration_ms: 0.304037
+2026-10-15T17:54:59.0258987Z   type: 'test'
+2026-10-15T17:54:59.0259711Z   ...
+2026-10-15T17:54:59.0260327Z # Subtest: operational dashboard includes focus-visible and disabled control styles
+2026-10-15T17:54:59.0260982Z ok 22 - operational dashboard includes focus-visible and disabled control styles
+2026-10-15T17:54:59.0261363Z   ---
+2026-10-15T17:54:59.0261571Z   duration_ms: 1.768697
+2026-10-15T17:54:59.0261977Z   type: 'test'
+2026-10-15T17:54:59.0262161Z   ...
+2026-10-15T17:54:59.0262547Z # Subtest: SSH enrollment always restores controls and clears credentials
+2026-10-15T17:54:59.0263107Z ok 23 - SSH enrollment always restores controls and clears credentials
+2026-10-15T17:54:59.0263448Z   ---
+2026-10-15T17:54:59.0263647Z   duration_ms: 0.383796
+2026-10-15T17:54:59.0263875Z   type: 'test'
+2026-10-15T17:54:59.0264056Z   ...
+2026-10-15T17:54:59.0264423Z # Subtest: Doctor cached PASS expires to NOT_ASSESSED at display time
+2026-10-15T17:54:59.0264962Z ok 24 - Doctor cached PASS expires to NOT_ASSESSED at display time
+2026-10-15T17:54:59.0265351Z   ---
+2026-10-15T17:54:59.0265553Z   duration_ms: 1.267954
+2026-10-15T17:54:59.0265808Z   type: 'test'
+2026-10-15T17:54:59.0266014Z   ...
+2026-10-15T17:54:59.0266213Z 1..24
+2026-10-15T17:54:59.0266399Z # tests 24
+2026-10-15T17:54:59.0266606Z # suites 0
+2026-10-15T17:54:59.0266808Z # pass 24
+2026-10-15T17:54:59.0267010Z # fail 0
+2026-10-15T17:54:59.0267219Z # cancelled 0
+2026-10-15T17:54:59.0267420Z # skipped 0
+2026-10-15T17:54:59.0267622Z # todo 0
+2026-10-15T17:54:59.0267852Z # duration_ms 90.960917
+2026-10-15T17:54:59.0343214Z ##[group]Run python3 scripts/ci/aurora_core_evidence.py record "$EVIDENCE_DIR" "$AURORA_OUTCOME" "$CORE_OUTCOME" "$CLASSIC_OUTCOME"
+2026-10-15T17:54:59.0344246Z [36;1mpython3 scripts/ci/aurora_core_evidence.py record "$EVIDENCE_DIR" "$AURORA_OUTCOME" "$CORE_OUTCOME" "$CLASSIC_OUTCOME"[0m
+2026-10-15T17:54:59.0407496Z shell: /usr/bin/bash -e {0}
+2026-10-15T17:54:59.0407929Z env:
+2026-10-15T17:54:59.0408272Z   SOURCE_SHA: a55b6faca2182ab2c1495a4ad40e0b09bbcb9b66
+2026-10-15T17:54:59.0408809Z   AURORA_SHA: 86cb4317fbab16e71208f701851b70140e380e84
+2026-10-15T17:54:59.0409603Z   EVIDENCE_DIR: /home/runner/work/_temp/aurora-core-evidence
+2026-10-15T17:54:59.0410033Z   GOTOOLCHAIN: local
+2026-10-15T17:54:59.0410426Z   AURORA_OUTCOME: success
+2026-10-15T17:54:59.0410740Z   CORE_OUTCOME: success
+2026-10-15T17:54:59.0411078Z   CLASSIC_OUTCOME: success
+2026-10-15T17:54:59.0411424Z ##[endgroup]
+2026-10-15T17:54:59.1313509Z {"bundle_ref": "refs/baft-preflight/195e2eadbc186d4aa408227d84231ecbfaf48653", "bundle_self_contained": true, "bundle_sha256": "0dc79fa99ad3eb149a3c2592005b10ce5de6dd6c81467a6d2faa3221db05d158", "combined_commit": "195e2eadbc186d4aa408227d84231ecbfaf48653", "combined_tests_passed": true, "combined_tree": "bb3b1afe1159b14b4912a71a7e9e32f779f19178", "incoming_sha": "86cb4317fbab16e71208f701851b70140e380e84", "limits": ["Source regression evidence only", "No browser or native lab acceptance", "No mainline merge, release, deployment or live BCC activation"], "outcomes": {"aurora": "success", "classic": "success", "core": "success"}, "parents": ["a55b6faca2182ab2c1495a4ad40e0b09bbcb9b66", "86cb4317fbab16e71208f701851b70140e380e84"], "run_attempt": "1", "run_id": "38780966063", "schema": 1, "source_sha": "a55b6faca2182ab2c1495a4ad40e0b09bbcb9b66", "state": "TESTED", "tracked_source_unchanged": true}
+2026-10-15T17:54:59.1448385Z ##[group]Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+2026-10-15T17:54:59.1448835Z with:
+2026-10-15T17:54:59.1449449Z   name: aurora-core-a55b6faca2182ab2c1495a4ad40e0b09bbcb9b66-1
+2026-10-15T17:54:59.1449883Z   path: /home/runner/work/_temp/aurora-core-evidence/
+2026-10-15T17:54:59.1450216Z   if-no-files-found: error
+2026-10-15T17:54:59.1450450Z   retention-days: 90
+2026-10-15T17:54:59.1450671Z   compression-level: 6
+2026-10-15T17:54:59.1450886Z   overwrite: false
+2026-10-15T17:54:59.1451101Z   include-hidden-files: false
+2026-10-15T17:54:59.1451340Z env:
+2026-10-15T17:54:59.1451568Z   SOURCE_SHA: a55b6faca2182ab2c1495a4ad40e0b09bbcb9b66
+2026-10-15T17:54:59.1451911Z   AURORA_SHA: 86cb4317fbab16e71208f701851b70140e380e84
+2026-10-15T17:54:59.1452275Z   EVIDENCE_DIR: /home/runner/work/_temp/aurora-core-evidence
+2026-10-15T17:54:59.1452599Z   GOTOOLCHAIN: local
+2026-10-15T17:54:59.1452800Z ##[endgroup]
+2026-10-15T17:54:59.3119305Z (node:6757) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-15T17:54:59.3120492Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-15T17:54:59.3187496Z With the provided path, there will be 7 files uploaded
+2026-10-15T17:54:59.3193670Z Artifact name is valid!
+2026-10-15T17:54:59.3194538Z Root directory input is valid!
+2026-10-15T17:54:59.5651156Z Beginning upload of artifact content to blob storage
+2026-10-15T17:54:59.8530179Z (node:6757) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-10-15T17:55:00.0112942Z Uploaded bytes 8388608
+2026-10-15T17:55:00.2451625Z Uploaded bytes 16777216
+2026-10-15T17:55:00.4370793Z Uploaded bytes 25165824
+2026-10-15T17:55:00.7427874Z Uploaded bytes 33554432
+2026-10-15T17:55:00.9467158Z Uploaded bytes 41943040
+2026-10-15T17:55:00.9983330Z Uploaded bytes 43723191
+2026-10-15T17:55:01.0130853Z Finished uploading artifact content to blob storage!
+2026-10-15T17:55:01.0132609Z SHA256 digest of uploaded artifact zip is 9f973648e5225c37d1c250dca84bba7dbdde515ed3c09f3fa702b73721f4b6c6
+2026-10-15T17:55:01.0134551Z Finalizing artifact upload
+2026-10-15T17:55:01.2462803Z Artifact aurora-core-a55b6faca2182ab2c1495a4ad40e0b09bbcb9b66-1.zip successfully finalized. Artifact ID 11996056346
+2026-10-15T17:55:01.2465154Z Artifact aurora-core-a55b6faca2182ab2c1495a4ad40e0b09bbcb9b66-1 has been successfully uploaded! Final size is 43723191 bytes. Artifact ID is 11996056346
+2026-10-15T17:55:01.2469813Z Artifact download URL: https://github.com/zarkmakerburg/BAFT/actions/runs/38780966063/artifacts/11996056346
+2026-10-15T17:55:01.2670777Z Post job cleanup.
+2026-10-15T17:55:01.4028949Z Post job cleanup.
+2026-10-15T17:55:01.5374762Z (node:6777) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-15T17:55:01.5375884Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-15T17:55:01.5597586Z Post job cleanup.
+2026-10-15T17:55:01.6524516Z [command]/usr/bin/git version
+2026-10-15T17:55:01.6573067Z git version 2.55.0
+2026-10-15T17:55:01.6650165Z Temporarily overriding HOME='/home/runner/work/_temp/8f8a5df0-d0c8-4aaf-a383-87be0e49784a' before making global git config changes
+2026-10-15T17:55:01.6651691Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-15T17:55:01.6680099Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/BAFT/BAFT
+2026-10-15T17:55:01.6690690Z Removing SSH command configuration
+2026-10-15T17:55:01.6719860Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-15T17:55:01.6728099Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-15T17:55:01.6976972Z Removing HTTP extra header
+2026-10-15T17:55:01.6982845Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-15T17:55:01.7025064Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-15T17:55:01.7288225Z Removing includeIf entries pointing to credentials config files
+2026-10-15T17:55:01.7297643Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-15T17:55:01.7345398Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-15T17:55:01.7734933Z Cleaning up orphan processes
+2026-10-15T17:55:01.8148463Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020, actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

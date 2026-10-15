@@ -23,3 +23,7 @@ jobs:
           for f in web/bcc-*.js web/qa/*.cjs web/tests/*.test.cjs; do node --check "$f"; done
       - name: UI tests
         run: node --test web/tests/*.test.cjs
+      - name: Install locked Aurora build tool (no lifecycle scripts)
+        run: npm --prefix web/aurora ci --ignore-scripts --no-audit --no-fund
+      - name: Aurora strict contracts, generated assets and provider tests
+        run: npm --prefix web/aurora test

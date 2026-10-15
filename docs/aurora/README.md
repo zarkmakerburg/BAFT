@@ -113,3 +113,38 @@ SHA evidence and failed attempts in #67/#199; claim scope before edits.
 
 Native two-node/candidate pre-cutover tests remain owner-deferred and OPEN.
 Local unit/integration/fuzz/failure injection work can continue independently.
+
+## A1 — typed provider foundation (2026-10-15)
+
+Implemented in `web/aurora`: strict domain models, unknown-input validation,
+read-only same-origin overview/tunnel adapter, deterministic DEMO provider and
+isolated in-memory demo edits. No page or default route is activated. Generated
+ES2022 modules are checked into source and compared with a temporary rebuild;
+Go embedding remains unchanged. No Node service/runtime dependency is required.
+
+Health/freshness stays scoped: active deployment is not payload health, absent
+is not zero, missing/future/stale evidence cannot imply UP, metric timestamps
+are not borrowed from unrelated observations, and country anchors are approximate.
+Cached evidence can be reassessed without renewing timestamps. Exact counter
+helpers reject unsafe rounded JSON numbers; finance integration is not claimed.
+
+The real provider only reads existing overview/tunnel endpoints, preserving
+same-origin cookies, redirect refusal, safe session expiry and cancellation.
+It has a streamed byte ceiling/deadline and no write interface or mock fallback.
+The mock provider is synthetic, explicitly DEMO, and has no fetch/polling effects.
+
+Development checks: strict typecheck and negative capability tests PASS; exact
+generated rebuild PASS; 19 behavioral tests PASS; existing UI contracts 14/14
+PASS; all current/new JS scripts syntax PASS; workflow supply-chain policy PASS.
+Initial provider run failed two new regressions (late cancelled 401 callback,
+unclosed error stream); corrected implementation passes both. Failed output is
+retained in evidence and not counted as a pass. Registry audit reports zero
+known advisories for the one pinned build dependency; see
+[admission record](toolchain-review.md) and [package contract](../../web/aurora/README.md).
+
+Exact published SHA and current-head CI are reported in #67/#199 after publication;
+prior bootstrap CI is not acceptance of this source. Go tests are not run locally
+in this toolchain-limited environment. No Go source or embedded asset list changed.
+Browser, responsive/RTL/theme visuals, accessibility/performance measurements and
+native two-node acceptance remain NOT RUN/OPEN. Next: A2/B shared opt-in shell,
+FA/EN + dark/light tokens and accessible primitives, then mobile-first layouts.

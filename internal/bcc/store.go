@@ -823,7 +823,7 @@ func (s *Store) ApplyTelemetry(token,signature string,body []byte,report telemet
 		NodeHealth:nodeState.Health,LatencyMS:nodeState.LatencyMS,Routes:routes,
 	}
 	h:=s.st.History[report.NodeID]
-	cutoff:=time.Now().UTC().Add(-7*24*time.Hour)
+	cutoff:=ts.Add(-7*24*time.Hour)
 	keep:=h[:0]
 	for _,p:=range h { if !p.Timestamp.Before(cutoff) { keep=append(keep,p) } }
 	keep=append(keep,point)

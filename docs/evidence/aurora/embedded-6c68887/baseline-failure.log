@@ -1,0 +1,218 @@
+(node:13) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✖ embedded preferences stay inside the root for every language and theme (190.415595ms)
+✖ embedded navigation and skip use local focus without changing or consuming host routes (29.323775ms)
+✖ embedded pending completion preserves local focus and later host appearance (26.268414ms)
+✖ embedded teardown restores owned root attributes and rejects late data (18.275829ms)
+✖ embedded remount keeps one owner and stale teardown cannot remove a new shell (45.387103ms)
+✖ shared shell CSS scopes every selector including responsive and reduced-motion rules (27.736405ms)
+✖ loading shared CSS leaves host controls, headings, body and landmarks unchanged (38.893865ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 0
+ℹ fail 7
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 886.996555
+
+✖ failing tests:
+
+test at web/aurora/tests/dom/embedded.test.mjs:7:1
+✖ embedded preferences stay inside the root for every language and theme (190.415595ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'fa' !== 'en'
+  
+      at TestContext.<anonymous> (file:///workspace/scratch/083c7fe8f18d/aurora-isolation/web/aurora/tests/dom/embedded.test.mjs:14:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'fa',
+    expected: 'en',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at web/aurora/tests/dom/embedded.test.mjs:34:1
+✖ embedded navigation and skip use local focus without changing or consuming host routes (29.323775ms)
+  AssertionError [ERR_ASSERTION]: owned link must prevent hash navigation
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///workspace/scratch/083c7fe8f18d/aurora-isolation/web/aurora/tests/dom/embedded.test.mjs:41:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at web/aurora/tests/dom/embedded.test.mjs:54:1
+✖ embedded pending completion preserves local focus and later host appearance (26.268414ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + ''
+  - 'aurora-content'
+  
+      at TestContext.<anonymous> (file:///workspace/scratch/083c7fe8f18d/aurora-isolation/web/aurora/tests/dom/embedded.test.mjs:61:10)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: 'aurora-content',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at web/aurora/tests/dom/embedded.test.mjs:68:1
+✖ embedded teardown restores owned root attributes and rejects late data (18.275829ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  null !== 'host'
+  
+      at TestContext.<anonymous> (file:///workspace/scratch/083c7fe8f18d/aurora-isolation/web/aurora/tests/dom/embedded.test.mjs:76:63)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: 'host',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at web/aurora/tests/dom/embedded.test.mjs:84:1
+✖ embedded remount keeps one owner and stale teardown cannot remove a new shell (45.387103ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  '' !== 'en'
+  
+      at TestContext.<anonymous> (file:///workspace/scratch/083c7fe8f18d/aurora-isolation/web/aurora/tests/dom/embedded.test.mjs:88:10)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: 'en',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at web/aurora/tests/dom/embedded.test.mjs:115:1
+✖ shared shell CSS scopes every selector including responsive and reduced-motion rules (27.736405ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'Vazirmatn'
+  - 'AuroraVazirmatn'
+  
+      at inspect (file:///workspace/scratch/083c7fe8f18d/aurora-isolation/web/aurora/tests/dom/embedded.test.mjs:107:74)
+      at checkScopedCSS (file:///workspace/scratch/083c7fe8f18d/aurora-isolation/web/aurora/tests/dom/embedded.test.mjs:111:5)
+      at TestContext.<anonymous> (file:///workspace/scratch/083c7fe8f18d/aurora-isolation/web/aurora/tests/dom/embedded.test.mjs:117:3)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Vazirmatn',
+    expected: 'AuroraVazirmatn',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at web/aurora/tests/dom/embedded.test.mjs:122:1
+✖ loading shared CSS leaves host controls, headings, body and landmarks unchanged (38.893865ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  ... Skipped lines
+  
+    [
+      [
+        'block',
+  +     '0px',
+        '0',
+  -     '0',
+        '16px depends on user agent',
+  +     'border-box',
+  -     'content-box',
+        '',
+        'auto'
+      ],
+      [
+        'inline-block',
+  ...
+        '16px depends on user agent',
+  +     'border-box',
+  -     'content-box',
+        '',
+        'auto'
+      ],
+      [
+        'block',
+        '0',
+  +     '36px',
+  -     '0',
+        '16px depends on user agent',
+  +     'border-box',
+  -     'content-box',
+        '',
+        'auto'
+      ],
+      [
+        'block',
+  +     '6px 0px',
+        '0',
+  +     '700 30.72px / 1.4 depends on user agent',
+  +     'border-box',
+  -     '0',
+  -     '700 32px depends on user agent',
+  -     'content-box',
+        '',
+        'auto'
+      ],
+      [
+        'block',
+  ...
+        '16px depends on user agent',
+  +     'border-box',
+  -     'content-box',
+        '',
+        'auto'
+      ],
+      [
+  +     'grid',
+  -     'block',
+        '0',
+        '0',
+        '16px depends on user agent',
+  +     'border-box',
+  -     'content-box',
+        '',
+        'auto'
+      ]
+    ]
+  
+      at TestContext.<anonymous> (file:///workspace/scratch/083c7fe8f18d/aurora-isolation/web/aurora/tests/dom/embedded.test.mjs:131:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ [ 'block', '0px', '0', '16px depends on user agent', 'border-box', '', 'auto' ], [ 'inline-block', '0', '0', '16px depends on user agent', 'border-box', '', 'auto' ], [ 'inline', '0', '0', '16px depends on user agent', 'border-box', '', 'auto' ], [ 'block', '0', '36px', '16px depends on user agent', 'border-box', '', 'auto' ], [ 'block', '6px 0px', '0', '700 30.72px / 1.4 depends on user agent', 'border-box', '', 'auto' ], [ 'block', '0', '0', '16px depends on user agent', 'border-box', '', 'auto' ], [ 'grid', '0', '0', '16px depends on user agent', 'border-box', '', 'auto' ] ],
+    expected: [ [ 'block', '0', '0', '16px depends on user agent', 'content-box', '', 'auto' ], [ 'inline-block', '0', '0', '16px depends on user agent', 'border-box', '', 'auto' ], [ 'inline', '0', '0', '16px depends on user agent', 'content-box', '', 'auto' ], [ 'block', '0', '0', '16px depends on user agent', 'content-box', '', 'auto' ], [ 'block', '0', '0', '700 32px depends on user agent', 'content-box', '', 'auto' ], [ 'block', '0', '0', '16px depends on user agent', 'content-box', '', 'auto' ], [ 'block', '0', '0', '16px depends on user agent', 'content-box', '', 'auto' ] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

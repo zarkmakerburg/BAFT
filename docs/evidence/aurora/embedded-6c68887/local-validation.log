@@ -1,0 +1,103 @@
+
+> @baft/aurora-foundation@0.0.0 test
+> npm run typecheck && npm run check:generated && npm run size && node --test tests/*.test.mjs && npm run test:dom
+
+
+> @baft/aurora-foundation@0.0.0 typecheck
+> tsc --noEmit && tsc -p tsconfig.type-tests.json
+
+
+> @baft/aurora-foundation@0.0.0 check:generated
+> node scripts/check-generated.mjs
+
+Generated assets verified: 8 files, compiler 6.0.3
+
+> @baft/aurora-foundation@0.0.0 size
+> node scripts/report-size.mjs
+
+{"foundationRawBytes":15508,"foundationGzipBytes":5106,"shellRawBytes":21877,"shellGzipBytes":7070,"cssRawBytes":8151,"cssGzipBytes":2037,"runtimeDependencies":0,"embeddedInBCC":false}
+✔ legacy BCC critical operational surfaces remain present (1.125645ms)
+✔ classic dashboard retains basic mobile and reduced-motion CSS (0.255996ms)
+✔ Aurora remains a separate opt-in preview, not a silently removed fallback (0.314204ms)
+✔ DEMO provider is deterministic and in-memory changes stay isolated (3.110224ms)
+✔ DEMO import and every operation work when fetch is forbidden (0.426042ms)
+✔ fresh-process mock imports do not touch a network or install polling (64.489958ms)
+✔ explicit same-origin GET adapter preserves session and protected base path (6.656655ms)
+✔ cross-origin, credential-bearing, normalized traversal and malformed bases are rejected before fetch (0.646594ms)
+✔ session expiry invokes caller boundary once and never exposes response text (0.682227ms)
+✔ HTTP, network, redirects, HTML, malformed JSON and schema errors stay sanitized (4.898047ms)
+✔ response budget covers declared size and actual streamed bytes (1.968044ms)
+✔ deadline covers an uncooperative fetch and a stalled body (24.056468ms)
+✔ caller cancellation and already-aborted signals do not start or revive requests (1.084062ms)
+✔ rejected response bodies are cancelled without reading arbitrary HTTP error data (0.523819ms)
+✔ catalogs have exact parity, nonempty copy, and explicit DEMO/unknown boundaries (2.427546ms)
+✔ preferences validate values and safely tolerate blocked or corrupted storage (0.493503ms)
+✔ only built views route; arbitrary hashes fall back without executing anything (0.136756ms)
+✔ runtime refuses a real provider before touching DOM (0.534875ms)
+✔ preview policy refuses operational network, forms and inline execution (0.537199ms)
+✔ shell owns safe text rendering, cancellation and explicit cleanup without real reads or polling (0.414584ms)
+✔ responsive/accessibility source hooks exist (not a visual or keyboard execution) (0.248274ms)
+✔ theme token text, accent, focus and control borders meet calculated contrast minima (0.545151ms)
+✔ actual overview concepts preserve unknown, zero, country anchors and scope (1.954934ms)
+✔ cached reassessment expires evidence at the boundary without renewing fetch time (0.400864ms)
+✔ future, absent and revoked node reports cannot imply healthy state (0.672743ms)
+✔ malformed types, out-of-range measurements, duplicate and wrong-scope resources reject (1.825439ms)
+✔ only selected presentation fields leave the adapter (0.329486ms)
+✔ uint64 counters retain exact decimals and reject rounded JSON numbers (0.314814ms)
+✔ RFC3339 accepts Go nanoseconds and timezone offsets without accepting invalid dates (0.267052ms)
+✔ tunnel desired phase and lifecycle timestamp never become delivery health (0.357979ms)
+✔ Go-handler shared fixtures decode through the real adapter without a live request (11.59396ms)
+✔ actual Go empty-list shapes remain empty, never zero-filled resources (1.168319ms)
+✔ wire timestamps do not renew cached node evidence or certify payload delivery (0.609918ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 162.684344
+
+> @baft/aurora-foundation@0.0.0 test:dom
+> node --experimental-vm-modules --test tests/dom/*.test.mjs
+
+(node:181) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ invalid host mode and real providers are refused before touching the root (73.541073ms)
+✔ embedded preferences stay inside the root for every language and theme (249.261802ms)
+✔ embedded navigation and skip use local focus without changing or consuming host routes (35.364422ms)
+✔ embedded pending completion preserves local focus and later host appearance (29.263535ms)
+✔ embedded teardown restores owned root attributes and rejects late data (13.197895ms)
+✔ embedded remount keeps one owner and stale teardown cannot remove a new shell (39.399825ms)
+✔ shared shell CSS scopes every selector including responsive and reduced-motion rules (55.70228ms)
+✔ loading shared CSS leaves host controls, headings, body and landmarks unchanged (37.208607ms)
+(node:182) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ mounted DOM loads historical DEMO evidence without reporting payload health (117.201752ms)
+✔ all four language/theme combinations mount, switch, persist and restore focus (195.488919ms)
+✔ completion preserves a control focused while data was pending (19.034334ms)
+✔ pending completion retains nav and skip links across every language and theme without activating them (312.31144ms)
+✔ pending rejection retains a focused nav link without exposing error detail (15.2237ms)
+✔ reload completion keeps the link chosen after starting refresh (27.545735ms)
+✔ navigation while pending keeps main focused after completion (18.831148ms)
+✔ completion never steals focus from a target outside the shell (14.902215ms)
+✔ errors are safe and explicit retry recovers without duplicate requests (18.477044ms)
+✔ empty and mislabeled real data never become DEMO resources (15.963215ms)
+✔ destroy aborts pending data, removes listeners and refuses late repaint (10.784408ms)
+✔ remount has one listener owner and stale destroy cannot remove new UI (22.044552ms)
+✔ resource text is inert even when synthetic aliases resemble HTML (14.623194ms)
+✔ blocked storage keeps preference controls functional and reports a safe notice (35.059492ms)
+✔ entry page lifecycle events tear down and remount on a persisted pageshow (22.535663ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1376.861991
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.

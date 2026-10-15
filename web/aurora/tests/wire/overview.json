@@ -1,0 +1,22 @@
+{
+  "generated_at": "2026-01-01T12:00:00.123456789Z",
+  "version": "dev",
+  "nodes": [
+    {
+      "id": "demo-ir-1", "alias": "DEMO Iran", "role": "worker", "status": "up",
+      "last_seen": "2026-01-01T12:00:00.123456789Z",
+      "agent_seen": "2026-01-01T12:00:00.123456789Z",
+      "country": "IR", "lat": 35.69, "lon": 51.39,
+      "latency_ms": 0, "in_bps": 0, "out_bps": 0
+    },
+    {
+      "id": "demo-ex-1", "alias": "DEMO Exit", "role": "foreign", "status": "revoked", "revoked": true,
+      "country": "DE", "lat": 50.11, "lon": 8.68,
+      "latency_ms": null, "in_bps": null, "out_bps": null
+    }
+  ],
+  "links": [
+    { "tunnel_id": "demo-scoped", "ir_node": "demo-ir-1", "ex_node": "demo-ex-1", "phase": "active", "port": 18443 },
+    { "tunnel_id": "demo-legacy", "ir_node": "demo-ir-1", "ex_node": "demo-ex-1", "phase": "active", "port": 19443 }
+  ]
+}

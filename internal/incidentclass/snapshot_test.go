@@ -116,3 +116,18 @@ func TestSaveSnapshotRefusesDirectoryWithoutModifyingIt(t *testing.T) {
  if err:=SaveSnapshot(dir,Snapshot{});err==nil {t.Fatal("accepted directory as snapshot target")}
  if _,err:=LoadSnapshot(dir);err==nil {t.Fatal("accepted directory as snapshot source")}
 }
+
+func TestLoadSnapshotRejectsActiveCapacityOverflow(t *testing.T) {
+ now:=time.Now().UTC()
+ active:=make(map[string]Incident,MaxActive+1)
+ for i:=0;i<=MaxActive;i++ {
+  id:=fmt.Sprintf("instance-%04d",i)
+  active[id]=Incident{InstanceID:id,Status:NodeOffline,StartedAt:now,LastObservedAt:now,Observations:1}
+ }
+ data,err:=json.Marshal(Snapshot{Active:active})
+ if err!=nil {t.Fatal(err)}
+ if len(data)>MaxSnapshotBytes {t.Fatal("capacity test unexpectedly exceeds byte budget")}
+ path:=filepath.Join(t.TempDir(),"over-capacity.json")
+ if err:=os.WriteFile(path,data,0600);err!=nil {t.Fatal(err)}
+ if _,err:=LoadSnapshot(path);err==nil {t.Fatal("accepted snapshot exceeding active incident capacity")}
+}

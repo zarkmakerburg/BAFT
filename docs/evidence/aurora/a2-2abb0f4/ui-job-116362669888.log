@@ -1,0 +1,453 @@
+﻿2026-10-15T10:01:02.0069031Z Current runner version: '2.337.0'
+2026-10-15T10:01:02.0096622Z ##[group]Runner Image Provisioner
+2026-10-15T10:01:02.0097600Z Hosted Compute Agent
+2026-10-15T10:01:02.0098220Z Version: 20261012.601
+2026-10-15T10:01:02.0098863Z Commit: f3dc54e1fb89da6852db922499a0233137369e1d
+2026-10-15T10:01:02.0099685Z Build Date: 2026-10-12T17:48:21Z
+2026-10-15T10:01:02.0100444Z Worker ID: {ed7c82d8-4d72-4e6a-b79e-89c4def7772c}
+2026-10-15T10:01:02.0101216Z Region: eastus2
+2026-10-15T10:01:02.0101805Z Cloud: Azure
+2026-10-15T10:01:02.0102364Z ##[endgroup]
+2026-10-15T10:01:02.0104452Z ##[group]Operating System
+2026-10-15T10:01:02.0105187Z Ubuntu
+2026-10-15T10:01:02.0105838Z 24.04.5
+2026-10-15T10:01:02.0106394Z LTS
+2026-10-15T10:01:02.0106932Z ##[endgroup]
+2026-10-15T10:01:02.0107560Z ##[group]Runner Image
+2026-10-15T10:01:02.0108225Z Image: ubuntu-24.04
+2026-10-15T10:01:02.0108795Z Version: 20261012.334.1
+2026-10-15T10:01:02.0110164Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-15T10:01:02.0111809Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261012.334
+2026-10-15T10:01:02.0112891Z ##[endgroup]
+2026-10-15T10:01:02.0114381Z ##[group]GITHUB_TOKEN Permissions
+2026-10-15T10:01:02.0116620Z Contents: read
+2026-10-15T10:01:02.0117246Z Metadata: read
+2026-10-15T10:01:02.0117928Z ##[endgroup]
+2026-10-15T10:01:02.0120092Z Secret source: Actions
+2026-10-15T10:01:02.0121186Z Cache mode: write
+2026-10-15T10:01:02.0122258Z Prepare workflow directory
+2026-10-15T10:01:02.0470284Z Prepare all required actions
+2026-10-15T10:01:02.0523100Z Getting action download info
+2026-10-15T10:01:02.2764721Z Download action repository 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' (SHA:11bd71901bbe5b1630ceea73d27597364c9af683)
+2026-10-15T10:01:02.3924221Z Download action repository 'actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+2026-10-15T10:01:02.5823845Z Complete job name: test
+2026-10-15T10:01:02.6614031Z ##[group]Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+2026-10-15T10:01:02.6615177Z with:
+2026-10-15T10:01:02.6615636Z   repository: zarkmakerburg/BAFT
+2026-10-15T10:01:02.6619484Z   token: ***
+2026-10-15T10:01:02.6619921Z   ssh-strict: true
+2026-10-15T10:01:02.6620363Z   ssh-user: git
+2026-10-15T10:01:02.6620802Z   persist-credentials: true
+2026-10-15T10:01:02.6621277Z   clean: true
+2026-10-15T10:01:02.6621707Z   sparse-checkout-cone-mode: true
+2026-10-15T10:01:02.6622234Z   fetch-depth: 1
+2026-10-15T10:01:02.6622655Z   fetch-tags: false
+2026-10-15T10:01:02.6623088Z   show-progress: true
+2026-10-15T10:01:02.6623723Z   lfs: false
+2026-10-15T10:01:02.6624143Z   submodules: false
+2026-10-15T10:01:02.6624575Z   set-safe-directory: true
+2026-10-15T10:01:02.6625313Z ##[endgroup]
+2026-10-15T10:01:02.7646878Z Syncing repository: zarkmakerburg/BAFT
+2026-10-15T10:01:02.7649428Z ##[group]Getting Git version info
+2026-10-15T10:01:02.7650562Z Working directory is '/home/runner/work/BAFT/BAFT'
+2026-10-15T10:01:02.7652098Z [command]/usr/bin/git version
+2026-10-15T10:01:02.7711057Z git version 2.55.0
+2026-10-15T10:01:02.7733061Z ##[endgroup]
+2026-10-15T10:01:02.7749660Z Temporarily overriding HOME='/home/runner/work/_temp/d7cacc86-fce7-4288-9650-67f9019fae3a' before making global git config changes
+2026-10-15T10:01:02.7752075Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-15T10:01:02.7756649Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/BAFT/BAFT
+2026-10-15T10:01:02.7820547Z Deleting the contents of '/home/runner/work/BAFT/BAFT'
+2026-10-15T10:01:02.7830426Z ##[group]Initializing the repository
+2026-10-15T10:01:02.7831516Z [command]/usr/bin/git init /home/runner/work/BAFT/BAFT
+2026-10-15T10:01:02.7932426Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-15T10:01:02.7937168Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-15T10:01:02.7939218Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-15T10:01:02.7940461Z hint: call:
+2026-10-15T10:01:02.7941128Z hint:
+2026-10-15T10:01:02.7941967Z hint: 	git config --global init.defaultBranch <name>
+2026-10-15T10:01:02.7943043Z hint:
+2026-10-15T10:01:02.7944229Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-15T10:01:02.7945806Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-15T10:01:02.7947065Z hint:
+2026-10-15T10:01:02.7947741Z hint: 	git branch -m <name>
+2026-10-15T10:01:02.7948530Z hint:
+2026-10-15T10:01:02.7949584Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-15T10:01:02.7951219Z Initialized empty Git repository in /home/runner/work/BAFT/BAFT/.git/
+2026-10-15T10:01:02.7954095Z [command]/usr/bin/git remote add origin https://github.com/zarkmakerburg/BAFT
+2026-10-15T10:01:02.8002647Z ##[endgroup]
+2026-10-15T10:01:02.8004581Z ##[group]Disabling automatic garbage collection
+2026-10-15T10:01:02.8006990Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-15T10:01:02.8040612Z ##[endgroup]
+2026-10-15T10:01:02.8042036Z ##[group]Setting up auth
+2026-10-15T10:01:02.8048266Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-15T10:01:02.8082130Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-15T10:01:02.8498542Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-15T10:01:02.8536883Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-15T10:01:02.8762289Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-15T10:01:02.8803930Z ##[endgroup]
+2026-10-15T10:01:02.8804888Z ##[group]Fetching the repository
+2026-10-15T10:01:02.8814291Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +a1a3dbccafed8b9e3991ca87381298c2eba36f34:refs/remotes/pull/204/merge
+2026-10-15T10:01:03.5256641Z From https://github.com/zarkmakerburg/BAFT
+2026-10-15T10:01:03.5258969Z  * [new ref]         a1a3dbccafed8b9e3991ca87381298c2eba36f34 -> pull/204/merge
+2026-10-15T10:01:03.5264207Z ##[endgroup]
+2026-10-15T10:01:03.5266466Z ##[group]Determining the checkout info
+2026-10-15T10:01:03.5268807Z ##[endgroup]
+2026-10-15T10:01:03.5271051Z [command]/usr/bin/git sparse-checkout disable
+2026-10-15T10:01:03.5325412Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-15T10:01:03.5361698Z ##[group]Checking out the ref
+2026-10-15T10:01:03.5363284Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/204/merge
+2026-10-15T10:01:03.6370263Z Note: switching to 'refs/remotes/pull/204/merge'.
+2026-10-15T10:01:03.6371253Z 
+2026-10-15T10:01:03.6371988Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-10-15T10:01:03.6374226Z changes and commit them, and you can discard any commits you make in this
+2026-10-15T10:01:03.6376083Z state without impacting any branches by switching back to a branch.
+2026-10-15T10:01:03.6377139Z 
+2026-10-15T10:01:03.6377868Z If you want to create a new branch to retain commits you create, you may
+2026-10-15T10:01:03.6379475Z do so (now or later) by using -c with the switch command. Example:
+2026-10-15T10:01:03.6380402Z 
+2026-10-15T10:01:03.6380841Z   git switch -c <new-branch-name>
+2026-10-15T10:01:03.6381503Z 
+2026-10-15T10:01:03.6381990Z Or undo this operation with:
+2026-10-15T10:01:03.6382750Z 
+2026-10-15T10:01:03.6383244Z   git switch -
+2026-10-15T10:01:03.6384038Z 
+2026-10-15T10:01:03.6385040Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-10-15T10:01:03.6386782Z 
+2026-10-15T10:01:03.6389059Z HEAD is now at a1a3dbc Merge 2abb0f4b7befa0949c65471c7a2c4c00609ac14d into 1816f2a35dfeb8a51d32575dbb57e6e0c4c27dc7
+2026-10-15T10:01:03.6394710Z ##[endgroup]
+2026-10-15T10:01:03.6440608Z [command]/usr/bin/git log -1 --format=%H
+2026-10-15T10:01:03.6467825Z a1a3dbccafed8b9e3991ca87381298c2eba36f34
+2026-10-15T10:01:03.6874105Z ##[group]Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+2026-10-15T10:01:03.6875871Z with:
+2026-10-15T10:01:03.6876748Z   node-version: 22
+2026-10-15T10:01:03.6877704Z   always-auth: false
+2026-10-15T10:01:03.6878701Z   check-latest: false
+2026-10-15T10:01:03.6889104Z   token: ***
+2026-10-15T10:01:03.6955059Z ##[endgroup]
+2026-10-15T10:01:03.8418523Z Found in cache @ /opt/hostedtoolcache/node/22.23.3/x64
+2026-10-15T10:01:03.8422977Z (node:2291) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-15T10:01:03.8427979Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-15T10:01:03.8432145Z ##[group]Environment details
+2026-10-15T10:01:04.2344680Z node: v22.23.3
+2026-10-15T10:01:04.2345365Z npm: 10.9.9
+2026-10-15T10:01:04.2345742Z yarn: 1.22.22
+2026-10-15T10:01:04.2346509Z ##[endgroup]
+2026-10-15T10:01:04.2489490Z ##[group]Run for f in web/bcc-*.js web/qa/*.cjs web/tests/*.test.cjs; do node --check "$f"; done
+2026-10-15T10:01:04.2490288Z [36;1mfor f in web/bcc-*.js web/qa/*.cjs web/tests/*.test.cjs; do node --check "$f"; done[0m
+2026-10-15T10:01:04.2750986Z shell: /usr/bin/bash -e {0}
+2026-10-15T10:01:04.2751392Z ##[endgroup]
+2026-10-15T10:01:04.4765373Z ##[group]Run node --test web/tests/*.test.cjs
+2026-10-15T10:01:04.4765841Z [36;1mnode --test web/tests/*.test.cjs[0m
+2026-10-15T10:01:04.4832097Z shell: /usr/bin/bash -e {0}
+2026-10-15T10:01:04.4832418Z ##[endgroup]
+2026-10-15T10:01:04.5402209Z TAP version 13
+2026-10-15T10:01:04.5781633Z # Subtest: Persian and English carry the same strings
+2026-10-15T10:01:04.5794753Z ok 1 - Persian and English carry the same strings
+2026-10-15T10:01:04.5795558Z   ---
+2026-10-15T10:01:04.5796064Z   duration_ms: 2.864067
+2026-10-15T10:01:04.5796527Z   type: 'test'
+2026-10-15T10:01:04.5796802Z   ...
+2026-10-15T10:01:04.5815076Z # Subtest: every translated element in the page has a string
+2026-10-15T10:01:04.5834761Z ok 2 - every translated element in the page has a string
+2026-10-15T10:01:04.5844782Z   ---
+2026-10-15T10:01:04.5845510Z   duration_ms: 0.296091
+2026-10-15T10:01:04.5846185Z   type: 'test'
+2026-10-15T10:01:04.5846846Z   ...
+2026-10-15T10:01:04.5854697Z # Subtest: the country list matches the server
+2026-10-15T10:01:04.5855715Z ok 3 - the country list matches the server
+2026-10-15T10:01:04.5856396Z   ---
+2026-10-15T10:01:04.5857060Z   duration_ms: 0.357726
+2026-10-15T10:01:04.5857722Z   type: 'test'
+2026-10-15T10:01:04.5858430Z   ...
+2026-10-15T10:01:04.5859195Z # Subtest: every menu route has a page and a name
+2026-10-15T10:01:04.5860152Z ok 4 - every menu route has a page and a name
+2026-10-15T10:01:04.5860980Z   ---
+2026-10-15T10:01:04.5861862Z   duration_ms: 0.225409
+2026-10-15T10:01:04.5862588Z   type: 'test'
+2026-10-15T10:01:04.5863296Z   ...
+2026-10-15T10:01:04.5864598Z # Subtest: demo numbers appear only in the labelled preview
+2026-10-15T10:01:04.5866028Z ok 5 - demo numbers appear only in the labelled preview
+2026-10-15T10:01:04.5867060Z   ---
+2026-10-15T10:01:04.5867866Z   duration_ms: 0.438235
+2026-10-15T10:01:04.5868735Z   type: 'test'
+2026-10-15T10:01:04.5869532Z   ...
+2026-10-15T10:01:04.5870733Z # Subtest: text from the server is escaped before it reaches the page
+2026-10-15T10:01:04.5872267Z ok 6 - text from the server is escaped before it reaches the page
+2026-10-15T10:01:04.5873368Z   ---
+2026-10-15T10:01:04.5875017Z   duration_ms: 0.334522
+2026-10-15T10:01:04.5875843Z   type: 'test'
+2026-10-15T10:01:04.5876618Z   ...
+2026-10-15T10:01:04.5877584Z # Subtest: the page only loads files that BCC embeds
+2026-10-15T10:01:04.5878859Z ok 7 - the page only loads files that BCC embeds
+2026-10-15T10:01:04.5880385Z   ---
+2026-10-15T10:01:04.5881220Z   duration_ms: 0.595758
+2026-10-15T10:01:04.5882068Z   type: 'test'
+2026-10-15T10:01:04.5882872Z   ...
+2026-10-15T10:01:04.5884833Z # Subtest: theme and language are applied before the first paint
+2026-10-15T10:01:04.5886344Z ok 8 - theme and language are applied before the first paint
+2026-10-15T10:01:04.5887404Z   ---
+2026-10-15T10:01:04.5888223Z   duration_ms: 0.161901
+2026-10-15T10:01:04.5889011Z   type: 'test'
+2026-10-15T10:01:04.5889710Z   ...
+2026-10-15T10:01:04.5913237Z # Subtest: BCC dashboard keeps all existing operational sections
+2026-10-15T10:01:04.5914872Z ok 9 - BCC dashboard keeps all existing operational sections
+2026-10-15T10:01:04.5915447Z   ---
+2026-10-15T10:01:04.5915804Z   duration_ms: 1.040926
+2026-10-15T10:01:04.5916162Z   type: 'test'
+2026-10-15T10:01:04.5916422Z   ...
+2026-10-15T10:01:04.5917038Z # Subtest: BCC visual tokens and focus states are present
+2026-10-15T10:01:04.5917648Z ok 10 - BCC visual tokens and focus states are present
+2026-10-15T10:01:04.5918187Z   ---
+2026-10-15T10:01:04.5918558Z   duration_ms: 0.179534
+2026-10-15T10:01:04.5918996Z   type: 'test'
+2026-10-15T10:01:04.5919279Z   ...
+2026-10-15T10:01:04.5919867Z # Subtest: BCC dashboard remains wired to existing operational loaders
+2026-10-15T10:01:04.5920720Z ok 11 - BCC dashboard remains wired to existing operational loaders
+2026-10-15T10:01:04.5921225Z   ---
+2026-10-15T10:01:04.5921489Z   duration_ms: 0.228536
+2026-10-15T10:01:04.5921830Z   type: 'test'
+2026-10-15T10:01:04.5922086Z   ...
+2026-10-15T10:01:04.5922916Z # Subtest: operational dashboard includes focus-visible and disabled control styles
+2026-10-15T10:01:04.5925085Z ok 12 - operational dashboard includes focus-visible and disabled control styles
+2026-10-15T10:01:04.5926008Z   ---
+2026-10-15T10:01:04.5926467Z   duration_ms: 1.021009
+2026-10-15T10:01:04.5926993Z   type: 'test'
+2026-10-15T10:01:04.5927460Z   ...
+2026-10-15T10:01:04.5928311Z # Subtest: SSH enrollment always restores controls and clears credentials
+2026-10-15T10:01:04.5935327Z ok 13 - SSH enrollment always restores controls and clears credentials
+2026-10-15T10:01:04.5936283Z   ---
+2026-10-15T10:01:04.5936848Z   duration_ms: 0.282274
+2026-10-15T10:01:04.5937417Z   type: 'test'
+2026-10-15T10:01:04.5937922Z   ...
+2026-10-15T10:01:04.5938813Z # Subtest: Doctor cached PASS expires to NOT_ASSESSED at display time
+2026-10-15T10:01:04.5940050Z ok 14 - Doctor cached PASS expires to NOT_ASSESSED at display time
+2026-10-15T10:01:04.5940875Z   ---
+2026-10-15T10:01:04.5941413Z   duration_ms: 1.012353
+2026-10-15T10:01:04.5942088Z   type: 'test'
+2026-10-15T10:01:04.5942611Z   ...
+2026-10-15T10:01:04.5943113Z 1..14
+2026-10-15T10:01:04.5943992Z # tests 14
+2026-10-15T10:01:04.5944641Z # suites 0
+2026-10-15T10:01:04.5945152Z # pass 14
+2026-10-15T10:01:04.5945588Z # fail 0
+2026-10-15T10:01:04.5946009Z # cancelled 0
+2026-10-15T10:01:04.5946437Z # skipped 0
+2026-10-15T10:01:04.5946858Z # todo 0
+2026-10-15T10:01:04.5947375Z # duration_ms 68.761625
+2026-10-15T10:01:04.6077272Z ##[group]Run npm --prefix web/aurora ci --ignore-scripts --no-audit --no-fund
+2026-10-15T10:01:04.6077954Z [36;1mnpm --prefix web/aurora ci --ignore-scripts --no-audit --no-fund[0m
+2026-10-15T10:01:04.6146078Z shell: /usr/bin/bash -e {0}
+2026-10-15T10:01:04.6146415Z ##[endgroup]
+2026-10-15T10:01:05.5924204Z 
+2026-10-15T10:01:05.5925253Z added 1 package in 919ms
+2026-10-15T10:01:05.6389464Z ##[group]Run npm --prefix web/aurora test
+2026-10-15T10:01:05.6389866Z [36;1mnpm --prefix web/aurora test[0m
+2026-10-15T10:01:05.6456934Z shell: /usr/bin/bash -e {0}
+2026-10-15T10:01:05.6457238Z ##[endgroup]
+2026-10-15T10:01:05.7592585Z 
+2026-10-15T10:01:05.7593174Z > @baft/aurora-foundation@0.0.0 test
+2026-10-15T10:01:05.7594514Z > npm run typecheck && npm run check:generated && npm run size && node --test tests/*.test.mjs
+2026-10-15T10:01:05.7595024Z 
+2026-10-15T10:01:05.8626500Z 
+2026-10-15T10:01:05.8627309Z > @baft/aurora-foundation@0.0.0 typecheck
+2026-10-15T10:01:05.8628259Z > tsc --noEmit && tsc -p tsconfig.type-tests.json
+2026-10-15T10:01:05.8629184Z 
+2026-10-15T10:01:09.4488890Z 
+2026-10-15T10:01:09.4489584Z > @baft/aurora-foundation@0.0.0 check:generated
+2026-10-15T10:01:09.4490422Z > node scripts/check-generated.mjs
+2026-10-15T10:01:09.4490833Z 
+2026-10-15T10:01:11.1991765Z Generated assets verified: 8 files, compiler 6.0.3
+2026-10-15T10:01:11.3039368Z 
+2026-10-15T10:01:11.3040158Z > @baft/aurora-foundation@0.0.0 size
+2026-10-15T10:01:11.3040974Z > node scripts/report-size.mjs
+2026-10-15T10:01:11.3041281Z 
+2026-10-15T10:01:11.3405362Z {"foundationRawBytes":15508,"foundationGzipBytes":5106,"shellRawBytes":19232,"shellGzipBytes":6413,"cssRawBytes":5828,"cssGzipBytes":1931,"runtimeDependencies":0,"embeddedInBCC":false}
+2026-10-15T10:01:11.3965366Z TAP version 13
+2026-10-15T10:01:11.4671151Z # Subtest: DEMO provider is deterministic and in-memory changes stay isolated
+2026-10-15T10:01:11.4701031Z ok 1 - DEMO provider is deterministic and in-memory changes stay isolated
+2026-10-15T10:01:11.4724353Z   ---
+2026-10-15T10:01:11.4744346Z   duration_ms: 4.783307
+2026-10-15T10:01:11.4745334Z   type: 'test'
+2026-10-15T10:01:11.4746062Z   ...
+2026-10-15T10:01:11.4747123Z # Subtest: DEMO import and every operation work when fetch is forbidden
+2026-10-15T10:01:11.4748554Z ok 2 - DEMO import and every operation work when fetch is forbidden
+2026-10-15T10:01:11.4749590Z   ---
+2026-10-15T10:01:11.4750337Z   duration_ms: 0.466678
+2026-10-15T10:01:11.4751131Z   type: 'test'
+2026-10-15T10:01:11.4751825Z   ...
+2026-10-15T10:01:11.4752942Z # Subtest: fresh-process mock imports do not touch a network or install polling
+2026-10-15T10:01:11.4754916Z ok 3 - fresh-process mock imports do not touch a network or install polling
+2026-10-15T10:01:11.4756079Z   ---
+2026-10-15T10:01:11.4756754Z   duration_ms: 31.407146
+2026-10-15T10:01:11.4757428Z   type: 'test'
+2026-10-15T10:01:11.4758154Z   ...
+2026-10-15T10:01:11.4981020Z # Subtest: explicit same-origin GET adapter preserves session and protected base path
+2026-10-15T10:01:11.4982761Z ok 4 - explicit same-origin GET adapter preserves session and protected base path
+2026-10-15T10:01:11.5014478Z   ---
+2026-10-15T10:01:11.5046867Z   duration_ms: 44.588867
+2026-10-15T10:01:11.5047359Z   type: 'test'
+2026-10-15T10:01:11.5047712Z   ...
+2026-10-15T10:01:11.5048807Z # Subtest: cross-origin, credential-bearing, normalized traversal and malformed bases are rejected before fetch
+2026-10-15T10:01:11.5050413Z ok 5 - cross-origin, credential-bearing, normalized traversal and malformed bases are rejected before fetch
+2026-10-15T10:01:11.5051310Z   ---
+2026-10-15T10:01:11.5051645Z   duration_ms: 0.932654
+2026-10-15T10:01:11.5052025Z   type: 'test'
+2026-10-15T10:01:11.5052371Z   ...
+2026-10-15T10:01:11.5053384Z # Subtest: session expiry invokes caller boundary once and never exposes response text
+2026-10-15T10:01:11.5055253Z ok 6 - session expiry invokes caller boundary once and never exposes response text
+2026-10-15T10:01:11.5056285Z   ---
+2026-10-15T10:01:11.5056986Z   duration_ms: 0.950118
+2026-10-15T10:01:11.5057632Z   type: 'test'
+2026-10-15T10:01:11.5058162Z   ...
+2026-10-15T10:01:11.5059181Z # Subtest: HTTP, network, redirects, HTML, malformed JSON and schema errors stay sanitized
+2026-10-15T10:01:11.5060604Z ok 7 - HTTP, network, redirects, HTML, malformed JSON and schema errors stay sanitized
+2026-10-15T10:01:11.5061607Z   ---
+2026-10-15T10:01:11.5062625Z   duration_ms: 4.50553
+2026-10-15T10:01:11.5063262Z   type: 'test'
+2026-10-15T10:01:11.5064076Z   ...
+2026-10-15T10:01:11.5064980Z # Subtest: response budget covers declared size and actual streamed bytes
+2026-10-15T10:01:11.5066200Z ok 8 - response budget covers declared size and actual streamed bytes
+2026-10-15T10:01:11.5067045Z   ---
+2026-10-15T10:01:11.5067576Z   duration_ms: 2.432424
+2026-10-15T10:01:11.5068171Z   type: 'test'
+2026-10-15T10:01:11.5068775Z   ...
+2026-10-15T10:01:11.5164885Z # Subtest: deadline covers an uncooperative fetch and a stalled body
+2026-10-15T10:01:11.5185650Z ok 9 - deadline covers an uncooperative fetch and a stalled body
+2026-10-15T10:01:11.5210869Z   ---
+2026-10-15T10:01:11.5254121Z   duration_ms: 20.570238
+2026-10-15T10:01:11.5264232Z   type: 'test'
+2026-10-15T10:01:11.5293010Z   ...
+2026-10-15T10:01:11.5294135Z # Subtest: caller cancellation and already-aborted signals do not start or revive requests
+2026-10-15T10:01:11.5295419Z ok 10 - caller cancellation and already-aborted signals do not start or revive requests
+2026-10-15T10:01:11.5296142Z   ---
+2026-10-15T10:01:11.5296458Z   duration_ms: 2.065181
+2026-10-15T10:01:11.5296820Z   type: 'test'
+2026-10-15T10:01:11.5297129Z   ...
+2026-10-15T10:01:11.5298182Z # Subtest: rejected response bodies are cancelled without reading arbitrary HTTP error data
+2026-10-15T10:01:11.5305010Z ok 11 - rejected response bodies are cancelled without reading arbitrary HTTP error data
+2026-10-15T10:01:11.5305940Z   ---
+2026-10-15T10:01:11.5306503Z   duration_ms: 1.444427
+2026-10-15T10:01:11.5307028Z   type: 'test'
+2026-10-15T10:01:11.5307483Z   ...
+2026-10-15T10:01:11.5362248Z # Subtest: catalogs have exact parity, nonempty copy, and explicit DEMO/unknown boundaries
+2026-10-15T10:01:11.5364364Z ok 12 - catalogs have exact parity, nonempty copy, and explicit DEMO/unknown boundaries
+2026-10-15T10:01:11.5365295Z   ---
+2026-10-15T10:01:11.5365883Z   duration_ms: 2.602501
+2026-10-15T10:01:11.5366259Z   type: 'test'
+2026-10-15T10:01:11.5366562Z   ...
+2026-10-15T10:01:11.5367481Z # Subtest: preferences validate values and safely tolerate blocked or corrupted storage
+2026-10-15T10:01:11.5368636Z ok 13 - preferences validate values and safely tolerate blocked or corrupted storage
+2026-10-15T10:01:11.5369908Z   ---
+2026-10-15T10:01:11.5370258Z   duration_ms: 0.700302
+2026-10-15T10:01:11.5370936Z   type: 'test'
+2026-10-15T10:01:11.5371286Z   ...
+2026-10-15T10:01:11.5372102Z # Subtest: only built views route; arbitrary hashes fall back without executing anything
+2026-10-15T10:01:11.5373307Z ok 14 - only built views route; arbitrary hashes fall back without executing anything
+2026-10-15T10:01:11.5374300Z   ---
+2026-10-15T10:01:11.5374620Z   duration_ms: 0.280983
+2026-10-15T10:01:11.5375022Z   type: 'test'
+2026-10-15T10:01:11.5375235Z   ...
+2026-10-15T10:01:11.5375577Z # Subtest: runtime refuses a real provider before touching DOM
+2026-10-15T10:01:11.5376061Z ok 15 - runtime refuses a real provider before touching DOM
+2026-10-15T10:01:11.5376373Z   ---
+2026-10-15T10:01:11.5376580Z   duration_ms: 0.680335
+2026-10-15T10:01:11.5377131Z   type: 'test'
+2026-10-15T10:01:11.5377355Z   ...
+2026-10-15T10:01:11.5394969Z # Subtest: preview policy refuses operational network, forms and inline execution
+2026-10-15T10:01:11.5396193Z ok 16 - preview policy refuses operational network, forms and inline execution
+2026-10-15T10:01:11.5396902Z   ---
+2026-10-15T10:01:11.5397255Z   duration_ms: 0.785892
+2026-10-15T10:01:11.5397648Z   type: 'test'
+2026-10-15T10:01:11.5397982Z   ...
+2026-10-15T10:01:11.5398924Z # Subtest: shell owns safe text rendering, cancellation and explicit cleanup without real reads or polling
+2026-10-15T10:01:11.5400424Z ok 17 - shell owns safe text rendering, cancellation and explicit cleanup without real reads or polling
+2026-10-15T10:01:11.5401262Z   ---
+2026-10-15T10:01:11.5401632Z   duration_ms: 0.630102
+2026-10-15T10:01:11.5402068Z   type: 'test'
+2026-10-15T10:01:11.5402483Z   ...
+2026-10-15T10:01:11.5434350Z # Subtest: responsive/accessibility source hooks exist (not a visual or keyboard execution)
+2026-10-15T10:01:11.5435873Z ok 18 - responsive/accessibility source hooks exist (not a visual or keyboard execution)
+2026-10-15T10:01:11.5436648Z   ---
+2026-10-15T10:01:11.5436952Z   duration_ms: 0.461899
+2026-10-15T10:01:11.5437270Z   type: 'test'
+2026-10-15T10:01:11.5437585Z   ...
+2026-10-15T10:01:11.5438112Z # Subtest: theme token text, accent, focus and control borders meet calculated contrast minima
+2026-10-15T10:01:11.5439207Z ok 19 - theme token text, accent, focus and control borders meet calculated contrast minima
+2026-10-15T10:01:11.5439930Z   ---
+2026-10-15T10:01:11.5440245Z   duration_ms: 1.076452
+2026-10-15T10:01:11.5440868Z   type: 'test'
+2026-10-15T10:01:11.5441184Z   ...
+2026-10-15T10:01:11.5534854Z # Subtest: actual overview concepts preserve unknown, zero, country anchors and scope
+2026-10-15T10:01:11.5536905Z ok 20 - actual overview concepts preserve unknown, zero, country anchors and scope
+2026-10-15T10:01:11.5537765Z   ---
+2026-10-15T10:01:11.5538191Z   duration_ms: 5.907517
+2026-10-15T10:01:11.5540203Z   type: 'test'
+2026-10-15T10:01:11.5540547Z   ...
+2026-10-15T10:01:11.5549259Z # Subtest: cached reassessment expires evidence at the boundary without renewing fetch time
+2026-10-15T10:01:11.5550731Z ok 21 - cached reassessment expires evidence at the boundary without renewing fetch time
+2026-10-15T10:01:11.5551581Z   ---
+2026-10-15T10:01:11.5551958Z   duration_ms: 0.375258
+2026-10-15T10:01:11.5552396Z   type: 'test'
+2026-10-15T10:01:11.5592719Z   ...
+2026-10-15T10:01:11.5593728Z # Subtest: future, absent and revoked node reports cannot imply healthy state
+2026-10-15T10:01:11.5595024Z ok 22 - future, absent and revoked node reports cannot imply healthy state
+2026-10-15T10:01:11.5595950Z   ---
+2026-10-15T10:01:11.5596466Z   duration_ms: 0.67194
+2026-10-15T10:01:11.5597059Z   type: 'test'
+2026-10-15T10:01:11.5597568Z   ...
+2026-10-15T10:01:11.5598571Z # Subtest: malformed types, out-of-range measurements, duplicate and wrong-scope resources reject
+2026-10-15T10:01:11.5600112Z ok 23 - malformed types, out-of-range measurements, duplicate and wrong-scope resources reject
+2026-10-15T10:01:11.5600923Z   ---
+2026-10-15T10:01:11.5601248Z   duration_ms: 1.4678
+2026-10-15T10:01:11.5601624Z   type: 'test'
+2026-10-15T10:01:11.5601851Z   ...
+2026-10-15T10:01:11.5602207Z # Subtest: only selected presentation fields leave the adapter
+2026-10-15T10:01:11.5602697Z ok 24 - only selected presentation fields leave the adapter
+2026-10-15T10:01:11.5603019Z   ---
+2026-10-15T10:01:11.5603222Z   duration_ms: 0.36517
+2026-10-15T10:01:11.5603440Z   type: 'test'
+2026-10-15T10:01:11.5604034Z   ...
+2026-10-15T10:01:11.5604468Z # Subtest: uint64 counters retain exact decimals and reject rounded JSON numbers
+2026-10-15T10:01:11.5605086Z ok 25 - uint64 counters retain exact decimals and reject rounded JSON numbers
+2026-10-15T10:01:11.5605471Z   ---
+2026-10-15T10:01:11.5605660Z   duration_ms: 0.325735
+2026-10-15T10:01:11.5605883Z   type: 'test'
+2026-10-15T10:01:11.5606143Z   ...
+2026-10-15T10:01:11.5607062Z # Subtest: RFC3339 accepts Go nanoseconds and timezone offsets without accepting invalid dates
+2026-10-15T10:01:11.5608304Z ok 26 - RFC3339 accepts Go nanoseconds and timezone offsets without accepting invalid dates
+2026-10-15T10:01:11.5608758Z   ---
+2026-10-15T10:01:11.5608954Z   duration_ms: 0.219118
+2026-10-15T10:01:11.5609175Z   type: 'test'
+2026-10-15T10:01:11.5609370Z   ...
+2026-10-15T10:01:11.5609795Z # Subtest: tunnel desired phase and lifecycle timestamp never become delivery health
+2026-10-15T10:01:11.5610429Z ok 27 - tunnel desired phase and lifecycle timestamp never become delivery health
+2026-10-15T10:01:11.5610826Z   ---
+2026-10-15T10:01:11.5611008Z   duration_ms: 0.337708
+2026-10-15T10:01:11.5611222Z   type: 'test'
+2026-10-15T10:01:11.5611411Z   ...
+2026-10-15T10:01:11.5659715Z 1..27
+2026-10-15T10:01:11.5660039Z # tests 27
+2026-10-15T10:01:11.5660731Z # suites 0
+2026-10-15T10:01:11.5661179Z # pass 27
+2026-10-15T10:01:11.5661681Z # fail 0
+2026-10-15T10:01:11.5662301Z # cancelled 0
+2026-10-15T10:01:11.5663127Z # skipped 0
+2026-10-15T10:01:11.5663777Z # todo 0
+2026-10-15T10:01:11.5664532Z # duration_ms 189.668141
+2026-10-15T10:01:11.5883405Z Post job cleanup.
+2026-10-15T10:01:11.7126197Z (node:2542) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-15T10:01:11.7127447Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-15T10:01:11.7331015Z Post job cleanup.
+2026-10-15T10:01:11.8250213Z [command]/usr/bin/git version
+2026-10-15T10:01:11.8291284Z git version 2.55.0
+2026-10-15T10:01:11.8333163Z Temporarily overriding HOME='/home/runner/work/_temp/908c209d-11ad-499e-bf57-01b0d92a85fe' before making global git config changes
+2026-10-15T10:01:11.8335556Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-15T10:01:11.8340077Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/BAFT/BAFT
+2026-10-15T10:01:11.8381913Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-15T10:01:11.8429240Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-15T10:01:11.8693301Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-15T10:01:11.8727949Z http.https://github.com/.extraheader
+2026-10-15T10:01:11.8741125Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-10-15T10:01:11.8777351Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-15T10:01:11.9214559Z Cleaning up orphan processes
+2026-10-15T10:01:11.9533127Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683, actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

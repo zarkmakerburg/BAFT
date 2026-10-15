@@ -1,0 +1,518 @@
+﻿2026-10-15T13:38:31.1222315Z Current runner version: '2.337.0'
+2026-10-15T13:38:31.1248095Z ##[group]Runner Image Provisioner
+2026-10-15T13:38:31.1249261Z Hosted Compute Agent
+2026-10-15T13:38:31.1249969Z Version: 20261002.596
+2026-10-15T13:38:31.1250639Z Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+2026-10-15T13:38:31.1251466Z Build Date: 2026-10-02T22:28:27Z
+2026-10-15T13:38:31.1252191Z Worker ID: {14b7b895-25ac-4160-beda-e66395c0f3f7}
+2026-10-15T13:38:31.1252928Z Region: westus2
+2026-10-15T13:38:31.1253602Z Cloud: Azure
+2026-10-15T13:38:31.1254167Z ##[endgroup]
+2026-10-15T13:38:31.1255763Z ##[group]Operating System
+2026-10-15T13:38:31.1256446Z Ubuntu
+2026-10-15T13:38:31.1256992Z 24.04.5
+2026-10-15T13:38:31.1257640Z LTS
+2026-10-15T13:38:31.1258222Z ##[endgroup]
+2026-10-15T13:38:31.1258843Z ##[group]Runner Image
+2026-10-15T13:38:31.1259931Z Image: ubuntu-24.04
+2026-10-15T13:38:31.1260548Z Version: 20261004.327.1
+2026-10-15T13:38:31.1262041Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-15T13:38:31.1263750Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+2026-10-15T13:38:31.1264766Z ##[endgroup]
+2026-10-15T13:38:31.1265944Z ##[group]GITHUB_TOKEN Permissions
+2026-10-15T13:38:31.1267868Z Contents: read
+2026-10-15T13:38:31.1268520Z Metadata: read
+2026-10-15T13:38:31.1269553Z ##[endgroup]
+2026-10-15T13:38:31.1271690Z Secret source: Actions
+2026-10-15T13:38:31.1272799Z Cache mode: write
+2026-10-15T13:38:31.1273527Z Prepare workflow directory
+2026-10-15T13:38:31.1667698Z Prepare all required actions
+2026-10-15T13:38:31.1742837Z Getting action download info
+2026-10-15T13:38:31.5395523Z Download action repository 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-10-15T13:38:31.6457239Z Download action repository 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e' (SHA:b7ad1dad31e06c5925ef5d2fc7ad053ef454303e)
+2026-10-15T13:38:31.9984576Z Complete job name: e2e-launch1
+2026-10-15T13:38:32.0743504Z ##[group]Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+2026-10-15T13:38:32.0744600Z with:
+2026-10-15T13:38:32.0745071Z   repository: zarkmakerburg/BAFT
+2026-10-15T13:38:32.0749779Z   token: ***
+2026-10-15T13:38:32.0750234Z   ssh-strict: true
+2026-10-15T13:38:32.0750784Z   ssh-user: git
+2026-10-15T13:38:32.0751319Z   persist-credentials: true
+2026-10-15T13:38:32.0751892Z   clean: true
+2026-10-15T13:38:32.0752422Z   sparse-checkout-cone-mode: true
+2026-10-15T13:38:32.0753037Z   fetch-depth: 1
+2026-10-15T13:38:32.0753558Z   fetch-tags: false
+2026-10-15T13:38:32.0754084Z   show-progress: true
+2026-10-15T13:38:32.0754609Z   lfs: false
+2026-10-15T13:38:32.0755098Z   submodules: false
+2026-10-15T13:38:32.0755630Z   set-safe-directory: true
+2026-10-15T13:38:32.0756156Z   allow-unsafe-pr-checkout: false
+2026-10-15T13:38:32.0756979Z ##[endgroup]
+2026-10-15T13:38:32.1787365Z Syncing repository: zarkmakerburg/BAFT
+2026-10-15T13:38:32.1789596Z ##[group]Getting Git version info
+2026-10-15T13:38:32.1790394Z Working directory is '/home/runner/work/BAFT/BAFT'
+2026-10-15T13:38:32.1791473Z [command]/usr/bin/git version
+2026-10-15T13:38:32.1849990Z git version 2.55.0
+2026-10-15T13:38:32.1904588Z ##[endgroup]
+2026-10-15T13:38:32.1910122Z Temporarily overriding HOME='/home/runner/work/_temp/ad323322-f8cd-453c-acbb-813362a87f0c' before making global git config changes
+2026-10-15T13:38:32.1911752Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-15T13:38:32.1914308Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/BAFT/BAFT
+2026-10-15T13:38:32.1978239Z Deleting the contents of '/home/runner/work/BAFT/BAFT'
+2026-10-15T13:38:32.1980435Z ##[group]Determining repository object format
+2026-10-15T13:38:32.1982011Z ##[endgroup]
+2026-10-15T13:38:32.1983330Z ##[group]Initializing the repository
+2026-10-15T13:38:32.1984427Z [command]/usr/bin/git init /home/runner/work/BAFT/BAFT
+2026-10-15T13:38:32.2111448Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-15T13:38:32.2119169Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-15T13:38:32.2121459Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-15T13:38:32.2124711Z hint: call:
+2026-10-15T13:38:32.2125550Z hint:
+2026-10-15T13:38:32.2126735Z hint: 	git config --global init.defaultBranch <name>
+2026-10-15T13:38:32.2127889Z hint:
+2026-10-15T13:38:32.2129145Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-15T13:38:32.2131352Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-15T13:38:32.2133060Z hint:
+2026-10-15T13:38:32.2133847Z hint: 	git branch -m <name>
+2026-10-15T13:38:32.2134874Z hint:
+2026-10-15T13:38:32.2136058Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-15T13:38:32.2138239Z Initialized empty Git repository in /home/runner/work/BAFT/BAFT/.git/
+2026-10-15T13:38:32.2141687Z [command]/usr/bin/git remote add origin https://github.com/zarkmakerburg/BAFT
+2026-10-15T13:38:32.2202081Z ##[endgroup]
+2026-10-15T13:38:32.2203440Z ##[group]Disabling automatic garbage collection
+2026-10-15T13:38:32.2204644Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-15T13:38:32.2241570Z ##[endgroup]
+2026-10-15T13:38:32.2242849Z ##[group]Setting up auth
+2026-10-15T13:38:32.2243973Z Removing SSH command configuration
+2026-10-15T13:38:32.2249851Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-15T13:38:32.2293830Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-15T13:38:32.2707316Z Removing HTTP extra header
+2026-10-15T13:38:32.2711143Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-15T13:38:32.2757928Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-15T13:38:32.2999615Z Removing includeIf entries pointing to credentials config files
+2026-10-15T13:38:32.3004634Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-15T13:38:32.3039641Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-15T13:38:32.3265972Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-2e7fd0c2-cc89-47a2-a636-ae0df2eb758e.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-15T13:38:32.3306660Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/BAFT/BAFT/.git.path /home/runner/work/_temp/git-credentials-2e7fd0c2-cc89-47a2-a636-ae0df2eb758e.config
+2026-10-15T13:38:32.3341599Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/BAFT/BAFT/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-2e7fd0c2-cc89-47a2-a636-ae0df2eb758e.config
+2026-10-15T13:38:32.3378043Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-2e7fd0c2-cc89-47a2-a636-ae0df2eb758e.config
+2026-10-15T13:38:32.3414406Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-2e7fd0c2-cc89-47a2-a636-ae0df2eb758e.config
+2026-10-15T13:38:32.3445964Z ##[endgroup]
+2026-10-15T13:38:32.3446825Z ##[group]Fetching the repository
+2026-10-15T13:38:32.3453570Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +7de6c2fd956eb6771a5a69666f51f01b8ba2bb2f:refs/remotes/pull/206/merge
+2026-10-15T13:38:33.0026889Z From https://github.com/zarkmakerburg/BAFT
+2026-10-15T13:38:33.0030048Z  * [new ref]         7de6c2fd956eb6771a5a69666f51f01b8ba2bb2f -> pull/206/merge
+2026-10-15T13:38:33.0036291Z ##[endgroup]
+2026-10-15T13:38:33.0038497Z ##[group]Determining the checkout info
+2026-10-15T13:38:33.0040856Z ##[endgroup]
+2026-10-15T13:38:33.0043303Z [command]/usr/bin/git sparse-checkout disable
+2026-10-15T13:38:33.0098768Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-15T13:38:33.0132195Z ##[group]Checking out the ref
+2026-10-15T13:38:33.0138224Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/206/merge
+2026-10-15T13:38:33.1152909Z Note: switching to 'refs/remotes/pull/206/merge'.
+2026-10-15T13:38:33.1154240Z 
+2026-10-15T13:38:33.1155303Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-10-15T13:38:33.1158030Z changes and commit them, and you can discard any commits you make in this
+2026-10-15T13:38:33.1161651Z state without impacting any branches by switching back to a branch.
+2026-10-15T13:38:33.1163553Z 
+2026-10-15T13:38:33.1164617Z If you want to create a new branch to retain commits you create, you may
+2026-10-15T13:38:33.1167351Z do so (now or later) by using -c with the switch command. Example:
+2026-10-15T13:38:33.1168670Z 
+2026-10-15T13:38:33.1169394Z   git switch -c <new-branch-name>
+2026-10-15T13:38:33.1170321Z 
+2026-10-15T13:38:33.1170800Z Or undo this operation with:
+2026-10-15T13:38:33.1171670Z 
+2026-10-15T13:38:33.1172383Z   git switch -
+2026-10-15T13:38:33.1173141Z 
+2026-10-15T13:38:33.1174207Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-10-15T13:38:33.1175705Z 
+2026-10-15T13:38:33.1177204Z HEAD is now at 7de6c2f Merge 00876e4fc71e5c7a9876e2f29d77cc50c48aba44 into de446b5df8f045c69ca388b3c500515143f7812a
+2026-10-15T13:38:33.1182391Z ##[endgroup]
+2026-10-15T13:38:33.1222326Z [command]/usr/bin/git log -1 --format=%H
+2026-10-15T13:38:33.1251831Z 7de6c2fd956eb6771a5a69666f51f01b8ba2bb2f
+2026-10-15T13:38:33.1637422Z ##[group]Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+2026-10-15T13:38:33.1639452Z with:
+2026-10-15T13:38:33.1640397Z   go-version-file: go.mod
+2026-10-15T13:38:33.1641500Z   check-latest: false
+2026-10-15T13:38:33.1642525Z   cache: false
+2026-10-15T13:38:33.1653484Z   token: ***
+2026-10-15T13:38:33.1654417Z ##[endgroup]
+2026-10-15T13:38:33.2918757Z Setup go version spec 1.27.1
+2026-10-15T13:38:33.2930392Z Attempting to download 1.27.1...
+2026-10-15T13:38:33.9700342Z matching 1.27.1...
+2026-10-15T13:38:33.9741182Z Acquiring 1.27.1 from https://github.com/actions/go-versions/releases/download/1.27.1-33583469715/go-1.27.1-linux-x64.tar.gz
+2026-10-15T13:38:34.5260018Z Extracting Go...
+2026-10-15T13:38:34.5379168Z [command]/usr/bin/tar xz --warning=no-unknown-keyword --overwrite -C /home/runner/work/_temp/0cd94d8d-725a-4e37-a0ac-716253072cbf -f /home/runner/work/_temp/ef84e3b7-955b-456f-b357-4fc4836800b7
+2026-10-15T13:38:36.2608231Z Successfully extracted go to /home/runner/work/_temp/0cd94d8d-725a-4e37-a0ac-716253072cbf
+2026-10-15T13:38:36.2610030Z Adding to the cache ...
+2026-10-15T13:38:42.1856050Z Successfully cached go to /opt/hostedtoolcache/go/1.27.1/x64
+2026-10-15T13:38:42.1858006Z Added go to the path
+2026-10-15T13:38:42.1861156Z Successfully set up Go version 1.27.1
+2026-10-15T13:38:42.2078190Z go version go1.27.1 linux/amd64
+2026-10-15T13:38:42.2078428Z 
+2026-10-15T13:38:42.2079352Z ##[group]go env
+2026-10-15T13:38:42.3605223Z AR='ar'
+2026-10-15T13:38:42.3606023Z CC='gcc'
+2026-10-15T13:38:42.3606818Z CGO_CFLAGS='-O2 -g'
+2026-10-15T13:38:42.3607310Z CGO_CPPFLAGS=''
+2026-10-15T13:38:42.3607716Z CGO_CXXFLAGS='-O2 -g'
+2026-10-15T13:38:42.3608163Z CGO_ENABLED='1'
+2026-10-15T13:38:42.3608580Z CGO_FFLAGS='-O2 -g'
+2026-10-15T13:38:42.3609230Z CGO_LDFLAGS='-O2 -g'
+2026-10-15T13:38:42.3609651Z CXX='g++'
+2026-10-15T13:38:42.3610018Z GCCGO='gccgo'
+2026-10-15T13:38:42.3610388Z GO111MODULE=''
+2026-10-15T13:38:42.3610744Z GOAMD64='v1'
+2026-10-15T13:38:42.3611175Z GOARCH='amd64'
+2026-10-15T13:38:42.3611545Z GOAUTH='netrc'
+2026-10-15T13:38:42.3611950Z GOBIN='/home/runner/go/bin'
+2026-10-15T13:38:42.3612890Z GOCACHE='/home/runner/.cache/go-build'
+2026-10-15T13:38:42.3613447Z GOCACHEPROG=''
+2026-10-15T13:38:42.3613905Z GODEBUG=''
+2026-10-15T13:38:42.3614312Z GOENV='/home/runner/.config/go/env'
+2026-10-15T13:38:42.3614901Z GOEXE=''
+2026-10-15T13:38:42.3615283Z GOEXPERIMENT=''
+2026-10-15T13:38:42.3615678Z GOFIPS140='off'
+2026-10-15T13:38:42.3616075Z GOFLAGS=''
+2026-10-15T13:38:42.3617423Z GOGCCFLAGS='-fPIC -m64 -pthread -Wl,--no-gc-sections -fmessage-length=0 -ffile-prefix-map=/tmp/go-build2338531361=/tmp/go-build -gno-record-gcc-switches'
+2026-10-15T13:38:42.3618744Z GOHOSTARCH='amd64'
+2026-10-15T13:38:42.3619690Z GOHOSTOS='linux'
+2026-10-15T13:38:42.3620085Z GOINSECURE=''
+2026-10-15T13:38:42.3620543Z GOMOD='/home/runner/work/BAFT/BAFT/go.mod'
+2026-10-15T13:38:42.3621715Z GOMODCACHE='/home/runner/go/pkg/mod'
+2026-10-15T13:38:42.3622261Z GONOPROXY=''
+2026-10-15T13:38:42.3622654Z GONOSUMDB=''
+2026-10-15T13:38:42.3623087Z GOOS='linux'
+2026-10-15T13:38:42.3623715Z GOPACKAGESDRIVER=''
+2026-10-15T13:38:42.3623982Z GOPATH='/home/runner/go'
+2026-10-15T13:38:42.3624408Z GOPRIVATE=''
+2026-10-15T13:38:42.3624792Z GOPROXY='https://proxy.golang.org,direct'
+2026-10-15T13:38:42.3625234Z GOROOT='/opt/hostedtoolcache/go/1.27.1/x64'
+2026-10-15T13:38:42.3625557Z GOSUMDB='sum.golang.org'
+2026-10-15T13:38:42.3625806Z GOTELEMETRY='local'
+2026-10-15T13:38:42.3626111Z GOTELEMETRYDIR='/home/runner/.config/go/telemetry'
+2026-10-15T13:38:42.3626430Z GOTMPDIR=''
+2026-10-15T13:38:42.3626667Z GOTOOLCHAIN='local'
+2026-10-15T13:38:42.3627015Z GOTOOLDIR='/opt/hostedtoolcache/go/1.27.1/x64/pkg/tool/linux_amd64'
+2026-10-15T13:38:42.3627523Z GOVCS=''
+2026-10-15T13:38:42.3627790Z GOVERSION='go1.27.1'
+2026-10-15T13:38:42.3628037Z GOWORK=''
+2026-10-15T13:38:42.3628272Z PKG_CONFIG='pkg-config'
+2026-10-15T13:38:42.3628421Z 
+2026-10-15T13:38:42.3629519Z ##[endgroup]
+2026-10-15T13:38:42.3821535Z ##[group]Run scripts/release/local_release.sh "$RUNNER_TEMP/rel" v0.0.2-ci
+2026-10-15T13:38:42.3822237Z [36;1mscripts/release/local_release.sh "$RUNNER_TEMP/rel" v0.0.2-ci[0m
+2026-10-15T13:38:42.4068018Z shell: /usr/bin/bash -e {0}
+2026-10-15T13:38:42.4068452Z env:
+2026-10-15T13:38:42.4068800Z   GOTOOLCHAIN: local
+2026-10-15T13:38:42.4069444Z ##[endgroup]
+2026-10-15T13:38:49.1455270Z go: downloading go.yaml.in/yaml/v3 v3.0.5
+2026-10-15T13:38:49.1572982Z go: downloading golang.org/x/sys v0.48.0
+2026-10-15T13:38:49.1794031Z go: downloading github.com/flynn/noise v1.1.0
+2026-10-15T13:38:49.1796155Z go: downloading github.com/refraction-networking/utls v1.8.2
+2026-10-15T13:38:49.3106716Z go: downloading golang.org/x/crypto v0.57.0
+2026-10-15T13:38:49.5155415Z go: downloading github.com/andybalholm/brotli v1.0.6
+2026-10-15T13:38:49.5169841Z go: downloading github.com/klauspost/compress v1.17.4
+2026-10-15T13:39:07.7940542Z go: downloading modernc.org/sqlite v1.60.1
+2026-10-15T13:39:09.2663299Z go: downloading modernc.org/libc v1.77.1
+2026-10-15T13:39:10.5685276Z go: downloading modernc.org/mathutil v1.7.1
+2026-10-15T13:39:10.5685894Z go: downloading github.com/google/uuid v1.6.0
+2026-10-15T13:39:10.5686826Z go: downloading modernc.org/memory v1.12.1
+2026-10-15T13:39:10.5687387Z go: downloading github.com/dustin/go-humanize v1.0.1
+2026-10-15T13:39:10.6131884Z go: downloading github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec
+2026-10-15T13:39:56.7032143Z OK v0.0.2-ci 7de6c2fd956e: 10 artifacts, release key 63c772144431cac14cf2d737565be2a7, root 8c27ec2f161cb0d9c801ba5616c3533d, revocation list 1 (expires 2026-11-14T13:39:56Z)
+2026-10-15T13:39:56.7116774Z ##[group]Run sudo env GITHUB_ACTIONS=true PATH="$PATH" tests/e2e/launch1.sh "$RUNNER_TEMP/rel"
+2026-10-15T13:39:56.7117468Z [36;1msudo env GITHUB_ACTIONS=true PATH="$PATH" tests/e2e/launch1.sh "$RUNNER_TEMP/rel"[0m
+2026-10-15T13:39:56.7186661Z shell: /usr/bin/bash -e {0}
+2026-10-15T13:39:56.7186957Z env:
+2026-10-15T13:39:56.7187187Z   GOTOOLCHAIN: local
+2026-10-15T13:39:56.7187446Z ##[endgroup]
+2026-10-15T13:39:56.7839982Z [launch1] release v0.0.2-ci built from 7de6c2fd956eb6771a5a69666f51f01b8ba2bb2f
+2026-10-15T13:39:56.8204750Z [launch1] BCC (the release's own baft-bcc binary)
+2026-10-15T13:39:56.9734907Z [launch1] install.sh --agent-only on both servers, from the signed release
+2026-10-15T13:40:28.8885052Z [launch1] BCC builds tunnel 1 (EX 18443 <-> IR 1443 -> target 2443)
+2026-10-15T13:41:40.1637855Z [launch1] traffic passes through tunnel 1
+2026-10-15T13:41:40.1638629Z [launch1] drift detection: in sync, then a hand edit, then fixed
+2026-10-15T13:41:40.1705461Z curl: (22) The requested URL returned error: 400
+2026-10-15T13:41:48.4337058Z [launch1] baft menu on a real terminal; direct commands stay plain
+2026-10-15T13:41:54.3602797Z [launch1] discovery (report only): both nodes MANAGED, nothing on the hosts changes
+2026-10-15T13:41:56.5713628Z [launch1] certificate rotation (A4): PREPARE -> DISTRIBUTE -> VERIFY -> ACTIVATE -> CONFIRM -> RETIRE_OLD on real services
+2026-10-15T13:41:56.6314644Z curl: (22) The requested URL returned error: 429
+2026-10-15T13:41:56.7514663Z Traceback (most recent call last):
+2026-10-15T13:41:56.7515264Z   File "<string>", line 1, in <module>
+2026-10-15T13:41:56.7912755Z   File "/usr/lib/python3.12/json/__init__.py", line 293, in load
+2026-10-15T13:41:56.7914077Z     return loads(fp.read(),
+2026-10-15T13:41:56.7929862Z            ^^^^^^^^^^^^^^^^
+2026-10-15T13:41:56.7930694Z   File "/usr/lib/python3.12/json/__init__.py", line 346, in loads
+2026-10-15T13:41:56.7931644Z     return _default_decoder.decode(s)
+2026-10-15T13:41:56.7932510Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-10-15T13:41:56.7933373Z   File "/usr/lib/python3.12/json/decoder.py", line 337, in decode
+2026-10-15T13:41:56.7934389Z     obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+2026-10-15T13:41:56.7935124Z                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-10-15T13:41:56.7935793Z   File "/usr/lib/python3.12/json/decoder.py", line 355, in raw_decode
+2026-10-15T13:41:56.7936650Z     raise JSONDecodeError("Expecting value", s, err.value) from None
+2026-10-15T13:41:56.7937453Z json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+2026-10-15T13:41:56.8120399Z == /tmp/tmp.amKsCEryX3/bcc.log
+2026-10-15T13:41:56.8140222Z created job signing key /tmp/tmp.amKsCEryX3/s.json.job-key; agents pin its public key: plm-DlW9HQVWFe0HXUBsuPooFzcg9PPJ_T9X8uPHFsU
+2026-10-15T13:41:56.8143063Z BAFT Command Center listening on http://127.0.0.1:18200 (dashboard under its secret path; see: baft-bcc access show)
+2026-10-15T13:41:56.8144596Z == /tmp/tmp.amKsCEryX3/install-ex.log
+2026-10-15T13:41:56.8153727Z BAFT transport installer
+2026-10-15T13:41:56.8154367Z [baft-install] inspecting: FRESH_INSTALL (nothing of BAFT is installed here)
+2026-10-15T13:41:56.8155627Z [baft-install] the required tools are already installed; apt is not run
+2026-10-15T13:41:56.8156961Z [baft-install] verified signed release v0.0.2-ci 7de6c2fd956eb6771a5a69666f51f01b8ba2bb2f
+2026-10-15T13:41:56.8158528Z [baft-install] install state: FRESH_INSTALL (nothing of BAFT is installed here)
+2026-10-15T13:41:56.8159432Z [baft-install] plan:
+2026-10-15T13:41:56.8159916Z [baft-install]   service user         create   system user baft
+2026-10-15T13:41:56.8160887Z [baft-install]   directories          create   missing ones of /opt/baft /etc/baft-ex /var/lib/baft-ex (existing ones are not touched)
+2026-10-15T13:41:56.8161936Z [baft-install]   baft binary          create   install from the verified release v0.0.2-ci
+2026-10-15T13:41:56.8163384Z [baft-install]   baft-pair binary     create   install from the verified release v0.0.2-ci
+2026-10-15T13:41:56.8164918Z [baft-install]   baft-agent binary    create   install from the verified release v0.0.2-ci
+2026-10-15T13:41:56.8166250Z [baft-install]   release state        create   record the verified release
+2026-10-15T13:41:56.8167063Z [baft-install]   agent token          create   /etc/baft-agent-ex/token
+2026-10-15T13:41:56.8167963Z [baft-install]   BCC job key          create   /etc/baft-agent-ex/bcc-job.pub
+2026-10-15T13:41:56.8169422Z [baft-install]   release root pin     create   /etc/baft-agent-ex/release-root.pub
+2026-10-15T13:41:56.8171180Z [baft-install]   agent unit           create   /etc/systemd/system/baft-agent-ex.service
+2026-10-15T13:41:56.8172093Z [baft-install]   agent service        restart  to pick up the change
+2026-10-15T13:41:56.8173824Z Created symlink /etc/systemd/system/multi-user.target.wants/baft-agent-ex.service → /etc/systemd/system/baft-agent-ex.service.
+2026-10-15T13:41:56.8174846Z [baft-install] baft-agent enrolled as ex-e2e with http://127.0.0.1:18200; add tunnels from BCC
+2026-10-15T13:41:56.8175367Z == /tmp/tmp.amKsCEryX3/install-ir.log
+2026-10-15T13:41:56.8175701Z BAFT transport installer
+2026-10-15T13:41:56.8176108Z [baft-install] inspecting: FRESH_INSTALL (nothing of BAFT is installed here)
+2026-10-15T13:41:56.8176622Z [baft-install] the required tools are already installed; apt is not run
+2026-10-15T13:41:56.8177269Z [baft-install] verified signed release v0.0.2-ci 7de6c2fd956eb6771a5a69666f51f01b8ba2bb2f
+2026-10-15T13:41:56.8178445Z [baft-install] install state: FRESH_INSTALL (nothing of BAFT is installed here)
+2026-10-15T13:41:56.8179468Z [baft-install] plan:
+2026-10-15T13:41:56.8180007Z [baft-install]   service user         keep     baft exists
+2026-10-15T13:41:56.8181339Z [baft-install]   directories          create   missing ones of /opt/baft /etc/baft-ir /var/lib/baft-ir (existing ones are not touched)
+2026-10-15T13:41:56.8182952Z [baft-install]   baft binary          keep     identical to the verified release v0.0.2-ci
+2026-10-15T13:41:56.8184000Z [baft-install]   baft-pair binary     keep     identical to the verified release v0.0.2-ci
+2026-10-15T13:41:56.8185058Z [baft-install]   baft-agent binary    keep     identical to the verified release v0.0.2-ci
+2026-10-15T13:41:56.8186148Z [baft-install]   release state        keep     recorded: v0.0.2-ci; only moves forward, never reset
+2026-10-15T13:41:56.8187115Z [baft-install]   agent token          create   /etc/baft-agent-ir/token
+2026-10-15T13:41:56.8187967Z [baft-install]   BCC job key          create   /etc/baft-agent-ir/bcc-job.pub
+2026-10-15T13:41:56.8189104Z [baft-install]   release root pin     create   /etc/baft-agent-ir/release-root.pub
+2026-10-15T13:41:56.8190092Z [baft-install]   agent unit           create   /etc/systemd/system/baft-agent-ir.service
+2026-10-15T13:41:56.8190994Z [baft-install]   agent service        restart  to pick up the change
+2026-10-15T13:41:56.8192439Z Created symlink /etc/systemd/system/multi-user.target.wants/baft-agent-ir.service → /etc/systemd/system/baft-agent-ir.service.
+2026-10-15T13:41:56.8193578Z [baft-install] baft-agent enrolled as ir-e2e with http://127.0.0.1:18200; add tunnels from BCC
+2026-10-15T13:41:56.8194114Z == /tmp/tmp.amKsCEryX3/sclient.log
+2026-10-15T13:41:56.8194399Z depth=0 CN = 127.0.0.1
+2026-10-15T13:41:56.8194623Z verify return:1
+2026-10-15T13:41:56.8194835Z CONNECTED(00000003)
+2026-10-15T13:41:56.8195041Z ---
+2026-10-15T13:41:56.8195243Z Certificate chain
+2026-10-15T13:41:56.8195487Z  0 s:CN = 127.0.0.1
+2026-10-15T13:41:56.8195822Z    i:CN = BAFT Local CA
+2026-10-15T13:41:56.8196122Z    a:PKEY: ED25519, 256 (bit); sigalg: ED25519
+2026-10-15T13:41:56.8196580Z    v:NotBefore: Oct 15 12:40:40 2026 GMT; NotAfter: Jan 17 13:40:40 2029 GMT
+2026-10-15T13:41:56.8196938Z ---
+2026-10-15T13:41:56.8197124Z Server certificate
+2026-10-15T13:41:56.8197353Z -----BEGIN CERTIFICATE-----
+2026-10-15T13:41:56.8197736Z MIIBQjCB9aADAgECAhBKAq2QfnZ6HFYOfpC4WF7wMAUGAytlcDAYMRYwFAYDVQQD
+2026-10-15T13:41:56.8198480Z Ew1CQUZUIExvY2FsIENBMB4XDTI2MTAxNTEyNDA0MFoXDTI5MDExNzEzNDA0MFow
+2026-10-15T13:41:56.8199351Z FDESMBAGA1UEAxMJMTI3LjAuMC4xMCowBQYDK2VwAyEAksEUVa1DyJXTqxOWkZ4U
+2026-10-15T13:41:56.8199876Z 89g02j0UZ/J+hViGh9zO0XajWTBXMA4GA1UdDwEB/wQEAwIHgDATBgNVHSUEDDAK
+2026-10-15T13:41:56.8200370Z BggrBgEFBQcDATAfBgNVHSMEGDAWgBSytHEUW5CoAJNTotCQGuJygt/PQTAPBgNV
+2026-10-15T13:41:56.8200879Z HREECDAGhwR/AAABMAUGAytlcANBAFtUwppF1QpYM0oRzkM37jn9Kesq0aTasOZD
+2026-10-15T13:41:56.8201609Z JRb+WQAg9vKzXe4pff+tM22LoWi0YJBeSfZFt2k01iAA9j+r0QE=
+2026-10-15T13:41:56.8202231Z -----END CERTIFICATE-----
+2026-10-15T13:41:56.8202970Z subject=CN = 127.0.0.1
+2026-10-15T13:41:56.8203359Z issuer=CN = BAFT Local CA
+2026-10-15T13:41:56.8203721Z ---
+2026-10-15T13:41:56.8204110Z No client certificate CA names sent
+2026-10-15T13:41:56.8204589Z Peer signature type: Ed25519
+2026-10-15T13:41:56.8205037Z Server Temp Key: X25519, 253 bits
+2026-10-15T13:41:56.8205399Z ---
+2026-10-15T13:41:56.8205793Z SSL handshake has read 674 bytes and written 357 bytes
+2026-10-15T13:41:56.8206518Z Verification: OK
+2026-10-15T13:41:56.8206859Z ---
+2026-10-15T13:41:56.8207234Z New, TLSv1.3, Cipher is TLS_AES_128_GCM_SHA256
+2026-10-15T13:41:56.8207763Z Server public key is 256 bit
+2026-10-15T13:41:56.8208224Z Secure Renegotiation IS NOT supported
+2026-10-15T13:41:56.8208696Z Compression: NONE
+2026-10-15T13:41:56.8209266Z Expansion: NONE
+2026-10-15T13:41:56.8209619Z No ALPN negotiated
+2026-10-15T13:41:56.8209956Z Early data was not sent
+2026-10-15T13:41:56.8210189Z Verify return code: 0 (ok)
+2026-10-15T13:41:56.8210403Z ---
+2026-10-15T13:41:56.8210571Z DONE
+2026-10-15T13:41:56.8210782Z == /tmp/tmp.amKsCEryX3/target.log
+2026-10-15T13:41:56.8211058Z == /tmp/tmp.amKsCEryX3/traffic-1443.log
+2026-10-15T13:41:56.8211610Z conn 0: 2097152 bytes round-tripped, sha256=c08a76bbcb07f4e9f9f52daa418f14f2cceb3c6202d6cdb0e66ca15bc3766892
+2026-10-15T13:41:56.8212375Z conn 1: 2097152 bytes round-tripped, sha256=39fd6ecdfc5e85471b5d33eb470c786bce2b40f541b3e8ccec5fbc97c531563b
+2026-10-15T13:41:56.8212894Z == /tmp/tmp.amKsCEryX3/www.log
+2026-10-15T13:41:56.8214841Z == journal baft-agent-ex
+2026-10-15T13:41:56.8262583Z Oct 15 13:40:20 runnervmmprz5 systemd[1]: Started baft-agent-ex.service - BAFT agent (signed BCC jobs).
+2026-10-15T13:41:56.8263643Z Oct 15 13:40:20 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:40:20 baft-agent ex-e2e polling http://127.0.0.1:18200 every 2s
+2026-10-15T13:41:56.8265034Z Oct 15 13:40:20 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:40:20 agent: job job-00000001 path_probe_inventory: succeeded path probe evidence recorded
+2026-10-15T13:41:56.8267227Z Oct 15 13:40:26 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:40:26 agent: job job-00000004 path_probe_listen: failed path probe listen 0.0.0.0:22: listen tcp4 0.0.0.0:22: bind: address already in use
+2026-10-15T13:41:56.8269878Z Oct 15 13:40:26 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:40:26 agent: job job-00000005 path_probe_listen: failed path probe listen 0.0.0.0:22: listen tcp4 0.0.0.0:22: bind: address already in use
+2026-10-15T13:41:56.8272048Z Oct 15 13:40:28 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:40:28 agent: job job-00000008 path_probe_listen: failed path probe listen 0.0.0.0:80: listen tcp4 0.0.0.0:80: bind: address already in use
+2026-10-15T13:41:56.8274157Z Oct 15 13:40:28 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:40:28 agent: job job-00000009 path_probe_listen: failed path probe listen 0.0.0.0:80: listen tcp4 0.0.0.0:80: bind: address already in use
+2026-10-15T13:41:56.8275660Z Oct 15 13:40:40 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:40:40 agent: job job-00000011 path_probe_run: succeeded path probe evidence recorded
+2026-10-15T13:41:56.8276938Z Oct 15 13:40:40 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:40:40 agent: job job-00000012 path_probe_listen: failed path probe listen 0.0.0.0:443: listen tcp4 0.0.0.0:443: bind: address already in use
+2026-10-15T13:41:56.8278541Z Oct 15 13:40:40 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:40:40 agent: job job-00000013 path_probe_listen: failed path probe listen 0.0.0.0:443: listen tcp4 0.0.0.0:443: bind: address already in use
+2026-10-15T13:41:56.8279965Z Oct 15 13:40:40 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:40:40 agent: job job-00000015 tunnel_prepare_ex: succeeded pairing code issued
+2026-10-15T13:41:56.8280870Z Oct 15 13:40:50 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:40:50 agent: job job-00000016 path_probe_run: succeeded path probe evidence recorded
+2026-10-15T13:41:56.8281976Z Oct 15 13:41:00 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:00 agent: job job-00000019 path_probe_listen: failed path probe listen 0.0.0.0:8443: listen tcp4 0.0.0.0:8443: bind: address already in use
+2026-10-15T13:41:56.8283431Z Oct 15 13:41:00 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:00 agent: job job-00000020 path_probe_listen: failed path probe listen 0.0.0.0:8443: listen tcp4 0.0.0.0:8443: bind: address already in use
+2026-10-15T13:41:56.8285670Z Oct 15 13:41:00 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:00 agent: job job-00000021 tunnel_stage_ex: succeeded {"version":1,"tunnel_id":"tun-f8af13dc","instance_id":"","role":"ex","generation":0,"config_sha256":"14054c2f3d2183a6ed90b280f31b3dd5d099441c677a5c14d80419dea87d89af","resources":true,"observed_at":"2026-10-15T13:40:50.935630957Z","listen":"0.0.0.0:18443","target":"127.0.0.1:2443","route_id":"service-main","metrics_listen":"127.0.0.1:9291","record_shaping":false}
+2026-10-15T13:41:56.8287763Z Oct 15 13:41:00 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:00 agent: job job-00000024 path_probe_run: succeeded path probe evidence recorded
+2026-10-15T13:41:56.8289316Z Oct 15 13:41:16 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:16 agent: job job-00000025 path_probe_listen: failed path probe listen 0.0.0.0:9443: listen tcp4 0.0.0.0:9443: bind: address already in use
+2026-10-15T13:41:56.8291062Z Oct 15 13:41:16 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:16 agent: job job-00000026 path_probe_listen: failed path probe listen 0.0.0.0:9443: listen tcp4 0.0.0.0:9443: bind: address already in use
+2026-10-15T13:41:56.8292261Z Oct 15 13:41:16 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:16 agent: job job-00000029 tunnel_commit_candidate: succeeded baft-ex is active with the new config
+2026-10-15T13:41:56.8293248Z Oct 15 13:41:16 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:16 agent: job job-00000032 path_probe_run: succeeded path probe evidence recorded
+2026-10-15T13:41:56.8294375Z Oct 15 13:41:26 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:26 agent: job job-00000034 path_probe_listen: failed path probe listen 0.0.0.0:49152: listen tcp4 0.0.0.0:49152: bind: address already in use
+2026-10-15T13:41:56.8295688Z Oct 15 13:41:26 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:26 agent: job job-00000035 path_probe_listen: failed path probe listen 0.0.0.0:49152: listen tcp4 0.0.0.0:49152: bind: address already in use
+2026-10-15T13:41:56.8296782Z Oct 15 13:41:26 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:26 agent: job job-00000040 path_probe_run: succeeded path probe evidence recorded
+2026-10-15T13:41:56.8297806Z Oct 15 13:41:31 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:31 agent: job job-00000042 tunnel_health: succeeded baft-ex healthy: active, 0 restarts, 127.0.0.1:18443 accepting
+2026-10-15T13:41:56.8301303Z Oct 15 13:41:32 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:32 agent: job job-00000046 tunnel_observe: succeeded {"tunnel_id":"tun-f8af13dc","role":"ex","phase":"committed","generation":1,"previous_generation":0,"node_generation":1,"service_active":true,"restarts":"0","config_sha256":"14054c2f3d2183a6ed90b280f31b3dd5d099441c677a5c14d80419dea87d89af","config_role":"listener","listen":"0.0.0.0:18443","route_id":"service-main","target":"127.0.0.1:2443","unit_matches":true,"managed":true,"marker_tunnel_id":"tun-f8af13dc","marker_generation":1,"marker_config_matches":true,"marker_unit_matches":true,"unit_sha256":"37903d99e1fd6dc6eec1a1f20d88a59b8b50834cabd4576fb83cea6edd70e4f5","marker_sha256":"12da00fdc3d432e2a1a748996794866983d8c361a9aad622ab78397f78d6952c"}
+2026-10-15T13:41:56.8307081Z Oct 15 13:41:34 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:34 agent: job job-00000048 tunnel_data: succeeded {"version":1,"tunnel_id":"tun-f8af13dc","role":"ex","generation":1,"config_sha256":"14054c2f3d2183a6ed90b280f31b3dd5d099441c677a5c14d80419dea87d89af","unit_sha256":"37903d99e1fd6dc6eec1a1f20d88a59b8b50834cabd4576fb83cea6edd70e4f5","marker_sha256":"12da00fdc3d432e2a1a748996794866983d8c361a9aad622ab78397f78d6952c","state":"PASS","ready_to_finalize":false,"data_age_ms":716,"target_reachable":true,"at":"2026-10-15T13:41:34.622515995Z","runtime":{"version":1,"config_digest":"39c7c5becc38b04d18cecd852b5db526a7cfe1e721d2e5a45dabc2fc71af721b","boot_id":"b8a9dabf9f3875fc5c938aaab0c3b6ae","supported":true,"generated_at":"2026-10-15T13:41:34.622131509Z","authenticated_peers":4,"received_bytes":4194304,"delivered_bytes":4194304,"last_delivered_at":"2026-10-15T13:41:33.905586124Z"}}
+2026-10-15T13:41:56.8313449Z Oct 15 13:41:36 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:36 agent: job job-00000050 tunnel_seal: succeeded {"version":1,"tunnel_id":"tun-f8af13dc","role":"ex","generation":1,"config_sha256":"14054c2f3d2183a6ed90b280f31b3dd5d099441c677a5c14d80419dea87d89af","unit_sha256":"37903d99e1fd6dc6eec1a1f20d88a59b8b50834cabd4576fb83cea6edd70e4f5","marker_sha256":"12da00fdc3d432e2a1a748996794866983d8c361a9aad622ab78397f78d6952c","state":"PASS","ready_to_finalize":true,"data_age_ms":2719,"target_reachable":true,"at":"2026-10-15T13:41:36.624732514Z","runtime":{"version":1,"config_digest":"39c7c5becc38b04d18cecd852b5db526a7cfe1e721d2e5a45dabc2fc71af721b","boot_id":"b8a9dabf9f3875fc5c938aaab0c3b6ae","supported":true,"generated_at":"2026-10-15T13:41:36.624380617Z","authenticated_peers":4,"received_bytes":4194304,"delivered_bytes":4194304,"last_delivered_at":"2026-10-15T13:41:33.905586124Z"}}
+2026-10-15T13:41:56.8317453Z Oct 15 13:41:38 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:38 agent: job job-00000052 tunnel_finalize: succeeded finalized after both-node data verification
+2026-10-15T13:41:56.8323439Z Oct 15 13:41:40 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:40 agent: job job-00000054 tunnel_inspect: succeeded {"config_present":true,"unit_present":true,"config_sha256":"14054c2f3d2183a6ed90b280f31b3dd5d099441c677a5c14d80419dea87d89af","config_loads":true,"marker_present":true,"marker_managed_by":"baft","marker_tunnel_id":"tun-f8af13dc","marker_generation":1,"marker_config_matches":true,"marker_unit_matches":true,"unit_sha256":"37903d99e1fd6dc6eec1a1f20d88a59b8b50834cabd4576fb83cea6edd70e4f5","marker_sha256":"12da00fdc3d432e2a1a748996794866983d8c361a9aad622ab78397f78d6952c","node_generation":1,"service_active":true,"config_role":"listener","listen":"0.0.0.0:18443","route_id":"service-main","target":"127.0.0.1:2443"}
+2026-10-15T13:41:56.8330735Z Oct 15 13:41:42 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:42 agent: job job-00000056 tunnel_inspect: succeeded {"config_present":true,"unit_present":true,"config_sha256":"e6737db6fe3dfc6d1bc9653b9eece3cc9076dfb6f6c690f77c3765f3833fb89b","config_loads":true,"marker_present":true,"marker_managed_by":"baft","marker_tunnel_id":"tun-f8af13dc","marker_generation":1,"marker_config_matches":false,"marker_unit_matches":true,"unit_sha256":"37903d99e1fd6dc6eec1a1f20d88a59b8b50834cabd4576fb83cea6edd70e4f5","marker_sha256":"12da00fdc3d432e2a1a748996794866983d8c361a9aad622ab78397f78d6952c","node_generation":1,"service_active":true,"config_role":"listener","listen":"0.0.0.0:18443","route_id":"service-main","target":"127.0.0.1:2443"}
+2026-10-15T13:41:56.8335926Z Oct 15 13:41:44 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:44 agent: job job-00000058 tunnel_inspect: succeeded {"config_present":true,"unit_present":true,"config_sha256":"67f7c5ae0f328dc134cbb44cbe6c4389d97a8ae7a4e8b9cd2cebce6ad702e943","config_loads":true,"marker_present":true,"marker_managed_by":"baft","marker_tunnel_id":"tun-f8af13dc","marker_generation":1,"marker_config_matches":true,"marker_unit_matches":true,"unit_sha256":"37903d99e1fd6dc6eec1a1f20d88a59b8b50834cabd4576fb83cea6edd70e4f5","marker_sha256":"11a07cbaab889ac30c83b1bae40b85ee5d8568ca6dde10f6996426cc5e120a40","node_generation":1,"service_active":true,"config_role":"listener","listen":"0.0.0.0:18443","route_id":"service-main","target":"127.0.0.1:2443"}
+2026-10-15T13:41:56.8341145Z Oct 15 13:41:46 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:46 agent: job job-00000060 tunnel_inspect: succeeded {"config_present":true,"unit_present":true,"config_sha256":"14054c2f3d2183a6ed90b280f31b3dd5d099441c677a5c14d80419dea87d89af","config_loads":true,"marker_present":true,"marker_managed_by":"baft","marker_tunnel_id":"tun-f8af13dc","marker_generation":1,"marker_config_matches":true,"marker_unit_matches":true,"unit_sha256":"37903d99e1fd6dc6eec1a1f20d88a59b8b50834cabd4576fb83cea6edd70e4f5","marker_sha256":"12da00fdc3d432e2a1a748996794866983d8c361a9aad622ab78397f78d6952c","node_generation":1,"service_active":true,"config_role":"listener","listen":"0.0.0.0:18443","route_id":"service-main","target":"127.0.0.1:2443"}
+2026-10-15T13:41:56.8350510Z Oct 15 13:41:54 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:54 agent: job job-00000061 tunnel_discover: succeeded {"version":1,"service":"baft-ex","config_dir":"/etc/baft-ex","unit_dir":"/etc/systemd/system","node_generation":1,"instances":[{"unit":"baft-ex.service","primary":true,"present":true,"recognized":true,"service_state":"active","unit_sha256":"37903d99e1fd6dc6eec1a1f20d88a59b8b50834cabd4576fb83cea6edd70e4f5","unit_header_tunnel":"tun-f8af13dc","unit_header_managed":true,"config_path":"/etc/baft-ex/baft.yaml","config_present":true,"config_loads":true,"config_sha256":"14054c2f3d2183a6ed90b280f31b3dd5d099441c677a5c14d80419dea87d89af","config_role":"listener","listen":"0.0.0.0:18443","route_id":"service-main","target":"127.0.0.1:2443","marker":{"managed_by":"baft","tunnel_id":"tun-f8af13dc","generation":1,"role":"ex","config_sha256":"14054c2f3d2183a6ed90b280f31b3dd5d099441c677a5c14d80419dea87d89af","unit_sha256":"37903d99e1fd6dc6eec1a1f20d88a59b8b50834cabd4576fb83cea6edd70e4f5","file_sha256":"12da00fdc3d432e2a1a748996794866983d8c361a9aad622ab78397f78d6952c"}},{"unit":"baft-ir.service","primary":false,"present":true,"recognized":true,"service_state":"active","unit_sha256":"b4aff327696530521fa86de89582e6f2ae6f8eaf87561aed1530e6a1ef2be666","unit_header_tunnel":"tun-f8af13dc","unit_header_managed":true,"config_path":"/etc/baft-ir/baft.yaml","config_present":true,"config_loads":true,"config_sha256":"fccf2c56a92653024bf7bfc4c6a2101362163808aeca520f07004f81ced83d87","config_role":"dialer","peer_address":"127.0.0.1:18443","route_id":"service-main","route_listen":"127.0.0.1:1443","marker":{"managed_by":"baft","tunnel_id":"tun-f8af13dc","generation":1,"role":"ir","config_sha256":"fccf2c56a92653024bf7bfc4c6a2101362163808aeca520f07004f81ced83d87","unit_sha256":"b4aff327696530521fa86de89582e6f2ae6f8eaf87561aed1530e6a1ef2be666","file_sha256":"8d3b4eab54f9291b8d5b0807d7fffe2ed0188bfa2d4701306c27aaab2d83875d"}}]}
+2026-10-15T13:41:56.8357082Z == journal baft-agent-ir
+2026-10-15T13:41:56.8357591Z Oct 15 13:40:24 runnervmmprz5 systemd[1]: Started baft-agent-ir.service - BAFT agent (signed BCC jobs).
+2026-10-15T13:41:56.8358353Z Oct 15 13:40:24 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:40:24 baft-agent ir-e2e polling http://127.0.0.1:18200 every 2s
+2026-10-15T13:41:56.8359437Z Oct 15 13:40:24 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:40:24 agent: job job-00000002 path_probe_inventory: succeeded path probe evidence recorded
+2026-10-15T13:41:56.8360560Z Oct 15 13:40:26 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:40:26 agent: job job-00000003 path_probe_listen: failed path probe listen 0.0.0.0:22: listen tcp4 0.0.0.0:22: bind: address already in use
+2026-10-15T13:41:56.8361810Z Oct 15 13:40:26 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:40:26 agent: job job-00000006 path_probe_listen: failed path probe listen 0.0.0.0:22: listen tcp4 0.0.0.0:22: bind: address already in use
+2026-10-15T13:41:56.8362949Z Oct 15 13:40:28 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:40:28 agent: job job-00000007 path_probe_listen: succeeded path probe listener ready on 0.0.0.0:80/tcp4
+2026-10-15T13:41:56.8364218Z Oct 15 13:40:28 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:40:28 agent: job job-00000010 path_probe_listen: failed path probe listen 0.0.0.0:80: listen tcp4 0.0.0.0:80: bind: address already in use
+2026-10-15T13:41:56.8365425Z Oct 15 13:40:30 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:40:30 agent: job job-00000014 path_probe_listen: succeeded path probe listener ready on 0.0.0.0:443/tcp4
+2026-10-15T13:41:56.8367213Z Oct 15 13:40:42 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:40:42 agent: job job-00000017 tunnel_prepare_ir: succeeded reply code issued
+2026-10-15T13:41:56.8369267Z Oct 15 13:40:42 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:40:42 agent: job job-00000018 path_probe_stop: succeeded path probe evidence recorded
+2026-10-15T13:41:56.8371358Z Oct 15 13:40:44 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:40:44 agent: job job-00000022 path_probe_listen: failed path probe listen 0.0.0.0:443: listen tcp4 0.0.0.0:443: bind: address already in use
+2026-10-15T13:41:56.8372686Z Oct 15 13:40:46 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:40:46 agent: job job-00000023 path_probe_listen: succeeded path probe listener ready on 0.0.0.0:8443/tcp4
+2026-10-15T13:41:56.8373675Z Oct 15 13:40:52 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:40:52 agent: job job-00000027 path_probe_stop: succeeded path probe evidence recorded
+2026-10-15T13:41:56.8375815Z Oct 15 13:40:52 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:40:52 agent: job job-00000028 tunnel_validate_candidate: succeeded {"version":1,"tunnel_id":"tun-f8af13dc","instance_id":"","role":"ir","generation":0,"config_sha256":"fccf2c56a92653024bf7bfc4c6a2101362163808aeca520f07004f81ced83d87","resources":true,"observed_at":"2026-10-15T13:40:52.630392511Z","peer_address":"127.0.0.1:18443","route_id":"service-main","route_listen":"127.0.0.1:1443","metrics_listen":"127.0.0.1:9292","record_shaping":false}
+2026-10-15T13:41:56.8378062Z Oct 15 13:40:54 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:40:54 agent: job job-00000030 path_probe_listen: failed path probe listen 0.0.0.0:8443: listen tcp4 0.0.0.0:8443: bind: address already in use
+2026-10-15T13:41:56.8379531Z Oct 15 13:40:56 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:40:56 agent: job job-00000031 path_probe_listen: succeeded path probe listener ready on 0.0.0.0:9443/tcp4
+2026-10-15T13:41:56.8380527Z Oct 15 13:41:04 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:41:04 agent: job job-00000033 path_probe_stop: succeeded path probe evidence recorded
+2026-10-15T13:41:56.8381629Z Oct 15 13:41:06 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:41:06 agent: job job-00000036 path_probe_listen: failed path probe listen 0.0.0.0:9443: listen tcp4 0.0.0.0:9443: bind: address already in use
+2026-10-15T13:41:56.8382786Z Oct 15 13:41:14 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:41:14 agent: job job-00000037 tunnel_commit_candidate: succeeded baft-ir is active with the new config
+2026-10-15T13:41:56.8383835Z Oct 15 13:41:14 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:41:14 agent: job job-00000038 path_probe_listen: succeeded path probe listener ready on 0.0.0.0:49152/tcp4
+2026-10-15T13:41:56.8384920Z Oct 15 13:41:19 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:41:19 agent: job job-00000039 tunnel_health: succeeded baft-ir healthy: active, 0 restarts, 127.0.0.1:1443 accepting
+2026-10-15T13:41:56.8385933Z Oct 15 13:41:19 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:41:19 agent: job job-00000041 path_probe_stop: succeeded path probe evidence recorded
+2026-10-15T13:41:56.8387088Z Oct 15 13:41:22 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:41:22 agent: job job-00000043 path_probe_listen: failed path probe listen 0.0.0.0:49152: listen tcp4 0.0.0.0:49152: bind: address already in use
+2026-10-15T13:41:56.8388197Z Oct 15 13:41:28 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:41:28 agent: job job-00000044 path_probe_stop: succeeded path probe evidence recorded
+2026-10-15T13:41:56.8391601Z Oct 15 13:41:32 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:41:32 agent: job job-00000045 tunnel_observe: succeeded {"tunnel_id":"tun-f8af13dc","role":"ir","phase":"committed","generation":1,"previous_generation":0,"node_generation":1,"service_active":true,"restarts":"0","config_sha256":"fccf2c56a92653024bf7bfc4c6a2101362163808aeca520f07004f81ced83d87","config_role":"dialer","route_id":"service-main","route_listen":"127.0.0.1:1443","peer_address":"127.0.0.1:18443","unit_matches":true,"managed":true,"marker_tunnel_id":"tun-f8af13dc","marker_generation":1,"marker_config_matches":true,"marker_unit_matches":true,"unit_sha256":"b4aff327696530521fa86de89582e6f2ae6f8eaf87561aed1530e6a1ef2be666","marker_sha256":"8d3b4eab54f9291b8d5b0807d7fffe2ed0188bfa2d4701306c27aaab2d83875d"}
+2026-10-15T13:41:56.8397318Z Oct 15 13:41:34 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:41:34 agent: job job-00000047 tunnel_data: succeeded {"version":1,"tunnel_id":"tun-f8af13dc","role":"ir","generation":1,"config_sha256":"fccf2c56a92653024bf7bfc4c6a2101362163808aeca520f07004f81ced83d87","unit_sha256":"b4aff327696530521fa86de89582e6f2ae6f8eaf87561aed1530e6a1ef2be666","marker_sha256":"8d3b4eab54f9291b8d5b0807d7fffe2ed0188bfa2d4701306c27aaab2d83875d","state":"PASS","ready_to_finalize":false,"data_age_ms":635,"target_reachable":false,"at":"2026-10-15T13:41:34.556759641Z","runtime":{"version":1,"config_digest":"5e434c538322ebd040fc3e328b2f8c693993491a08fe5e52f9cdd20c8a65eb89","boot_id":"8289b513140ae8b3a299b5f07506423e","supported":true,"generated_at":"2026-10-15T13:41:34.556460671Z","authenticated_peers":4,"received_bytes":4194304,"delivered_bytes":4194304,"last_delivered_at":"2026-10-15T13:41:33.920821559Z"}}
+2026-10-15T13:41:56.8403406Z Oct 15 13:41:36 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:41:36 agent: job job-00000049 tunnel_seal: succeeded {"version":1,"tunnel_id":"tun-f8af13dc","role":"ir","generation":1,"config_sha256":"fccf2c56a92653024bf7bfc4c6a2101362163808aeca520f07004f81ced83d87","unit_sha256":"b4aff327696530521fa86de89582e6f2ae6f8eaf87561aed1530e6a1ef2be666","marker_sha256":"8d3b4eab54f9291b8d5b0807d7fffe2ed0188bfa2d4701306c27aaab2d83875d","state":"PASS","ready_to_finalize":true,"data_age_ms":2635,"target_reachable":false,"at":"2026-10-15T13:41:36.555856593Z","runtime":{"version":1,"config_digest":"5e434c538322ebd040fc3e328b2f8c693993491a08fe5e52f9cdd20c8a65eb89","boot_id":"8289b513140ae8b3a299b5f07506423e","supported":true,"generated_at":"2026-10-15T13:41:36.555335097Z","authenticated_peers":4,"received_bytes":4194304,"delivered_bytes":4194304,"last_delivered_at":"2026-10-15T13:41:33.920821559Z"}}
+2026-10-15T13:41:56.8407224Z Oct 15 13:41:38 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:41:38 agent: job job-00000051 tunnel_finalize: succeeded finalized after both-node data verification
+2026-10-15T13:41:56.8410685Z Oct 15 13:41:40 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:41:40 agent: job job-00000053 tunnel_inspect: succeeded {"config_present":true,"unit_present":true,"config_sha256":"fccf2c56a92653024bf7bfc4c6a2101362163808aeca520f07004f81ced83d87","config_loads":true,"marker_present":true,"marker_managed_by":"baft","marker_tunnel_id":"tun-f8af13dc","marker_generation":1,"marker_config_matches":true,"marker_unit_matches":true,"unit_sha256":"b4aff327696530521fa86de89582e6f2ae6f8eaf87561aed1530e6a1ef2be666","marker_sha256":"8d3b4eab54f9291b8d5b0807d7fffe2ed0188bfa2d4701306c27aaab2d83875d","node_generation":1,"service_active":true,"config_role":"dialer","peer_address":"127.0.0.1:18443","route_id":"service-main","route_listen":"127.0.0.1:1443"}
+2026-10-15T13:41:56.8416113Z Oct 15 13:41:42 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:41:42 agent: job job-00000055 tunnel_inspect: succeeded {"config_present":true,"unit_present":true,"config_sha256":"fccf2c56a92653024bf7bfc4c6a2101362163808aeca520f07004f81ced83d87","config_loads":true,"marker_present":true,"marker_managed_by":"baft","marker_tunnel_id":"tun-f8af13dc","marker_generation":1,"marker_config_matches":true,"marker_unit_matches":true,"unit_sha256":"b4aff327696530521fa86de89582e6f2ae6f8eaf87561aed1530e6a1ef2be666","marker_sha256":"8d3b4eab54f9291b8d5b0807d7fffe2ed0188bfa2d4701306c27aaab2d83875d","node_generation":1,"service_active":true,"config_role":"dialer","peer_address":"127.0.0.1:18443","route_id":"service-main","route_listen":"127.0.0.1:1443"}
+2026-10-15T13:41:56.8421418Z Oct 15 13:41:44 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:41:44 agent: job job-00000057 tunnel_inspect: succeeded {"config_present":true,"unit_present":true,"config_sha256":"fccf2c56a92653024bf7bfc4c6a2101362163808aeca520f07004f81ced83d87","config_loads":true,"marker_present":true,"marker_managed_by":"baft","marker_tunnel_id":"tun-f8af13dc","marker_generation":1,"marker_config_matches":true,"marker_unit_matches":true,"unit_sha256":"b4aff327696530521fa86de89582e6f2ae6f8eaf87561aed1530e6a1ef2be666","marker_sha256":"8d3b4eab54f9291b8d5b0807d7fffe2ed0188bfa2d4701306c27aaab2d83875d","node_generation":1,"service_active":true,"config_role":"dialer","peer_address":"127.0.0.1:18443","route_id":"service-main","route_listen":"127.0.0.1:1443"}
+2026-10-15T13:41:56.8426561Z Oct 15 13:41:46 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:41:46 agent: job job-00000059 tunnel_inspect: succeeded {"config_present":true,"unit_present":true,"config_sha256":"fccf2c56a92653024bf7bfc4c6a2101362163808aeca520f07004f81ced83d87","config_loads":true,"marker_present":true,"marker_managed_by":"baft","marker_tunnel_id":"tun-f8af13dc","marker_generation":1,"marker_config_matches":true,"marker_unit_matches":true,"unit_sha256":"b4aff327696530521fa86de89582e6f2ae6f8eaf87561aed1530e6a1ef2be666","marker_sha256":"8d3b4eab54f9291b8d5b0807d7fffe2ed0188bfa2d4701306c27aaab2d83875d","node_generation":1,"service_active":true,"config_role":"dialer","peer_address":"127.0.0.1:18443","route_id":"service-main","route_listen":"127.0.0.1:1443"}
+2026-10-15T13:41:56.8435874Z Oct 15 13:41:54 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:41:54 agent: job job-00000062 tunnel_discover: succeeded {"version":1,"service":"baft-ir","config_dir":"/etc/baft-ir","unit_dir":"/etc/systemd/system","node_generation":1,"instances":[{"unit":"baft-ex.service","primary":false,"present":true,"recognized":true,"service_state":"active","unit_sha256":"37903d99e1fd6dc6eec1a1f20d88a59b8b50834cabd4576fb83cea6edd70e4f5","unit_header_tunnel":"tun-f8af13dc","unit_header_managed":true,"config_path":"/etc/baft-ex/baft.yaml","config_present":true,"config_loads":true,"config_sha256":"14054c2f3d2183a6ed90b280f31b3dd5d099441c677a5c14d80419dea87d89af","config_role":"listener","listen":"0.0.0.0:18443","route_id":"service-main","target":"127.0.0.1:2443","marker":{"managed_by":"baft","tunnel_id":"tun-f8af13dc","generation":1,"role":"ex","config_sha256":"14054c2f3d2183a6ed90b280f31b3dd5d099441c677a5c14d80419dea87d89af","unit_sha256":"37903d99e1fd6dc6eec1a1f20d88a59b8b50834cabd4576fb83cea6edd70e4f5","file_sha256":"12da00fdc3d432e2a1a748996794866983d8c361a9aad622ab78397f78d6952c"}},{"unit":"baft-ir.service","primary":true,"present":true,"recognized":true,"service_state":"active","unit_sha256":"b4aff327696530521fa86de89582e6f2ae6f8eaf87561aed1530e6a1ef2be666","unit_header_tunnel":"tun-f8af13dc","unit_header_managed":true,"config_path":"/etc/baft-ir/baft.yaml","config_present":true,"config_loads":true,"config_sha256":"fccf2c56a92653024bf7bfc4c6a2101362163808aeca520f07004f81ced83d87","config_role":"dialer","peer_address":"127.0.0.1:18443","route_id":"service-main","route_listen":"127.0.0.1:1443","marker":{"managed_by":"baft","tunnel_id":"tun-f8af13dc","generation":1,"role":"ir","config_sha256":"fccf2c56a92653024bf7bfc4c6a2101362163808aeca520f07004f81ced83d87","unit_sha256":"b4aff327696530521fa86de89582e6f2ae6f8eaf87561aed1530e6a1ef2be666","file_sha256":"8d3b4eab54f9291b8d5b0807d7fffe2ed0188bfa2d4701306c27aaab2d83875d"}}]}
+2026-10-15T13:41:56.8442618Z == journal baft-ex
+2026-10-15T13:41:56.8443055Z Oct 15 13:41:01 runnervmmprz5 systemd[1]: Started baft-ex.service - BAFT transport service.
+2026-10-15T13:41:56.8443638Z Oct 15 13:41:01 runnervmmprz5 baft[9033]: starting BAFT node ex-2b474d2d396c (listener)
+2026-10-15T13:41:56.8444309Z Oct 15 13:41:01 runnervmmprz5 baft[9033]: 2026/10/15 13:41:01 baft listener startup: goroutine created configured=0.0.0.0:18443
+2026-10-15T13:41:56.8445184Z Oct 15 13:41:01 runnervmmprz5 baft[9033]: 2026/10/15 13:41:01 baft listener startup: acquire configured=0.0.0.0:18443
+2026-10-15T13:41:56.8446031Z Oct 15 13:41:01 runnervmmprz5 baft[9033]: 2026/10/15 13:41:01 baft listener startup: bind success configured=0.0.0.0:18443 actual=[::]:18443
+2026-10-15T13:41:56.8446818Z Oct 15 13:41:01 runnervmmprz5 baft[9033]: 2026/10/15 13:41:01 baft listener startup: serve started actual=[::]:18443
+2026-10-15T13:41:56.8447528Z Oct 15 13:41:31 runnervmmprz5 baft[9033]: 2026/10/15 13:41:31 baft carrier server error phase=tls_handshake sample=1
+2026-10-15T13:41:56.8448336Z Oct 15 13:41:54 runnervmmprz5 baft[9033]: 2026/10/15 13:41:54 baft carrier server error phase=tls_handshake sample=2
+2026-10-15T13:41:56.8448821Z == journal baft-ir
+2026-10-15T13:41:56.8449349Z Oct 15 13:41:09 runnervmmprz5 systemd[1]: Started baft-ir.service - BAFT transport service.
+2026-10-15T13:41:56.8449927Z Oct 15 13:41:09 runnervmmprz5 baft[9254]: starting BAFT node ir-1182798d1182 (dialer)
+2026-10-15T13:41:56.8720676Z ##[error]Oct 15 13:41:26 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:26 agent: job job-00000035 path_probe_listen: failed path probe listen 0.0.0.0:49152: listen tcp4 0.0.0.0:49152: bind: address already in use
+2026-10-15T13:41:56.8730958Z ##[error]Oct 15 13:41:26 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:26 agent: job job-00000040 path_probe_run: succeeded path probe evidence recorded
+2026-10-15T13:41:56.8733302Z ##[error]Oct 15 13:41:31 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:31 agent: job job-00000042 tunnel_health: succeeded baft-ex healthy: active, 0 restarts, 127.0.0.1:18443 accepting
+2026-10-15T13:41:56.8739792Z ##[error]Oct 15 13:41:32 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:32 agent: job job-00000046 tunnel_observe: succeeded {"tunnel_id":"tun-f8af13dc","role":"ex","phase":"committed","generation":1,"previous_generation":0,"node_generation":1,"service_active":true,"restarts":"0","config_sha256":"14054c2f3d2183a6ed90b280f31b3dd5d099441c677a5c14d80419dea87d89af","config_role":"listener","listen":"0.0.0.0:18443","route_id":"service-main","target":"127.0.0.1:2443","unit_matches":true,"managed":true,"marker_tunnel_id":"tun-f8af13dc","marker_generation":1,"marker_config_matches":true,"marker_unit_matches":true,"unit_sha256":"37903d99e1fd6dc6eec1a1f20d88a59b8b50834cabd4576fb83cea6edd70e4f5","marker_sha256":"12da00fdc3d432e2a1a748996794866983d8c361a9aad622ab78397f78d6952c"}
+2026-10-15T13:41:56.8752388Z ##[error]Oct 15 13:41:34 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:34 agent: job job-00000048 tunnel_data: succeeded {"version":1,"tunnel_id":"tun-f8af13dc","role":"ex","generation":1,"config_sha256":"14054c2f3d2183a6ed90b280f31b3dd5d099441c677a5c14d80419dea87d89af","unit_sha256":"37903d99e1fd6dc6eec1a1f20d88a59b8b50834cabd4576fb83cea6edd70e4f5","marker_sha256":"12da00fdc3d432e2a1a748996794866983d8c361a9aad622ab78397f78d6952c","state":"PASS","ready_to_finalize":false,"data_age_ms":716,"target_reachable":true,"at":"2026-10-15T13:41:34.622515995Z","runtime":{"version":1,"config_digest":"39c7c5becc38b04d18cecd852b5db526a7cfe1e721d2e5a45dabc2fc71af721b","boot_id":"b8a9dabf9f3875fc5c938aaab0c3b6ae","supported":true,"generated_at":"2026-10-15T13:41:34.622131509Z","authenticated_peers":4,"received_bytes":4194304,"delivered_bytes":4194304,"last_delivered_at":"2026-10-15T13:41:33.905586124Z"}}
+2026-10-15T13:41:56.8769838Z ##[error]Oct 15 13:41:36 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:36 agent: job job-00000050 tunnel_seal: succeeded {"version":1,"tunnel_id":"tun-f8af13dc","role":"ex","generation":1,"config_sha256":"14054c2f3d2183a6ed90b280f31b3dd5d099441c677a5c14d80419dea87d89af","unit_sha256":"37903d99e1fd6dc6eec1a1f20d88a59b8b50834cabd4576fb83cea6edd70e4f5","marker_sha256":"12da00fdc3d432e2a1a748996794866983d8c361a9aad622ab78397f78d6952c","state":"PASS","ready_to_finalize":true,"data_age_ms":2719,"target_reachable":true,"at":"2026-10-15T13:41:36.624732514Z","runtime":{"version":1,"config_digest":"39c7c5becc38b04d18cecd852b5db526a7cfe1e721d2e5a45dabc2fc71af721b","boot_id":"b8a9dabf9f3875fc5c938aaab0c3b6ae","supported":true,"generated_at":"2026-10-15T13:41:36.624380617Z","authenticated_peers":4,"received_bytes":4194304,"delivered_bytes":4194304,"last_delivered_at":"2026-10-15T13:41:33.905586124Z"}}
+2026-10-15T13:41:56.8774568Z ##[error]Oct 15 13:41:38 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:38 agent: job job-00000052 tunnel_finalize: succeeded finalized after both-node data verification
+2026-10-15T13:41:56.8780754Z ##[error]Oct 15 13:41:40 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:40 agent: job job-00000054 tunnel_inspect: succeeded {"config_present":true,"unit_present":true,"config_sha256":"14054c2f3d2183a6ed90b280f31b3dd5d099441c677a5c14d80419dea87d89af","config_loads":true,"marker_present":true,"marker_managed_by":"baft","marker_tunnel_id":"tun-f8af13dc","marker_generation":1,"marker_config_matches":true,"marker_unit_matches":true,"unit_sha256":"37903d99e1fd6dc6eec1a1f20d88a59b8b50834cabd4576fb83cea6edd70e4f5","marker_sha256":"12da00fdc3d432e2a1a748996794866983d8c361a9aad622ab78397f78d6952c","node_generation":1,"service_active":true,"config_role":"listener","listen":"0.0.0.0:18443","route_id":"service-main","target":"127.0.0.1:2443"}
+2026-10-15T13:41:56.8789414Z ##[error]Oct 15 13:41:42 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:42 agent: job job-00000056 tunnel_inspect: succeeded {"config_present":true,"unit_present":true,"config_sha256":"e6737db6fe3dfc6d1bc9653b9eece3cc9076dfb6f6c690f77c3765f3833fb89b","config_loads":true,"marker_present":true,"marker_managed_by":"baft","marker_tunnel_id":"tun-f8af13dc","marker_generation":1,"marker_config_matches":false,"marker_unit_matches":true,"unit_sha256":"37903d99e1fd6dc6eec1a1f20d88a59b8b50834cabd4576fb83cea6edd70e4f5","marker_sha256":"12da00fdc3d432e2a1a748996794866983d8c361a9aad622ab78397f78d6952c","node_generation":1,"service_active":true,"config_role":"listener","listen":"0.0.0.0:18443","route_id":"service-main","target":"127.0.0.1:2443"}
+2026-10-15T13:41:56.8802756Z ##[error]Oct 15 13:41:44 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:44 agent: job job-00000058 tunnel_inspect: succeeded {"config_present":true,"unit_present":true,"config_sha256":"67f7c5ae0f328dc134cbb44cbe6c4389d97a8ae7a4e8b9cd2cebce6ad702e943","config_loads":true,"marker_present":true,"marker_managed_by":"baft","marker_tunnel_id":"tun-f8af13dc","marker_generation":1,"marker_config_matches":true,"marker_unit_matches":true,"unit_sha256":"37903d99e1fd6dc6eec1a1f20d88a59b8b50834cabd4576fb83cea6edd70e4f5","marker_sha256":"11a07cbaab889ac30c83b1bae40b85ee5d8568ca6dde10f6996426cc5e120a40","node_generation":1,"service_active":true,"config_role":"listener","listen":"0.0.0.0:18443","route_id":"service-main","target":"127.0.0.1:2443"}
+2026-10-15T13:41:56.8817888Z ##[error]Oct 15 13:41:46 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:46 agent: job job-00000060 tunnel_inspect: succeeded {"config_present":true,"unit_present":true,"config_sha256":"14054c2f3d2183a6ed90b280f31b3dd5d099441c677a5c14d80419dea87d89af","config_loads":true,"marker_present":true,"marker_managed_by":"baft","marker_tunnel_id":"tun-f8af13dc","marker_generation":1,"marker_config_matches":true,"marker_unit_matches":true,"unit_sha256":"37903d99e1fd6dc6eec1a1f20d88a59b8b50834cabd4576fb83cea6edd70e4f5","marker_sha256":"12da00fdc3d432e2a1a748996794866983d8c361a9aad622ab78397f78d6952c","node_generation":1,"service_active":true,"config_role":"listener","listen":"0.0.0.0:18443","route_id":"service-main","target":"127.0.0.1:2443"}
+2026-10-15T13:41:56.8846387Z ##[error]Oct 15 13:41:54 runnervmmprz5 baft-agent[8162]: 2026/10/15 13:41:54 agent: job job-00000061 tunnel_discover: succeeded {"version":1,"service":"baft-ex","config_dir":"/etc/baft-ex","unit_dir":"/etc/systemd/system","node_generation":1,"instances":[{"unit":"baft-ex.service","primary":true,"present":true,"recognized":true,"service_state":"active","unit_sha256":"37903d99e1fd6dc6eec1a1f20d88a59b8b50834cabd4576fb83cea6edd70e4f5","unit_header_tunnel":"tun-f8af13dc","unit_header_managed":true,"config_path":"/etc/baft-ex/baft.yaml","config_present":true,"config_loads":true,"config_sha256":"14054c2f3d2183a6ed90b280f31b3dd5d099441c677a5c14d80419dea87d89af","config_role":"listener","listen":"0.0.0.0:18443","route_id":"service-main","target":"127.0.0.1:2443","marker":{"managed_by":"baft","tunnel_id":"tun-f8af13dc","generation":1,"role":"ex","config_sha256":"14054c2f3d2183a6ed90b280f31b3dd5d099441c677a5c14d80419dea87d89af","unit_sha256":"37903d99e1fd6dc6eec1a1f20d88a59b8b50834cabd4576fb83cea6edd70e4f5","file_sha256":"12da00fdc3d432e2a1a748996794866983d8c361a9aad622ab78397f78d6952c"}},{"unit":"baft-ir.service","primary":false,"present":true,"recognized":true,"service_state":"active","unit_sha256":"b4aff327696530521fa86de89582e6f2ae6f8eaf87561aed1530e6a1ef2be666","unit_header_tunnel":"tun-f8af13dc","unit_header_managed":true,"config_path":"/etc/baft-ir/baft.yaml","config_present":true,"config_loads":true,"config_sha256":"fccf2c56a92653024bf7bfc4c6a2101362163808aeca520f07004f81ced83d87","config_role":"dialer","peer_address":"127.0.0.1:18443","route_id":"service-main","route_listen":"127.0.0.1:1443","marker":{"managed_by":"baft","tunnel_id":"tun-f8af13dc","generation":1,"role":"ir","config_sha256":"fccf2c56a92653024bf7bfc4c6a2101362163808aeca520f07004f81ced83d87","unit_sha256":"b4aff327696530521fa86de89582e6f2ae6f8eaf87561aed1530e6a1ef2be666","file_sha256":"8d3b4eab54f9291b8d5b0807d7fffe2ed0188bfa2d4701306c27aaab2d83875d"}}]}
+2026-10-15T13:41:56.8858497Z ##[error]Oct 15 13:41:19 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:41:19 agent: job job-00000041 path_probe_stop: succeeded path probe evidence recorded
+2026-10-15T13:41:56.8863416Z ##[error]Oct 15 13:41:22 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:41:22 agent: job job-00000043 path_probe_listen: failed path probe listen 0.0.0.0:49152: listen tcp4 0.0.0.0:49152: bind: address already in use
+2026-10-15T13:41:56.8867087Z ##[error]Oct 15 13:41:28 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:41:28 agent: job job-00000044 path_probe_stop: succeeded path probe evidence recorded
+2026-10-15T13:41:56.8874812Z ##[error]Oct 15 13:41:32 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:41:32 agent: job job-00000045 tunnel_observe: succeeded {"tunnel_id":"tun-f8af13dc","role":"ir","phase":"committed","generation":1,"previous_generation":0,"node_generation":1,"service_active":true,"restarts":"0","config_sha256":"fccf2c56a92653024bf7bfc4c6a2101362163808aeca520f07004f81ced83d87","config_role":"dialer","route_id":"service-main","route_listen":"127.0.0.1:1443","peer_address":"127.0.0.1:18443","unit_matches":true,"managed":true,"marker_tunnel_id":"tun-f8af13dc","marker_generation":1,"marker_config_matches":true,"marker_unit_matches":true,"unit_sha256":"b4aff327696530521fa86de89582e6f2ae6f8eaf87561aed1530e6a1ef2be666","marker_sha256":"8d3b4eab54f9291b8d5b0807d7fffe2ed0188bfa2d4701306c27aaab2d83875d"}
+2026-10-15T13:41:56.8885829Z ##[error]Oct 15 13:41:34 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:41:34 agent: job job-00000047 tunnel_data: succeeded {"version":1,"tunnel_id":"tun-f8af13dc","role":"ir","generation":1,"config_sha256":"fccf2c56a92653024bf7bfc4c6a2101362163808aeca520f07004f81ced83d87","unit_sha256":"b4aff327696530521fa86de89582e6f2ae6f8eaf87561aed1530e6a1ef2be666","marker_sha256":"8d3b4eab54f9291b8d5b0807d7fffe2ed0188bfa2d4701306c27aaab2d83875d","state":"PASS","ready_to_finalize":false,"data_age_ms":635,"target_reachable":false,"at":"2026-10-15T13:41:34.556759641Z","runtime":{"version":1,"config_digest":"5e434c538322ebd040fc3e328b2f8c693993491a08fe5e52f9cdd20c8a65eb89","boot_id":"8289b513140ae8b3a299b5f07506423e","supported":true,"generated_at":"2026-10-15T13:41:34.556460671Z","authenticated_peers":4,"received_bytes":4194304,"delivered_bytes":4194304,"last_delivered_at":"2026-10-15T13:41:33.920821559Z"}}
+2026-10-15T13:41:56.8902038Z ##[error]Oct 15 13:41:36 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:41:36 agent: job job-00000049 tunnel_seal: succeeded {"version":1,"tunnel_id":"tun-f8af13dc","role":"ir","generation":1,"config_sha256":"fccf2c56a92653024bf7bfc4c6a2101362163808aeca520f07004f81ced83d87","unit_sha256":"b4aff327696530521fa86de89582e6f2ae6f8eaf87561aed1530e6a1ef2be666","marker_sha256":"8d3b4eab54f9291b8d5b0807d7fffe2ed0188bfa2d4701306c27aaab2d83875d","state":"PASS","ready_to_finalize":true,"data_age_ms":2635,"target_reachable":false,"at":"2026-10-15T13:41:36.555856593Z","runtime":{"version":1,"config_digest":"5e434c538322ebd040fc3e328b2f8c693993491a08fe5e52f9cdd20c8a65eb89","boot_id":"8289b513140ae8b3a299b5f07506423e","supported":true,"generated_at":"2026-10-15T13:41:36.555335097Z","authenticated_peers":4,"received_bytes":4194304,"delivered_bytes":4194304,"last_delivered_at":"2026-10-15T13:41:33.920821559Z"}}
+2026-10-15T13:41:56.8907916Z ##[error]Oct 15 13:41:38 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:41:38 agent: job job-00000051 tunnel_finalize: succeeded finalized after both-node data verification
+2026-10-15T13:41:56.8914791Z ##[error]Oct 15 13:41:40 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:41:40 agent: job job-00000053 tunnel_inspect: succeeded {"config_present":true,"unit_present":true,"config_sha256":"fccf2c56a92653024bf7bfc4c6a2101362163808aeca520f07004f81ced83d87","config_loads":true,"marker_present":true,"marker_managed_by":"baft","marker_tunnel_id":"tun-f8af13dc","marker_generation":1,"marker_config_matches":true,"marker_unit_matches":true,"unit_sha256":"b4aff327696530521fa86de89582e6f2ae6f8eaf87561aed1530e6a1ef2be666","marker_sha256":"8d3b4eab54f9291b8d5b0807d7fffe2ed0188bfa2d4701306c27aaab2d83875d","node_generation":1,"service_active":true,"config_role":"dialer","peer_address":"127.0.0.1:18443","route_id":"service-main","route_listen":"127.0.0.1:1443"}
+2026-10-15T13:41:56.8925745Z ##[error]Oct 15 13:41:42 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:41:42 agent: job job-00000055 tunnel_inspect: succeeded {"config_present":true,"unit_present":true,"config_sha256":"fccf2c56a92653024bf7bfc4c6a2101362163808aeca520f07004f81ced83d87","config_loads":true,"marker_present":true,"marker_managed_by":"baft","marker_tunnel_id":"tun-f8af13dc","marker_generation":1,"marker_config_matches":true,"marker_unit_matches":true,"unit_sha256":"b4aff327696530521fa86de89582e6f2ae6f8eaf87561aed1530e6a1ef2be666","marker_sha256":"8d3b4eab54f9291b8d5b0807d7fffe2ed0188bfa2d4701306c27aaab2d83875d","node_generation":1,"service_active":true,"config_role":"dialer","peer_address":"127.0.0.1:18443","route_id":"service-main","route_listen":"127.0.0.1:1443"}
+2026-10-15T13:41:56.8939615Z ##[error]Oct 15 13:41:44 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:41:44 agent: job job-00000057 tunnel_inspect: succeeded {"config_present":true,"unit_present":true,"config_sha256":"fccf2c56a92653024bf7bfc4c6a2101362163808aeca520f07004f81ced83d87","config_loads":true,"marker_present":true,"marker_managed_by":"baft","marker_tunnel_id":"tun-f8af13dc","marker_generation":1,"marker_config_matches":true,"marker_unit_matches":true,"unit_sha256":"b4aff327696530521fa86de89582e6f2ae6f8eaf87561aed1530e6a1ef2be666","marker_sha256":"8d3b4eab54f9291b8d5b0807d7fffe2ed0188bfa2d4701306c27aaab2d83875d","node_generation":1,"service_active":true,"config_role":"dialer","peer_address":"127.0.0.1:18443","route_id":"service-main","route_listen":"127.0.0.1:1443"}
+2026-10-15T13:41:56.8948093Z ##[error]Oct 15 13:41:46 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:41:46 agent: job job-00000059 tunnel_inspect: succeeded {"config_present":true,"unit_present":true,"config_sha256":"fccf2c56a92653024bf7bfc4c6a2101362163808aeca520f07004f81ced83d87","config_loads":true,"marker_present":true,"marker_managed_by":"baft","marker_tunnel_id":"tun-f8af13dc","marker_generation":1,"marker_config_matches":true,"marker_unit_matches":true,"unit_sha256":"b4aff327696530521fa86de89582e6f2ae6f8eaf87561aed1530e6a1ef2be666","marker_sha256":"8d3b4eab54f9291b8d5b0807d7fffe2ed0188bfa2d4701306c27aaab2d83875d","node_generation":1,"service_active":true,"config_role":"dialer","peer_address":"127.0.0.1:18443","route_id":"service-main","route_listen":"127.0.0.1:1443"}
+2026-10-15T13:41:56.8997969Z ##[error]Oct 15 13:41:54 runnervmmprz5 baft-agent[8402]: 2026/10/15 13:41:54 agent: job job-00000062 tunnel_discover: succeeded {"version":1,"service":"baft-ir","config_dir":"/etc/baft-ir","unit_dir":"/etc/systemd/system","node_generation":1,"instances":[{"unit":"baft-ex.service","primary":false,"present":true,"recognized":true,"service_state":"active","unit_sha256":"37903d99e1fd6dc6eec1a1f20d88a59b8b50834cabd4576fb83cea6edd70e4f5","unit_header_tunnel":"tun-f8af13dc","unit_header_managed":true,"config_path":"/etc/baft-ex/baft.yaml","config_present":true,"config_loads":true,"config_sha256":"14054c2f3d2183a6ed90b280f31b3dd5d099441c677a5c14d80419dea87d89af","config_role":"listener","listen":"0.0.0.0:18443","route_id":"service-main","target":"127.0.0.1:2443","marker":{"managed_by":"baft","tunnel_id":"tun-f8af13dc","generation":1,"role":"ex","config_sha256":"14054c2f3d2183a6ed90b280f31b3dd5d099441c677a5c14d80419dea87d89af","unit_sha256":"37903d99e1fd6dc6eec1a1f20d88a59b8b50834cabd4576fb83cea6edd70e4f5","file_sha256":"12da00fdc3d432e2a1a748996794866983d8c361a9aad622ab78397f78d6952c"}},{"unit":"baft-ir.service","primary":true,"present":true,"recognized":true,"service_state":"active","unit_sha256":"b4aff327696530521fa86de89582e6f2ae6f8eaf87561aed1530e6a1ef2be666","unit_header_tunnel":"tun-f8af13dc","unit_header_managed":true,"config_path":"/etc/baft-ir/baft.yaml","config_present":true,"config_loads":true,"config_sha256":"fccf2c56a92653024bf7bfc4c6a2101362163808aeca520f07004f81ced83d87","config_role":"dialer","peer_address":"127.0.0.1:18443","route_id":"service-main","route_listen":"127.0.0.1:1443","marker":{"managed_by":"baft","tunnel_id":"tun-f8af13dc","generation":1,"role":"ir","config_sha256":"fccf2c56a92653024bf7bfc4c6a2101362163808aeca520f07004f81ced83d87","unit_sha256":"b4aff327696530521fa86de89582e6f2ae6f8eaf87561aed1530e6a1ef2be666","file_sha256":"8d3b4eab54f9291b8d5b0807d7fffe2ed0188bfa2d4701306c27aaab2d83875d"}}]}
+2026-10-15T13:41:56.9007566Z ##[error]Oct 15 13:41:01 runnervmmprz5 systemd[1]: Started baft-ex.service - BAFT transport service.
+2026-10-15T13:41:56.9009602Z ##[error]Oct 15 13:41:01 runnervmmprz5 baft[9033]: starting BAFT node ex-2b474d2d396c (listener)
+2026-10-15T13:41:56.9011391Z ##[error]Oct 15 13:41:01 runnervmmprz5 baft[9033]: 2026/10/15 13:41:01 baft listener startup: goroutine created configured=0.0.0.0:18443
+2026-10-15T13:41:56.9013288Z ##[error]Oct 15 13:41:01 runnervmmprz5 baft[9033]: 2026/10/15 13:41:01 baft listener startup: acquire configured=0.0.0.0:18443
+2026-10-15T13:41:56.9015096Z ##[error]Oct 15 13:41:01 runnervmmprz5 baft[9033]: 2026/10/15 13:41:01 baft listener startup: bind success configured=0.0.0.0:18443 actual=[::]:18443
+2026-10-15T13:41:56.9016825Z ##[error]Oct 15 13:41:01 runnervmmprz5 baft[9033]: 2026/10/15 13:41:01 baft listener startup: serve started actual=[::]:18443
+2026-10-15T13:41:56.9018661Z ##[error]Oct 15 13:41:31 runnervmmprz5 baft[9033]: 2026/10/15 13:41:31 baft carrier server error phase=tls_handshake sample=1
+2026-10-15T13:41:56.9021647Z ##[error]Oct 15 13:41:54 runnervmmprz5 baft[9033]: 2026/10/15 13:41:54 baft carrier server error phase=tls_handshake sample=2
+2026-10-15T13:41:56.9024271Z ##[error]Oct 15 13:41:09 runnervmmprz5 systemd[1]: Started baft-ir.service - BAFT transport service.
+2026-10-15T13:41:56.9025791Z ##[error]Oct 15 13:41:09 runnervmmprz5 baft[9254]: starting BAFT node ir-1182798d1182 (dialer)
+2026-10-15T13:41:56.9028530Z ##[error]created job signing key /tmp/tmp.amKsCEryX3/s.json.job-key; agents pin its public key: plm-DlW9HQVWFe0HXUBsuPooFzcg9PPJ_T9X8uPHFsU
+2026-10-15T13:41:56.9032478Z ##[error]BAFT Command Center listening on http://127.0.0.1:18200 (dashboard under its secret path; see: baft-bcc access show)
+2026-10-15T13:41:56.9035411Z ##[error][baft-install]   release state        create   record the verified release
+2026-10-15T13:41:56.9037811Z ##[error][baft-install]   agent token          create   /etc/baft-agent-ex/token
+2026-10-15T13:41:56.9039973Z ##[error][baft-install]   BCC job key          create   /etc/baft-agent-ex/bcc-job.pub
+2026-10-15T13:41:56.9042471Z ##[error][baft-install]   release root pin     create   /etc/baft-agent-ex/release-root.pub
+2026-10-15T13:41:56.9044037Z ##[error][baft-install]   agent unit           create   /etc/systemd/system/baft-agent-ex.service
+2026-10-15T13:41:56.9045412Z ##[error][baft-install]   agent service        restart  to pick up the change
+2026-10-15T13:41:56.9047509Z ##[error]Created symlink /etc/systemd/system/multi-user.target.wants/baft-agent-ex.service → /etc/systemd/system/baft-agent-ex.service.
+2026-10-15T13:41:56.9049669Z ##[error][baft-install] baft-agent enrolled as ex-e2e with http://127.0.0.1:18200; add tunnels from BCC
+2026-10-15T13:41:56.9052127Z ##[error][baft-install]   release state        keep     recorded: v0.0.2-ci; only moves forward, never reset
+2026-10-15T13:41:56.9053772Z ##[error][baft-install]   agent token          create   /etc/baft-agent-ir/token
+2026-10-15T13:41:56.9055644Z ##[error][baft-install]   BCC job key          create   /etc/baft-agent-ir/bcc-job.pub
+2026-10-15T13:41:56.9058401Z ##[error][baft-install]   release root pin     create   /etc/baft-agent-ir/release-root.pub
+2026-10-15T13:41:56.9060530Z ##[error][baft-install]   agent unit           create   /etc/systemd/system/baft-agent-ir.service
+2026-10-15T13:41:56.9061914Z ##[error][baft-install]   agent service        restart  to pick up the change
+2026-10-15T13:41:56.9064870Z ##[error]Created symlink /etc/systemd/system/multi-user.target.wants/baft-agent-ir.service → /etc/systemd/system/baft-agent-ir.service.
+2026-10-15T13:41:56.9068329Z ##[error][baft-install] baft-agent enrolled as ir-e2e with http://127.0.0.1:18200; add tunnels from BCC
+2026-10-15T13:41:56.9071120Z ##[error]Secure Renegotiation IS NOT supported
+2026-10-15T13:41:56.9073116Z ##[error]Compression: NONE
+2026-10-15T13:41:56.9074337Z ##[error]Expansion: NONE
+2026-10-15T13:41:56.9075831Z ##[error]No ALPN negotiated
+2026-10-15T13:41:56.9077355Z ##[error]Early data was not sent
+2026-10-15T13:41:56.9078370Z ##[error]Verify return code: 0 (ok)
+2026-10-15T13:41:56.9079867Z ##[error]---
+2026-10-15T13:41:56.9080836Z ##[error]DONE
+2026-10-15T13:41:56.9082277Z ##[error]conn 0: 2097152 bytes round-tripped, sha256=c08a76bbcb07f4e9f9f52daa418f14f2cceb3c6202d6cdb0e66ca15bc3766892
+2026-10-15T13:41:56.9084040Z ##[error]conn 1: 2097152 bytes round-tripped, sha256=39fd6ecdfc5e85471b5d33eb470c786bce2b40f541b3e8ccec5fbc97c531563b
+2026-10-15T13:42:03.6337532Z ##[error]Process completed with exit code 1.
+2026-10-15T13:42:03.6492914Z Post job cleanup.
+2026-10-15T13:42:03.7377516Z [command]/usr/bin/git version
+2026-10-15T13:42:03.7423132Z git version 2.55.0
+2026-10-15T13:42:03.7463283Z Temporarily overriding HOME='/home/runner/work/_temp/d5d57510-f2b3-40ca-8f99-c98a4fc482ea' before making global git config changes
+2026-10-15T13:42:03.7464937Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-15T13:42:03.7469796Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/BAFT/BAFT
+2026-10-15T13:42:03.7505538Z Removing SSH command configuration
+2026-10-15T13:42:03.7513016Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-15T13:42:03.7551482Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-15T13:42:03.7824768Z Removing HTTP extra header
+2026-10-15T13:42:03.7831783Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-15T13:42:03.7870596Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-15T13:42:03.8133787Z Removing includeIf entries pointing to credentials config files
+2026-10-15T13:42:03.8142316Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-15T13:42:03.8176180Z includeif.gitdir:/home/runner/work/BAFT/BAFT/.git.path
+2026-10-15T13:42:03.8186469Z includeif.gitdir:/home/runner/work/BAFT/BAFT/.git/worktrees/*.path
+2026-10-15T13:42:03.8187301Z includeif.gitdir:/github/workspace/.git.path
+2026-10-15T13:42:03.8188011Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-15T13:42:03.8189904Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/BAFT/BAFT/.git.path
+2026-10-15T13:42:03.8220892Z /home/runner/work/_temp/git-credentials-2e7fd0c2-cc89-47a2-a636-ae0df2eb758e.config
+2026-10-15T13:42:03.8232510Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/BAFT/BAFT/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-2e7fd0c2\-cc89\-47a2\-a636\-ae0df2eb758e\.config
+2026-10-15T13:42:03.8281827Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/BAFT/BAFT/.git/worktrees/*.path
+2026-10-15T13:42:03.8315392Z /home/runner/work/_temp/git-credentials-2e7fd0c2-cc89-47a2-a636-ae0df2eb758e.config
+2026-10-15T13:42:03.8324866Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/BAFT/BAFT/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-2e7fd0c2\-cc89\-47a2\-a636\-ae0df2eb758e\.config
+2026-10-15T13:42:03.8367379Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-10-15T13:42:03.8400507Z /github/runner_temp/git-credentials-2e7fd0c2-cc89-47a2-a636-ae0df2eb758e.config
+2026-10-15T13:42:03.8408350Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-2e7fd0c2\-cc89\-47a2\-a636\-ae0df2eb758e\.config
+2026-10-15T13:42:03.8453594Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-15T13:42:03.8479414Z /github/runner_temp/git-credentials-2e7fd0c2-cc89-47a2-a636-ae0df2eb758e.config
+2026-10-15T13:42:03.8522472Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-2e7fd0c2\-cc89\-47a2\-a636\-ae0df2eb758e\.config
+2026-10-15T13:42:03.8565428Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-15T13:42:03.8821240Z Removing credentials config '/home/runner/work/_temp/git-credentials-2e7fd0c2-cc89-47a2-a636-ae0df2eb758e.config'
+2026-10-15T13:42:03.9011410Z Cleaning up orphan processes

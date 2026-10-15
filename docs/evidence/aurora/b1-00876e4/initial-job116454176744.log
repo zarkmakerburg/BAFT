@@ -1,0 +1,1676 @@
+﻿2026-10-15T13:38:30.2964650Z Current runner version: '2.337.0'
+2026-10-15T13:38:30.2992187Z ##[group]Runner Image Provisioner
+2026-10-15T13:38:30.2993038Z Hosted Compute Agent
+2026-10-15T13:38:30.2993696Z Version: 20261012.601
+2026-10-15T13:38:30.2994383Z Commit: f3dc54e1fb89da6852db922499a0233137369e1d
+2026-10-15T13:38:30.2995125Z Build Date: 2026-10-12T17:48:21Z
+2026-10-15T13:38:30.2995888Z Worker ID: {458f3d42-4bf2-44cd-9671-ee1f49cfcf0e}
+2026-10-15T13:38:30.2996613Z Region: eastus
+2026-10-15T13:38:30.2997172Z Cloud: Azure
+2026-10-15T13:38:30.2997808Z ##[endgroup]
+2026-10-15T13:38:30.2999686Z ##[group]Operating System
+2026-10-15T13:38:30.3000501Z Ubuntu
+2026-10-15T13:38:30.3001031Z 24.04.5
+2026-10-15T13:38:30.3001587Z LTS
+2026-10-15T13:38:30.3002160Z ##[endgroup]
+2026-10-15T13:38:30.3002717Z ##[group]Runner Image
+2026-10-15T13:38:30.3003387Z Image: ubuntu-24.04
+2026-10-15T13:38:30.3003969Z Version: 20261012.334.1
+2026-10-15T13:38:30.3005317Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-15T13:38:30.3006893Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261012.334
+2026-10-15T13:38:30.3007943Z ##[endgroup]
+2026-10-15T13:38:30.3009291Z ##[group]GITHUB_TOKEN Permissions
+2026-10-15T13:38:30.3011768Z Contents: read
+2026-10-15T13:38:30.3012407Z Metadata: read
+2026-10-15T13:38:30.3013039Z ##[endgroup]
+2026-10-15T13:38:30.3015257Z Secret source: Actions
+2026-10-15T13:38:30.3016310Z Cache mode: write
+2026-10-15T13:38:30.3017284Z Prepare workflow directory
+2026-10-15T13:38:30.3352140Z Prepare all required actions
+2026-10-15T13:38:30.3401218Z Getting action download info
+2026-10-15T13:38:30.5754037Z Download action repository 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-10-15T13:38:30.6742815Z Download action repository 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e' (SHA:b7ad1dad31e06c5925ef5d2fc7ad053ef454303e)
+2026-10-15T13:38:30.9738813Z Complete job name: e2e-uninstall
+2026-10-15T13:38:31.0521237Z ##[group]Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+2026-10-15T13:38:31.0522344Z with:
+2026-10-15T13:38:31.0522800Z   repository: zarkmakerburg/BAFT
+2026-10-15T13:38:31.0526725Z   token: ***
+2026-10-15T13:38:31.0527177Z   ssh-strict: true
+2026-10-15T13:38:31.0527621Z   ssh-user: git
+2026-10-15T13:38:31.0528073Z   persist-credentials: true
+2026-10-15T13:38:31.0528571Z   clean: true
+2026-10-15T13:38:31.0529016Z   sparse-checkout-cone-mode: true
+2026-10-15T13:38:31.0529772Z   fetch-depth: 1
+2026-10-15T13:38:31.0530233Z   fetch-tags: false
+2026-10-15T13:38:31.0530694Z   show-progress: true
+2026-10-15T13:38:31.0531152Z   lfs: false
+2026-10-15T13:38:31.0531570Z   submodules: false
+2026-10-15T13:38:31.0532027Z   set-safe-directory: true
+2026-10-15T13:38:31.0532550Z   allow-unsafe-pr-checkout: false
+2026-10-15T13:38:31.0533328Z ##[endgroup]
+2026-10-15T13:38:31.1541903Z Syncing repository: zarkmakerburg/BAFT
+2026-10-15T13:38:31.1544505Z ##[group]Getting Git version info
+2026-10-15T13:38:31.1545731Z Working directory is '/home/runner/work/BAFT/BAFT'
+2026-10-15T13:38:31.1547445Z [command]/usr/bin/git version
+2026-10-15T13:38:31.1646460Z git version 2.55.0
+2026-10-15T13:38:31.1682655Z ##[endgroup]
+2026-10-15T13:38:31.1691600Z Temporarily overriding HOME='/home/runner/work/_temp/2c17ead6-1c6c-4b51-90ea-a946bb2fc33c' before making global git config changes
+2026-10-15T13:38:31.1693983Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-15T13:38:31.1705464Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/BAFT/BAFT
+2026-10-15T13:38:31.1756979Z Deleting the contents of '/home/runner/work/BAFT/BAFT'
+2026-10-15T13:38:31.1761597Z ##[group]Determining repository object format
+2026-10-15T13:38:31.1763469Z ##[endgroup]
+2026-10-15T13:38:31.1764862Z ##[group]Initializing the repository
+2026-10-15T13:38:31.1768917Z [command]/usr/bin/git init /home/runner/work/BAFT/BAFT
+2026-10-15T13:38:31.1882591Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-15T13:38:31.1885367Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-15T13:38:31.1888329Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-15T13:38:31.1890457Z hint: call:
+2026-10-15T13:38:31.1891867Z hint:
+2026-10-15T13:38:31.1893633Z hint: 	git config --global init.defaultBranch <name>
+2026-10-15T13:38:31.1895421Z hint:
+2026-10-15T13:38:31.1897646Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-15T13:38:31.1900078Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-15T13:38:31.1902040Z hint:
+2026-10-15T13:38:31.1903180Z hint: 	git branch -m <name>
+2026-10-15T13:38:31.1904427Z hint:
+2026-10-15T13:38:31.1905786Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-15T13:38:31.1908048Z Initialized empty Git repository in /home/runner/work/BAFT/BAFT/.git/
+2026-10-15T13:38:31.1911374Z [command]/usr/bin/git remote add origin https://github.com/zarkmakerburg/BAFT
+2026-10-15T13:38:31.1955726Z ##[endgroup]
+2026-10-15T13:38:31.1957203Z ##[group]Disabling automatic garbage collection
+2026-10-15T13:38:31.1959692Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-15T13:38:31.2006052Z ##[endgroup]
+2026-10-15T13:38:31.2007401Z ##[group]Setting up auth
+2026-10-15T13:38:31.2008358Z Removing SSH command configuration
+2026-10-15T13:38:31.2015906Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-15T13:38:31.2056527Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-15T13:38:31.2464707Z Removing HTTP extra header
+2026-10-15T13:38:31.2470897Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-15T13:38:31.2509836Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-15T13:38:31.2753626Z Removing includeIf entries pointing to credentials config files
+2026-10-15T13:38:31.2759360Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-15T13:38:31.2798061Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-15T13:38:31.3047847Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-0c886f85-f948-4fd8-98e7-07098f228294.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-15T13:38:31.3094037Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/BAFT/BAFT/.git.path /home/runner/work/_temp/git-credentials-0c886f85-f948-4fd8-98e7-07098f228294.config
+2026-10-15T13:38:31.3133619Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/BAFT/BAFT/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-0c886f85-f948-4fd8-98e7-07098f228294.config
+2026-10-15T13:38:31.3176698Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-0c886f85-f948-4fd8-98e7-07098f228294.config
+2026-10-15T13:38:31.3216908Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-0c886f85-f948-4fd8-98e7-07098f228294.config
+2026-10-15T13:38:31.3252654Z ##[endgroup]
+2026-10-15T13:38:31.3253473Z ##[group]Fetching the repository
+2026-10-15T13:38:31.3263578Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +7de6c2fd956eb6771a5a69666f51f01b8ba2bb2f:refs/remotes/pull/206/merge
+2026-10-15T13:38:31.9184869Z From https://github.com/zarkmakerburg/BAFT
+2026-10-15T13:38:31.9187075Z  * [new ref]         7de6c2fd956eb6771a5a69666f51f01b8ba2bb2f -> pull/206/merge
+2026-10-15T13:38:31.9197511Z ##[endgroup]
+2026-10-15T13:38:31.9199586Z ##[group]Determining the checkout info
+2026-10-15T13:38:31.9201425Z ##[endgroup]
+2026-10-15T13:38:31.9202350Z [command]/usr/bin/git sparse-checkout disable
+2026-10-15T13:38:31.9263450Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-15T13:38:31.9308808Z ##[group]Checking out the ref
+2026-10-15T13:38:31.9315646Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/206/merge
+2026-10-15T13:38:32.0361683Z Note: switching to 'refs/remotes/pull/206/merge'.
+2026-10-15T13:38:32.0362871Z 
+2026-10-15T13:38:32.0363621Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-10-15T13:38:32.0364976Z changes and commit them, and you can discard any commits you make in this
+2026-10-15T13:38:32.0366331Z state without impacting any branches by switching back to a branch.
+2026-10-15T13:38:32.0367107Z 
+2026-10-15T13:38:32.0367716Z If you want to create a new branch to retain commits you create, you may
+2026-10-15T13:38:32.0369380Z do so (now or later) by using -c with the switch command. Example:
+2026-10-15T13:38:32.0370252Z 
+2026-10-15T13:38:32.0370622Z   git switch -c <new-branch-name>
+2026-10-15T13:38:32.0371222Z 
+2026-10-15T13:38:32.0371576Z Or undo this operation with:
+2026-10-15T13:38:32.0372209Z 
+2026-10-15T13:38:32.0372729Z   git switch -
+2026-10-15T13:38:32.0373601Z 
+2026-10-15T13:38:32.0374780Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-10-15T13:38:32.0376502Z 
+2026-10-15T13:38:32.0378131Z HEAD is now at 7de6c2f Merge 00876e4fc71e5c7a9876e2f29d77cc50c48aba44 into de446b5df8f045c69ca388b3c500515143f7812a
+2026-10-15T13:38:32.0384580Z ##[endgroup]
+2026-10-15T13:38:32.0438050Z [command]/usr/bin/git log -1 --format=%H
+2026-10-15T13:38:32.0471335Z 7de6c2fd956eb6771a5a69666f51f01b8ba2bb2f
+2026-10-15T13:38:32.0861159Z ##[group]Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+2026-10-15T13:38:32.0862842Z with:
+2026-10-15T13:38:32.0863801Z   go-version-file: go.mod
+2026-10-15T13:38:32.0864897Z   check-latest: false
+2026-10-15T13:38:32.0865945Z   cache: false
+2026-10-15T13:38:32.0875247Z   token: ***
+2026-10-15T13:38:32.0876218Z ##[endgroup]
+2026-10-15T13:38:32.2098388Z Setup go version spec 1.27.1
+2026-10-15T13:38:32.2108304Z Attempting to download 1.27.1...
+2026-10-15T13:38:32.6580718Z matching 1.27.1...
+2026-10-15T13:38:32.6623401Z Acquiring 1.27.1 from https://github.com/actions/go-versions/releases/download/1.27.1-33583469715/go-1.27.1-linux-x64.tar.gz
+2026-10-15T13:38:33.2774224Z Extracting Go...
+2026-10-15T13:38:33.2899811Z [command]/usr/bin/tar xz --warning=no-unknown-keyword --overwrite -C /home/runner/work/_temp/fa0ba183-6d7d-4c42-8699-95bfe4619a48 -f /home/runner/work/_temp/002525f0-1b76-408f-b7b1-52e31f621699
+2026-10-15T13:38:35.0702688Z Successfully extracted go to /home/runner/work/_temp/fa0ba183-6d7d-4c42-8699-95bfe4619a48
+2026-10-15T13:38:35.0703871Z Adding to the cache ...
+2026-10-15T13:38:43.0692629Z Successfully cached go to /opt/hostedtoolcache/go/1.27.1/x64
+2026-10-15T13:38:43.0709832Z Added go to the path
+2026-10-15T13:38:43.0710916Z Successfully set up Go version 1.27.1
+2026-10-15T13:38:43.0915022Z go version go1.27.1 linux/amd64
+2026-10-15T13:38:43.0915297Z 
+2026-10-15T13:38:43.0915677Z ##[group]go env
+2026-10-15T13:38:43.2847024Z AR='ar'
+2026-10-15T13:38:43.2847435Z CC='gcc'
+2026-10-15T13:38:43.2847739Z CGO_CFLAGS='-O2 -g'
+2026-10-15T13:38:43.2848187Z CGO_CPPFLAGS=''
+2026-10-15T13:38:43.2848656Z CGO_CXXFLAGS='-O2 -g'
+2026-10-15T13:38:43.2849453Z CGO_ENABLED='1'
+2026-10-15T13:38:43.2849949Z CGO_FFLAGS='-O2 -g'
+2026-10-15T13:38:43.2850404Z CGO_LDFLAGS='-O2 -g'
+2026-10-15T13:38:43.2850844Z CXX='g++'
+2026-10-15T13:38:43.2851222Z GCCGO='gccgo'
+2026-10-15T13:38:43.2851582Z GO111MODULE=''
+2026-10-15T13:38:43.2851937Z GOAMD64='v1'
+2026-10-15T13:38:43.2852382Z GOARCH='amd64'
+2026-10-15T13:38:43.2852746Z GOAUTH='netrc'
+2026-10-15T13:38:43.2853195Z GOBIN='/home/runner/go/bin'
+2026-10-15T13:38:43.2854123Z GOCACHE='/home/runner/.cache/go-build'
+2026-10-15T13:38:43.2854608Z GOCACHEPROG=''
+2026-10-15T13:38:43.2854962Z GODEBUG=''
+2026-10-15T13:38:43.2855281Z GOENV='/home/runner/.config/go/env'
+2026-10-15T13:38:43.2855645Z GOEXE=''
+2026-10-15T13:38:43.2855895Z GOEXPERIMENT=''
+2026-10-15T13:38:43.2856169Z GOFIPS140='off'
+2026-10-15T13:38:43.2856382Z GOFLAGS=''
+2026-10-15T13:38:43.2857144Z GOGCCFLAGS='-fPIC -m64 -pthread -Wl,--no-gc-sections -fmessage-length=0 -ffile-prefix-map=/tmp/go-build1799136991=/tmp/go-build -gno-record-gcc-switches'
+2026-10-15T13:38:43.2857865Z GOHOSTARCH='amd64'
+2026-10-15T13:38:43.2858096Z GOHOSTOS='linux'
+2026-10-15T13:38:43.2858315Z GOINSECURE=''
+2026-10-15T13:38:43.2858571Z GOMOD='/home/runner/work/BAFT/BAFT/go.mod'
+2026-10-15T13:38:43.2858895Z GOMODCACHE='/home/runner/go/pkg/mod'
+2026-10-15T13:38:43.2859528Z GONOPROXY=''
+2026-10-15T13:38:43.2859806Z GONOSUMDB=''
+2026-10-15T13:38:43.2860012Z GOOS='linux'
+2026-10-15T13:38:43.2860227Z GOPACKAGESDRIVER=''
+2026-10-15T13:38:43.2860491Z GOPATH='/home/runner/go'
+2026-10-15T13:38:43.2860807Z GOPRIVATE=''
+2026-10-15T13:38:43.2861120Z GOPROXY='https://proxy.golang.org,direct'
+2026-10-15T13:38:43.2861487Z GOROOT='/opt/hostedtoolcache/go/1.27.1/x64'
+2026-10-15T13:38:43.2861802Z GOSUMDB='sum.golang.org'
+2026-10-15T13:38:43.2862045Z GOTELEMETRY='local'
+2026-10-15T13:38:43.2862321Z GOTELEMETRYDIR='/home/runner/.config/go/telemetry'
+2026-10-15T13:38:43.2862634Z GOTMPDIR=''
+2026-10-15T13:38:43.2862843Z GOTOOLCHAIN='local'
+2026-10-15T13:38:43.2863169Z GOTOOLDIR='/opt/hostedtoolcache/go/1.27.1/x64/pkg/tool/linux_amd64'
+2026-10-15T13:38:43.2863534Z GOVCS=''
+2026-10-15T13:38:43.2863747Z GOVERSION='go1.27.1'
+2026-10-15T13:38:43.2863966Z GOWORK=''
+2026-10-15T13:38:43.2864180Z PKG_CONFIG='pkg-config'
+2026-10-15T13:38:43.2864332Z 
+2026-10-15T13:38:43.2864770Z ##[endgroup]
+2026-10-15T13:38:43.3084757Z ##[group]Run export BAFT_LOCAL_RELEASE_ROOT="$RUNNER_TEMP/root"
+2026-10-15T13:38:43.3085400Z [36;1mexport BAFT_LOCAL_RELEASE_ROOT="$RUNNER_TEMP/root"[0m
+2026-10-15T13:38:43.3085922Z [36;1mscripts/release/local_release.sh "$RUNNER_TEMP/rel1" v0.0.1-ci[0m
+2026-10-15T13:38:43.3086430Z [36;1mscripts/release/local_release.sh "$RUNNER_TEMP/rel2" v0.0.2-ci[0m
+2026-10-15T13:38:43.3368471Z shell: /usr/bin/bash -e {0}
+2026-10-15T13:38:43.3368900Z env:
+2026-10-15T13:38:43.3369386Z   GOTOOLCHAIN: local
+2026-10-15T13:38:43.3369701Z ##[endgroup]
+2026-10-15T13:38:50.2657104Z go: downloading go.yaml.in/yaml/v3 v3.0.5
+2026-10-15T13:38:50.2760745Z go: downloading golang.org/x/sys v0.48.0
+2026-10-15T13:38:50.2835102Z go: downloading github.com/flynn/noise v1.1.0
+2026-10-15T13:38:50.2836512Z go: downloading github.com/refraction-networking/utls v1.8.2
+2026-10-15T13:38:50.3612047Z go: downloading golang.org/x/crypto v0.57.0
+2026-10-15T13:38:50.5573782Z go: downloading github.com/andybalholm/brotli v1.0.6
+2026-10-15T13:38:50.5574712Z go: downloading github.com/klauspost/compress v1.17.4
+2026-10-15T13:39:09.5542173Z go: downloading modernc.org/sqlite v1.60.1
+2026-10-15T13:39:10.9939957Z go: downloading modernc.org/libc v1.77.1
+2026-10-15T13:39:12.2410695Z go: downloading modernc.org/memory v1.12.1
+2026-10-15T13:39:12.2414575Z go: downloading github.com/google/uuid v1.6.0
+2026-10-15T13:39:12.2415240Z go: downloading github.com/dustin/go-humanize v1.0.1
+2026-10-15T13:39:12.2415765Z go: downloading modernc.org/mathutil v1.7.1
+2026-10-15T13:39:12.2696098Z go: downloading github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec
+2026-10-15T13:39:58.2558616Z OK v0.0.1-ci 7de6c2fd956e: 10 artifacts, release key d56247a4ad75324b0d138f1ed55df0d3, root 6a8343d721cfa81400817ce499dcf566, revocation list 1 (expires 2026-11-14T13:39:58Z)
+2026-10-15T13:40:00.7351198Z OK v0.0.2-ci 7de6c2fd956e: 10 artifacts, release key 40a8fba60175e6790d9eafe48818ea7b, root 6a8343d721cfa81400817ce499dcf566, revocation list 1 (expires 2026-11-14T13:39:58Z)
+2026-10-15T13:40:00.7437079Z ##[group]Run sudo env GITHUB_ACTIONS=true tests/e2e/uninstall.sh "$RUNNER_TEMP/rel1" "$RUNNER_TEMP/rel2"
+2026-10-15T13:40:00.7438017Z [36;1msudo env GITHUB_ACTIONS=true tests/e2e/uninstall.sh "$RUNNER_TEMP/rel1" "$RUNNER_TEMP/rel2"[0m
+2026-10-15T13:40:00.7505174Z shell: /usr/bin/bash -e {0}
+2026-10-15T13:40:00.7505439Z env:
+2026-10-15T13:40:00.7505639Z   GOTOOLCHAIN: local
+2026-10-15T13:40:00.7505865Z ##[endgroup]
+2026-10-15T13:40:00.7972027Z [uninstall-e2e] install EX and IR from release 1 and pass traffic
+2026-10-15T13:40:38.3723849Z [uninstall-e2e] a labelled BCC (systemd) with state, and an agent enrolled to it
+2026-10-15T13:40:38.6958230Z Created symlink /etc/systemd/system/multi-user.target.wants/baft-bcc.service → /etc/systemd/system/baft-bcc.service.
+2026-10-15T13:40:42.9494763Z active
+2026-10-15T13:40:42.9495140Z active
+2026-10-15T13:40:42.9502491Z [uninstall-e2e] two units the operator wrote: a running 'tunnel' and one that runs the BAFT binary
+2026-10-15T13:40:43.2289292Z Created symlink /etc/systemd/system/multi-user.target.wants/baft-hand.service → /etc/systemd/system/baft-hand.service.
+2026-10-15T13:40:43.5394654Z [uninstall-e2e] preview: exact plan, nothing changes
+2026-10-15T13:40:47.1783691Z [uninstall-e2e] ownership conflict blocks the destructive action
+2026-10-15T13:40:48.9708490Z [uninstall-e2e] an active tunnel is never stopped without explicit consent
+2026-10-15T13:40:50.8980588Z [uninstall-e2e] interrupted uninstall (killed after the first file moved) -> --restore
+2026-10-15T13:41:04.1883668Z [uninstall-e2e] interrupted uninstall (killed before the commit) -> --resume: the normal uninstall
+2026-10-15T13:41:13.7438886Z [uninstall-e2e] reinstall over the kept data: same node, no re-pairing
+2026-10-15T13:41:23.0508269Z [uninstall-e2e] upgrade to release 2, uninstall, reinstall: release 1 is refused (anti-rollback kept), release 2 is fine
+2026-10-15T13:41:48.8524067Z [uninstall-e2e] BCC state: deleted only after a verified emergency backup
+2026-10-15T13:41:49.9018847Z BAFT Uninstall Preview
+2026-10-15T13:41:49.9020155Z Scope: bcc
+2026-10-15T13:41:49.9020929Z [uninstall-e2e] FAIL: BCC uninstall
+2026-10-15T13:41:49.9021320Z 
+2026-10-15T13:41:49.9026082Z Will stop:
+2026-10-15T13:41:49.9037398Z   baft-bcc.service                           active, enabled
+2026-10-15T13:41:49.9037888Z 
+2026-10-15T13:41:49.9038066Z Will remove:
+2026-10-15T13:41:49.9039951Z   /etc/systemd/system/baft-bcc.service       unit — labelled as BAFT's BCC unit (# baft-managed: true, # baft-component: bcc)
+2026-10-15T13:41:49.9045214Z   /var/lib/baft-bcc/state.db                 BCC state — the BCC state database
+2026-10-15T13:41:49.9047441Z   /var/lib/baft-bcc/state.db.access.json     BCC state — the BCC web access file (credential hashes)
+2026-10-15T13:41:49.9050067Z   /var/lib/baft-bcc/state.db.job-key         BCC state — the BCC job-signing key (agents pin its public key)
+2026-10-15T13:41:49.9051931Z   /var/lib/baft-bcc/state.db.lock            runtime — the BCC process lock
+2026-10-15T13:41:49.9054269Z   /usr/local/bin/baft-bcc                    binary — BAFT build of cmd/baft-bcc (embedded Go build information)
+2026-10-15T13:41:49.9055572Z 
+2026-10-15T13:41:49.9055769Z Will KEEP:
+2026-10-15T13:41:49.9057100Z   /etc/baft-agent/bcc-job.pub                certificates — not in the selected scope
+2026-10-15T13:41:49.9059185Z   /etc/baft-agent/release-root.pub           certificates — not in the selected scope
+2026-10-15T13:41:49.9061379Z   /etc/baft-agent/token                      certificates — not in the selected scope
+2026-10-15T13:41:49.9063688Z   /etc/baft-ex/baft.yaml                     tunnel config — belongs to baft-ex.service, which stays
+2026-10-15T13:41:49.9064503Z   /etc/baft-ex/noise-key.json                certificates — belongs to baft-ex.service, which stays
+2026-10-15T13:41:49.9065556Z   /etc/baft-ex/pki/ca.key                    certificates — belongs to baft-ex.service, which stays
+2026-10-15T13:41:49.9066786Z   /etc/baft-ex/pki/ca.pem                    certificates — belongs to baft-ex.service, which stays
+2026-10-15T13:41:49.9067810Z   /etc/baft-ex/pki/server.key                certificates — belongs to baft-ex.service, which stays
+2026-10-15T13:41:49.9068962Z   /etc/baft-ex/pki/server.pem                certificates — belongs to baft-ex.service, which stays
+2026-10-15T13:41:49.9069935Z   /etc/baft-ir/baft.yaml                     tunnel config — belongs to baft-ir.service, which stays
+2026-10-15T13:41:49.9070989Z   /etc/baft-ir/noise-key.json                certificates — belongs to baft-ir.service, which stays
+2026-10-15T13:41:49.9071867Z   /etc/systemd/system/baft-ex.service        unit — not in the selected scope
+2026-10-15T13:41:49.9072915Z   /etc/systemd/system/baft-ir.service        unit — not in the selected scope
+2026-10-15T13:41:49.9073924Z   /opt/baft/release-state.json               certificates — not in the selected scope
+2026-10-15T13:41:49.9075056Z   /usr/local/bin/baft                        binary — not in the selected scope
+2026-10-15T13:41:49.9076195Z   /usr/local/bin/baft-pair                   binary — not in the selected scope
+2026-10-15T13:41:49.9077802Z   /var/lib/baft-bcc/state.db.audit.jsonl     audit history — data: kept by default (--delete-audit to delete)
+2026-10-15T13:41:49.9079817Z   /var/lib/baft-ir/pairing.pending.json      tunnel config — belongs to baft-ir.service, which stays
+2026-10-15T13:41:49.9081290Z   /var/lib/baft-ir/peer-ca.pem               certificates — belongs to baft-ir.service, which stays
+2026-10-15T13:41:49.9081954Z 
+2026-10-15T13:41:49.9082188Z Never touched (not proven BAFT-owned):
+2026-10-15T13:41:49.9083198Z   /etc/baft-hand/hand.conf                   UNKNOWN — not a file BAFT writes here
+2026-10-15T13:41:49.9084827Z   /etc/systemd/system/baft-hand.service      DISCOVERED_UNMANAGED — not a BAFT unit (runs /usr/bin/python3)
+2026-10-15T13:41:49.9086879Z   /etc/systemd/system/baft-manual.service    DISCOVERED_UNMANAGED — not the unit install.sh writes and no BAFT ownership marker
+2026-10-15T13:41:49.9088903Z   /var/lib/baft-bcc/admin.token              DISCOVERED_UNMANAGED — provided by the operator (named on the BCC command line)
+2026-10-15T13:41:49.9091110Z   /var/lib/baft-ex/.cargo/bin/cargo          UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:49.9092997Z   /var/lib/baft-ex/.cargo/bin/cargo-clippy   UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:49.9094880Z   /var/lib/baft-ex/.cargo/bin/cargo-fmt      UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:49.9096997Z   /var/lib/baft-ex/.cargo/bin/cargo-miri     UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:49.9099437Z   /var/lib/baft-ex/.cargo/bin/clippy-driver  UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:49.9101294Z   /var/lib/baft-ex/.cargo/bin/rls            UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:49.9103033Z   /var/lib/baft-ex/.cargo/bin/rust-analyzer  UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:49.9104803Z   /var/lib/baft-ex/.cargo/bin/rust-gdb       UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:49.9106553Z   /var/lib/baft-ex/.cargo/bin/rust-gdbgui    UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:49.9108346Z   /var/lib/baft-ex/.cargo/bin/rust-lldb      UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:49.9110366Z   /var/lib/baft-ex/.cargo/bin/rustc          UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:49.9112151Z   /var/lib/baft-ex/.cargo/bin/rustdoc        UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:49.9114187Z   /var/lib/baft-ex/.cargo/bin/rustfmt        UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:49.9116121Z   /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net10.0  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:49.9118156Z   /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net8.0  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:49.9120073Z   /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net9.0  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:49.9121583Z   /var/lib/baft-ex/.ghcup                    UNKNOWN — not a file BAFT writes here
+2026-10-15T13:41:49.9123355Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/inside-n_m-nested-pkg/node_modules/foo  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:49.9125511Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/inside-n_m-nested/node_modules/foo  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:49.9127487Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-both/a/b  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:49.9129530Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-n_m/a/b  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:49.9131476Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-pkg/a/b  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:49.9132589Z 
+2026-10-15T13:41:49.9132924Z BCC emergency backup (before BCC state is deleted):
+2026-10-15T13:41:49.9133751Z   4 file(s) copied and verified into /var/backups/baft/bcc-emergency-<time>/
+2026-10-15T13:41:49.9134070Z 
+2026-10-15T13:41:49.9134148Z Data:
+2026-10-15T13:41:49.9134587Z   Delete BCC state?          YES  (--delete-bcc-state)
+2026-10-15T13:41:49.9135300Z   Delete certificates?       NO   (nothing of it in this scope)
+2026-10-15T13:41:49.9135883Z   Delete backups?            NO   (nothing of it in this scope)
+2026-10-15T13:41:49.9136672Z   Delete tunnel configs?     NO   (nothing of it in this scope)
+2026-10-15T13:41:49.9137539Z   Delete audit history?      NO   (--delete-audit)
+2026-10-15T13:41:49.9137928Z 
+2026-10-15T13:41:49.9138115Z Default behavior: KEEP DATA
+2026-10-15T13:41:49.9138390Z 
+2026-10-15T13:41:49.9138941Z journal: /var/lib/baft-uninstall/run-20261015T134149.037094169Z-13162-0
+2026-10-15T13:41:49.9139616Z stopped baft-bcc.service
+2026-10-15T13:41:49.9140312Z emergency backup verified: /var/backups/baft/bcc-emergency-20261015T134149Z
+2026-10-15T13:41:49.9141060Z removed /etc/systemd/system/baft-bcc.service
+2026-10-15T13:41:49.9142275Z baft uninstall: /var/lib/baft-bcc/state.db changed since the plan was made; nothing of it was removed; everything was restored (journal: /var/lib/baft-uninstall/run-20261015T134149.037094169Z-13162-0)
+2026-10-15T13:41:49.9166449Z ##[error]BCC uninstall
+2026-10-15T13:41:50.0655469Z == /tmp/tmp.ENLDafYXeD/agent.out
+2026-10-15T13:41:50.0656183Z == /tmp/tmp.ENLDafYXeD/bcc.out
+2026-10-15T13:41:50.0658031Z   /var/lib/baft-ex/.cargo/bin/cargo          UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0660470Z   /var/lib/baft-ex/.cargo/bin/cargo-clippy   UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0662540Z   /var/lib/baft-ex/.cargo/bin/cargo-fmt      UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0664247Z   /var/lib/baft-ex/.cargo/bin/cargo-miri     UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0666005Z   /var/lib/baft-ex/.cargo/bin/clippy-driver  UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0667294Z   /var/lib/baft-ex/.cargo/bin/rls            UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0668213Z   /var/lib/baft-ex/.cargo/bin/rust-analyzer  UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0669721Z   /var/lib/baft-ex/.cargo/bin/rust-gdb       UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0670784Z   /var/lib/baft-ex/.cargo/bin/rust-gdbgui    UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0671887Z   /var/lib/baft-ex/.cargo/bin/rust-lldb      UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0672815Z   /var/lib/baft-ex/.cargo/bin/rustc          UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0673703Z   /var/lib/baft-ex/.cargo/bin/rustdoc        UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0674577Z   /var/lib/baft-ex/.cargo/bin/rustfmt        UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0675492Z   /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net10.0  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0676412Z   /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net8.0  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0677305Z   /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net9.0  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0678045Z   /var/lib/baft-ex/.ghcup                    UNKNOWN — not a file BAFT writes here
+2026-10-15T13:41:50.0678968Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/inside-n_m-nested-pkg/node_modules/foo  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0681453Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/inside-n_m-nested/node_modules/foo  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0682871Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-both/a/b  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0683819Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-n_m/a/b  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0684762Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-pkg/a/b  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0685205Z 
+2026-10-15T13:41:50.0685362Z BCC emergency backup (before BCC state is deleted):
+2026-10-15T13:41:50.0685851Z   4 file(s) copied and verified into /var/backups/baft/bcc-emergency-<time>/
+2026-10-15T13:41:50.0686149Z 
+2026-10-15T13:41:50.0686235Z Data:
+2026-10-15T13:41:50.0686516Z   Delete BCC state?          YES  (--delete-bcc-state)
+2026-10-15T13:41:50.0687135Z   Delete certificates?       NO   (nothing of it in this scope)
+2026-10-15T13:41:50.0719874Z   Delete backups?            NO   (nothing of it in this scope)
+2026-10-15T13:41:50.0720753Z   Delete tunnel configs?     NO   (nothing of it in this scope)
+2026-10-15T13:41:50.0721483Z   Delete audit history?      NO   (--delete-audit)
+2026-10-15T13:41:50.0721860Z 
+2026-10-15T13:41:50.0722045Z Default behavior: KEEP DATA
+2026-10-15T13:41:50.0722317Z 
+2026-10-15T13:41:50.0722671Z journal: /var/lib/baft-uninstall/run-20261015T134149.037094169Z-13162-0
+2026-10-15T13:41:50.0723350Z stopped baft-bcc.service
+2026-10-15T13:41:50.0723999Z emergency backup verified: /var/backups/baft/bcc-emergency-20261015T134149Z
+2026-10-15T13:41:50.0724778Z removed /etc/systemd/system/baft-bcc.service
+2026-10-15T13:41:50.0726296Z baft uninstall: /var/lib/baft-bcc/state.db changed since the plan was made; nothing of it was removed; everything was restored (journal: /var/lib/baft-uninstall/run-20261015T134149.037094169Z-13162-0)
+2026-10-15T13:41:50.0727726Z == /tmp/tmp.ENLDafYXeD/bccno.out
+2026-10-15T13:41:50.0728884Z   /etc/systemd/system/baft-hand.service      DISCOVERED_UNMANAGED — not a BAFT unit (runs /usr/bin/python3)
+2026-10-15T13:41:50.0731560Z   /etc/systemd/system/baft-manual.service    DISCOVERED_UNMANAGED — not the unit install.sh writes and no BAFT ownership marker
+2026-10-15T13:41:50.0733486Z   /var/lib/baft-bcc/admin.token              DISCOVERED_UNMANAGED — provided by the operator (named on the BCC command line)
+2026-10-15T13:41:50.0735367Z   /var/lib/baft-ex/.cargo/bin/cargo          UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0737038Z   /var/lib/baft-ex/.cargo/bin/cargo-clippy   UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0739003Z   /var/lib/baft-ex/.cargo/bin/cargo-fmt      UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0741104Z   /var/lib/baft-ex/.cargo/bin/cargo-miri     UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0742758Z   /var/lib/baft-ex/.cargo/bin/clippy-driver  UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0744373Z   /var/lib/baft-ex/.cargo/bin/rls            UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0745990Z   /var/lib/baft-ex/.cargo/bin/rust-analyzer  UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0747665Z   /var/lib/baft-ex/.cargo/bin/rust-gdb       UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0749565Z   /var/lib/baft-ex/.cargo/bin/rust-gdbgui    UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0751268Z   /var/lib/baft-ex/.cargo/bin/rust-lldb      UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0752897Z   /var/lib/baft-ex/.cargo/bin/rustc          UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0754510Z   /var/lib/baft-ex/.cargo/bin/rustdoc        UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0756141Z   /var/lib/baft-ex/.cargo/bin/rustfmt        UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0757775Z   /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net10.0  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0759813Z   /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net8.0  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0761532Z   /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net9.0  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0762841Z   /var/lib/baft-ex/.ghcup                    UNKNOWN — not a file BAFT writes here
+2026-10-15T13:41:50.0764497Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/inside-n_m-nested-pkg/node_modules/foo  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0766591Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/inside-n_m-nested/node_modules/foo  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0768516Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-both/a/b  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0770985Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-n_m/a/b  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0772292Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-pkg/a/b  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0772767Z 
+2026-10-15T13:41:50.0772926Z BCC emergency backup (before BCC state is deleted):
+2026-10-15T13:41:50.0773413Z   4 file(s) copied and verified into /var/backups/baft/bcc-emergency-<time>/
+2026-10-15T13:41:50.0773722Z 
+2026-10-15T13:41:50.0773799Z Data:
+2026-10-15T13:41:50.0774080Z   Delete BCC state?          YES  (--delete-bcc-state)
+2026-10-15T13:41:50.0774513Z   Delete certificates?       NO   (nothing of it in this scope)
+2026-10-15T13:41:50.0774960Z   Delete backups?            NO   (nothing of it in this scope)
+2026-10-15T13:41:50.0775384Z   Delete tunnel configs?     NO   (nothing of it in this scope)
+2026-10-15T13:41:50.0775782Z   Delete audit history?      NO   (--delete-audit)
+2026-10-15T13:41:50.0775999Z 
+2026-10-15T13:41:50.0776110Z Default behavior: KEEP DATA
+2026-10-15T13:41:50.0776268Z 
+2026-10-15T13:41:50.0776636Z This plan needs --yes to be applied. Nothing was changed.
+2026-10-15T13:41:50.0777061Z   baft uninstall --bcc --delete-bcc-state --yes
+2026-10-15T13:41:50.0777520Z == /tmp/tmp.ENLDafYXeD/conflict.out
+2026-10-15T13:41:50.0778255Z   /var/lib/baft-ex/.cargo/bin/cargo                             UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0780377Z   /var/lib/baft-ex/.cargo/bin/cargo-clippy                      UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0782031Z   /var/lib/baft-ex/.cargo/bin/cargo-fmt                         UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0783033Z   /var/lib/baft-ex/.cargo/bin/cargo-miri                        UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0784028Z   /var/lib/baft-ex/.cargo/bin/clippy-driver                     UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0785007Z   /var/lib/baft-ex/.cargo/bin/rls                               UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0785976Z   /var/lib/baft-ex/.cargo/bin/rust-analyzer                     UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0786944Z   /var/lib/baft-ex/.cargo/bin/rust-gdb                          UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0787901Z   /var/lib/baft-ex/.cargo/bin/rust-gdbgui                       UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0788857Z   /var/lib/baft-ex/.cargo/bin/rust-lldb                         UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0790248Z   /var/lib/baft-ex/.cargo/bin/rustc                             UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0791608Z   /var/lib/baft-ex/.cargo/bin/rustdoc                           UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0792603Z   /var/lib/baft-ex/.cargo/bin/rustfmt                           UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0793548Z   /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net10.0  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0795248Z   /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net8.0  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0796926Z   /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net9.0  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0798322Z   /var/lib/baft-ex/.ghcup                                       UNKNOWN — not a file BAFT writes here
+2026-10-15T13:41:50.0800248Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/inside-n_m-nested-pkg/node_modules/foo  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0802359Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/inside-n_m-nested/node_modules/foo  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0804705Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-both/a/b  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0805900Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-n_m/a/b  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0806841Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-pkg/a/b  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0807285Z 
+2026-10-15T13:41:50.0807416Z WARNING: 1 active tunnel(s) would be stopped:
+2026-10-15T13:41:50.0808061Z   baft-ex.service                                               EX: stops accepting on 0.0.0.0:8443; traffic to 127.0.0.1:2443 through this tunnel stops
+2026-10-15T13:41:50.0808967Z   Their configuration is preserved unless --delete-tunnel-configs is chosen.
+2026-10-15T13:41:50.0809686Z 
+2026-10-15T13:41:50.0809777Z Data:
+2026-10-15T13:41:50.0810253Z   Delete BCC state?          NO   (nothing of it in this scope)
+2026-10-15T13:41:50.0810691Z   Delete certificates?       NO   (--delete-certificates)
+2026-10-15T13:41:50.0811124Z   Delete backups?            NO   (nothing of it in this scope)
+2026-10-15T13:41:50.0811559Z   Delete tunnel configs?     NO   (--delete-tunnel-configs)
+2026-10-15T13:41:50.0811999Z   Delete audit history?      NO   (nothing of it in this scope)
+2026-10-15T13:41:50.0812249Z 
+2026-10-15T13:41:50.0812356Z Default behavior: KEEP DATA
+2026-10-15T13:41:50.0812511Z 
+2026-10-15T13:41:50.0812627Z BLOCKED (nothing will be changed):
+2026-10-15T13:41:50.0813478Z   - baft-ir.service: OWNERSHIP_CONFLICT (a BAFT ownership marker exists beside the config, but the unit carries no BAFT header); resolve it by hand, nothing is removed until then
+2026-10-15T13:41:50.0814140Z 
+2026-10-15T13:41:50.0814248Z Nothing was changed.
+2026-10-15T13:41:50.0814493Z == /tmp/tmp.ENLDafYXeD/crash1.out
+2026-10-15T13:41:50.0815463Z   /var/lib/baft-ex/.cargo/bin/cargo-fmt                         UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0817379Z   /var/lib/baft-ex/.cargo/bin/cargo-miri                        UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0819654Z   /var/lib/baft-ex/.cargo/bin/clippy-driver                     UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0820687Z   /var/lib/baft-ex/.cargo/bin/rls                               UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0821653Z   /var/lib/baft-ex/.cargo/bin/rust-analyzer                     UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0822629Z   /var/lib/baft-ex/.cargo/bin/rust-gdb                          UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0823593Z   /var/lib/baft-ex/.cargo/bin/rust-gdbgui                       UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0824587Z   /var/lib/baft-ex/.cargo/bin/rust-lldb                         UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0825529Z   /var/lib/baft-ex/.cargo/bin/rustc                             UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0826466Z   /var/lib/baft-ex/.cargo/bin/rustdoc                           UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0827414Z   /var/lib/baft-ex/.cargo/bin/rustfmt                           UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0828358Z   /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net10.0  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0829588Z   /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net8.0  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0830516Z   /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net9.0  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0831282Z   /var/lib/baft-ex/.ghcup                                       UNKNOWN — not a file BAFT writes here
+2026-10-15T13:41:50.0832228Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/inside-n_m-nested-pkg/node_modules/foo  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0833370Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/inside-n_m-nested/node_modules/foo  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0834395Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-both/a/b  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0835530Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-n_m/a/b  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0836473Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-pkg/a/b  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0837052Z 
+2026-10-15T13:41:50.0837190Z WARNING: 2 active tunnel(s) would be stopped:
+2026-10-15T13:41:50.0837834Z   baft-ex.service                                               EX: stops accepting on 0.0.0.0:8443; traffic to 127.0.0.1:2443 through this tunnel stops
+2026-10-15T13:41:50.0838656Z   baft-ir.service                                               IR: clients on 127.0.0.1:1443 lose the tunnel to 127.0.0.1:8443
+2026-10-15T13:41:50.0839501Z   Their configuration is preserved unless --delete-tunnel-configs is chosen.
+2026-10-15T13:41:50.0839825Z 
+2026-10-15T13:41:50.0839906Z Data:
+2026-10-15T13:41:50.0840206Z   Delete BCC state?          NO   (nothing of it in this scope)
+2026-10-15T13:41:50.0840650Z   Delete certificates?       NO   (--delete-certificates)
+2026-10-15T13:41:50.0841078Z   Delete backups?            NO   (nothing of it in this scope)
+2026-10-15T13:41:50.0841504Z   Delete tunnel configs?     NO   (--delete-tunnel-configs)
+2026-10-15T13:41:50.0841938Z   Delete audit history?      NO   (nothing of it in this scope)
+2026-10-15T13:41:50.0842184Z 
+2026-10-15T13:41:50.0842288Z Default behavior: KEEP DATA
+2026-10-15T13:41:50.0842441Z 
+2026-10-15T13:41:50.0842645Z journal: /var/lib/baft-uninstall/run-20261015T134052.666713417Z-10010-0
+2026-10-15T13:41:50.0843037Z stopped baft-agent.service
+2026-10-15T13:41:50.0843280Z stopped baft-ex.service
+2026-10-15T13:41:50.0843512Z stopped baft-ir.service
+2026-10-15T13:41:50.0843782Z removed /etc/systemd/system/baft-agent.service
+2026-10-15T13:41:50.0844099Z == /tmp/tmp.ENLDafYXeD/crash2.out
+2026-10-15T13:41:50.0844600Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-check.1
+2026-10-15T13:41:50.0845687Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-clean.1
+2026-10-15T13:41:50.0847264Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-doc.1
+2026-10-15T13:41:50.0848351Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-fetch.1
+2026-10-15T13:41:50.0849279Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-fix.1
+2026-10-15T13:41:50.0850208Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-generate-lockfile.1
+2026-10-15T13:41:50.0850988Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-help.1
+2026-10-15T13:41:50.0851693Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-info.1
+2026-10-15T13:41:50.0852392Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-init.1
+2026-10-15T13:41:50.0853112Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-install.1
+2026-10-15T13:41:50.0853885Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-locate-project.1
+2026-10-15T13:41:50.0854652Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-login.1
+2026-10-15T13:41:50.0855373Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-logout.1
+2026-10-15T13:41:50.0856110Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-metadata.1
+2026-10-15T13:41:50.0856837Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-new.1
+2026-10-15T13:41:50.0857763Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-owner.1
+2026-10-15T13:41:50.0859639Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-package.1
+2026-10-15T13:41:50.0861244Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-pkgid.1
+2026-10-15T13:41:50.0862165Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-publish.1
+2026-10-15T13:41:50.0862910Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-remove.1
+2026-10-15T13:41:50.0863746Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-report-future-incompatibilities.1
+2026-10-15T13:41:50.0864575Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-report.1
+2026-10-15T13:41:50.0865317Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-run.1
+2026-10-15T13:41:50.0866031Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-rustc.1
+2026-10-15T13:41:50.0866756Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-rustdoc.1
+2026-10-15T13:41:50.0867474Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-search.1
+2026-10-15T13:41:50.0868196Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-test.1
+2026-10-15T13:41:50.0868898Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-tree.1
+2026-10-15T13:41:50.0870126Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-uninstall.1
+2026-10-15T13:41:50.0870867Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-update.1
+2026-10-15T13:41:50.0871578Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-vendor.1
+2026-10-15T13:41:50.0872301Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-version.1
+2026-10-15T13:41:50.0873015Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-yank.1
+2026-10-15T13:41:50.0873721Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo.1
+2026-10-15T13:41:50.0874395Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/rustc.1
+2026-10-15T13:41:50.0875078Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/rustdoc.1
+2026-10-15T13:41:50.0875795Z removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/zsh/site-functions/_cargo
+2026-10-15T13:41:50.0876435Z removed /var/lib/baft-ex/.rustup/update-hashes/stable-x86_64-unknown-linux-gnu
+2026-10-15T13:41:50.0876853Z removed /usr/local/bin/baft-pair
+2026-10-15T13:41:50.0877125Z removed /usr/local/bin/baft-agent
+2026-10-15T13:41:50.0877398Z == /tmp/tmp.ENLDafYXeD/dg.out
+2026-10-15T13:41:50.0877657Z == /tmp/tmp.ENLDafYXeD/ex.out
+2026-10-15T13:41:50.0877808Z 
+2026-10-15T13:41:50.0877970Z PAIRING CODE (secret, one-time, 15 minute lifetime):
+2026-10-15T13:41:50.0896895Z BAFTPAIR1:eyJ2IjoxLCJhZGRyZXNzIjoiMTI3LjAuMC4xOjg0NDMiLCJzZXJ2ZXJfbmFtZSI6IjEyNy4wLjAuMSIsIm5vZGVfaWRlbnRpdHkiOiJ1cm46YmFmdDpub2RlOmV4LWM1OTQzZjA1MjkzNyIsIm5vaXNlX3Jlc3BvbmRlcl9rZXkiOiJmRTJRazdKN1VLdWN5Q0pYZFNWWC1waG1wekphQVBHNmZOOWVfeEpRSlFvIiwib25lX3RpbWVfcHNrIjoic0EwQ2IwSENNMjFaOEVUX01pV0hlSnAwVDJoay1YZzNLbFFaSlBDMm9IWSIsImNhX3BlbSI6IkxTMHRMUzFDUlVkSlRpQkRSVkpVU1VaSlEwRlVSUzB0TFMwdENrMUpTVUpOYWtOQ05XRkJSRUZuUlVOQmFFSnBlalZ2UWtNd05VNWthV0phYUdVeFpVTkRaamhOUVZWSFFYbDBiR05FUVZsTlVsbDNSa0ZaUkZaUlVVUUtSWGN4UTFGVldsVkpSWGgyV1RKR2MwbEZUa0pOUWpSWVJGUkpNazFVUVhoT1ZFVjVUa1JCZWsxc2IxaEVWRTB5VFZSQmVFNVVSWHBPUkVGNlRXeHZkd3BIUkVWWFRVSlJSMEV4VlVWQmVFMU9VV3RHUjFaRFFrMWlNazVvWWtOQ1JGRlVRWEZOUVZWSFFYbDBiR05CVFdoQlVGWTVXVkpsTVRJM1dDOVVTa2tyQ25KNlpsZFpXbGxKVURaMUwzVlVTbXB1SzA1NlNtdHVkMHhXTVdodk1GVjNVWHBCVDBKblRsWklVVGhDUVdZNFJVSkJUVU5CVVZsM1JXZFpSRlpTTUZRS1FWRklMMEpCWjNkQ1owVkNMM2RKUWtGRVFXUkNaMDVXU0ZFMFJVWm5VVlZQTWt4M2R6aFlaRUpKZG14eVdFWlFPRnBVTTNsQ1N6WkZWRWwzUWxGWlJBcExNbFozUVRCRlFWSmlVa1ZWYWtOTk4xb3hZVm93VjFGMFRuaGpkMnQwUjFWbVIwNXJkWFJOWVdSS0syeERZbGxFYjBSbVRqZHVTVlp5TjBzMFFtTXJDalF5YVhSUksyaElVRzA0U21WVGFHVmFlRVZOYlhWQ2VGUjRUVTlDVVQwOUNpMHRMUzB0UlU1RUlFTkZVbFJKUmtsRFFWUkZMUzB0TFMwSyIsImV4cGlyZXNfdW5peCI6MTc5MjA3MjUzMiwicmVjb3JkX3NoYXBpbmciOmZhbHNlfQ
+2026-10-15T13:41:50.0923371Z 
+2026-10-15T13:41:50.0923499Z == /tmp/tmp.ENLDafYXeD/ir.out
+2026-10-15T13:41:50.0923686Z 
+2026-10-15T13:41:50.0923876Z REPLY CODE for the EX (secret, expires with the pairing code):
+2026-10-15T13:41:50.0925707Z BAFTREPLY1:eyJ2IjoxLCJub2RlX2lkZW50aXR5IjoidXJuOmJhZnQ6bm9kZTppci1jYjM4ODZmYzFjYmYiLCJub2lzZV9wdWJsaWNfa2V5IjoiSm5BNlJJZlNTek1YdDExMV81MGNwMTEyRmdmNUZ5ZVE2UVo5S1VGYnZqYyIsImV4cGlyZXNfdW5peCI6MTc5MjA3MjUzMiwibWFjIjoiXzIwTmlMY294Qlp5ekl6TVpRNTkzellCZ04tUmFjckdEdGZGTnpPYlp3OCJ9
+2026-10-15T13:41:50.0927573Z 
+2026-10-15T13:41:50.0927783Z == /tmp/tmp.ENLDafYXeD/noconsent.out
+2026-10-15T13:41:50.0928981Z   /var/lib/baft-bcc/admin.token                                 DISCOVERED_UNMANAGED — provided by the operator (named on the BCC command line)
+2026-10-15T13:41:50.0930862Z   /var/lib/baft-ex/.cargo/bin/cargo                             UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0932164Z   /var/lib/baft-ex/.cargo/bin/cargo-clippy                      UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0933158Z   /var/lib/baft-ex/.cargo/bin/cargo-fmt                         UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0934184Z   /var/lib/baft-ex/.cargo/bin/cargo-miri                        UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0935604Z   /var/lib/baft-ex/.cargo/bin/clippy-driver                     UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0937185Z   /var/lib/baft-ex/.cargo/bin/rls                               UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0942228Z   /var/lib/baft-ex/.cargo/bin/rust-analyzer                     UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0944449Z   /var/lib/baft-ex/.cargo/bin/rust-gdb                          UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0946024Z   /var/lib/baft-ex/.cargo/bin/rust-gdbgui                       UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0947790Z   /var/lib/baft-ex/.cargo/bin/rust-lldb                         UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0949838Z   /var/lib/baft-ex/.cargo/bin/rustc                             UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0954312Z   /var/lib/baft-ex/.cargo/bin/rustdoc                           UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0956160Z   /var/lib/baft-ex/.cargo/bin/rustfmt                           UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0957799Z   /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net10.0  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0959560Z   /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net8.0  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0962087Z   /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net9.0  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0964425Z   /var/lib/baft-ex/.ghcup                                       UNKNOWN — not a file BAFT writes here
+2026-10-15T13:41:50.0967332Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/inside-n_m-nested-pkg/node_modules/foo  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0970726Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/inside-n_m-nested/node_modules/foo  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0973041Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-both/a/b  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0975466Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-n_m/a/b  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0977528Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-pkg/a/b  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.0978487Z 
+2026-10-15T13:41:50.0978769Z WARNING: 2 active tunnel(s) would be stopped:
+2026-10-15T13:41:50.0980238Z   baft-ex.service                                               EX: stops accepting on 0.0.0.0:8443; traffic to 127.0.0.1:2443 through this tunnel stops
+2026-10-15T13:41:50.0981858Z   baft-ir.service                                               IR: clients on 127.0.0.1:1443 lose the tunnel to 127.0.0.1:8443
+2026-10-15T13:41:50.0982986Z   Their configuration is preserved unless --delete-tunnel-configs is chosen.
+2026-10-15T13:41:50.0983548Z 
+2026-10-15T13:41:50.0983638Z Data:
+2026-10-15T13:41:50.0984081Z   Delete BCC state?          NO   (nothing of it in this scope)
+2026-10-15T13:41:50.0984644Z   Delete certificates?       NO   (--delete-certificates)
+2026-10-15T13:41:50.0985108Z   Delete backups?            NO   (nothing of it in this scope)
+2026-10-15T13:41:50.0985545Z   Delete tunnel configs?     NO   (--delete-tunnel-configs)
+2026-10-15T13:41:50.0986700Z   Delete audit history?      NO   (nothing of it in this scope)
+2026-10-15T13:41:50.0987108Z 
+2026-10-15T13:41:50.0987233Z Default behavior: KEEP DATA
+2026-10-15T13:41:50.0987397Z 
+2026-10-15T13:41:50.0987636Z This plan needs --stop-active-tunnels to be applied. Nothing was changed.
+2026-10-15T13:41:50.0988092Z   baft uninstall --stop-active-tunnels
+2026-10-15T13:41:50.0988412Z == /tmp/tmp.ENLDafYXeD/pending.out
+2026-10-15T13:41:50.0989001Z   /etc/baft-hand/hand.conf                                      UNKNOWN — not a file BAFT writes here
+2026-10-15T13:41:50.0990431Z   /etc/systemd/system/baft-hand.service                         DISCOVERED_UNMANAGED — not a BAFT unit (runs /usr/bin/python3)
+2026-10-15T13:41:50.0991468Z   /etc/systemd/system/baft-manual.service                       DISCOVERED_UNMANAGED — not the unit install.sh writes and no BAFT ownership marker
+2026-10-15T13:41:50.0992548Z   /var/lib/baft-bcc/admin.token                                 DISCOVERED_UNMANAGED — provided by the operator (named on the BCC command line)
+2026-10-15T13:41:50.0994216Z   /var/lib/baft-ex/.cargo/bin/cargo                             UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0996349Z   /var/lib/baft-ex/.cargo/bin/cargo-clippy                      UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.0998704Z   /var/lib/baft-ex/.cargo/bin/cargo-fmt                         UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1001205Z   /var/lib/baft-ex/.cargo/bin/cargo-miri                        UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1003279Z   /var/lib/baft-ex/.cargo/bin/clippy-driver                     UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1004617Z   /var/lib/baft-ex/.cargo/bin/rls                               UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1006177Z   /var/lib/baft-ex/.cargo/bin/rust-analyzer                     UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1007685Z   /var/lib/baft-ex/.cargo/bin/rust-gdb                          UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1010458Z   /var/lib/baft-ex/.cargo/bin/rust-gdbgui                       UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1012011Z   /var/lib/baft-ex/.cargo/bin/rust-lldb                         UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1013991Z   /var/lib/baft-ex/.cargo/bin/rustc                             UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1015415Z   /var/lib/baft-ex/.cargo/bin/rustdoc                           UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1016749Z   /var/lib/baft-ex/.cargo/bin/rustfmt                           UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1017745Z   /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net10.0  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.1018685Z   /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net8.0  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.1020418Z   /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net9.0  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.1021363Z   /var/lib/baft-ex/.ghcup                                       UNKNOWN — not a file BAFT writes here
+2026-10-15T13:41:50.1022561Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/inside-n_m-nested-pkg/node_modules/foo  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.1023914Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/inside-n_m-nested/node_modules/foo  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.1025418Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-both/a/b  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.1026987Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-n_m/a/b  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.1028251Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-pkg/a/b  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.1028711Z 
+2026-10-15T13:41:50.1028788Z Data:
+2026-10-15T13:41:50.1029337Z   Delete BCC state?          NO   (nothing of it in this scope)
+2026-10-15T13:41:50.1029874Z   Delete certificates?       NO   (--delete-certificates)
+2026-10-15T13:41:50.1030604Z   Delete backups?            NO   (nothing of it in this scope)
+2026-10-15T13:41:50.1031218Z   Delete tunnel configs?     NO   (--delete-tunnel-configs)
+2026-10-15T13:41:50.1031653Z   Delete audit history?      NO   (nothing of it in this scope)
+2026-10-15T13:41:50.1032061Z 
+2026-10-15T13:41:50.1032184Z Default behavior: KEEP DATA
+2026-10-15T13:41:50.1032339Z 
+2026-10-15T13:41:50.1032451Z BLOCKED (nothing will be changed):
+2026-10-15T13:41:50.1033511Z   - an earlier uninstall (run-20261015T134052.666713417Z-10010-0) did not finish: run `baft uninstall --resume` to complete it or `baft uninstall --restore` to undo it
+2026-10-15T13:41:50.1034243Z 
+2026-10-15T13:41:50.1034739Z Nothing was changed. Run `baft uninstall --resume` or `baft uninstall --restore` first.
+2026-10-15T13:41:50.1035983Z == /tmp/tmp.ENLDafYXeD/preview.out
+2026-10-15T13:41:50.1037413Z   /etc/systemd/system/baft-manual.service                       DISCOVERED_UNMANAGED — not the unit install.sh writes and no BAFT ownership marker
+2026-10-15T13:41:50.1039565Z   /var/lib/baft-bcc/admin.token                                 DISCOVERED_UNMANAGED — provided by the operator (named on the BCC command line)
+2026-10-15T13:41:50.1041424Z   /var/lib/baft-ex/.cargo/bin/cargo                             UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1043297Z   /var/lib/baft-ex/.cargo/bin/cargo-clippy                      UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1045183Z   /var/lib/baft-ex/.cargo/bin/cargo-fmt                         UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1046205Z   /var/lib/baft-ex/.cargo/bin/cargo-miri                        UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1047500Z   /var/lib/baft-ex/.cargo/bin/clippy-driver                     UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1048679Z   /var/lib/baft-ex/.cargo/bin/rls                               UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1050294Z   /var/lib/baft-ex/.cargo/bin/rust-analyzer                     UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1051284Z   /var/lib/baft-ex/.cargo/bin/rust-gdb                          UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1052258Z   /var/lib/baft-ex/.cargo/bin/rust-gdbgui                       UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1053573Z   /var/lib/baft-ex/.cargo/bin/rust-lldb                         UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1054696Z   /var/lib/baft-ex/.cargo/bin/rustc                             UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1056189Z   /var/lib/baft-ex/.cargo/bin/rustdoc                           UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1057665Z   /var/lib/baft-ex/.cargo/bin/rustfmt                           UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1058831Z   /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net10.0  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.1060205Z   /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net8.0  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.1061447Z   /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net9.0  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.1062332Z   /var/lib/baft-ex/.ghcup                                       UNKNOWN — not a file BAFT writes here
+2026-10-15T13:41:50.1063287Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/inside-n_m-nested-pkg/node_modules/foo  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.1064416Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/inside-n_m-nested/node_modules/foo  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.1066456Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-both/a/b  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.1068741Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-n_m/a/b  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.1071210Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-pkg/a/b  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.1072190Z 
+2026-10-15T13:41:50.1072428Z WARNING: 2 active tunnel(s) would be stopped:
+2026-10-15T13:41:50.1073717Z   baft-ex.service                                               EX: stops accepting on 0.0.0.0:8443; traffic to 127.0.0.1:2443 through this tunnel stops
+2026-10-15T13:41:50.1075244Z   baft-ir.service                                               IR: clients on 127.0.0.1:1443 lose the tunnel to 127.0.0.1:8443
+2026-10-15T13:41:50.1076314Z   Their configuration is preserved unless --delete-tunnel-configs is chosen.
+2026-10-15T13:41:50.1076884Z 
+2026-10-15T13:41:50.1076973Z Data:
+2026-10-15T13:41:50.1077539Z   Delete BCC state?          NO   (nothing of it in this scope)
+2026-10-15T13:41:50.1078297Z   Delete certificates?       NO   (--delete-certificates)
+2026-10-15T13:41:50.1079570Z   Delete backups?            NO   (nothing of it in this scope)
+2026-10-15T13:41:50.1080376Z   Delete tunnel configs?     NO   (--delete-tunnel-configs)
+2026-10-15T13:41:50.1081340Z   Delete audit history?      NO   (nothing of it in this scope)
+2026-10-15T13:41:50.1081800Z 
+2026-10-15T13:41:50.1081983Z Default behavior: KEEP DATA
+2026-10-15T13:41:50.1082398Z 
+2026-10-15T13:41:50.1082593Z This was a preview; nothing was changed.
+2026-10-15T13:41:50.1083100Z == /tmp/tmp.ENLDafYXeD/r2ex.out
+2026-10-15T13:41:50.1083556Z == /tmp/tmp.ENLDafYXeD/r2ir.out
+2026-10-15T13:41:50.1084051Z == /tmp/tmp.ENLDafYXeD/restore.out
+2026-10-15T13:41:50.1084828Z Restored: everything the interrupted uninstall moved is back and its services run as before.
+2026-10-15T13:41:50.1085883Z   journal: /var/lib/baft-uninstall/run-20261015T134052.666713417Z-10010-0
+2026-10-15T13:41:50.1086285Z == /tmp/tmp.ENLDafYXeD/resume.out
+2026-10-15T13:41:50.1086569Z Uninstall finished and verified.
+2026-10-15T13:41:50.1086945Z   stopped:  baft-agent.service, baft-ex.service, baft-ir.service
+2026-10-15T13:41:50.1087310Z   removed:  699 item(s)
+2026-10-15T13:41:50.1091840Z   removed empty directories: /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-both/node_modules, /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-n_m/node_modules, /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/no-nesting-both/node_modules, /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/no-nesting-n_m/node_modules, /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld, ... 116 more (see the journal)
+2026-10-15T13:41:50.1095875Z   journal:  /var/lib/baft-uninstall/run-20261015T134105.959235580Z-10749-0
+2026-10-15T13:41:50.1096607Z == /tmp/tmp.ENLDafYXeD/rex.out
+2026-10-15T13:41:50.1097079Z == /tmp/tmp.ENLDafYXeD/rir.out
+2026-10-15T13:41:50.1097542Z == /tmp/tmp.ENLDafYXeD/uex.out
+2026-10-15T13:41:50.1098001Z == /tmp/tmp.ENLDafYXeD/uir.out
+2026-10-15T13:41:50.1098447Z == /tmp/tmp.ENLDafYXeD/un2.out
+2026-10-15T13:41:50.1099936Z   /var/lib/baft-ex/.cargo/bin/rust-gdb       UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1101840Z   /var/lib/baft-ex/.cargo/bin/rust-gdbgui    UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1103842Z   /var/lib/baft-ex/.cargo/bin/rust-lldb      UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1105864Z   /var/lib/baft-ex/.cargo/bin/rustc          UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1107902Z   /var/lib/baft-ex/.cargo/bin/rustdoc        UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1109992Z   /var/lib/baft-ex/.cargo/bin/rustfmt        UNKNOWN — a symlink inside a BAFT directory: never followed, never removed
+2026-10-15T13:41:50.1112096Z   /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net10.0  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.1114030Z   /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net8.0  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.1115663Z   /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net9.0  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.1116944Z   /var/lib/baft-ex/.ghcup                    UNKNOWN — not a file BAFT writes here
+2026-10-15T13:41:50.1118548Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/inside-n_m-nested-pkg/node_modules/foo  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.1120836Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/inside-n_m-nested/node_modules/foo  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.1122644Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-both/a/b  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.1124308Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-n_m/a/b  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.1126165Z   /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-pkg/a/b  UNKNOWN — nested deeper than BAFT writes
+2026-10-15T13:41:50.1126954Z 
+2026-10-15T13:41:50.1127332Z WARNING: 2 active tunnel(s) would be stopped:
+2026-10-15T13:41:50.1128801Z   baft-ex.service                            EX: stops accepting on 0.0.0.0:8443; traffic to 127.0.0.1:2443 through this tunnel stops
+2026-10-15T13:41:50.1130326Z   baft-ir.service                            IR: clients on 127.0.0.1:1443 lose the tunnel to 127.0.0.1:8443
+2026-10-15T13:41:50.1131360Z   Their configuration is preserved unless --delete-tunnel-configs is chosen.
+2026-10-15T13:41:50.1131883Z 
+2026-10-15T13:41:50.1132005Z Data:
+2026-10-15T13:41:50.1132497Z   Delete BCC state?          NO   (nothing of it in this scope)
+2026-10-15T13:41:50.1133202Z   Delete certificates?       NO   (--delete-certificates)
+2026-10-15T13:41:50.1133945Z   Delete backups?            NO   (nothing of it in this scope)
+2026-10-15T13:41:50.1134668Z   Delete tunnel configs?     NO   (--delete-tunnel-configs)
+2026-10-15T13:41:50.1135430Z   Delete audit history?      NO   (nothing of it in this scope)
+2026-10-15T13:41:50.1135844Z 
+2026-10-15T13:41:50.1136017Z Default behavior: KEEP DATA
+2026-10-15T13:41:50.1136272Z 
+2026-10-15T13:41:50.1136626Z journal: /var/lib/baft-uninstall/run-20261015T134133.475563214Z-12248-0
+2026-10-15T13:41:50.1137255Z stopped baft-ex.service
+2026-10-15T13:41:50.1137635Z stopped baft-ir.service
+2026-10-15T13:41:50.1138068Z removed /etc/systemd/system/baft-ex.service
+2026-10-15T13:41:50.1138843Z removed /etc/systemd/system/baft-ir.service
+2026-10-15T13:41:50.1139621Z removed /usr/local/bin/baft-pair
+2026-10-15T13:41:50.1140287Z Uninstall finished and verified.
+2026-10-15T13:41:50.1140840Z   stopped:  baft-ex.service, baft-ir.service
+2026-10-15T13:41:50.1141365Z   removed:  3 item(s)
+2026-10-15T13:41:50.1142196Z   journal:  /var/lib/baft-uninstall/run-20261015T134133.475563214Z-12248-0
+2026-10-15T13:41:50.1142876Z == /tmp/tmp.ENLDafYXeD/agent.err
+2026-10-15T13:41:50.1143502Z BAFT transport installer
+2026-10-15T13:41:50.1144175Z [baft-install] inspecting: FRESH_INSTALL (nothing of BAFT is installed here)
+2026-10-15T13:41:50.1145268Z [baft-install] the required tools are already installed; apt is not run
+2026-10-15T13:41:50.1146670Z [baft-install] verified signed release v0.0.1-ci 7de6c2fd956eb6771a5a69666f51f01b8ba2bb2f
+2026-10-15T13:41:50.1147865Z [baft-install] install state: FRESH_INSTALL (nothing of BAFT is installed here)
+2026-10-15T13:41:50.1148754Z [baft-install] plan:
+2026-10-15T13:41:50.1149640Z [baft-install]   service user         keep     baft exists
+2026-10-15T13:41:50.1150747Z [baft-install]   directories          create   missing ones of /opt/baft /etc/baft /var/lib/baft (existing ones are not touched)
+2026-10-15T13:41:50.1152004Z [baft-install]   baft binary          keep     identical to the verified release v0.0.1-ci
+2026-10-15T13:41:50.1152935Z [baft-install]   baft-pair binary     keep     identical to the verified release v0.0.1-ci
+2026-10-15T13:41:50.1153558Z [baft-install]   baft-agent binary    create   install from the verified release v0.0.1-ci
+2026-10-15T13:41:50.1154109Z [baft-install]   release state        create   record the verified release
+2026-10-15T13:41:50.1154595Z [baft-install]   agent token          create   /etc/baft-agent/token
+2026-10-15T13:41:50.1155091Z [baft-install]   BCC job key          create   /etc/baft-agent/bcc-job.pub
+2026-10-15T13:41:50.1155587Z [baft-install]   release root pin     create   /etc/baft-agent/release-root.pub
+2026-10-15T13:41:50.1156448Z [baft-install]   agent unit           create   /etc/systemd/system/baft-agent.service
+2026-10-15T13:41:50.1157314Z [baft-install]   agent service        restart  to pick up the change
+2026-10-15T13:41:50.1158724Z Created symlink /etc/systemd/system/multi-user.target.wants/baft-agent.service → /etc/systemd/system/baft-agent.service.
+2026-10-15T13:41:50.1160368Z [baft-install] baft-agent enrolled as node-e2e with http://127.0.0.1:18200; add tunnels from BCC
+2026-10-15T13:41:50.1161419Z == /tmp/tmp.ENLDafYXeD/dg.err
+2026-10-15T13:41:50.1162127Z BAFT transport installer
+2026-10-15T13:41:50.1163179Z [baft-install] inspecting: PARTIAL_INSTALL (some of the install is missing (an interrupted install, or a node still waiting for pairing))
+2026-10-15T13:41:50.1164606Z [baft-install] the required tools are already installed; apt is not run
+2026-10-15T13:41:50.1165657Z release verification failed: release v0.0.1-ci is older than the accepted v0.0.2-ci (downgrade refused)
+2026-10-15T13:41:50.1166714Z [baft-install] ERROR: the downloaded release did not verify; nothing was installed
+2026-10-15T13:41:50.1167441Z == /tmp/tmp.ENLDafYXeD/ex.err
+2026-10-15T13:41:50.1167838Z BAFT transport installer
+2026-10-15T13:41:50.1168474Z [baft-install] inspecting: FRESH_INSTALL (nothing of BAFT is installed here)
+2026-10-15T13:41:50.1169482Z [baft-install] the required tools are already installed; apt is not run
+2026-10-15T13:41:50.1170037Z [baft-install] verified signed release v0.0.1-ci 7de6c2fd956eb6771a5a69666f51f01b8ba2bb2f
+2026-10-15T13:41:50.1170616Z [baft-install] install state: FRESH_INSTALL (nothing of BAFT is installed here)
+2026-10-15T13:41:50.1171054Z [baft-install] plan:
+2026-10-15T13:41:50.1171447Z [baft-install]   service user         create   system user baft
+2026-10-15T13:41:50.1172790Z [baft-install]   directories          create   missing ones of /opt/baft-ex /etc/baft-ex /var/lib/baft-ex (existing ones are not touched)
+2026-10-15T13:41:50.1173874Z [baft-install]   baft binary          create   install from the verified release v0.0.1-ci
+2026-10-15T13:41:50.1174470Z [baft-install]   baft-pair binary     create   install from the verified release v0.0.1-ci
+2026-10-15T13:41:50.1175012Z [baft-install]   release state        create   record the verified release
+2026-10-15T13:41:50.1175563Z [baft-install]   noise key            create   generate /etc/baft-ex/noise-key.json (owner-only)
+2026-10-15T13:41:50.1176168Z [baft-install]   outer PKI            create   generate the CA and server certificate for 127.0.0.1
+2026-10-15T13:41:50.1176724Z [baft-install]   config               create   written when pairing completes
+2026-10-15T13:41:50.1177220Z [baft-install]   pairing              create   issue a one-time pairing code
+2026-10-15T13:41:50.1177730Z [baft-install]   systemd unit         create   /etc/systemd/system/baft-ex.service
+2026-10-15T13:41:50.1178236Z [baft-install]   service              restart  started when pairing completes
+2026-10-15T13:41:50.1179020Z Created symlink /etc/systemd/system/multi-user.target.wants/baft-ex.service → /etc/systemd/system/baft-ex.service.
+2026-10-15T13:41:50.1180040Z [baft-install] baft-ex.service started; listening on 0.0.0.0:8443, exiting to 127.0.0.1:2443
+2026-10-15T13:41:50.1180639Z [baft-install] baft is installed: /usr/local/bin/baft and /usr/local/bin/baft-pair
+2026-10-15T13:41:50.1181070Z == /tmp/tmp.ENLDafYXeD/ir.err
+2026-10-15T13:41:50.1181328Z BAFT transport installer
+2026-10-15T13:41:50.1181696Z [baft-install] inspecting: FRESH_INSTALL (nothing of BAFT is installed here)
+2026-10-15T13:41:50.1182205Z [baft-install] the required tools are already installed; apt is not run
+2026-10-15T13:41:50.1182754Z [baft-install] verified signed release v0.0.1-ci 7de6c2fd956eb6771a5a69666f51f01b8ba2bb2f
+2026-10-15T13:41:50.1183327Z [baft-install] install state: FRESH_INSTALL (nothing of BAFT is installed here)
+2026-10-15T13:41:50.1183725Z [baft-install] plan:
+2026-10-15T13:41:50.1184014Z [baft-install]   service user         keep     baft exists
+2026-10-15T13:41:50.1184660Z [baft-install]   directories          create   missing ones of /opt/baft-ir /etc/baft-ir /var/lib/baft-ir (existing ones are not touched)
+2026-10-15T13:41:50.1185392Z [baft-install]   baft binary          keep     identical to the verified release v0.0.1-ci
+2026-10-15T13:41:50.1185966Z [baft-install]   baft-pair binary     keep     identical to the verified release v0.0.1-ci
+2026-10-15T13:41:50.1186497Z [baft-install]   release state        create   record the verified release
+2026-10-15T13:41:50.1187204Z [baft-install]   noise key            create   generate /etc/baft-ir/noise-key.json (owner-only)
+2026-10-15T13:41:50.1187762Z [baft-install]   config               create   written when pairing completes
+2026-10-15T13:41:50.1188378Z [baft-install]   pairing              create   pair with the EX using the pairing code
+2026-10-15T13:41:50.1188915Z [baft-install]   systemd unit         create   /etc/systemd/system/baft-ir.service
+2026-10-15T13:41:50.1189878Z [baft-install]   service              restart  started when pairing completes
+2026-10-15T13:41:50.1190648Z Created symlink /etc/systemd/system/multi-user.target.wants/baft-ir.service → /etc/systemd/system/baft-ir.service.
+2026-10-15T13:41:50.1191453Z [baft-install] baft-ir.service started; local clients connect to 127.0.0.1:1443 (once the EX accepts the reply code)
+2026-10-15T13:41:50.1192121Z [baft-install] baft is installed: /usr/local/bin/baft and /usr/local/bin/baft-pair
+2026-10-15T13:41:50.1192539Z == /tmp/tmp.ENLDafYXeD/r2ex.err
+2026-10-15T13:41:50.1192799Z BAFT transport installer
+2026-10-15T13:41:50.1193403Z [baft-install] inspecting: PARTIAL_INSTALL (some of the install is missing (an interrupted install, or a node still waiting for pairing))
+2026-10-15T13:41:50.1194119Z [baft-install] the required tools are already installed; apt is not run
+2026-10-15T13:41:50.1194660Z [baft-install] verified signed release v0.0.2-ci 7de6c2fd956eb6771a5a69666f51f01b8ba2bb2f
+2026-10-15T13:41:50.1195436Z [baft-install] install state: PARTIAL_INSTALL (some of the install is missing (an interrupted install, or a node still waiting for pairing))
+2026-10-15T13:41:50.1196033Z [baft-install] plan:
+2026-10-15T13:41:50.1196322Z [baft-install]   service user         keep     baft exists
+2026-10-15T13:41:50.1196784Z [baft-install]   directories          keep     exist; owner and mode are not changed
+2026-10-15T13:41:50.1197322Z [baft-install]   baft binary          keep     identical to the verified release v0.0.2-ci
+2026-10-15T13:41:50.1197891Z [baft-install]   baft-pair binary     create   install from the verified release v0.0.2-ci
+2026-10-15T13:41:50.1198498Z [baft-install]   release state        keep     recorded: v0.0.2-ci; only moves forward, never reset
+2026-10-15T13:41:50.1199065Z [baft-install]   noise key            keep     exists; a rerun never regenerates it
+2026-10-15T13:41:50.1199871Z [baft-install]   outer PKI            keep     CA and server certificate exist; never regenerated
+2026-10-15T13:41:50.1200414Z [baft-install]   config               keep     valid; it is not overwritten
+2026-10-15T13:41:50.1200959Z [baft-install]   pairing              skip     already paired; --re-pair starts a new pairing
+2026-10-15T13:41:50.1201507Z [baft-install]   systemd unit         create   /etc/systemd/system/baft-ex.service
+2026-10-15T13:41:50.1202011Z [baft-install]   service              restart  to run the new binary or unit
+2026-10-15T13:41:50.1202744Z Created symlink /etc/systemd/system/multi-user.target.wants/baft-ex.service → /etc/systemd/system/baft-ex.service.
+2026-10-15T13:41:50.1203316Z [baft-install] baft-ex.service is running
+2026-10-15T13:41:50.1203747Z [baft-install] baft is installed: /usr/local/bin/baft and /usr/local/bin/baft-pair
+2026-10-15T13:41:50.1204168Z == /tmp/tmp.ENLDafYXeD/r2ir.err
+2026-10-15T13:41:50.1204432Z BAFT transport installer
+2026-10-15T13:41:50.1205011Z [baft-install] inspecting: PARTIAL_INSTALL (some of the install is missing (an interrupted install, or a node still waiting for pairing))
+2026-10-15T13:41:50.1205712Z [baft-install] the required tools are already installed; apt is not run
+2026-10-15T13:41:50.1206252Z [baft-install] verified signed release v0.0.2-ci 7de6c2fd956eb6771a5a69666f51f01b8ba2bb2f
+2026-10-15T13:41:50.1207023Z [baft-install] install state: PARTIAL_INSTALL (some of the install is missing (an interrupted install, or a node still waiting for pairing))
+2026-10-15T13:41:50.1207612Z [baft-install] plan:
+2026-10-15T13:41:50.1207892Z [baft-install]   service user         keep     baft exists
+2026-10-15T13:41:50.1208494Z [baft-install]   directories          keep     exist; owner and mode are not changed
+2026-10-15T13:41:50.1209287Z [baft-install]   baft binary          keep     identical to the verified release v0.0.2-ci
+2026-10-15T13:41:50.1210300Z [baft-install]   baft-pair binary     keep     identical to the verified release v0.0.2-ci
+2026-10-15T13:41:50.1210930Z [baft-install]   release state        keep     recorded: v0.0.2-ci; only moves forward, never reset
+2026-10-15T13:41:50.1211499Z [baft-install]   noise key            keep     exists; a rerun never regenerates it
+2026-10-15T13:41:50.1211996Z [baft-install]   config               keep     valid; it is not overwritten
+2026-10-15T13:41:50.1212530Z [baft-install]   pairing              skip     already paired; --re-pair starts a new pairing
+2026-10-15T13:41:50.1213083Z [baft-install]   systemd unit         create   /etc/systemd/system/baft-ir.service
+2026-10-15T13:41:50.1213593Z [baft-install]   service              restart  to run the new binary or unit
+2026-10-15T13:41:50.1214340Z Created symlink /etc/systemd/system/multi-user.target.wants/baft-ir.service → /etc/systemd/system/baft-ir.service.
+2026-10-15T13:41:50.1214900Z [baft-install] baft-ir.service is running
+2026-10-15T13:41:50.1215332Z [baft-install] baft is installed: /usr/local/bin/baft and /usr/local/bin/baft-pair
+2026-10-15T13:41:50.1215752Z == /tmp/tmp.ENLDafYXeD/rex.err
+2026-10-15T13:41:50.1216007Z BAFT transport installer
+2026-10-15T13:41:50.1216580Z [baft-install] inspecting: PARTIAL_INSTALL (some of the install is missing (an interrupted install, or a node still waiting for pairing))
+2026-10-15T13:41:50.1217283Z [baft-install] the required tools are already installed; apt is not run
+2026-10-15T13:41:50.1217826Z [baft-install] verified signed release v0.0.1-ci 7de6c2fd956eb6771a5a69666f51f01b8ba2bb2f
+2026-10-15T13:41:50.1218599Z [baft-install] install state: PARTIAL_INSTALL (some of the install is missing (an interrupted install, or a node still waiting for pairing))
+2026-10-15T13:41:50.1219415Z [baft-install] plan:
+2026-10-15T13:41:50.1219712Z [baft-install]   service user         keep     baft exists
+2026-10-15T13:41:50.1220169Z [baft-install]   directories          keep     exist; owner and mode are not changed
+2026-10-15T13:41:50.1220715Z [baft-install]   baft binary          keep     identical to the verified release v0.0.1-ci
+2026-10-15T13:41:50.1221299Z [baft-install]   baft-pair binary     create   install from the verified release v0.0.1-ci
+2026-10-15T13:41:50.1221913Z [baft-install]   release state        keep     recorded: v0.0.1-ci; only moves forward, never reset
+2026-10-15T13:41:50.1222479Z [baft-install]   noise key            keep     exists; a rerun never regenerates it
+2026-10-15T13:41:50.1223028Z [baft-install]   outer PKI            keep     CA and server certificate exist; never regenerated
+2026-10-15T13:41:50.1223550Z [baft-install]   config               keep     valid; it is not overwritten
+2026-10-15T13:41:50.1224075Z [baft-install]   pairing              skip     already paired; --re-pair starts a new pairing
+2026-10-15T13:41:50.1224625Z [baft-install]   systemd unit         create   /etc/systemd/system/baft-ex.service
+2026-10-15T13:41:50.1225121Z [baft-install]   service              restart  to run the new binary or unit
+2026-10-15T13:41:50.1225882Z Created symlink /etc/systemd/system/multi-user.target.wants/baft-ex.service → /etc/systemd/system/baft-ex.service.
+2026-10-15T13:41:50.1226449Z [baft-install] baft-ex.service is running
+2026-10-15T13:41:50.1226871Z [baft-install] baft is installed: /usr/local/bin/baft and /usr/local/bin/baft-pair
+2026-10-15T13:41:50.1227285Z == /tmp/tmp.ENLDafYXeD/rir.err
+2026-10-15T13:41:50.1227550Z BAFT transport installer
+2026-10-15T13:41:50.1228136Z [baft-install] inspecting: PARTIAL_INSTALL (some of the install is missing (an interrupted install, or a node still waiting for pairing))
+2026-10-15T13:41:50.1228841Z [baft-install] the required tools are already installed; apt is not run
+2026-10-15T13:41:50.1229625Z [baft-install] verified signed release v0.0.1-ci 7de6c2fd956eb6771a5a69666f51f01b8ba2bb2f
+2026-10-15T13:41:50.1230558Z [baft-install] install state: PARTIAL_INSTALL (some of the install is missing (an interrupted install, or a node still waiting for pairing))
+2026-10-15T13:41:50.1231271Z [baft-install] plan:
+2026-10-15T13:41:50.1231558Z [baft-install]   service user         keep     baft exists
+2026-10-15T13:41:50.1232014Z [baft-install]   directories          keep     exist; owner and mode are not changed
+2026-10-15T13:41:50.1232557Z [baft-install]   baft binary          keep     identical to the verified release v0.0.1-ci
+2026-10-15T13:41:50.1233122Z [baft-install]   baft-pair binary     keep     identical to the verified release v0.0.1-ci
+2026-10-15T13:41:50.1233731Z [baft-install]   release state        keep     recorded: v0.0.1-ci; only moves forward, never reset
+2026-10-15T13:41:50.1234300Z [baft-install]   noise key            keep     exists; a rerun never regenerates it
+2026-10-15T13:41:50.1234795Z [baft-install]   config               keep     valid; it is not overwritten
+2026-10-15T13:41:50.1235321Z [baft-install]   pairing              skip     already paired; --re-pair starts a new pairing
+2026-10-15T13:41:50.1235896Z [baft-install]   systemd unit         create   /etc/systemd/system/baft-ir.service
+2026-10-15T13:41:50.1236404Z [baft-install]   service              restart  to run the new binary or unit
+2026-10-15T13:41:50.1237142Z Created symlink /etc/systemd/system/multi-user.target.wants/baft-ir.service → /etc/systemd/system/baft-ir.service.
+2026-10-15T13:41:50.1237707Z [baft-install] baft-ir.service is running
+2026-10-15T13:41:50.1238131Z [baft-install] baft is installed: /usr/local/bin/baft and /usr/local/bin/baft-pair
+2026-10-15T13:41:50.1238585Z == /tmp/tmp.ENLDafYXeD/uex.err
+2026-10-15T13:41:50.1238845Z BAFT transport installer
+2026-10-15T13:41:50.1239423Z [baft-install] inspecting: ALREADY_INSTALLED (installed, paired and running)
+2026-10-15T13:41:50.1239939Z [baft-install] the required tools are already installed; apt is not run
+2026-10-15T13:41:50.1240489Z [baft-install] verified signed release v0.0.2-ci 7de6c2fd956eb6771a5a69666f51f01b8ba2bb2f
+2026-10-15T13:41:50.1241275Z [baft-install] install state: UPGRADE_AVAILABLE (installed and running; the verified release v0.0.2-ci differs from the installed binaries)
+2026-10-15T13:41:50.1241885Z [baft-install] plan:
+2026-10-15T13:41:50.1242168Z [baft-install]   service user         keep     baft exists
+2026-10-15T13:41:50.1242626Z [baft-install]   directories          keep     exist; owner and mode are not changed
+2026-10-15T13:41:50.1243322Z [baft-install]   baft binary          update   replace with the verified release v0.0.2-ci (the old one is kept for rollback)
+2026-10-15T13:41:50.1244021Z [baft-install]   baft-pair binary     keep     identical to the verified release v0.0.2-ci
+2026-10-15T13:41:50.1244735Z [baft-install]   release state        update   move forward to v0.0.2-ci after the install verifies (never backwards, never reset)
+2026-10-15T13:41:50.1245402Z [baft-install]   noise key            keep     exists; a rerun never regenerates it
+2026-10-15T13:41:50.1245957Z [baft-install]   outer PKI            keep     CA and server certificate exist; never regenerated
+2026-10-15T13:41:50.1246486Z [baft-install]   config               keep     valid; it is not overwritten
+2026-10-15T13:41:50.1247008Z [baft-install]   pairing              skip     already paired; --re-pair starts a new pairing
+2026-10-15T13:41:50.1247527Z [baft-install]   systemd unit         keep     exists; not overwritten
+2026-10-15T13:41:50.1247994Z [baft-install]   service              restart  to run the new binary or unit
+2026-10-15T13:41:50.1248386Z [baft-install] baft-ex.service is running
+2026-10-15T13:41:50.1248808Z [baft-install] baft is installed: /usr/local/bin/baft and /usr/local/bin/baft-pair
+2026-10-15T13:41:50.1249529Z == /tmp/tmp.ENLDafYXeD/uir.err
+2026-10-15T13:41:50.1249817Z BAFT transport installer
+2026-10-15T13:41:50.1250181Z [baft-install] inspecting: ALREADY_INSTALLED (installed, paired and running)
+2026-10-15T13:41:50.1250823Z [baft-install] the required tools are already installed; apt is not run
+2026-10-15T13:41:50.1251377Z [baft-install] verified signed release v0.0.2-ci 7de6c2fd956eb6771a5a69666f51f01b8ba2bb2f
+2026-10-15T13:41:50.1252151Z [baft-install] install state: CURRENT (installed, running and identical to the verified release v0.0.2-ci)
+2026-10-15T13:41:50.1252641Z [baft-install] plan:
+2026-10-15T13:41:50.1252922Z [baft-install]   service user         keep     baft exists
+2026-10-15T13:41:50.1253383Z [baft-install]   directories          keep     exist; owner and mode are not changed
+2026-10-15T13:41:50.1253926Z [baft-install]   baft binary          keep     identical to the verified release v0.0.2-ci
+2026-10-15T13:41:50.1254487Z [baft-install]   baft-pair binary     keep     identical to the verified release v0.0.2-ci
+2026-10-15T13:41:50.1255193Z [baft-install]   release state        update   move forward to v0.0.2-ci after the install verifies (never backwards, never reset)
+2026-10-15T13:41:50.1255879Z [baft-install]   noise key            keep     exists; a rerun never regenerates it
+2026-10-15T13:41:50.1256375Z [baft-install]   config               keep     valid; it is not overwritten
+2026-10-15T13:41:50.1256897Z [baft-install]   pairing              skip     already paired; --re-pair starts a new pairing
+2026-10-15T13:41:50.1257410Z [baft-install]   systemd unit         keep     exists; not overwritten
+2026-10-15T13:41:50.1257879Z [baft-install]   service              keep     left running; no restart needed
+2026-10-15T13:41:50.1258283Z [baft-install] baft-ir.service is running
+2026-10-15T13:41:50.1258708Z [baft-install] baft is installed: /usr/local/bin/baft and /usr/local/bin/baft-pair
+2026-10-15T13:41:50.1259370Z == /tmp/tmp.ENLDafYXeD/prov.log
+2026-10-15T13:41:50.1260064Z   /var/lib/baft-ex/.ghcup uid=999 gid=987 mode=777 type=symbolic link mtime=2026-10-12 21:24:41.920188250 +0000 ctime=2026-10-15 13:40:31.861416524 +0000
+2026-10-15T13:41:50.1260915Z     skeleton original: uid=0 gid=0 mode=777 type=symbolic link; differences (no dereference):
+2026-10-15T13:41:50.1261384Z     symlinks inside: 1, files: 0
+2026-10-15T13:41:50.1262024Z   /var/lib/baft-ex/.nvm uid=999 gid=987 mode=755 type=directory mtime=2026-10-15 13:41:13.558748936 +0000 ctime=2026-10-15 13:41:13.558748936 +0000
+2026-10-15T13:41:50.1262827Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1263326Z       Only in /etc/skel/.nvm: .dockerignore
+2026-10-15T13:41:50.1263685Z       Only in /etc/skel/.nvm: .editorconfig
+2026-10-15T13:41:50.1264018Z       Only in /etc/skel/.nvm: .git
+2026-10-15T13:41:50.1264351Z       Only in /etc/skel/.nvm: .gitattributes
+2026-10-15T13:41:50.1264686Z       Only in /etc/skel/.nvm: .github
+2026-10-15T13:41:50.1264988Z     symlinks inside: 0, files: 6
+2026-10-15T13:41:50.1265485Z /var/lib/baft-ir uid=999 gid=987 mode=700 mtime=2026-10-15 13:40:34.039716142 +0000 ctime=2026-10-15 13:40:34.041433881 +0000
+2026-10-15T13:41:50.1266041Z --- phase: uninstall after upgrade, reinstall
+2026-10-15T13:41:50.1266595Z /var/lib/baft-ex uid=999 gid=987 mode=750 mtime=2026-10-15 13:41:13.558748936 +0000 ctime=2026-10-15 13:41:13.558748936 +0000
+2026-10-15T13:41:50.1267497Z   /var/lib/baft-ex/.cargo uid=999 gid=987 mode=755 type=directory mtime=2026-10-15 13:41:11.860734666 +0000 ctime=2026-10-15 13:41:11.860734666 +0000
+2026-10-15T13:41:50.1268316Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1268812Z       Only in /etc/skel/.cargo/bin: rustup
+2026-10-15T13:41:50.1269349Z       Only in /etc/skel/.cargo: env
+2026-10-15T13:41:50.1269690Z       Only in /etc/skel/.cargo: env.ps1
+2026-10-15T13:41:50.1270001Z     symlinks inside: 13, files: 0
+2026-10-15T13:41:50.1270656Z   /var/lib/baft-ex/.dotnet uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:18:28.377400172 +0000 ctime=2026-10-15 13:40:11.144251349 +0000
+2026-10-15T13:41:50.1271476Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1272138Z       Only in /etc/skel/.dotnet/tools/.store: .stage
+2026-10-15T13:41:50.1272707Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .nupkg.metadata
+2026-10-15T13:41:50.1273474Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .signature.p7s
+2026-10-15T13:41:50.1274143Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: 3rdPartyNotices.txt
+2026-10-15T13:41:50.1274780Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: README.md
+2026-10-15T13:41:50.1275200Z     symlinks inside: 0, files: 258
+2026-10-15T13:41:50.1275867Z   /var/lib/baft-ex/.ghcup uid=999 gid=987 mode=777 type=symbolic link mtime=2026-10-12 21:24:41.920188250 +0000 ctime=2026-10-15 13:40:31.861416524 +0000
+2026-10-15T13:41:50.1276705Z     skeleton original: uid=0 gid=0 mode=777 type=symbolic link; differences (no dereference):
+2026-10-15T13:41:50.1277180Z     symlinks inside: 1, files: 0
+2026-10-15T13:41:50.1277825Z   /var/lib/baft-ex/.nvm uid=999 gid=987 mode=755 type=directory mtime=2026-10-15 13:41:13.558748936 +0000 ctime=2026-10-15 13:41:13.558748936 +0000
+2026-10-15T13:41:50.1278628Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1279358Z       Only in /etc/skel/.nvm: .dockerignore
+2026-10-15T13:41:50.1279740Z       Only in /etc/skel/.nvm: .editorconfig
+2026-10-15T13:41:50.1280073Z       Only in /etc/skel/.nvm: .git
+2026-10-15T13:41:50.1280417Z       Only in /etc/skel/.nvm: .gitattributes
+2026-10-15T13:41:50.1280755Z       Only in /etc/skel/.nvm: .github
+2026-10-15T13:41:50.1281052Z     symlinks inside: 0, files: 6
+2026-10-15T13:41:50.1281568Z /var/lib/baft-ir uid=999 gid=987 mode=700 mtime=2026-10-15 13:40:34.039716142 +0000 ctime=2026-10-15 13:40:34.041433881 +0000
+2026-10-15T13:41:50.1282091Z == /tmp/tmp.ENLDafYXeD/send.log
+2026-10-15T13:41:50.1282598Z conn 1: 2097152 bytes round-tripped, sha256=db9e20b96a213c1c4409b5e9061401302df4263b8951750b7dd6ba362e391496
+2026-10-15T13:41:50.1283346Z conn 0: 2097152 bytes round-tripped, sha256=aeb72eab76a03520af1240a617dff01888217a5ee0af3088c5a222a9619ad30b
+2026-10-15T13:41:50.1283863Z == /tmp/tmp.ENLDafYXeD/target.log
+2026-10-15T13:41:50.1284143Z == /tmp/tmp.ENLDafYXeD/zz-fail.log
+2026-10-15T13:41:50.1284398Z BCC uninstall
+2026-10-15T13:41:50.1284599Z == journal baft-ex
+2026-10-15T13:41:50.1285181Z Oct 15 13:41:14 runnervm8k3b6 baft[11357]: 2026/10/15 13:41:14 baft listener startup: bind success configured=0.0.0.0:8443 actual=[::]:8443
+2026-10-15T13:41:50.1285977Z Oct 15 13:41:14 runnervm8k3b6 baft[11357]: 2026/10/15 13:41:14 baft listener startup: serve started actual=[::]:8443
+2026-10-15T13:41:50.1286637Z Oct 15 13:41:23 runnervm8k3b6 systemd[1]: Stopping baft-ex.service - BAFT transport service...
+2026-10-15T13:41:50.1287222Z Oct 15 13:41:28 runnervm8k3b6 systemd[1]: baft-ex.service: Deactivated successfully.
+2026-10-15T13:41:50.1287794Z Oct 15 13:41:29 runnervm8k3b6 systemd[1]: Stopped baft-ex.service - BAFT transport service.
+2026-10-15T13:41:50.1288388Z Oct 15 13:41:29 runnervm8k3b6 systemd[1]: Started baft-ex.service - BAFT transport service.
+2026-10-15T13:41:50.1288955Z Oct 15 13:41:29 runnervm8k3b6 baft[11960]: starting BAFT node ex-c5943f052937 (listener)
+2026-10-15T13:41:50.1289875Z Oct 15 13:41:29 runnervm8k3b6 baft[11960]: 2026/10/15 13:41:29 baft listener startup: goroutine created configured=0.0.0.0:8443
+2026-10-15T13:41:50.1290626Z Oct 15 13:41:29 runnervm8k3b6 baft[11960]: 2026/10/15 13:41:29 baft listener startup: acquire configured=0.0.0.0:8443
+2026-10-15T13:41:50.1291411Z Oct 15 13:41:29 runnervm8k3b6 baft[11960]: 2026/10/15 13:41:29 baft listener startup: bind success configured=0.0.0.0:8443 actual=[::]:8443
+2026-10-15T13:41:50.1292185Z Oct 15 13:41:29 runnervm8k3b6 baft[11960]: 2026/10/15 13:41:29 baft listener startup: serve started actual=[::]:8443
+2026-10-15T13:41:50.1292836Z Oct 15 13:41:33 runnervm8k3b6 systemd[1]: Stopping baft-ex.service - BAFT transport service...
+2026-10-15T13:41:50.1293554Z Oct 15 13:41:38 runnervm8k3b6 systemd[1]: baft-ex.service: Deactivated successfully.
+2026-10-15T13:41:50.1294125Z Oct 15 13:41:38 runnervm8k3b6 systemd[1]: Stopped baft-ex.service - BAFT transport service.
+2026-10-15T13:41:50.1294820Z Oct 15 13:41:40 runnervm8k3b6 systemd[1]: Started baft-ex.service - BAFT transport service.
+2026-10-15T13:41:50.1295383Z Oct 15 13:41:40 runnervm8k3b6 baft[12687]: starting BAFT node ex-c5943f052937 (listener)
+2026-10-15T13:41:50.1296048Z Oct 15 13:41:40 runnervm8k3b6 baft[12687]: 2026/10/15 13:41:40 baft listener startup: goroutine created configured=0.0.0.0:8443
+2026-10-15T13:41:50.1296784Z Oct 15 13:41:40 runnervm8k3b6 baft[12687]: 2026/10/15 13:41:40 baft listener startup: acquire configured=0.0.0.0:8443
+2026-10-15T13:41:50.1297557Z Oct 15 13:41:40 runnervm8k3b6 baft[12687]: 2026/10/15 13:41:40 baft listener startup: bind success configured=0.0.0.0:8443 actual=[::]:8443
+2026-10-15T13:41:50.1298337Z Oct 15 13:41:40 runnervm8k3b6 baft[12687]: 2026/10/15 13:41:40 baft listener startup: serve started actual=[::]:8443
+2026-10-15T13:41:50.1298814Z == journal baft-ir
+2026-10-15T13:41:50.1299402Z Oct 15 13:41:03 runnervm8k3b6 systemd[1]: Started baft-ir.service - BAFT transport service.
+2026-10-15T13:41:50.1299982Z Oct 15 13:41:03 runnervm8k3b6 baft[10551]: starting BAFT node ir-cb3886fc1cbf (dialer)
+2026-10-15T13:41:50.1300783Z Oct 15 13:41:11 runnervm8k3b6 baft[10551]: node stopped: shard 2: http2: server sent GOAWAY and closed the connection; LastStreamID=1, ErrCode=NO_ERROR, debug=""
+2026-10-15T13:41:50.1301667Z Oct 15 13:41:11 runnervm8k3b6 systemd[1]: baft-ir.service: Main process exited, code=exited, status=1/FAILURE
+2026-10-15T13:41:50.1302309Z Oct 15 13:41:11 runnervm8k3b6 systemd[1]: baft-ir.service: Failed with result 'exit-code'.
+2026-10-15T13:41:50.1302892Z Oct 15 13:41:11 runnervm8k3b6 systemd[1]: Stopped baft-ir.service - BAFT transport service.
+2026-10-15T13:41:50.1303484Z Oct 15 13:41:19 runnervm8k3b6 systemd[1]: Started baft-ir.service - BAFT transport service.
+2026-10-15T13:41:50.1304052Z Oct 15 13:41:19 runnervm8k3b6 baft[11649]: starting BAFT node ir-cb3886fc1cbf (dialer)
+2026-10-15T13:41:50.1304850Z Oct 15 13:41:28 runnervm8k3b6 baft[11649]: node stopped: shard 2: http2: server sent GOAWAY and closed the connection; LastStreamID=1, ErrCode=NO_ERROR, debug=""
+2026-10-15T13:41:50.1305719Z Oct 15 13:41:29 runnervm8k3b6 systemd[1]: baft-ir.service: Main process exited, code=exited, status=1/FAILURE
+2026-10-15T13:41:50.1306353Z Oct 15 13:41:29 runnervm8k3b6 systemd[1]: baft-ir.service: Failed with result 'exit-code'.
+2026-10-15T13:41:50.1306988Z Oct 15 13:41:31 runnervm8k3b6 systemd[1]: baft-ir.service: Scheduled restart job, restart counter is at 1.
+2026-10-15T13:41:50.1307622Z Oct 15 13:41:31 runnervm8k3b6 systemd[1]: Started baft-ir.service - BAFT transport service.
+2026-10-15T13:41:50.1308177Z Oct 15 13:41:31 runnervm8k3b6 baft[11976]: starting BAFT node ir-cb3886fc1cbf (dialer)
+2026-10-15T13:41:50.1308979Z Oct 15 13:41:38 runnervm8k3b6 baft[11976]: node stopped: shard 1: http2: server sent GOAWAY and closed the connection; LastStreamID=1, ErrCode=NO_ERROR, debug=""
+2026-10-15T13:41:50.1310065Z Oct 15 13:41:38 runnervm8k3b6 systemd[1]: baft-ir.service: Main process exited, code=exited, status=1/FAILURE
+2026-10-15T13:41:50.1310708Z Oct 15 13:41:38 runnervm8k3b6 systemd[1]: baft-ir.service: Failed with result 'exit-code'.
+2026-10-15T13:41:50.1311286Z Oct 15 13:41:38 runnervm8k3b6 systemd[1]: Stopped baft-ir.service - BAFT transport service.
+2026-10-15T13:41:50.1311865Z Oct 15 13:41:45 runnervm8k3b6 systemd[1]: Started baft-ir.service - BAFT transport service.
+2026-10-15T13:41:50.1312420Z Oct 15 13:41:45 runnervm8k3b6 baft[12961]: starting BAFT node ir-cb3886fc1cbf (dialer)
+2026-10-15T13:41:50.1312825Z == journal baft-agent
+2026-10-15T13:41:50.1313250Z Oct 15 13:40:39 runnervm8k3b6 systemd[1]: Started baft-agent.service - BAFT agent (signed BCC jobs).
+2026-10-15T13:41:50.1314146Z Oct 15 13:40:39 runnervm8k3b6 baft-agent[9637]: 2026/10/15 13:40:39 baft-agent node-e2e polling http://127.0.0.1:18200 every 30s
+2026-10-15T13:41:50.1314918Z Oct 15 13:40:52 runnervm8k3b6 systemd[1]: Stopping baft-agent.service - BAFT agent (signed BCC jobs)...
+2026-10-15T13:41:50.1315776Z Oct 15 13:40:52 runnervm8k3b6 systemd[1]: baft-agent.service: Deactivated successfully.
+2026-10-15T13:41:50.1316538Z Oct 15 13:40:52 runnervm8k3b6 systemd[1]: Stopped baft-agent.service - BAFT agent (signed BCC jobs).
+2026-10-15T13:41:50.1317408Z Oct 15 13:41:01 runnervm8k3b6 systemd[1]: Started baft-agent.service - BAFT agent (signed BCC jobs).
+2026-10-15T13:41:50.1318240Z Oct 15 13:41:01 runnervm8k3b6 baft-agent[10519]: 2026/10/15 13:41:01 baft-agent node-e2e polling http://127.0.0.1:18200 every 30s
+2026-10-15T13:41:50.1319325Z Oct 15 13:41:05 runnervm8k3b6 systemd[1]: Stopping baft-agent.service - BAFT agent (signed BCC jobs)...
+2026-10-15T13:41:50.1320186Z Oct 15 13:41:05 runnervm8k3b6 systemd[1]: baft-agent.service: Deactivated successfully.
+2026-10-15T13:41:50.1320994Z Oct 15 13:41:05 runnervm8k3b6 systemd[1]: Stopped baft-agent.service - BAFT agent (signed BCC jobs).
+2026-10-15T13:41:50.1321608Z == journal baft-bcc
+2026-10-15T13:41:50.1322109Z Oct 15 13:40:38 runnervm8k3b6 systemd[1]: Started baft-bcc.service - BAFT Command Center (e2e).
+2026-10-15T13:41:50.1323119Z Oct 15 13:40:38 runnervm8k3b6 baft-bcc[9481]: created job signing key /var/lib/baft-bcc/state.db.job-key; agents pin its public key: RIT68NdMvtRn97KjJQ64XJfUfOZcsLgrFsgFqTmW2M8
+2026-10-15T13:41:50.1324415Z Oct 15 13:40:38 runnervm8k3b6 baft-bcc[9481]: BAFT Command Center listening on http://127.0.0.1:18200 (dashboard under its secret path; see: baft-bcc access show)
+2026-10-15T13:41:50.1325393Z Oct 15 13:41:49 runnervm8k3b6 systemd[1]: Stopping baft-bcc.service - BAFT Command Center (e2e)...
+2026-10-15T13:41:50.1326177Z Oct 15 13:41:49 runnervm8k3b6 systemd[1]: baft-bcc.service: Deactivated successfully.
+2026-10-15T13:41:50.1326865Z Oct 15 13:41:49 runnervm8k3b6 systemd[1]: Stopped baft-bcc.service - BAFT Command Center (e2e).
+2026-10-15T13:41:50.1327560Z Oct 15 13:41:49 runnervm8k3b6 systemd[1]: Started baft-bcc.service - BAFT Command Center (e2e).
+2026-10-15T13:41:50.1328573Z Oct 15 13:41:49 runnervm8k3b6 baft-bcc[13371]: BAFT Command Center listening on http://127.0.0.1:18200 (dashboard under its secret path; see: baft-bcc access show)
+2026-10-15T13:41:50.1329580Z == journal baft-hand
+2026-10-15T13:41:50.1341947Z Oct 15 13:40:43 runnervm8k3b6 systemd[1]: Started baft-hand.service - operator's own tunnel (not BAFT's).
+2026-10-15T13:41:50.1342548Z == uninstall journals
+2026-10-15T13:41:50.1342949Z /var/lib/baft-uninstall/run-20261015T134052.666713417Z-10010-0 restored 699 files 
+2026-10-15T13:41:50.1343520Z /var/lib/baft-uninstall/run-20261015T134105.959235580Z-10749-0 committed 699 files 
+2026-10-15T13:41:50.1344060Z /var/lib/baft-uninstall/run-20261015T134133.475563214Z-12248-0 committed 3 files 
+2026-10-15T13:41:50.1344934Z /var/lib/baft-uninstall/run-20261015T134149.037094169Z-13162-0 restored 6 files /var/lib/baft-bcc/state.db changed since the plan was made; nothing of it was removed
+2026-10-15T13:41:50.1345620Z == BAFT paths left
+2026-10-15T13:41:50.1345838Z /etc/baft-agent
+2026-10-15T13:41:50.1346060Z /etc/baft-agent/bcc-job.pub
+2026-10-15T13:41:50.1346329Z /etc/baft-agent/release-root.pub
+2026-10-15T13:41:50.1346583Z /etc/baft-agent/token
+2026-10-15T13:41:50.1346797Z /etc/baft-ex
+2026-10-15T13:41:50.1347007Z /etc/baft-ex/noise-key.json
+2026-10-15T13:41:50.1347246Z /etc/baft-ex/pki
+2026-10-15T13:41:50.1347456Z /etc/baft-ex/pki/ca.key
+2026-10-15T13:41:50.1347689Z /etc/baft-ex/pki/server.key
+2026-10-15T13:41:50.1347923Z /etc/baft-ex/pki/ca.pem
+2026-10-15T13:41:50.1348148Z /etc/baft-ex/pki/server.pem
+2026-10-15T13:41:50.1348388Z /etc/baft-ex/baft.yaml
+2026-10-15T13:41:50.1348601Z /etc/baft-hand
+2026-10-15T13:41:50.1348807Z /etc/baft-hand/hand.conf
+2026-10-15T13:41:50.1349024Z /etc/baft-ir
+2026-10-15T13:41:50.1349481Z /etc/baft-ir/noise-key.json
+2026-10-15T13:41:50.1349715Z /etc/baft-ir/baft.yaml
+2026-10-15T13:41:50.1349926Z /var/lib/baft-bcc
+2026-10-15T13:41:50.1350355Z /var/lib/baft-bcc/state.db.job-key
+2026-10-15T13:41:50.1350641Z /var/lib/baft-bcc/admin.token
+2026-10-15T13:41:50.1350890Z /var/lib/baft-bcc/state.db
+2026-10-15T13:41:50.1351257Z /var/lib/baft-bcc/state.db.audit.jsonl
+2026-10-15T13:41:50.1351554Z /var/lib/baft-bcc/state.db.access.json
+2026-10-15T13:41:50.1351827Z /var/lib/baft-bcc/state.db.lock
+2026-10-15T13:41:50.1352070Z /var/lib/baft-ex
+2026-10-15T13:41:50.1352276Z /var/lib/baft-ex/.dotnet
+2026-10-15T13:41:50.1352515Z /var/lib/baft-ex/.dotnet/tools
+2026-10-15T13:41:50.1352756Z /var/lib/baft-ex/.cargo
+2026-10-15T13:41:50.1352981Z /var/lib/baft-ex/.cargo/bin
+2026-10-15T13:41:50.1353213Z /var/lib/baft-ex/.nvm
+2026-10-15T13:41:50.1353434Z /var/lib/baft-ex/.nvm/test
+2026-10-15T13:41:50.1353663Z /var/lib/baft-ex/.ghcup
+2026-10-15T13:41:50.1353881Z /var/lib/baft-ir
+2026-10-15T13:41:50.1354122Z /var/lib/baft-ir/pairing.pending.json
+2026-10-15T13:41:50.1354416Z /var/lib/baft-ir/peer-ca.pem
+2026-10-15T13:41:50.1354662Z /var/lib/baft-uninstall
+2026-10-15T13:41:50.1354886Z /opt/baft
+2026-10-15T13:41:50.1355093Z /opt/baft/release-state.json
+2026-10-15T13:41:50.1355323Z /opt/baft-ex
+2026-10-15T13:41:50.1355519Z /opt/baft-ex/backups
+2026-10-15T13:41:50.1355780Z /opt/baft-ex/backups/rerun-20261015T134123-11832
+2026-10-15T13:41:50.1356091Z /opt/baft-ex/release-state.json
+2026-10-15T13:41:50.1356330Z /opt/baft-ir
+2026-10-15T13:41:50.1356525Z /opt/baft-ir/backups
+2026-10-15T13:41:50.1356775Z /opt/baft-ir/backups/rerun-20261015T134133-12025
+2026-10-15T13:41:50.1357070Z /opt/baft-ir/release-state.json
+2026-10-15T13:41:50.1357312Z /usr/local/bin/baft
+2026-10-15T13:41:50.1357524Z /usr/local/bin/baft-bcc
+2026-10-15T13:41:50.1357747Z /usr/local/bin/baft-net
+2026-10-15T13:41:50.1357968Z /usr/local/bin/baft-pair
+2026-10-15T13:41:50.1359444Z ##[error]== /tmp/tmp.ENLDafYXeD/zz-fail.log
+BCC uninstall
+2026-10-15T13:41:50.1374061Z ##[error]== journal baft-ex
+Oct 15 13:41:14 runnervm8k3b6 baft[11357]: 2026/10/15 13:41:14 baft listener startup: bind success configured=0.0.0.0:8443 actual=[::]:8443
+Oct 15 13:41:14 runnervm8k3b6 baft[11357]: 2026/10/15 13:41:14 baft listener startup: serve started actual=[::]:8443
+Oct 15 13:41:23 runnervm8k3b6 systemd[1]: Stopping baft-ex.service - BAFT transport service...
+Oct 15 13:41:28 runnervm8k3b6 systemd[1]: baft-ex.service: Deactivated successfully.
+Oct 15 13:41:29 runnervm8k3b6 systemd[1]: Stopped baft-ex.service - BAFT transport service.
+Oct 15 13:41:29 runnervm8k3b6 systemd[1]: Started baft-ex.service - BAFT transport service.
+Oct 15 13:41:29 runnervm8k3b6 baft[11960]: starting BAFT node ex-c5943f052937 (listener)
+Oct 15 13:41:29 runnervm8k3b6 baft[11960]: 2026/10/15 13:41:29 baft listener startup: goroutine created configured=0.0.0.0:8443
+Oct 15 13:41:29 runnervm8k3b6 baft[11960]: 2026/10/15 13:41:29 baft listener startup: acquire configured=0.0.0.0:8443
+Oct 15 13:41:29 runnervm8k3b6 baft[11960]: 2026/10/15 13:41:29 baft listener startup: bind success configured=0.0.0.0:8443 actual=[::]:8443
+Oct 15 13:41:29 runnervm8k3b6 baft[11960]: 2026/10/15 13:41:29 baft listener startup: serve started actual=[::]:8443
+Oct 15 13:41:33 runnervm8k3b6 systemd[1]: Stopping baft-ex.service - BAFT transport service...
+Oct 15 13:41:38 runnervm8k3b6 systemd[1]: baft-ex.service: Deactivated successfully.
+Oct 15 13:41:38 runnervm8k3b6 systemd[1]: Stopped baft-ex.service - BAFT transport service.
+Oct 15 13:41:40 runnervm8k3b6 systemd[1]: Started baft-ex.service - BAFT transport service.
+Oct 15 13:41:40 runnervm8k3b6 baft[12687]: starting BAFT node ex-c5943f052937 (listener)
+Oct 15 13:41:40 runnervm8k3b6 baft[12687]: 2026/10/15 13:41:40 baft listener startup: goroutine created configured=0.0.0.0:8443
+Oct 15 13:41:40 runnervm8k3b6 baft[12687]: 2026/10/15 13:41:40 baft listener startup: acquire configured=0.0.0.0:8443
+Oct 15 13:41:40 runnervm8k3b6 baft[12687]: 2026/10/15 13:41:40 baft listener startup: bind success configured=0.0.0.0:8443 actual=[::]:8443
+Oct 15 13:41:40 runnervm8k3b6 baft[12687]: 2026/10/15 13:41:40 baft listener startup: serve started actual=[::]:8443
+2026-10-15T13:41:50.1395432Z ##[error]== journal baft-ir
+Oct 15 13:41:03 runnervm8k3b6 systemd[1]: Started baft-ir.service - BAFT transport service.
+Oct 15 13:41:03 runnervm8k3b6 baft[10551]: starting BAFT node ir-cb3886fc1cbf (dialer)
+Oct 15 13:41:11 runnervm8k3b6 baft[10551]: node stopped: shard 2: http2: server sent GOAWAY and closed the connection; LastStreamID=1, ErrCode=NO_ERROR, debug=""
+Oct 15 13:41:11 runnervm8k3b6 systemd[1]: baft-ir.service: Main process exited, code=exited, status=1/FAILURE
+Oct 15 13:41:11 runnervm8k3b6 systemd[1]: baft-ir.service: Failed with result 'exit-code'.
+Oct 15 13:41:11 runnervm8k3b6 systemd[1]: Stopped baft-ir.service - BAFT transport service.
+Oct 15 13:41:19 runnervm8k3b6 systemd[1]: Started baft-ir.service - BAFT transport service.
+Oct 15 13:41:19 runnervm8k3b6 baft[11649]: starting BAFT node ir-cb3886fc1cbf (dialer)
+Oct 15 13:41:28 runnervm8k3b6 baft[11649]: node stopped: shard 2: http2: server sent GOAWAY and closed the connection; LastStreamID=1, ErrCode=NO_ERROR, debug=""
+Oct 15 13:41:29 runnervm8k3b6 systemd[1]: baft-ir.service: Main process exited, code=exited, status=1/FAILURE
+Oct 15 13:41:29 runnervm8k3b6 systemd[1]: baft-ir.service: Failed with result 'exit-code'.
+Oct 15 13:41:31 runnervm8k3b6 systemd[1]: baft-ir.service: Scheduled restart job, restart counter is at 1.
+Oct 15 13:41:31 runnervm8k3b6 systemd[1]: Started baft-ir.service - BAFT transport service.
+Oct 15 13:41:31 runnervm8k3b6 baft[11976]: starting BAFT node ir-cb3886fc1cbf (dialer)
+Oct 15 13:41:38 runnervm8k3b6 baft[11976]: node stopped: shard 1: http2: server sent GOAWAY and closed the connection; LastStreamID=1, ErrCode=NO_ERROR, debug=""
+Oct 15 13:41:38 runnervm8k3b6 systemd[1]: baft-ir.service: Main process exited, code=exited, status=1/FAILURE
+Oct 15 13:41:38 runnervm8k3b6 systemd[1]: baft-ir.service: Failed with result 'exit-code'.
+Oct 15 13:41:38 runnervm8k3b6 systemd[1]: Stopped baft-ir.service - BAFT transport service.
+Oct 15 13:41:45 runnervm8k3b6 systemd[1]: Started baft-ir.service - BAFT transport service.
+Oct 15 13:41:45 runnervm8k3b6 baft[12961]: starting BAFT node ir-cb3886fc1cbf (dialer)
+2026-10-15T13:41:50.1410236Z ##[error]== journal baft-agent
+Oct 15 13:40:39 runnervm8k3b6 systemd[1]: Started baft-agent.service - BAFT agent (signed BCC jobs).
+Oct 15 13:40:39 runnervm8k3b6 baft-agent[9637]: 2026/10/15 13:40:39 baft-agent node-e2e polling http://127.0.0.1:18200 every 30s
+Oct 15 13:40:52 runnervm8k3b6 systemd[1]: Stopping baft-agent.service - BAFT agent (signed BCC jobs)...
+Oct 15 13:40:52 runnervm8k3b6 systemd[1]: baft-agent.service: Deactivated successfully.
+Oct 15 13:40:52 runnervm8k3b6 systemd[1]: Stopped baft-agent.service - BAFT agent (signed BCC jobs).
+Oct 15 13:41:01 runnervm8k3b6 systemd[1]: Started baft-agent.service - BAFT agent (signed BCC jobs).
+Oct 15 13:41:01 runnervm8k3b6 baft-agent[10519]: 2026/10/15 13:41:01 baft-agent node-e2e polling http://127.0.0.1:18200 every 30s
+Oct 15 13:41:05 runnervm8k3b6 systemd[1]: Stopping baft-agent.service - BAFT agent (signed BCC jobs)...
+Oct 15 13:41:05 runnervm8k3b6 systemd[1]: baft-agent.service: Deactivated successfully.
+Oct 15 13:41:05 runnervm8k3b6 systemd[1]: Stopped baft-agent.service - BAFT agent (signed BCC jobs).
+2026-10-15T13:41:50.1421309Z ##[error]== journal baft-bcc
+Oct 15 13:40:38 runnervm8k3b6 systemd[1]: Started baft-bcc.service - BAFT Command Center (e2e).
+Oct 15 13:40:38 runnervm8k3b6 baft-bcc[9481]: created job signing key /var/lib/baft-bcc/state.db.job-key; agents pin its public key: RIT68NdMvtRn97KjJQ64XJfUfOZcsLgrFsgFqTmW2M8
+Oct 15 13:40:38 runnervm8k3b6 baft-bcc[9481]: BAFT Command Center listening on http://127.0.0.1:18200 (dashboard under its secret path; see: baft-bcc access show)
+Oct 15 13:41:49 runnervm8k3b6 systemd[1]: Stopping baft-bcc.service - BAFT Command Center (e2e)...
+Oct 15 13:41:49 runnervm8k3b6 systemd[1]: baft-bcc.service: Deactivated successfully.
+Oct 15 13:41:49 runnervm8k3b6 systemd[1]: Stopped baft-bcc.service - BAFT Command Center (e2e).
+Oct 15 13:41:49 runnervm8k3b6 systemd[1]: Started baft-bcc.service - BAFT Command Center (e2e).
+Oct 15 13:41:49 runnervm8k3b6 baft-bcc[13371]: BAFT Command Center listening on http://127.0.0.1:18200 (dashboard under its secret path; see: baft-bcc access show)
+2026-10-15T13:41:50.1426191Z ##[error]== journal baft-hand
+Oct 15 13:40:43 runnervm8k3b6 systemd[1]: Started baft-hand.service - operator's own tunnel (not BAFT's).
+2026-10-15T13:41:50.1430328Z ##[error]== uninstall journals
+/var/lib/baft-uninstall/run-20261015T134052.666713417Z-10010-0 restored 699 files 
+/var/lib/baft-uninstall/run-20261015T134105.959235580Z-10749-0 committed 699 files 
+/var/lib/baft-uninstall/run-20261015T134133.475563214Z-12248-0 committed 3 files 
+/var/lib/baft-uninstall/run-20261015T134149.037094169Z-13162-0 restored 6 files /var/lib/baft-bcc/state.db changed since the plan was made; nothing of it was removed
+2026-10-15T13:41:50.1441141Z ##[error]== BAFT paths left
+/etc/baft-agent
+/etc/baft-agent/bcc-job.pub
+/etc/baft-agent/release-root.pub
+/etc/baft-agent/token
+/etc/baft-ex
+/etc/baft-ex/noise-key.json
+/etc/baft-ex/pki
+/etc/baft-ex/pki/ca.key
+/etc/baft-ex/pki/server.key
+/etc/baft-ex/pki/ca.pem
+/etc/baft-ex/pki/server.pem
+/etc/baft-ex/baft.yaml
+/etc/baft-hand
+/etc/baft-hand/hand.conf
+/etc/baft-ir
+/etc/baft-ir/noise-key.json
+/etc/baft-ir/baft.yaml
+/var/lib/baft-bcc
+/var/lib/baft-bcc/state.db.job-key
+/var/lib/baft-bcc/admin.token
+/var/lib/baft-bcc/state.db
+/var/lib/baft-bcc/state.db.audit.jsonl
+/var/lib/baft-bcc/state.db.access.json
+/var/lib/baft-bcc/state.db.lock
+/var/lib/baft-ex
+/var/lib/baft-ex/.dotnet
+/var/lib/baft-ex/.dotnet/tools
+/var/lib/baft-ex/.cargo
+/var/lib/baft-ex/.cargo/bin
+/var/lib/baft-ex/.nvm
+/var/lib/baft-ex/.nvm/test
+/var/lib/baft-ex/.ghcup
+/var/lib/baft-ir
+/var/lib/baft-ir/pairing.pending.json
+/var/lib/baft-ir/peer-ca.pem
+/var/lib/baft-uninstall
+/opt/baft
+/opt/baft/release-state.json
+/opt/baft-ex
+/opt/baft-ex/backups
+/opt/baft-ex/backups/rerun-20261015T134123-11832
+/opt/baft-ex/release-state.json
+/opt/baft-ir
+/opt/baft-ir/backups
+/opt/baft-ir/backups/rerun-20261015T134133-12025
+/opt/baft-ir/release-state.json
+/usr/local/bin/baft
+/usr/local/bin/baft-bcc
+/usr/local/bin/baft-net
+/usr/local/bin/baft-pair
+2026-10-15T13:41:50.1446493Z == provenance of service-home entries
+2026-10-15T13:41:50.1446798Z --- /etc/skel before any install:
+2026-10-15T13:41:50.1447059Z total 56
+2026-10-15T13:41:50.1447298Z drwxr-xr-x   8 root root  4096 Oct 12 21:32 .
+2026-10-15T13:41:50.1447628Z drwxr-xr-x 139 root root 12288 Oct 15 13:38 ..
+2026-10-15T13:41:50.1447985Z -rw-r--r--   1 root root   220 Mar 31  2024 .bash_logout
+2026-10-15T13:41:50.1448376Z -rw-r--r--   1 root root    67 Oct 12 21:28 .bash_profile
+2026-10-15T13:41:50.1448729Z -rw-r--r--   1 root root  3771 Mar 31  2024 .bashrc
+2026-10-15T13:41:50.1449303Z drwxr-xr-x   3 root root  4096 Oct 12 21:32 .cargo
+2026-10-15T13:41:50.1449716Z drwxr-xr-x   2 root root  4096 Oct 12 21:30 .composer
+2026-10-15T13:41:50.1450082Z drwxr-xr-x   3 root root  4096 Oct 12 21:07 .config
+2026-10-15T13:41:50.1450435Z drwxr-xr-x   3 root root  4096 Oct 12 21:18 .dotnet
+2026-10-15T13:41:50.1450853Z lrwxrwxrwx   1 root root    17 Oct 12 21:24 .ghcup -> /usr/local/.ghcup
+2026-10-15T13:41:50.1451266Z drwxr-xr-x   6 root root  4096 Oct 12 21:28 .nvm
+2026-10-15T13:41:50.1451617Z -rw-r--r--   1 root root   807 Mar 31  2024 .profile
+2026-10-15T13:41:50.1451966Z drwxr-xr-x   6 root root  4096 Oct 12 21:32 .rustup
+2026-10-15T13:41:50.1452262Z no baft user yet
+2026-10-15T13:41:50.1452483Z --- phase: fresh install
+2026-10-15T13:41:50.1452983Z /var/lib/baft-ex uid=999 gid=987 mode=750 mtime=2026-10-15 13:40:34.517437671 +0000 ctime=2026-10-15 13:40:34.517437671 +0000
+2026-10-15T13:41:50.1453932Z   /var/lib/baft-ex/.bash_logout uid=999 gid=987 mode=644 type=regular file mtime=2024-03-31 08:41:03.000000000 +0000 ctime=2026-10-15 13:40:11.150251400 +0000
+2026-10-15T13:41:50.1454825Z     skeleton original: uid=0 gid=0 mode=644 type=regular file; differences (no dereference):
+2026-10-15T13:41:50.1455321Z     symlinks inside: 0, files: 1
+2026-10-15T13:41:50.1456182Z   /var/lib/baft-ex/.bash_profile uid=999 gid=987 mode=644 type=regular file mtime=2026-10-12 21:28:02.474008455 +0000 ctime=2026-10-15 13:40:11.149251392 +0000
+2026-10-15T13:41:50.1457073Z     skeleton original: uid=0 gid=0 mode=644 type=regular file; differences (no dereference):
+2026-10-15T13:41:50.1457655Z     symlinks inside: 0, files: 1
+2026-10-15T13:41:50.1458327Z   /var/lib/baft-ex/.bashrc uid=999 gid=987 mode=644 type=regular file mtime=2024-03-31 08:41:03.000000000 +0000 ctime=2026-10-15 13:40:30.317404230 +0000
+2026-10-15T13:41:50.1459342Z     skeleton original: uid=0 gid=0 mode=644 type=regular file; differences (no dereference):
+2026-10-15T13:41:50.1459819Z     symlinks inside: 0, files: 1
+2026-10-15T13:41:50.1460467Z   /var/lib/baft-ex/.cargo uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:32:00.290990741 +0000 ctime=2026-10-15 13:40:30.993409612 +0000
+2026-10-15T13:41:50.1461280Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1461745Z     symlinks inside: 13, files: 3
+2026-10-15T13:41:50.1462431Z   /var/lib/baft-ex/.composer uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:30:14.698696200 +0000 ctime=2026-10-15 13:40:01.112166806 +0000
+2026-10-15T13:41:50.1463268Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1463727Z     symlinks inside: 0, files: 0
+2026-10-15T13:41:50.1464390Z   /var/lib/baft-ex/.config uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:07:12.801639587 +0000 ctime=2026-10-15 13:40:11.150251400 +0000
+2026-10-15T13:41:50.1465205Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1465658Z     symlinks inside: 0, files: 0
+2026-10-15T13:41:50.1466308Z   /var/lib/baft-ex/.dotnet uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:18:28.377400172 +0000 ctime=2026-10-15 13:40:11.144251349 +0000
+2026-10-15T13:41:50.1467126Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1467592Z     symlinks inside: 0, files: 268
+2026-10-15T13:41:50.1468266Z   /var/lib/baft-ex/.ghcup uid=999 gid=987 mode=777 type=symbolic link mtime=2026-10-12 21:24:41.920188250 +0000 ctime=2026-10-15 13:40:31.861416524 +0000
+2026-10-15T13:41:50.1469379Z     skeleton original: uid=0 gid=0 mode=777 type=symbolic link; differences (no dereference):
+2026-10-15T13:41:50.1469898Z     symlinks inside: 1, files: 0
+2026-10-15T13:41:50.1470550Z   /var/lib/baft-ex/.nvm uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:28:04.809040174 +0000 ctime=2026-10-15 13:40:31.861416524 +0000
+2026-10-15T13:41:50.1471376Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1471842Z     symlinks inside: 0, files: 515
+2026-10-15T13:41:50.1472519Z   /var/lib/baft-ex/.profile uid=999 gid=987 mode=644 type=regular file mtime=2024-03-31 08:41:03.000000000 +0000 ctime=2026-10-15 13:40:11.144251349 +0000
+2026-10-15T13:41:50.1473369Z     skeleton original: uid=0 gid=0 mode=644 type=regular file; differences (no dereference):
+2026-10-15T13:41:50.1473840Z     symlinks inside: 0, files: 1
+2026-10-15T13:41:50.1474496Z   /var/lib/baft-ex/.rustup uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:32:01.307003221 +0000 ctime=2026-10-15 13:40:30.317404230 +0000
+2026-10-15T13:41:50.1475311Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1475775Z     symlinks inside: 0, files: 168
+2026-10-15T13:41:50.1476281Z /var/lib/baft-ir uid=999 gid=987 mode=700 mtime=2026-10-15 13:40:34.039716142 +0000 ctime=2026-10-15 13:40:34.041433881 +0000
+2026-10-15T13:41:50.1476808Z --- phase: services started, traffic
+2026-10-15T13:41:50.1477326Z /var/lib/baft-ex uid=999 gid=987 mode=750 mtime=2026-10-15 13:40:34.517437671 +0000 ctime=2026-10-15 13:40:34.517437671 +0000
+2026-10-15T13:41:50.1478385Z   /var/lib/baft-ex/.bash_logout uid=999 gid=987 mode=644 type=regular file mtime=2024-03-31 08:41:03.000000000 +0000 ctime=2026-10-15 13:40:11.150251400 +0000
+2026-10-15T13:41:50.1479370Z     skeleton original: uid=0 gid=0 mode=644 type=regular file; differences (no dereference):
+2026-10-15T13:41:50.1479976Z     symlinks inside: 0, files: 1
+2026-10-15T13:41:50.1480658Z   /var/lib/baft-ex/.bash_profile uid=999 gid=987 mode=644 type=regular file mtime=2026-10-12 21:28:02.474008455 +0000 ctime=2026-10-15 13:40:11.149251392 +0000
+2026-10-15T13:41:50.1481512Z     skeleton original: uid=0 gid=0 mode=644 type=regular file; differences (no dereference):
+2026-10-15T13:41:50.1481975Z     symlinks inside: 0, files: 1
+2026-10-15T13:41:50.1482639Z   /var/lib/baft-ex/.bashrc uid=999 gid=987 mode=644 type=regular file mtime=2024-03-31 08:41:03.000000000 +0000 ctime=2026-10-15 13:40:30.317404230 +0000
+2026-10-15T13:41:50.1483468Z     skeleton original: uid=0 gid=0 mode=644 type=regular file; differences (no dereference):
+2026-10-15T13:41:50.1483942Z     symlinks inside: 0, files: 1
+2026-10-15T13:41:50.1484601Z   /var/lib/baft-ex/.cargo uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:32:00.290990741 +0000 ctime=2026-10-15 13:40:30.993409612 +0000
+2026-10-15T13:41:50.1485419Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1485892Z     symlinks inside: 13, files: 3
+2026-10-15T13:41:50.1486563Z   /var/lib/baft-ex/.composer uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:30:14.698696200 +0000 ctime=2026-10-15 13:40:01.112166806 +0000
+2026-10-15T13:41:50.1487391Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1487852Z     symlinks inside: 0, files: 0
+2026-10-15T13:41:50.1488512Z   /var/lib/baft-ex/.config uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:07:12.801639587 +0000 ctime=2026-10-15 13:40:11.150251400 +0000
+2026-10-15T13:41:50.1489587Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1490048Z     symlinks inside: 0, files: 0
+2026-10-15T13:41:50.1490711Z   /var/lib/baft-ex/.dotnet uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:18:28.377400172 +0000 ctime=2026-10-15 13:40:11.144251349 +0000
+2026-10-15T13:41:50.1491557Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1492033Z     symlinks inside: 0, files: 268
+2026-10-15T13:41:50.1492710Z   /var/lib/baft-ex/.ghcup uid=999 gid=987 mode=777 type=symbolic link mtime=2026-10-12 21:24:41.920188250 +0000 ctime=2026-10-15 13:40:31.861416524 +0000
+2026-10-15T13:41:50.1493562Z     skeleton original: uid=0 gid=0 mode=777 type=symbolic link; differences (no dereference):
+2026-10-15T13:41:50.1494045Z     symlinks inside: 1, files: 0
+2026-10-15T13:41:50.1494684Z   /var/lib/baft-ex/.nvm uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:28:04.809040174 +0000 ctime=2026-10-15 13:40:31.861416524 +0000
+2026-10-15T13:41:50.1495497Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1495968Z     symlinks inside: 0, files: 515
+2026-10-15T13:41:50.1496649Z   /var/lib/baft-ex/.profile uid=999 gid=987 mode=644 type=regular file mtime=2024-03-31 08:41:03.000000000 +0000 ctime=2026-10-15 13:40:11.144251349 +0000
+2026-10-15T13:41:50.1497505Z     skeleton original: uid=0 gid=0 mode=644 type=regular file; differences (no dereference):
+2026-10-15T13:41:50.1497976Z     symlinks inside: 0, files: 1
+2026-10-15T13:41:50.1498625Z   /var/lib/baft-ex/.rustup uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:32:01.307003221 +0000 ctime=2026-10-15 13:40:30.317404230 +0000
+2026-10-15T13:41:50.1499674Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1500140Z     symlinks inside: 0, files: 168
+2026-10-15T13:41:50.1500645Z /var/lib/baft-ir uid=999 gid=987 mode=700 mtime=2026-10-15 13:40:34.039716142 +0000 ctime=2026-10-15 13:40:34.041433881 +0000
+2026-10-15T13:41:50.1501168Z --- phase: crash and restore
+2026-10-15T13:41:50.1501807Z /var/lib/baft-ex uid=999 gid=987 mode=750 mtime=2026-10-15 13:40:34.517437671 +0000 ctime=2026-10-15 13:40:34.517437671 +0000
+2026-10-15T13:41:50.1502890Z   /var/lib/baft-ex/.bash_logout uid=999 gid=987 mode=644 type=regular file mtime=2024-03-31 08:41:03.000000000 +0000 ctime=2026-10-15 13:40:11.150251400 +0000
+2026-10-15T13:41:50.1503747Z     skeleton original: uid=0 gid=0 mode=644 type=regular file; differences (no dereference):
+2026-10-15T13:41:50.1504217Z     symlinks inside: 0, files: 1
+2026-10-15T13:41:50.1504902Z   /var/lib/baft-ex/.bash_profile uid=999 gid=987 mode=644 type=regular file mtime=2026-10-12 21:28:02.474008455 +0000 ctime=2026-10-15 13:40:11.149251392 +0000
+2026-10-15T13:41:50.1505756Z     skeleton original: uid=0 gid=0 mode=644 type=regular file; differences (no dereference):
+2026-10-15T13:41:50.1506221Z     symlinks inside: 0, files: 1
+2026-10-15T13:41:50.1506887Z   /var/lib/baft-ex/.bashrc uid=999 gid=987 mode=644 type=regular file mtime=2024-03-31 08:41:03.000000000 +0000 ctime=2026-10-15 13:40:30.317404230 +0000
+2026-10-15T13:41:50.1507722Z     skeleton original: uid=0 gid=0 mode=644 type=regular file; differences (no dereference):
+2026-10-15T13:41:50.1508187Z     symlinks inside: 0, files: 1
+2026-10-15T13:41:50.1508831Z   /var/lib/baft-ex/.cargo uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:32:00.290990741 +0000 ctime=2026-10-15 13:40:30.993409612 +0000
+2026-10-15T13:41:50.1509767Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1510230Z     symlinks inside: 13, files: 3
+2026-10-15T13:41:50.1510892Z   /var/lib/baft-ex/.composer uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:30:14.698696200 +0000 ctime=2026-10-15 13:40:01.112166806 +0000
+2026-10-15T13:41:50.1511714Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1512175Z     symlinks inside: 0, files: 0
+2026-10-15T13:41:50.1512824Z   /var/lib/baft-ex/.config uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:07:12.801639587 +0000 ctime=2026-10-15 13:40:11.150251400 +0000
+2026-10-15T13:41:50.1513635Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1514099Z     symlinks inside: 0, files: 0
+2026-10-15T13:41:50.1514744Z   /var/lib/baft-ex/.dotnet uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:18:28.377400172 +0000 ctime=2026-10-15 13:40:11.144251349 +0000
+2026-10-15T13:41:50.1515552Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1516012Z     symlinks inside: 0, files: 268
+2026-10-15T13:41:50.1516678Z   /var/lib/baft-ex/.ghcup uid=999 gid=987 mode=777 type=symbolic link mtime=2026-10-12 21:24:41.920188250 +0000 ctime=2026-10-15 13:40:31.861416524 +0000
+2026-10-15T13:41:50.1517520Z     skeleton original: uid=0 gid=0 mode=777 type=symbolic link; differences (no dereference):
+2026-10-15T13:41:50.1517988Z     symlinks inside: 1, files: 0
+2026-10-15T13:41:50.1518629Z   /var/lib/baft-ex/.nvm uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:28:04.809040174 +0000 ctime=2026-10-15 13:40:31.861416524 +0000
+2026-10-15T13:41:50.1519544Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1520002Z     symlinks inside: 0, files: 515
+2026-10-15T13:41:50.1520681Z   /var/lib/baft-ex/.profile uid=999 gid=987 mode=644 type=regular file mtime=2024-03-31 08:41:03.000000000 +0000 ctime=2026-10-15 13:40:11.144251349 +0000
+2026-10-15T13:41:50.1521524Z     skeleton original: uid=0 gid=0 mode=644 type=regular file; differences (no dereference):
+2026-10-15T13:41:50.1521989Z     symlinks inside: 0, files: 1
+2026-10-15T13:41:50.1522635Z   /var/lib/baft-ex/.rustup uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:32:01.307003221 +0000 ctime=2026-10-15 13:40:30.317404230 +0000
+2026-10-15T13:41:50.1523445Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1524023Z     symlinks inside: 0, files: 168
+2026-10-15T13:41:50.1524532Z /var/lib/baft-ir uid=999 gid=987 mode=700 mtime=2026-10-15 13:40:34.039716142 +0000 ctime=2026-10-15 13:40:34.041433881 +0000
+2026-10-15T13:41:50.1525169Z --- phase: normal uninstall (resumed)
+2026-10-15T13:41:50.1525692Z /var/lib/baft-ex uid=999 gid=987 mode=750 mtime=2026-10-15 13:41:13.558748936 +0000 ctime=2026-10-15 13:41:13.558748936 +0000
+2026-10-15T13:41:50.1526596Z   /var/lib/baft-ex/.cargo uid=999 gid=987 mode=755 type=directory mtime=2026-10-15 13:41:11.860734666 +0000 ctime=2026-10-15 13:41:11.860734666 +0000
+2026-10-15T13:41:50.1527413Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1527919Z       Only in /etc/skel/.cargo/bin: rustup
+2026-10-15T13:41:50.1528263Z       Only in /etc/skel/.cargo: env
+2026-10-15T13:41:50.1528593Z       Only in /etc/skel/.cargo: env.ps1
+2026-10-15T13:41:50.1528910Z     symlinks inside: 13, files: 0
+2026-10-15T13:41:50.1529831Z   /var/lib/baft-ex/.dotnet uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:18:28.377400172 +0000 ctime=2026-10-15 13:40:11.144251349 +0000
+2026-10-15T13:41:50.1530657Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1531195Z       Only in /etc/skel/.dotnet/tools/.store: .stage
+2026-10-15T13:41:50.1531759Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .nupkg.metadata
+2026-10-15T13:41:50.1532412Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .signature.p7s
+2026-10-15T13:41:50.1533090Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: 3rdPartyNotices.txt
+2026-10-15T13:41:50.1533739Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: README.md
+2026-10-15T13:41:50.1534182Z     symlinks inside: 0, files: 258
+2026-10-15T13:41:50.1534874Z   /var/lib/baft-ex/.ghcup uid=999 gid=987 mode=777 type=symbolic link mtime=2026-10-12 21:24:41.920188250 +0000 ctime=2026-10-15 13:40:31.861416524 +0000
+2026-10-15T13:41:50.1535724Z     skeleton original: uid=0 gid=0 mode=777 type=symbolic link; differences (no dereference):
+2026-10-15T13:41:50.1536209Z     symlinks inside: 1, files: 0
+2026-10-15T13:41:50.1536861Z   /var/lib/baft-ex/.nvm uid=999 gid=987 mode=755 type=directory mtime=2026-10-15 13:41:13.558748936 +0000 ctime=2026-10-15 13:41:13.558748936 +0000
+2026-10-15T13:41:50.1537673Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1538174Z       Only in /etc/skel/.nvm: .dockerignore
+2026-10-15T13:41:50.1538588Z       Only in /etc/skel/.nvm: .editorconfig
+2026-10-15T13:41:50.1538924Z       Only in /etc/skel/.nvm: .git
+2026-10-15T13:41:50.1539488Z       Only in /etc/skel/.nvm: .gitattributes
+2026-10-15T13:41:50.1539838Z       Only in /etc/skel/.nvm: .github
+2026-10-15T13:41:50.1540144Z     symlinks inside: 0, files: 6
+2026-10-15T13:41:50.1540658Z /var/lib/baft-ir uid=999 gid=987 mode=700 mtime=2026-10-15 13:40:34.039716142 +0000 ctime=2026-10-15 13:40:34.041433881 +0000
+2026-10-15T13:41:50.1541170Z --- phase: reinstall
+2026-10-15T13:41:50.1541645Z /var/lib/baft-ex uid=999 gid=987 mode=750 mtime=2026-10-15 13:41:13.558748936 +0000 ctime=2026-10-15 13:41:13.558748936 +0000
+2026-10-15T13:41:50.1542551Z   /var/lib/baft-ex/.cargo uid=999 gid=987 mode=755 type=directory mtime=2026-10-15 13:41:11.860734666 +0000 ctime=2026-10-15 13:41:11.860734666 +0000
+2026-10-15T13:41:50.1543373Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1543874Z       Only in /etc/skel/.cargo/bin: rustup
+2026-10-15T13:41:50.1544211Z       Only in /etc/skel/.cargo: env
+2026-10-15T13:41:50.1544541Z       Only in /etc/skel/.cargo: env.ps1
+2026-10-15T13:41:50.1544850Z     symlinks inside: 13, files: 0
+2026-10-15T13:41:50.1545504Z   /var/lib/baft-ex/.dotnet uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:18:28.377400172 +0000 ctime=2026-10-15 13:40:11.144251349 +0000
+2026-10-15T13:41:50.1546458Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1546998Z       Only in /etc/skel/.dotnet/tools/.store: .stage
+2026-10-15T13:41:50.1547673Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .nupkg.metadata
+2026-10-15T13:41:50.1548329Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .signature.p7s
+2026-10-15T13:41:50.1549009Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: 3rdPartyNotices.txt
+2026-10-15T13:41:50.1549917Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: README.md
+2026-10-15T13:41:50.1550352Z     symlinks inside: 0, files: 258
+2026-10-15T13:41:50.1551032Z   /var/lib/baft-ex/.ghcup uid=999 gid=987 mode=777 type=symbolic link mtime=2026-10-12 21:24:41.920188250 +0000 ctime=2026-10-15 13:40:31.861416524 +0000
+2026-10-15T13:41:50.1551897Z     skeleton original: uid=0 gid=0 mode=777 type=symbolic link; differences (no dereference):
+2026-10-15T13:41:50.1552380Z     symlinks inside: 1, files: 0
+2026-10-15T13:41:50.1553026Z   /var/lib/baft-ex/.nvm uid=999 gid=987 mode=755 type=directory mtime=2026-10-15 13:41:13.558748936 +0000 ctime=2026-10-15 13:41:13.558748936 +0000
+2026-10-15T13:41:50.1553855Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1554358Z       Only in /etc/skel/.nvm: .dockerignore
+2026-10-15T13:41:50.1554722Z       Only in /etc/skel/.nvm: .editorconfig
+2026-10-15T13:41:50.1555053Z       Only in /etc/skel/.nvm: .git
+2026-10-15T13:41:50.1555389Z       Only in /etc/skel/.nvm: .gitattributes
+2026-10-15T13:41:50.1555734Z       Only in /etc/skel/.nvm: .github
+2026-10-15T13:41:50.1556040Z     symlinks inside: 0, files: 6
+2026-10-15T13:41:50.1556548Z /var/lib/baft-ir uid=999 gid=987 mode=700 mtime=2026-10-15 13:40:34.039716142 +0000 ctime=2026-10-15 13:40:34.041433881 +0000
+2026-10-15T13:41:50.1557060Z --- phase: upgrade
+2026-10-15T13:41:50.1557524Z /var/lib/baft-ex uid=999 gid=987 mode=750 mtime=2026-10-15 13:41:13.558748936 +0000 ctime=2026-10-15 13:41:13.558748936 +0000
+2026-10-15T13:41:50.1558423Z   /var/lib/baft-ex/.cargo uid=999 gid=987 mode=755 type=directory mtime=2026-10-15 13:41:11.860734666 +0000 ctime=2026-10-15 13:41:11.860734666 +0000
+2026-10-15T13:41:50.1559364Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1559869Z       Only in /etc/skel/.cargo/bin: rustup
+2026-10-15T13:41:50.1560210Z       Only in /etc/skel/.cargo: env
+2026-10-15T13:41:50.1560542Z       Only in /etc/skel/.cargo: env.ps1
+2026-10-15T13:41:50.1560867Z     symlinks inside: 13, files: 0
+2026-10-15T13:41:50.1561533Z   /var/lib/baft-ex/.dotnet uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:18:28.377400172 +0000 ctime=2026-10-15 13:40:11.144251349 +0000
+2026-10-15T13:41:50.1562356Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1562900Z       Only in /etc/skel/.dotnet/tools/.store: .stage
+2026-10-15T13:41:50.1563459Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .nupkg.metadata
+2026-10-15T13:41:50.1564116Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .signature.p7s
+2026-10-15T13:41:50.1564793Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: 3rdPartyNotices.txt
+2026-10-15T13:41:50.1565444Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: README.md
+2026-10-15T13:41:50.1565869Z     symlinks inside: 0, files: 258
+2026-10-15T13:41:50.1566549Z   /var/lib/baft-ex/.ghcup uid=999 gid=987 mode=777 type=symbolic link mtime=2026-10-12 21:24:41.920188250 +0000 ctime=2026-10-15 13:40:31.861416524 +0000
+2026-10-15T13:41:50.1567401Z     skeleton original: uid=0 gid=0 mode=777 type=symbolic link; differences (no dereference):
+2026-10-15T13:41:50.1567881Z     symlinks inside: 1, files: 0
+2026-10-15T13:41:50.1568653Z   /var/lib/baft-ex/.nvm uid=999 gid=987 mode=755 type=directory mtime=2026-10-15 13:41:13.558748936 +0000 ctime=2026-10-15 13:41:13.558748936 +0000
+2026-10-15T13:41:50.1569721Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1570366Z       Only in /etc/skel/.nvm: .dockerignore
+2026-10-15T13:41:50.1570734Z       Only in /etc/skel/.nvm: .editorconfig
+2026-10-15T13:41:50.1571067Z       Only in /etc/skel/.nvm: .git
+2026-10-15T13:41:50.1571401Z       Only in /etc/skel/.nvm: .gitattributes
+2026-10-15T13:41:50.1571741Z       Only in /etc/skel/.nvm: .github
+2026-10-15T13:41:50.1572045Z     symlinks inside: 0, files: 6
+2026-10-15T13:41:50.1572552Z /var/lib/baft-ir uid=999 gid=987 mode=700 mtime=2026-10-15 13:40:34.039716142 +0000 ctime=2026-10-15 13:40:34.041433881 +0000
+2026-10-15T13:41:50.1573098Z --- phase: uninstall after upgrade, reinstall
+2026-10-15T13:41:50.1573646Z /var/lib/baft-ex uid=999 gid=987 mode=750 mtime=2026-10-15 13:41:13.558748936 +0000 ctime=2026-10-15 13:41:13.558748936 +0000
+2026-10-15T13:41:50.1574552Z   /var/lib/baft-ex/.cargo uid=999 gid=987 mode=755 type=directory mtime=2026-10-15 13:41:11.860734666 +0000 ctime=2026-10-15 13:41:11.860734666 +0000
+2026-10-15T13:41:50.1575372Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1575868Z       Only in /etc/skel/.cargo/bin: rustup
+2026-10-15T13:41:50.1576205Z       Only in /etc/skel/.cargo: env
+2026-10-15T13:41:50.1576536Z       Only in /etc/skel/.cargo: env.ps1
+2026-10-15T13:41:50.1576848Z     symlinks inside: 13, files: 0
+2026-10-15T13:41:50.1577507Z   /var/lib/baft-ex/.dotnet uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:18:28.377400172 +0000 ctime=2026-10-15 13:40:11.144251349 +0000
+2026-10-15T13:41:50.1578323Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1578868Z       Only in /etc/skel/.dotnet/tools/.store: .stage
+2026-10-15T13:41:50.1579700Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .nupkg.metadata
+2026-10-15T13:41:50.1580358Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .signature.p7s
+2026-10-15T13:41:50.1581044Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: 3rdPartyNotices.txt
+2026-10-15T13:41:50.1581688Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: README.md
+2026-10-15T13:41:50.1582117Z     symlinks inside: 0, files: 258
+2026-10-15T13:41:50.1582794Z   /var/lib/baft-ex/.ghcup uid=999 gid=987 mode=777 type=symbolic link mtime=2026-10-12 21:24:41.920188250 +0000 ctime=2026-10-15 13:40:31.861416524 +0000
+2026-10-15T13:41:50.1583650Z     skeleton original: uid=0 gid=0 mode=777 type=symbolic link; differences (no dereference):
+2026-10-15T13:41:50.1584128Z     symlinks inside: 1, files: 0
+2026-10-15T13:41:50.1584773Z   /var/lib/baft-ex/.nvm uid=999 gid=987 mode=755 type=directory mtime=2026-10-15 13:41:13.558748936 +0000 ctime=2026-10-15 13:41:13.558748936 +0000
+2026-10-15T13:41:50.1585584Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-15T13:41:50.1586084Z       Only in /etc/skel/.nvm: .dockerignore
+2026-10-15T13:41:50.1586448Z       Only in /etc/skel/.nvm: .editorconfig
+2026-10-15T13:41:50.1586778Z       Only in /etc/skel/.nvm: .git
+2026-10-15T13:41:50.1587114Z       Only in /etc/skel/.nvm: .gitattributes
+2026-10-15T13:41:50.1587456Z       Only in /etc/skel/.nvm: .github
+2026-10-15T13:41:50.1587764Z     symlinks inside: 0, files: 6
+2026-10-15T13:41:50.1588270Z /var/lib/baft-ir uid=999 gid=987 mode=700 mtime=2026-10-15 13:40:34.039716142 +0000 ctime=2026-10-15 13:40:34.041433881 +0000
+2026-10-15T13:41:50.1612759Z ##[notice]e=755 type=directory; differences (no dereference):
+      Only in /etc/skel/.dotnet/tools/.store: .stage
+      Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .nupkg.metadata
+      Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .signature.p7s
+      Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: 3rdPartyNotices.txt
+      Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: README.md
+    symlinks inside: 0, files: 258
+  /var/lib/baft-ex/.ghcup uid=999 gid=987 mode=777 type=symbolic link mtime=2026-10-12 21:24:41.920188250 +0000 ctime=2026-10-15 13:40:31.861416524 +0000
+    skeleton original: uid=0 gid=0 mode=777 type=symbolic link; differences (no dereference):
+    symlinks inside: 1, files: 0
+  /var/lib/baft-ex/.nvm uid=999 gid=987 mode=755 type=directory mtime=2026-10-15 13:41:13.558748936 +0000 ctime=2026-10-15 13:41:13.558748936 +0000
+    skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+      Only in /etc/skel/.nvm: .dockerignore
+      Only in /etc/skel/.nvm: .editorconfig
+      Only in /etc/skel/.nvm: .git
+      Only in /etc/skel/.nvm: .gitattributes
+      Only in /etc/skel/.nvm: .github
+    symlinks inside: 0, files: 6
+/var/lib/baft-ir uid=999 gid=987 mode=700 mtime=2026-10-15 13:40:34.039716142 +0000 ctime=2026-10-15 13:40:34.041433881 +0000
+--- phase: uninstall after upgrade, reinstall
+/var/lib/baft-ex uid=999 gid=987 mode=750 mtime=2026-10-15 13:41:13.558748936 +0000 ctime=2026-10-15 13:41:13.558748936 +0000
+  /var/lib/baft-ex/.cargo uid=999 gid=987 mode=755 type=directory mtime=2026-10-15 13:41:11.860734666 +0000 ctime=2026-10-15 13:41:11.860734666 +0000
+    skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+      Only in /etc/skel/.cargo/bin: rustup
+      Only in /etc/skel/.cargo: env
+      Only in /etc/skel/.cargo: env.ps1
+    symlinks inside: 13, files: 0
+  /var/lib/baft-ex/.dotnet uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:18:28.377400172 +0000 ctime=2026-10-15 13:40:11.144251349 +0000
+    skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+      Only in /etc/skel/.dotnet/tools/.store: .stage
+      Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .nupkg.metadata
+      Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .signature.p7s
+      Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: 3rdPartyNotices.txt
+      Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: README.md
+    symlinks inside: 0, files: 258
+  /var/lib/baft-ex/.ghcup uid=999 gid=987 mode=777 type=symbolic link mtime=2026-10-12 21:24:41.920188250 +0000 ctime=2026-10-15 13:40:31.861416524 +0000
+    skeleton original: uid=0 gid=0 mode=777 type=symbolic link; differences (no dereference):
+    symlinks inside: 1, files: 0
+  /var/lib/baft-ex/.nvm uid=999 gid=987 mode=755 type=directory mtime=2026-10-15 13:41:13.558748936 +0000 ctime=2026-10-15 13:41:13.558748936 +0000
+    skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+      Only in /etc/skel/.nvm: .dockerignore
+      Only in /etc/skel/.nvm: .editorconfig
+      Only in /etc/skel/.nvm: .git
+      Only in /etc/skel/.nvm: .gitattributes
+      Only in /etc/skel/.nvm: .github
+    symlinks inside: 0, files: 6
+/var/lib/baft-ir uid=999 gid=987 mode=700 mtime=2026-10-15 13:40:34.039716142 +0000 ctime=2026-10-15 13:40:34.041433881 +0000
+2026-10-15T13:41:50.1626153Z ##[error]Process completed with exit code 1.
+2026-10-15T13:41:50.1675063Z ##[group]Run d=/tmp/uninstall-e2e-report
+2026-10-15T13:41:50.1675429Z [36;1md=/tmp/uninstall-e2e-report[0m
+2026-10-15T13:41:50.1675885Z [36;1m[ -d "$d" ] || { echo "::warning title=uninstall evidence::no report directory"; exit 0; }[0m
+2026-10-15T13:41:50.1676461Z [36;1mfor f in zz-fail.log clean.txt resume.out crash2.out prov.log diag; do[0m
+2026-10-15T13:41:50.1676872Z [36;1m  [ -f "$d/$f" ] || continue[0m
+2026-10-15T13:41:50.1677258Z [36;1m  m="$(tail -c 3000 "$d/$f")"; m="${m//'%'/'%25'}"; m="${m//$'\r'/}"; m="${m//$'\n'/'%0A'}"[0m
+2026-10-15T13:41:50.1677702Z [36;1m  echo "::notice title=uninstall evidence: $f::$m"[0m
+2026-10-15T13:41:50.1678013Z [36;1mdone[0m
+2026-10-15T13:41:50.1741083Z shell: /usr/bin/bash -e {0}
+2026-10-15T13:41:50.1741346Z env:
+2026-10-15T13:41:50.1741539Z   GOTOOLCHAIN: local
+2026-10-15T13:41:50.1741762Z ##[endgroup]
+2026-10-15T13:41:50.1841972Z ##[notice]BCC uninstall
+2026-10-15T13:41:50.1862907Z ##[notice]Uninstall finished and verified.
+  stopped:  baft-agent.service, baft-ex.service, baft-ir.service
+  removed:  699 item(s)
+  removed empty directories: /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-both/node_modules, /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-n_m/node_modules, /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/no-nesting-both/node_modules, /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/no-nesting-n_m/node_modules, /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld, ... 116 more (see the journal)
+  journal:  /var/lib/baft-uninstall/run-20261015T134105.959235580Z-10749-0
+2026-10-15T13:41:50.1903847Z ##[notice]baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-locate-project.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-login.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-logout.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-metadata.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-new.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-owner.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-package.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-pkgid.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-publish.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-remove.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-report-future-incompatibilities.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-report.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-run.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-rustc.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-rustdoc.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-search.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-test.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-tree.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-uninstall.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-update.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-vendor.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-version.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-yank.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/rustc.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/rustdoc.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/zsh/site-functions/_cargo
+removed /var/lib/baft-ex/.rustup/update-hashes/stable-x86_64-unknown-linux-gnu
+removed /usr/local/bin/baft-pair
+removed /usr/local/bin/baft-agent
+2026-10-15T13:41:50.1940149Z ##[notice]baft-ex/.ghcup uid=999 gid=987 mode=777 type=symbolic link mtime=2026-10-12 21:24:41.920188250 +0000 ctime=2026-10-15 13:40:31.861416524 +0000
+    skeleton original: uid=0 gid=0 mode=777 type=symbolic link; differences (no dereference):
+    symlinks inside: 1, files: 0
+  /var/lib/baft-ex/.nvm uid=999 gid=987 mode=755 type=directory mtime=2026-10-15 13:41:13.558748936 +0000 ctime=2026-10-15 13:41:13.558748936 +0000
+    skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+      Only in /etc/skel/.nvm: .dockerignore
+      Only in /etc/skel/.nvm: .editorconfig
+      Only in /etc/skel/.nvm: .git
+      Only in /etc/skel/.nvm: .gitattributes
+      Only in /etc/skel/.nvm: .github
+    symlinks inside: 0, files: 6
+/var/lib/baft-ir uid=999 gid=987 mode=700 mtime=2026-10-15 13:40:34.039716142 +0000 ctime=2026-10-15 13:40:34.041433881 +0000
+--- phase: uninstall after upgrade, reinstall
+/var/lib/baft-ex uid=999 gid=987 mode=750 mtime=2026-10-15 13:41:13.558748936 +0000 ctime=2026-10-15 13:41:13.558748936 +0000
+  /var/lib/baft-ex/.cargo uid=999 gid=987 mode=755 type=directory mtime=2026-10-15 13:41:11.860734666 +0000 ctime=2026-10-15 13:41:11.860734666 +0000
+    skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+      Only in /etc/skel/.cargo/bin: rustup
+      Only in /etc/skel/.cargo: env
+      Only in /etc/skel/.cargo: env.ps1
+    symlinks inside: 13, files: 0
+  /var/lib/baft-ex/.dotnet uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:18:28.377400172 +0000 ctime=2026-10-15 13:40:11.144251349 +0000
+    skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+      Only in /etc/skel/.dotnet/tools/.store: .stage
+      Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .nupkg.metadata
+      Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .signature.p7s
+      Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: 3rdPartyNotices.txt
+      Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: README.md
+    symlinks inside: 0, files: 258
+  /var/lib/baft-ex/.ghcup uid=999 gid=987 mode=777 type=symbolic link mtime=2026-10-12 21:24:41.920188250 +0000 ctime=2026-10-15 13:40:31.861416524 +0000
+    skeleton original: uid=0 gid=0 mode=777 type=symbolic link; differences (no dereference):
+    symlinks inside: 1, files: 0
+  /var/lib/baft-ex/.nvm uid=999 gid=987 mode=755 type=directory mtime=2026-10-15 13:41:13.558748936 +0000 ctime=2026-10-15 13:41:13.558748936 +0000
+    skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+      Only in /etc/skel/.nvm: .dockerignore
+      Only in /etc/skel/.nvm: .editorconfig
+      Only in /etc/skel/.nvm: .git
+      Only in /etc/skel/.nvm: .gitattributes
+      Only in /etc/skel/.nvm: .github
+    symlinks inside: 0, files: 6
+/var/lib/baft-ir uid=999 gid=987 mode=700 mtime=2026-10-15 13:40:34.039716142 +0000 ctime=2026-10-15 13:40:34.041433881 +0000
+2026-10-15T13:41:50.1971045Z ##[notice]t-agent.service: Deactivated successfully.
+Oct 15 13:41:05 runnervm8k3b6 systemd[1]: Stopped baft-agent.service - BAFT agent (signed BCC jobs).
+== journal baft-bcc
+Oct 15 13:40:38 runnervm8k3b6 systemd[1]: Started baft-bcc.service - BAFT Command Center (e2e).
+Oct 15 13:40:38 runnervm8k3b6 baft-bcc[9481]: created job signing key /var/lib/baft-bcc/state.db.job-key; agents pin its public key: RIT68NdMvtRn97KjJQ64XJfUfOZcsLgrFsgFqTmW2M8
+Oct 15 13:40:38 runnervm8k3b6 baft-bcc[9481]: BAFT Command Center listening on http://127.0.0.1:18200 (dashboard under its secret path; see: baft-bcc access show)
+Oct 15 13:41:49 runnervm8k3b6 systemd[1]: Stopping baft-bcc.service - BAFT Command Center (e2e)...
+Oct 15 13:41:49 runnervm8k3b6 systemd[1]: baft-bcc.service: Deactivated successfully.
+Oct 15 13:41:49 runnervm8k3b6 systemd[1]: Stopped baft-bcc.service - BAFT Command Center (e2e).
+Oct 15 13:41:49 runnervm8k3b6 systemd[1]: Started baft-bcc.service - BAFT Command Center (e2e).
+Oct 15 13:41:49 runnervm8k3b6 baft-bcc[13371]: BAFT Command Center listening on http://127.0.0.1:18200 (dashboard under its secret path; see: baft-bcc access show)
+== journal baft-hand
+Oct 15 13:40:43 runnervm8k3b6 systemd[1]: Started baft-hand.service - operator's own tunnel (not BAFT's).
+== uninstall journals
+/var/lib/baft-uninstall/run-20261015T134052.666713417Z-10010-0 restored 699 files 
+/var/lib/baft-uninstall/run-20261015T134105.959235580Z-10749-0 committed 699 files 
+/var/lib/baft-uninstall/run-20261015T134133.475563214Z-12248-0 committed 3 files 
+/var/lib/baft-uninstall/run-20261015T134149.037094169Z-13162-0 restored 6 files /var/lib/baft-bcc/state.db changed since the plan was made; nothing of it was removed
+== BAFT paths left
+/etc/baft-agent
+/etc/baft-agent/bcc-job.pub
+/etc/baft-agent/release-root.pub
+/etc/baft-agent/token
+/etc/baft-ex
+/etc/baft-ex/noise-key.json
+/etc/baft-ex/pki
+/etc/baft-ex/pki/ca.key
+/etc/baft-ex/pki/server.key
+/etc/baft-ex/pki/ca.pem
+/etc/baft-ex/pki/server.pem
+/etc/baft-ex/baft.yaml
+/etc/baft-hand
+/etc/baft-hand/hand.conf
+/etc/baft-ir
+/etc/baft-ir/noise-key.json
+/etc/baft-ir/baft.yaml
+/var/lib/baft-bcc
+/var/lib/baft-bcc/state.db.job-key
+/var/lib/baft-bcc/admin.token
+/var/lib/baft-bcc/state.db
+/var/lib/baft-bcc/state.db.audit.jsonl
+/var/lib/baft-bcc/state.db.access.json
+/var/lib/baft-bcc/state.db.lock
+/var/lib/baft-ex
+/var/lib/baft-ex/.dotnet
+/var/lib/baft-ex/.dotnet/tools
+/var/lib/baft-ex/.cargo
+/var/lib/baft-ex/.cargo/bin
+/var/lib/baft-ex/.nvm
+/var/lib/baft-ex/.nvm/test
+/var/lib/baft-ex/.ghcup
+/var/lib/baft-ir
+/var/lib/baft-ir/pairing.pending.json
+/var/lib/baft-ir/peer-ca.pem
+/var/lib/baft-uninstall
+/opt/baft
+/opt/baft/release-state.json
+/opt/baft-ex
+/opt/baft-ex/backups
+/opt/baft-ex/backups/rerun-20261015T134123-11832
+/opt/baft-ex/release-state.json
+/opt/baft-ir
+/opt/baft-ir/backups
+/opt/baft-ir/backups/rerun-20261015T134133-12025
+/opt/baft-ir/release-state.json
+/usr/local/bin/baft
+/usr/local/bin/baft-bcc
+/usr/local/bin/baft-net
+/usr/local/bin/baft-pair
+2026-10-15T13:41:50.2112473Z Post job cleanup.
+2026-10-15T13:41:50.2996726Z [command]/usr/bin/git version
+2026-10-15T13:41:50.3045770Z git version 2.55.0
+2026-10-15T13:41:50.3088479Z Temporarily overriding HOME='/home/runner/work/_temp/f3cad233-42c6-4734-aba5-ae6aa8fdd8ab' before making global git config changes
+2026-10-15T13:41:50.3090194Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-15T13:41:50.3094457Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/BAFT/BAFT
+2026-10-15T13:41:50.3129474Z Removing SSH command configuration
+2026-10-15T13:41:50.3136096Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-15T13:41:50.3175054Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-15T13:41:50.3424647Z Removing HTTP extra header
+2026-10-15T13:41:50.3430613Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-15T13:41:50.3478724Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-15T13:41:50.3764306Z Removing includeIf entries pointing to credentials config files
+2026-10-15T13:41:50.3772465Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-15T13:41:50.3804065Z includeif.gitdir:/home/runner/work/BAFT/BAFT/.git.path
+2026-10-15T13:41:50.3805024Z includeif.gitdir:/home/runner/work/BAFT/BAFT/.git/worktrees/*.path
+2026-10-15T13:41:50.3805975Z includeif.gitdir:/github/workspace/.git.path
+2026-10-15T13:41:50.3806927Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-15T13:41:50.3813604Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/BAFT/BAFT/.git.path
+2026-10-15T13:41:50.3842050Z /home/runner/work/_temp/git-credentials-0c886f85-f948-4fd8-98e7-07098f228294.config
+2026-10-15T13:41:50.3853970Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/BAFT/BAFT/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-0c886f85\-f948\-4fd8\-98e7\-07098f228294\.config
+2026-10-15T13:41:50.3896082Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/BAFT/BAFT/.git/worktrees/*.path
+2026-10-15T13:41:50.3932799Z /home/runner/work/_temp/git-credentials-0c886f85-f948-4fd8-98e7-07098f228294.config
+2026-10-15T13:41:50.3942919Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/BAFT/BAFT/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-0c886f85\-f948\-4fd8\-98e7\-07098f228294\.config
+2026-10-15T13:41:50.3997698Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-10-15T13:41:50.4026340Z /github/runner_temp/git-credentials-0c886f85-f948-4fd8-98e7-07098f228294.config
+2026-10-15T13:41:50.4035578Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-0c886f85\-f948\-4fd8\-98e7\-07098f228294\.config
+2026-10-15T13:41:50.4072918Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-15T13:41:50.4099436Z /github/runner_temp/git-credentials-0c886f85-f948-4fd8-98e7-07098f228294.config
+2026-10-15T13:41:50.4108276Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-0c886f85\-f948\-4fd8\-98e7\-07098f228294\.config
+2026-10-15T13:41:50.4146309Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-15T13:41:50.4395477Z Removing credentials config '/home/runner/work/_temp/git-credentials-0c886f85-f948-4fd8-98e7-07098f228294.config'
+2026-10-15T13:41:50.4589962Z Cleaning up orphan processes

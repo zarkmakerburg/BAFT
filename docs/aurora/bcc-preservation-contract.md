@@ -13,7 +13,7 @@ This slice adds tests and inventory; it does not mount or activate Aurora.
 | FA/EN, RTL/LTR, dark/light and reduced motion | Current inline first-paint bootstrap and `bcc-app.css` | Actual bootstrap executes in Node VM for four preferences, invalid values and blocked storage; source guard retains reduced-motion CSS |
 | Native operations: UP/DOWN/UNKNOWN, history, tunnel plans, Doctor, matrix, jobs | `dashboard.go` inserted into authenticated `operationsHTML/operationsJS`; `bcc-operations-v3.js` | Actual Go HTTP test decodes default page configuration, verifies control IDs/loaders and shared CSRF |
 | Reversible classic fallback | `classicLink`, `access.go` secret-path `classic/` | Source guard and HTTP test require same-session access to both pages |
-| Session/CSRF and logout boundaries | Existing `accessHandler`, `sessionAdmin`, tunnel plan endpoint | HTTP tests reject missing/wrong CSRF; valid CSRF reaches invalid-JSON rejection without creating a tunnel; logged-out default/classic expose no operations |
+| Session/CSRF and logout boundaries | Existing `accessHandler`, `sessionAdmin`, tunnel plan endpoint | HTTP tests reject missing, short-wrong and same-length wrong CSRF; valid CSRF reaches invalid-JSON rejection without creating a tunnel; logged-out default/classic expose no operations |
 
 Tests use existing Node built-ins and existing Go HTTP fixtures; no new package
 or production module is added. The preflight path filter expands from
@@ -33,6 +33,9 @@ go test -race ./internal/bcc -run '^TestHybrid' -count=3
 The first new Node run passed all ten cases, including deliberate deletion,
 unembedding, dependency order and fallback/motion mutations. They are negative
 test inputs, not product modifications or a claim that existing UI was broken.
+The follow-up includes a same-length invalid CSRF token: testing only a short
+wrong token would miss a regression that checked length without token equality.
+This is test hardening, not evidence that the current CSRF implementation is bad.
 The source guard is deliberately conservative: reviewed structural refactors
 must update the contract with equivalent evidence. It does not prove pixel,
 layout, chart rendering, keyboard/screen-reader behavior or preservation of every

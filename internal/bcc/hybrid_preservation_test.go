@@ -71,7 +71,7 @@ func TestHybridPreservesNativeOperationsAndSharedSession(t *testing.T) {
 		}
 	}
 	// Invalid JSON exercises authorization without creating any tunnel or job.
-	for _, value := range []string{"", "wrong", csrf} {
+	for _, value := range []string{"", "wrong", strings.Repeat("!", len(csrf)), csrf} {
 		req := httptest.NewRequest(http.MethodPost, r.base()+"api/tunnels/plan", strings.NewReader("{"))
 		req.AddCookie(cookie)
 		if value != "" {

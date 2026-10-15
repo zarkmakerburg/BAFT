@@ -1,0 +1,37 @@
+=== RUN   TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle
+    multi_instance_proc_test.go:110: no traffic through the tunnel port edit rollback: dial tcp 127.0.0.1:30049: connect: connection refused
+    multi_instance_proc_test.go:35: fixture baft-bulgaria runtime log:
+        starting BAFT node ex-760591ae170d (listener)
+        2026/10/13 22:59:35 baft listener startup: goroutine created configured=0.0.0.0:28507
+        2026/10/13 22:59:35 baft listener startup: acquire configured=0.0.0.0:28507
+        2026/10/13 22:59:35 baft listener startup: bind success configured=0.0.0.0:28507 actual=[::]:28507
+        2026/10/13 22:59:35 baft listener startup: serve started actual=[::]:28507
+        2026/10/13 22:59:35 baft carrier server error phase=tls_handshake sample=1
+        starting BAFT node ex-329bff0dda9b (listener)
+        2026/10/13 22:59:35 baft listener startup: goroutine created configured=0.0.0.0:26933
+        2026/10/13 22:59:35 baft listener startup: acquire configured=0.0.0.0:26933
+        2026/10/13 22:59:35 baft listener startup: bind success configured=0.0.0.0:26933 actual=[::]:26933
+        2026/10/13 22:59:35 baft listener startup: serve started actual=[::]:26933
+        2026/10/13 22:59:35 baft carrier server error phase=tls_handshake sample=1
+        starting BAFT node ex-760591ae170d (listener)
+        2026/10/13 22:59:35 baft listener startup: goroutine created configured=0.0.0.0:28507
+        2026/10/13 22:59:35 baft listener startup: acquire configured=0.0.0.0:28507
+        2026/10/13 22:59:35 baft listener startup: bind success configured=0.0.0.0:28507 actual=[::]:28507
+        2026/10/13 22:59:35 baft listener startup: serve started actual=[::]:28507
+    multi_instance_proc_test.go:35: fixture baft-germany runtime log:
+        starting BAFT node ex-704a2060b8ee (listener)
+        2026/10/13 22:59:34 baft listener startup: goroutine created configured=0.0.0.0:27580
+        2026/10/13 22:59:34 baft listener startup: acquire configured=0.0.0.0:27580
+        2026/10/13 22:59:34 baft listener startup: bind success configured=0.0.0.0:27580 actual=[::]:27580
+        2026/10/13 22:59:34 baft listener startup: serve started actual=[::]:27580
+        2026/10/13 22:59:35 baft carrier server error phase=tls_handshake sample=1
+    multi_instance_proc_test.go:35: fixture baft-germany runtime log:
+        starting BAFT node ir-5d799995b30a (dialer)
+    multi_instance_proc_test.go:35: fixture baft-bulgaria runtime log:
+        starting BAFT node ir-ba1968c93da4 (dialer)
+        node stopped: shard 0: unexpected EOF
+        starting BAFT node ir-3598531f1ed5 (dialer)
+--- FAIL: TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle (20.79s)
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/tunnelnode	21.624s
+FAIL

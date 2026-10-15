@@ -1,0 +1,5 @@
+--- FAIL: TestPKIRollbackDoesNotCompleteIfCertificatesChangeDuringRestart (0.23s)
+    pki_rollback_test.go:261: rollback acknowledged certificate changes during restart
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/tunnelnode	1.350s
+FAIL

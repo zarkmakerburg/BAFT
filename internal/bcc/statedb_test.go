@@ -282,4 +282,5 @@ func TestIncidentSnapshotMissingSingletonFailsClosed(t *testing.T) {
  if _,err:=db.Exec("DELETE FROM incident_snapshot");err!=nil {t.Fatal(err)}
  if err:=db.Close();err!=nil {t.Fatal(err)}
  if _,err:=readStateDB(path);err==nil {t.Fatal("missing incident snapshot row accepted")}
+ if _,err:=OpenStore(path);err==nil {t.Fatal("BCC startup accepted missing incident snapshot row")}
 }

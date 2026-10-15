@@ -23,6 +23,14 @@ jobs:
           incoming=39424cf6e4f5a79ec1282b7c2bc516ac306ea6aa
           common=b028fd580fb2c3f0ebffe2fbf1a52f6b577cbf5f
           git merge-base --is-ancestor "$base" HEAD
+          if git merge-base --is-ancestor "$incoming" HEAD; then
+            echo "Incoming PR203 is already an ancestor: verify persisted integration directly."
+            test "$(git rev-parse HEAD^{tree})" = "0eaa77d0eb5e27098fadc7b15ce6c53c05f74a6f"
+            grep -q "TunnelVerification" internal/bcc/store.go
+            grep -q "ObserveTunnelIncident" internal/bcc/store.go
+            go test ./internal/bcc ./internal/incidentclass
+            exit 0
+          fi
           test "$(git merge-base HEAD "$incoming")" = "$common"
           git config user.name "BAFT reconciliation preflight"
           git config user.email "baft-preflight@users.noreply.github.com"

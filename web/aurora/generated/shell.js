@@ -13,6 +13,7 @@ export function mountAurora(root, provider = createMockProvider()) {
     if (!win)
         throw new Error('A browser document is required');
     const HTMLElementClass = win.HTMLElement;
+    const HTMLAnchorElementClass = win.HTMLAnchorElement;
     const abort = new AbortController();
     const previous = { language: doc.documentElement.lang, direction: doc.documentElement.dir };
     let preferences;
@@ -82,6 +83,7 @@ export function mountAurora(root, provider = createMockProvider()) {
         const previousAction = ownedFocus && active instanceof HTMLElementClass ? active.dataset['action'] : undefined;
         const action = focusAction ?? (previousAction === 'language' || previousAction === 'theme' || previousAction === 'reload' ? previousAction : undefined);
         const mainFocused = ownedFocus && active.id === 'aurora-content';
+        const linkHref = ['#overview', '#nodes', '#tunnels', '#aurora-content'].find(href => ownedFocus && active instanceof HTMLAnchorElementClass && active.getAttribute('href') === href);
         const t = catalog(preferences.language);
         doc.documentElement.lang = preferences.language;
         doc.documentElement.dir = preferences.language === 'fa' ? 'rtl' : 'ltr';
@@ -211,6 +213,8 @@ export function mountAurora(root, provider = createMockProvider()) {
         root.replaceChildren(fragment);
         if (action)
             root.querySelector(`button[data-action="${action}"]`)?.focus();
+        else if (linkHref)
+            root.querySelector(`a[href="${linkHref}"]`)?.focus();
         else if (mainFocused)
             root.querySelector('main')?.focus();
     }

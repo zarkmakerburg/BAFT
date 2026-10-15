@@ -1,0 +1,85 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> @baft/aurora-foundation@0.0.0 test:dom
+> node --experimental-vm-modules --test tests/dom/*.test.mjs
+
+(node:26) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ mounted DOM loads historical DEMO evidence without reporting payload health (145.448069ms)
+✔ all four language/theme combinations mount, switch, persist and restore focus (192.755464ms)
+✔ completion preserves a control focused while data was pending (24.081958ms)
+✖ pending completion retains nav and skip links across every language and theme without activating them (21.617867ms)
+✖ pending rejection retains a focused nav link without exposing error detail (16.772146ms)
+✖ reload completion keeps the link chosen after starting refresh (46.148539ms)
+✔ navigation while pending keeps main focused after completion (30.40917ms)
+✔ completion never steals focus from a target outside the shell (20.119839ms)
+✔ errors are safe and explicit retry recovers without duplicate requests (20.315193ms)
+✔ empty and mislabeled real data never become DEMO resources (16.477943ms)
+✔ destroy aborts pending data, removes listeners and refuses late repaint (11.88899ms)
+✔ remount has one listener owner and stale destroy cannot remove new UI (21.077682ms)
+✔ resource text is inert even when synthetic aliases resemble HTML (15.655845ms)
+✔ blocked storage keeps preference controls functional and reports a safe notice (20.563588ms)
+✔ entry page lifecycle events tear down and remount on a persisted pageshow (24.751226ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 12
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1179.819273
+
+✖ failing tests:
+
+test at tests/dom/shell.test.mjs:49:1
+✖ pending completion retains nav and skip links across every language and theme without activating them (21.617867ms)
+  AssertionError [ERR_ASSERTION]: fa/dark/#overview
+  + actual - expected
+  
+  + null
+  - '#overview'
+  
+      at TestContext.<anonymous> (file:///workspace/scratch/e71c4683db12/baft-aurora-b1/web/aurora/tests/dom/shell.test.mjs:58:14)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: '#overview',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/dom/shell.test.mjs:65:1
+✖ pending rejection retains a focused nav link without exposing error detail (16.772146ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  null !== '#tunnels'
+  
+      at TestContext.<anonymous> (file:///workspace/scratch/e71c4683db12/baft-aurora-b1/web/aurora/tests/dom/shell.test.mjs:71:10)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: '#tunnels',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/dom/shell.test.mjs:76:1
+✖ reload completion keeps the link chosen after starting refresh (46.148539ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  null !== '#nodes'
+  
+      at TestContext.<anonymous> (file:///workspace/scratch/e71c4683db12/baft-aurora-b1/web/aurora/tests/dom/shell.test.mjs:83:10)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: '#nodes',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

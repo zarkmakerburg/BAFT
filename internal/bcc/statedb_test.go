@@ -340,7 +340,10 @@ func TestObserveTunnelIncidentFailedWriteRestoresMemory(t *testing.T) {
  store,err:=OpenStore(path)
  if err!=nil {t.Fatal(err)}
  now:=time.Date(2026,10,15,7,0,0,0,time.UTC)
- // An existing directory cannot be opened as a SQLite database. Unlike a\n // missing parent directory, this is a deterministic failure: openStateDB\n // creates missing parent directories automatically.\n store.path=dir
+ // Put a regular file in the parent position: SQLite cannot create its child.
+ blocker:=filepath.Join(dir,"not-a-directory")
+ if err:=os.WriteFile(blocker,[]byte("block"),0600);err!=nil {t.Fatal(err)}
+ store.path=filepath.Join(blocker,"state.db")
  result,err:=store.ObserveTunnelIncident("rollback-tunnel",now,time.Minute,incidentclass.Evidence{
   ObservedAt:now,HeartbeatKnown:true,HeartbeatFresh:false,
  })

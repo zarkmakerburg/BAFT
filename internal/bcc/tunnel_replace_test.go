@@ -29,6 +29,9 @@ func driveRequestToObserve(t *testing.T, s *Store, req TunnelRequest, now time.T
 			t.Fatal(err)
 		}
 		s.AdvanceTunnels(now)
+		if st.out == testReplyCode {
+			completeCandidateStages(t, s, tn.ID, now)
+		}
 	}
 	got, _ := s.GetTunnel(tn.ID)
 	if got.Phase != TunnelObservingIR {

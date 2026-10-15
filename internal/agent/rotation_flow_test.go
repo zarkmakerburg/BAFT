@@ -41,12 +41,7 @@ type rotFlow struct {
 func newRotFlow(t *testing.T) *rotFlow {
 	t.Helper()
 	rf := &rotFlow{exl: &exListener{}}
-	rf.flow = newFlowWith(t, func(t *testing.T, port int) {
-		l, err := net.Listen("tcp", "127.0.0.1:"+strconv.Itoa(port))
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() { l.Close() })
+	rf.flow = newFlowWith(t, func(t *testing.T, l net.Listener) {
 		cfg := &tls.Config{MinVersion: tls.VersionTLS13, NextProtos: []string{"h2"}, GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 			rf.exl.mu.Lock()
 			defer rf.exl.mu.Unlock()

@@ -58,6 +58,9 @@ type Options struct {
 	// limits.max_flows; nil means unlimited.
 	FlowSlots          *resources.FlowSlots
 	TrafficObserver    TrafficObserver
+	// DeliveryObserver runs after a complete received segment was written
+	// to its application socket. It never sees payload contents.
+	DeliveryObserver func(uint64)
 	LatencyObserver    LatencyObserver
 	PingInterval       time.Duration
 	RecoveryEnabled    bool
@@ -112,6 +115,7 @@ type Peer struct {
 	runExiting         bool
 	wg                 sync.WaitGroup
 	trafficObserver    TrafficObserver
+	deliveryObserver func(uint64)
 	latencyObserver    LatencyObserver
 	pingInterval       time.Duration
 	// pingBase anchors PING timestamps to this process's monotonic clock, so
@@ -270,7 +274,7 @@ func New(role Role, c Carrier, peerID string, table *routes.Table, opts Options)
 		nodeID: opts.NodeID, expectedPeerNodeID: opts.ExpectedPeerNodeID,
 		bootID: bootID, shardID: opts.ShardID, profileID: opts.ProfileID,
 		profileVersion: opts.ProfileVersion, configRevision: opts.ConfigRevision,
-		epoch: "1", readyCh: make(chan struct{}), trafficObserver: opts.TrafficObserver,
+		epoch: "1", readyCh: make(chan struct{}), trafficObserver: opts.TrafficObserver, deliveryObserver: opts.DeliveryObserver,
 		latencyObserver: opts.LatencyObserver, pingInterval: opts.PingInterval, pingBase: time.Now(),
 		recoveryEnabled: opts.RecoveryEnabled, recoveryRetention: opts.RecoveryRetention,
 		recoveryNeeded: make(chan error,1), carrierSwitchWait: make(chan struct{}), replacementWait: make(chan struct{}), replacementReadyGeneration:1, carrierEpoch:1, carrierGeneration:1, carrierPhysicalInstanceID:physicalCarrierInstanceID(1,1),
@@ -937,6 +941,16 @@ func (p *Peer) isReady() bool {
 	}
 }
 
+// ApplicationReady reports current application authority without changing it.
+// A retained logical Session with a stopped/recovering carrier is not healthy.
+func (p *Peer) ApplicationReady() bool {
+	if !p.isReady() { return false }
+	p.mu.Lock()
+	closed,sender,ctx := p.closed,p.sender,p.runCtx
+	p.mu.Unlock()
+	return !closed && sender!=nil && !sender.isStopped() && (ctx==nil || ctx.Err()==nil) && !p.NeedsRecovery()
+}
+
 func (p *Peer) waitReady(ctx context.Context) error {
 	select {
 	case <-p.readyCh:
@@ -1514,6 +1528,9 @@ func (p *Peer) pumpTarget(ctx context.Context, fl *flow) {
 		closed := fl.closed
 		fl.mu.Unlock()
 
+		if p.deliveryObserver != nil {
+			p.deliveryObserver(uint64(len(segment)))
+		}
 		if closed {
 			return
 		}

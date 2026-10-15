@@ -1,0 +1,6 @@
+=== RUN   TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle
+    multi_instance_proc_test.go:107: no traffic through the tunnel port edit rollback: dial tcp 127.0.0.1:30284: connect: connection refused
+--- FAIL: TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle (20.81s)
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/tunnelnode	21.559s
+FAIL

@@ -11,12 +11,14 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/zarkmakerburg/baft/internal/telemetry"
+	"github.com/zarkmakerburg/baft/internal/incidentclass"
 )
 
 const (
@@ -46,6 +48,8 @@ type Node struct {
 	// AppliedGeneration is the legacy singleton generation. Multi-instance
 	// tunnels keep independent generation baselines in AppliedGenerations.
 	AgentSeen                time.Time      `json:"agent_seen,omitempty"`
+	TunnelVerification int `json:"tunnel_verification,omitempty"`
+	CapabilitiesAt time.Time `json:"capabilities_at,omitempty"`
 	AppliedGeneration        int            `json:"applied_generation,omitempty"`
 	AppliedGenerations       map[string]int `json:"applied_generations,omitempty"`
 	Health                   string         `json:"health"`
@@ -160,6 +164,7 @@ type MonitoringNode struct {
 }
 
 type state struct {
+	IncidentSnapshot incidentclass.Snapshot `json:"incident_snapshot,omitempty"`
 	Nodes    map[string]Node          `json:"nodes"`
 	Jobs     map[string]Job           `json:"jobs"`
 	Finance   map[string]NodeFinance      `json:"finance,omitempty"`
@@ -238,6 +243,9 @@ func OpenStore(path string) (*Store, error) {
 	case !errors.Is(err,os.ErrNotExist):
 		return nil,err
 	}
+	// Fresh stores have not passed through SQLite decoding or legacy normalization.
+	// Keep the incident lifecycle map writable before the first persistence.
+	if s.st.IncidentSnapshot.Active==nil { s.st.IncidentSnapshot.Active=map[string]incidentclass.Incident{} }
 	return s,nil
 }
 
@@ -273,6 +281,31 @@ func (s *Store) recordStateWrite(err error) error {
 	return err
 }
 
+// ObserveTunnelIncident classifies evidence for one tunnel instance and persists
+// its lifecycle in the existing BCC SQLite transaction. It does not probe nodes.
+// On a failed write, the previous in-memory snapshot is restored.
+func (s *Store) ObserveTunnelIncident(instanceID string, now time.Time, maxAge time.Duration, evidence incidentclass.Evidence) (incidentclass.Result,error) {
+ if strings.TrimSpace(instanceID)=="" || len(instanceID)>incidentclass.MaxInstanceIDBytes {
+  return incidentclass.Result{},errors.New("invalid incident instance id")
+ }
+ s.mu.Lock()
+ defer s.mu.Unlock()
+ if s.persistenceUncertain {return incidentclass.Result{},errStateCommitUncertain}
+ tracker,err:=incidentclass.NewTracker(s.st.IncidentSnapshot)
+ if err!=nil {return incidentclass.Result{},fmt.Errorf("invalid stored incident snapshot: %w",err)}
+ previous:=s.st.IncidentSnapshot
+ result:=tracker.ObserveEvidence(instanceID,now,maxAge,evidence)
+ next:=tracker.Snapshot()
+ // Unknown/stale and out-of-order evidence cannot change durable lifecycle.
+ if reflect.DeepEqual(previous,next) {return result,nil}
+ s.st.IncidentSnapshot=next
+ if err:=s.saveLocked();err!=nil {
+  s.st.IncidentSnapshot=previous
+  return result,err
+ }
+ return result,nil
+}
+
 // PersistenceUncertain reports a failed commit whose durable outcome could not
 // be read back. Callers must not serve the in-memory snapshot as authoritative.
 func (s *Store) PersistenceUncertain() bool {
@@ -305,6 +338,9 @@ func (s *Store) UpsertNode(n Node, agentToken string, audits ...AuditEntry) (Nod
 		n.RevokedAt=old.RevokedAt
 		n.RevokeReason=old.RevokeReason
 		if n.AgentSeen.IsZero(){n.AgentSeen=old.AgentSeen}
+		if n.Address==old.Address && n.Role==old.Role && n.PublicKey==old.PublicKey && n.AgentTokenHash==old.AgentTokenHash {
+			n.TunnelVerification,n.CapabilitiesAt=old.TunnelVerification,old.CapabilitiesAt
+		} else { n.TunnelVerification,n.CapabilitiesAt=0,time.Time{} }
 		if n.PathIPv4==""{n.PathIPv4=old.PathIPv4}
 		if n.PathIPv6==""{n.PathIPv6=old.PathIPv6}
 		if n.Country==""{n.Country=old.Country;n.CountryManual=old.CountryManual;n.CountryAuto=old.CountryAuto}
@@ -486,6 +522,17 @@ func (s *Store) RevokeNode(nodeID,reason string,now time.Time,audits ...AuditEnt
 
 // SetNodeCountry records where the map draws a node; "" removes it from the map.
 func (s *Store) SetNodeCountry(nodeID,country string,now time.Time,audits ...AuditEntry)(Node,error){
+	return s.setNodeCountryMode(nodeID,country,false,now,audits...)
+}
+
+// RestoreAutoCountry explicitly removes a manual (including blank) location.
+// An unresolved address stays in automatic mode with no country; it must not
+// retain the previous manual country as if that were an IP lookup result.
+func (s *Store) RestoreAutoCountry(nodeID,country string,now time.Time,audits ...AuditEntry)(Node,error){
+	return s.setNodeCountryMode(nodeID,country,true,now,audits...)
+}
+
+func (s *Store) setNodeCountryMode(nodeID,country string,automatic bool,now time.Time,audits ...AuditEntry)(Node,error){
 	if len(audits)>1{return Node{},errors.New("at most one security audit intent is allowed")}
 	code,ok:=normalizeCountry(country)
 	if !ok{return Node{},errors.New("unknown country code")}
@@ -494,7 +541,7 @@ func (s *Store) SetNodeCountry(nodeID,country string,now time.Time,audits ...Aud
 	n,found:=s.st.Nodes[nodeID];if !found{return Node{},errors.New("node not found")}
 	before,err:=cloneState(s.st);if err!=nil{return Node{},err}
 	n.Country=code
-	n.CountryManual,n.CountryAuto=true,false
+	n.CountryManual,n.CountryAuto=!automatic,automatic
 	n.UpdatedAt=now
 	s.st.Nodes[nodeID]=n
 	if len(audits)==1{
@@ -508,11 +555,12 @@ func (s *Store) SetNodeCountry(nodeID,country string,now time.Time,audits ...Aud
 }
 
 // SetAutoCountry records the country BCC derived from a node's IP address.
+// An empty result clears a previous automatic country when the address is unknown.
 // It changes nothing once the operator has chosen a location, and reports
 // whether it stored a new value.
 func (s *Store) SetAutoCountry(nodeID,country string)(bool,error){
 	code,ok:=normalizeCountry(country)
-	if !ok||code==""{return false,nil}
+	if !ok{return false,nil}
 	s.mu.Lock();defer s.mu.Unlock()
 	n,found:=s.st.Nodes[nodeID]
 	// A code set before BCC located nodes itself counts as the operator's.

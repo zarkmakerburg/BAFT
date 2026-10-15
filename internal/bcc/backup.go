@@ -1,6 +1,7 @@
 package bcc
 
 import (
+	"github.com/zarkmakerburg/baft/internal/incidentclass"
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
@@ -72,6 +73,7 @@ func newAEAD(key []byte)(cipher.AEAD,error){
 }
 
 func normalizeState(st *state){
+	if st.IncidentSnapshot.Active==nil { st.IncidentSnapshot.Active=map[string]incidentclass.Incident{} }
 	if st.Nodes==nil{st.Nodes=map[string]Node{}}
 	if st.Jobs==nil{st.Jobs=map[string]Job{}}
 	if st.Tunnels==nil{st.Tunnels=map[string]Tunnel{}}
@@ -242,6 +244,7 @@ func decodeBackup(data,key []byte)(backupPayload,BackupHeader,error){
 	var payload backupPayload
 	if err:=json.Unmarshal(plain,&payload);err!=nil{return backupPayload{},BackupHeader{},errors.New("invalid backup payload")}
 	normalizeState(&payload.State)
+	if _,err:=incidentclass.NewTracker(payload.State.IncidentSnapshot);err!=nil{return backupPayload{},BackupHeader{},fmt.Errorf("backup incident snapshot invalid: %w",err)}
 	if payload.Alerts.ActiveAlerts==nil{payload.Alerts.ActiveAlerts=map[string]Alert{}}
 	if err:=verifyAuditEntries(payload.Audit);err!=nil{return backupPayload{},BackupHeader{},fmt.Errorf("backup audit invalid: %w",err)}
 	if len(payload.Audit)==0{

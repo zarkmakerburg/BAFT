@@ -240,6 +240,9 @@ func OpenStore(path string) (*Store, error) {
 	case !errors.Is(err,os.ErrNotExist):
 		return nil,err
 	}
+	// Fresh stores have not passed through SQLite decoding or legacy normalization.
+	// Keep the incident lifecycle map writable before the first persistence.
+	if s.st.IncidentSnapshot.Active==nil { s.st.IncidentSnapshot.Active=map[string]incidentclass.Incident{} }
 	return s,nil
 }
 

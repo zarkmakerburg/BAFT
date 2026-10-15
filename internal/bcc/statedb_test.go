@@ -288,3 +288,20 @@ func TestIncidentSnapshotMissingSingletonFailsClosed(t *testing.T) {
  if _,err:=readStateDB(path);err==nil {t.Fatal("missing incident snapshot row accepted")}
  if _,err:=OpenStore(path);err==nil {t.Fatal("BCC startup accepted missing incident snapshot row")}
 }
+
+func TestFreshStoreInitializesIncidentLifecycleMap(t *testing.T) {
+ path:=filepath.Join(t.TempDir(),"fresh.db")
+ store,err:=OpenStore(path)
+ if err!=nil {t.Fatal(err)}
+ if store.st.IncidentSnapshot.Active==nil {t.Fatal("fresh store incident map is nil")}
+ now:=time.Date(2026,10,15,5,0,0,0,time.UTC)
+ store.st.IncidentSnapshot.Active["fresh-tunnel"]=incidentclass.Incident{
+  InstanceID:"fresh-tunnel",Status:incidentclass.NodeOffline,
+  StartedAt:now,LastObservedAt:now,Observations:1,
+ }
+ if err:=writeStateDB(path,store.st);err!=nil {t.Fatal(err)}
+ reopened,err:=OpenStore(path)
+ if err!=nil {t.Fatal(err)}
+ if _,ok:=reopened.st.IncidentSnapshot.Active["fresh-tunnel"];!ok {t.Fatal("fresh incident not persisted")}
+}
+

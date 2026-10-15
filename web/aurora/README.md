@@ -80,8 +80,10 @@ Strings are plain text values. Future rendering must use text-safe primitives;
 these validators are not an HTML sanitizer. Unknown newer roles/statuses degrade
 to unknown. New API shapes need reviewed fixtures rather than unchecked casts.
 
-A1 has no new page, theme, screenshot, chart, topology interaction, browser QA,
-performance benchmark or live-node acceptance. A2/B adds the opt-in bilingual,
-dual-theme accessible shell/mobile layouts and explicitly owns listeners,
-polling, cancellation, hidden-tab behavior and evidence repainting. The existing
-BCC page and auth/CSRF/classic fallback remain the rollback route.
+A1 itself has no page or visual acceptance. The incremental A2 slice now adds an
+opt-in static DEMO entry at `preview/index.html`, with FA/EN, RTL/LTR, dark/light
+tokens, preview preferences and responsive resource read views. It is not BCC
+embedded/routed, and cannot accept a live provider. No real reads/writes or polling
+are activated. [A2 scope and open evidence matrix](../../docs/aurora/a2-shell.md)
+distinguishes implemented source from browser/visual/mobile acceptance, which is
+NOT RUN in this environment. The existing BCC/auth/CSRF/classic page is unchanged.

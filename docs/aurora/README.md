@@ -3,6 +3,11 @@
 Baseline: `1816f2a35dfeb8a51d32575dbb57e6e0c4c27dc7` (2026-10-15).
 This is a source inventory and implementation plan, not UI or operational acceptance.
 
+Current incremental source adds [A1 data foundation](../../web/aurora/README.md)
+and [A2 opt-in DEMO shell](a2-shell.md). A2 source is implemented but browser,
+mobile/visual/accessibility/performance qualification remains OPEN; the historical
+bootstrap inventory below must not be mistaken for current runtime integration.
+
 Authority: [Master Engineering](https://github.com/zarkmakerburg/BAFT/issues/67#issuecomment-6178389947),
 [Aurora](https://github.com/zarkmakerburg/BAFT/issues/67#issuecomment-6187169497),
 [combined execution contract](https://github.com/zarkmakerburg/BAFT/issues/67#issuecomment-6187258582),

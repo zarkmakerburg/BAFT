@@ -11,16 +11,26 @@ key=$4
 cert=$5
 [[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "invalid version" >&2; exit 2; }
 [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || { echo "full 40-character lowercase commit SHA required" >&2; exit 2; }
-[[ -f "$key" && -f "$cert" ]] || { echo "authorized release key and certificate required" >&2; exit 2; }
+[[ -f "$key" && -f "$cert" && ! -L "$key" && ! -L "$cert" ]] || { echo "regular non-symlink release key and certificate required" >&2; exit 2; }
 [[ -f "$candidate/CANDIDATE" && -d "$candidate/dist" && -f "$candidate/root.pub" && -f "$candidate/revocations.json" && -f "$candidate/install.sh" ]] || { echo "incomplete candidate" >&2; exit 1; }
-[[ ! -L "$candidate" && ! -L "$candidate/dist" ]] || { echo "symlinked candidate directory refused" >&2; exit 1; }
+# Do not follow symlinked candidate inputs: a malicious candidate could otherwise
+# redirect checks or signing output outside the intended release directory.
+for path in "$candidate" "$candidate/dist" "$candidate/CANDIDATE" "$candidate/root.pub" "$candidate/revocations.json" "$candidate/install.sh"; do
+  [[ ! -L "$path" ]] || { echo "symlinked candidate input refused: $path" >&2; exit 1; }
+done
+for path in "$candidate/dist"/*; do
+  [[ ! -L "$path" ]] || { echo "symlinked dist entry refused: $path" >&2; exit 1; }
+done
+[[ ! -L "$repo_root" ]] || { echo "symlinked repository root refused" >&2; exit 1; }
 for f in manifest.json release-key.cert.json SHA256SUMS; do
-  [[ ! -e "$candidate/dist/$f" ]] || { echo "candidate is already signed or contaminated: $f" >&2; exit 1; }
+  [[ ! -e "$candidate/dist/$f" && ! -L "$candidate/dist/$f" ]] || { echo "candidate is already signed or contaminated: $f" >&2; exit 1; }
 done
 grep -Fxq "tag=$version" "$candidate/CANDIDATE" || { echo "candidate tag mismatch" >&2; exit 1; }
 grep -Fxq "commit=$commit" "$candidate/CANDIDATE" || { echo "candidate commit mismatch" >&2; exit 1; }
 grep -Fxq "signed=false" "$candidate/CANDIDATE" || { echo "not an unsigned candidate" >&2; exit 1; }
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+[[ "$(git -C "$repo_root" rev-parse HEAD)" == "$commit" ]] || { echo "signer checkout does not match approved commit" >&2; exit 1; }
+[[ -z "$(git -C "$repo_root" status --porcelain --untracked-files=no)" ]] || { echo "signer checkout has tracked modifications" >&2; exit 1; }
 cmp -s "$candidate/root.pub" "$repo_root/release/keys/root.pub" || { echo "root key mismatch" >&2; exit 1; }
 cmp -s "$candidate/revocations.json" "$repo_root/release/keys/revocations.json" || { echo "revocations mismatch" >&2; exit 1; }
 for arch in amd64 arm64; do

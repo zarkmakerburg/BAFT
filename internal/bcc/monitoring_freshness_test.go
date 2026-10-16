@@ -1,0 +1,180 @@
+package bcc
+
+import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"reflect"
+	"testing"
+	"time"
+
+	"github.com/zarkmakerburg/baft/internal/telemetry"
+)
+
+func monitoringFixture(t *testing.T, n Node, cur *TelemetryCursor) *Store {
+	t.Helper()
+	s, err := OpenStore(filepath.Join(t.TempDir(), "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	n.ID, n.Alias, n.Address, n.Role = "fixture", "Fixture", "127.0.0.1:1", "foreign"
+	if n.Health == "" {
+		n.Health = "unknown"
+	}
+	if _, err := s.UpsertNode(n, "fixture-agent-token"); err != nil {
+		t.Fatal(err)
+	}
+	s.mu.Lock()
+	s.st.Nodes[n.ID] = n
+	if cur != nil {
+		c := *cur
+		c.NodeID = n.ID
+		c.Routes = append([]telemetry.RouteSnapshot(nil), cur.Routes...)
+		s.st.Telemetry[n.ID] = c
+	}
+	s.mu.Unlock()
+	return s
+}
+
+func TestMonitoringFreshnessRequiresDatedCurrentEvidence(t *testing.T) {
+	now := time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)
+	const ttl = 3 * time.Minute
+	fresh, expired, future := now.Add(-time.Minute), now.Add(-ttl), now.Add(time.Second)
+	probe := func(status string, at time.Time) Node {
+		latency := int64(-1)
+		if status == "up" {
+			latency = 17
+		}
+		return Node{Health: status, LastChecked: at, LatencyMS: latency}
+	}
+	report := func(at time.Time) *TelemetryCursor {
+		return &TelemetryCursor{LastTelemetry: at, Routes: []telemetry.RouteSnapshot{{RouteID: "route", Status: "up", LatencyMS: 4}}}
+	}
+	cases := []struct {
+		name    string
+		node    Node
+		report  *TelemetryCursor
+		want    string
+		probe   string
+		latency int64
+	}{
+		{name: "no evidence", want: "unknown"},
+		{name: "fresh positive probe", node: probe("up", fresh), want: "up", probe: "up", latency: 17},
+		{name: "fresh negative probe", node: probe("down", fresh), want: "down", probe: "down", latency: -1},
+		{name: "undated positive probe", node: probe("up", time.Time{}), want: "unknown"},
+		{name: "undated negative probe", node: probe("down", time.Time{}), want: "unknown"},
+		{name: "expired positive probe", node: probe("up", expired), want: "unknown"},
+		{name: "expired negative probe", node: probe("down", expired), want: "unknown"},
+		{name: "future positive probe", node: probe("up", future), want: "unknown"},
+		{name: "future negative probe", node: probe("down", future), want: "unknown"},
+		{name: "fresh agent", node: Node{AgentSeen: fresh}, want: "up"},
+		{name: "expired agent", node: Node{AgentSeen: expired}, want: "unknown"},
+		{name: "future agent", node: Node{AgentSeen: future}, want: "unknown"},
+		{name: "fresh telemetry", report: report(fresh), want: "up"},
+		{name: "undated telemetry", report: report(time.Time{}), want: "unknown"},
+		{name: "expired telemetry", report: report(expired), want: "unknown"},
+		{name: "future telemetry", report: report(future), want: "unknown"},
+		{name: "expired telemetry cannot hide fresh positive probe", node: probe("up", fresh), report: report(expired), want: "up", probe: "up", latency: 17},
+		{name: "expired telemetry cannot hide fresh negative probe", node: probe("down", fresh), report: report(expired), want: "down", probe: "down", latency: -1},
+		{name: "expired telemetry cannot hide fresh agent", node: Node{AgentSeen: fresh}, report: report(expired), want: "up"},
+		{name: "future telemetry with current agent", node: Node{AgentSeen: fresh}, report: report(future), want: "up"},
+		{name: "fresh negative probe survives telemetry", node: probe("down", fresh), report: report(fresh), want: "down", probe: "down", latency: -1},
+		{name: "expired negative probe cannot defeat fresh telemetry", node: probe("down", expired), report: report(fresh), want: "up"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := monitoringFixture(t, tc.node, tc.report)
+			before := s.st.Telemetry["fixture"]
+			before.Routes = append([]telemetry.RouteSnapshot(nil), before.Routes...)
+			for _, duration := range []time.Duration{ttl, 0, -time.Second} {
+				got := s.MonitoringSnapshot(now, duration)[0]
+				wantProbe, wantLatency := tc.probe, tc.latency
+				if wantProbe == "" {
+					wantProbe, wantLatency = "unknown", -1
+				}
+				if got.Status != tc.want || got.HealthCheckStatus != wantProbe || got.LatencyMS != wantLatency {
+					t.Errorf("ttl=%s status/probe/latency=%s/%s/%d, want %s/%s/%d", duration, got.Status, got.HealthCheckStatus, got.LatencyMS, tc.want, wantProbe, wantLatency)
+				}
+				if tc.report != nil {
+					wantRoute := "unknown"
+					if tc.report.LastTelemetry.Equal(fresh) {
+						wantRoute = "up"
+					}
+					if got.Routes[0].Status != wantRoute || !got.LastSeen.Equal(tc.report.LastTelemetry) {
+						t.Errorf("ttl=%s route/last-seen=%+v/%v, want %s/%v", duration, got.Routes, got.LastSeen, wantRoute, tc.report.LastTelemetry)
+					}
+					got.Routes[0].Status = "consumer mutation"
+				}
+				if !reflect.DeepEqual(before, s.st.Telemetry["fixture"]) {
+					t.Fatal("read projection changed persisted telemetry or route state")
+				}
+			}
+		})
+	}
+}
+
+func TestMonitoringFreshnessHTTPAndOverviewKeepUnknown(t *testing.T) {
+	now := time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)
+	for _, currentAgent := range []bool{false, true} {
+		t.Run(map[bool]string{false: "no current evidence", true: "agent online with old probe"}[currentAgent], func(t *testing.T) {
+			n := Node{Health: "up", LastChecked: now.Add(-time.Hour), LatencyMS: 12}
+			wantStatus := "unknown"
+			if currentAgent {
+				n.AgentSeen, wantStatus = now.Add(-time.Minute), "up"
+			}
+			cur := &TelemetryCursor{LastTelemetry: now.Add(-time.Hour), Routes: []telemetry.RouteSnapshot{{RouteID: "route", Status: "up"}}}
+			s := monitoringFixture(t, n, cur)
+			app, err := NewServer(s, "fixture-admin")
+			if err != nil {
+				t.Fatal(err)
+			}
+			app.now = func() time.Time { return now }
+			for _, token := range []string{"", "wrong", "fixture-admin"} {
+				rr := httptest.NewRecorder()
+				app.Handler().ServeHTTP(rr, authReq(http.MethodGet, "/api/monitoring", token, nil))
+				if token != "fixture-admin" {
+					if rr.Code != http.StatusUnauthorized {
+						t.Fatalf("invalid auth status=%d", rr.Code)
+					}
+					continue
+				}
+				var rows []MonitoringNode
+				if rr.Code != http.StatusOK || json.Unmarshal(rr.Body.Bytes(), &rows) != nil || len(rows) != 1 {
+					t.Fatalf("monitoring response status=%d body=%s", rr.Code, rr.Body.String())
+				}
+				if rows[0].Status != wantStatus || rows[0].HealthCheckStatus != "unknown" || rows[0].LatencyMS != -1 || rows[0].Routes[0].Status != "unknown" {
+					t.Errorf("monitoring response=%+v", rows[0])
+				}
+			}
+			o := app.Overview(now, time.Hour)
+			if len(o.Nodes) != 1 || o.Nodes[0].Status != wantStatus || o.Nodes[0].LatencyMS != nil || o.LatencyMS != nil {
+				t.Errorf("overview reused old probe: nodes=%+v latency=%v", o.Nodes, o.LatencyMS)
+			}
+			wantOnline := 0
+			if currentAgent {
+				wantOnline = 1
+			}
+			if o.Servers.Online != wantOnline {
+				t.Errorf("online=%d, want %d", o.Servers.Online, wantOnline)
+			}
+		})
+	}
+}
+
+func TestMonitoringFreshnessOverviewRejectsFutureRateAndAgent(t *testing.T) {
+	now := time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)
+	s := monitoringFixture(t, Node{Health: "up", LastChecked: now.Add(-time.Minute), LatencyMS: 8, AgentSeen: now.Add(time.Minute)}, nil)
+	s.st.History["fixture"] = []HistoryPoint{
+		{Timestamp: now.Add(time.Minute), IngressBytes: 100, EgressBytes: 200},
+		{Timestamp: now.Add(2 * time.Minute), IngressBytes: 200, EgressBytes: 400},
+	}
+	app, err := NewServer(s, "fixture-admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	o := app.Overview(now, time.Hour)
+	if o.Nodes[0].InBps != nil || o.Nodes[0].OutBps != nil || o.Traffic.InBps != nil || o.Traffic.OutBps != nil || o.Health.AgentsStale != 1 {
+		t.Fatalf("future samples advertised as current: node=%+v traffic=%+v agents-stale=%d", o.Nodes[0], o.Traffic, o.Health.AgentsStale)
+	}
+}

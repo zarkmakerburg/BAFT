@@ -124,7 +124,7 @@ func TestOverviewSkipsCounterResetsAndStaleNodes(t *testing.T) {
 		}
 	}
 	for _, n := range o.Nodes {
-		if n.ID == "ex-2" && (n.Status != "down" || n.LatencyMS != nil) {
+		if n.ID == "ex-2" && (n.Status != "unknown" || n.LatencyMS != nil) {
 			t.Fatalf("stale node shown as %s with latency %v", n.Status, n.LatencyMS)
 		}
 	}

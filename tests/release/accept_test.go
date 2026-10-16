@@ -127,6 +127,7 @@ type run struct {
 	RunNumber  int    `json:"run_number"`
 	RunAttempt int    `json:"run_attempt"`
 	Status     string `json:"status"`
+	Conclusion string `json:"conclusion"`
 }
 
 type job struct {
@@ -171,7 +172,7 @@ func TestCIEvidenceMustComeFromTheIntendedWorkflowFile(t *testing.T) {
 	// A successful job named "test" in some OTHER workflow file (what a
 	// look-alike producer could create) does not satisfy the gate.
 	out := ciSetup(t,
-		[]run{{ID: 90, Path: ".github/workflows/evil.yml", RunNumber: 9}},
+		[]run{{ID: 90, Path: ".github/workflows/evil.yml", RunNumber: 9, Conclusion: "success"}},
 		map[int][]job{90: {{ID: 1, Name: "test", Status: "completed", Conclusion: "success"}}})
 	if l := rowFor(out, "ci: test"); !strings.HasPrefix(l, "FAIL") || !strings.Contains(l, "no ci.yml workflow run") {
 		t.Fatalf("spoofed workflow accepted: %q\n%s", l, out)
@@ -187,7 +188,7 @@ func TestRerunRuleLatestRunDecides(t *testing.T) {
 
 	// An earlier success is superseded by a later failed run.
 	out := ciSetup(t,
-		[]run{{ID: 11, Path: ".github/workflows/ci.yml", RunNumber: 1}, {ID: 12, Path: ".github/workflows/ci.yml", RunNumber: 2}},
+		[]run{{ID: 11, Path: ".github/workflows/ci.yml", RunNumber: 1, Conclusion: "success"}, {ID: 12, Path: ".github/workflows/ci.yml", RunNumber: 2, Conclusion: "success"}},
 		map[int][]job{11: ok, 12: bad})
 	if l := rowFor(out, "ci: test"); !strings.HasPrefix(l, "FAIL") {
 		t.Fatalf("a later failed run did not supersede the earlier success: %q\n%s", l, out)
@@ -195,7 +196,7 @@ func TestRerunRuleLatestRunDecides(t *testing.T) {
 
 	// An earlier failure is superseded by a later successful re-run.
 	out = ciSetup(t,
-		[]run{{ID: 11, Path: ".github/workflows/ci.yml", RunNumber: 1}, {ID: 12, Path: ".github/workflows/ci.yml", RunNumber: 2}},
+		[]run{{ID: 11, Path: ".github/workflows/ci.yml", RunNumber: 1, Conclusion: "success"}, {ID: 12, Path: ".github/workflows/ci.yml", RunNumber: 2, Conclusion: "success"}},
 		map[int][]job{11: bad, 12: ok})
 	if l := rowFor(out, "ci: test"); !strings.HasPrefix(l, "PASS") || !strings.Contains(l, "run #2") {
 		t.Fatalf("a later successful re-run was not honoured: %q\n%s", l, out)
@@ -203,7 +204,7 @@ func TestRerunRuleLatestRunDecides(t *testing.T) {
 
 	// A run for another commit is never evidence for this one.
 	out = ciSetup(t,
-		[]run{{ID: 13, Path: ".github/workflows/ci.yml", RunNumber: 5, HeadSHA: strings.Repeat("0", 40)}},
+		[]run{{ID: 13, Path: ".github/workflows/ci.yml", RunNumber: 5, HeadSHA: strings.Repeat("0", 40), Conclusion: "success"}},
 		map[int][]job{13: ok})
 	if l := rowFor(out, "ci: test"); !strings.HasPrefix(l, "FAIL") {
 		t.Fatalf("a run of another commit counted: %q\n%s", l, out)
@@ -211,9 +212,98 @@ func TestRerunRuleLatestRunDecides(t *testing.T) {
 
 	// A run that has not finished is not a pass.
 	out = ciSetup(t,
-		[]run{{ID: 14, Path: ".github/workflows/ci.yml", RunNumber: 1, Status: "in_progress"}},
+		[]run{{ID: 14, Path: ".github/workflows/ci.yml", RunNumber: 1, Status: "in_progress", Conclusion: "success"}},
 		map[int][]job{14: ok})
 	if l := rowFor(out, "ci: test"); !strings.HasPrefix(l, "FAIL") {
 		t.Fatalf("an unfinished run counted: %q\n%s", l, out)
+	}
+}
+
+func qualifiedCI() ([]run, map[int][]job) {
+	runs := []run{
+		{ID: 21, Path: ".github/workflows/ci.yml", RunNumber: 1, Conclusion: "success"},
+		{ID: 22, Path: ".github/workflows/static-analysis.yml", RunNumber: 1, Conclusion: "success"},
+		{ID: 23, Path: ".github/workflows/r2-noise.yml", RunNumber: 1, Conclusion: "success"},
+	}
+	jobs := map[int][]job{
+		22: {{ID: 22, Name: "gosec", Status: "completed", Conclusion: "success"}},
+		23: {{ID: 23, Name: "r3", Status: "completed", Conclusion: "success"}},
+	}
+	for i, name := range strings.Fields("test release-dry-run e2e-binaries e2e-install e2e-install-release e2e-agent-enroll e2e-ssh-bootstrap e2e-launch1 third-party-licenses e2e-bcc-install e2e-bcc-schema-upgrade e2e-install-ssh e2e-install-offline e2e-uninstall installer-faults") {
+		jobs[21] = append(jobs[21], job{ID: 100 + i, Name: name, Status: "completed", Conclusion: "success"})
+	}
+	return runs, jobs
+}
+
+func TestReleaseCIRejectsUnsuccessfulWholeRun(t *testing.T) {
+	for _, conclusion := range []string{"failure", "cancelled", "timed_out", "neutral", "skipped", "unknown", ""} {
+		t.Run(conclusion, func(t *testing.T) {
+			runs, jobs := qualifiedCI()
+			runs[0].Conclusion = conclusion
+			// Named jobs can all be green while another workflow job fails,
+			// or the API reports an incomplete/unknown overall conclusion.
+			out := ciSetup(t, runs, jobs)
+			if l := rowFor(out, "ci: workflow"); !strings.HasPrefix(l, "FAIL") {
+				t.Fatalf("unsuccessful whole run admitted: %q\n%s", l, out)
+			}
+		})
+	}
+}
+
+func TestReleaseCIRequiresEveryCurrentMainJob(t *testing.T) {
+	for _, missing := range strings.Fields("third-party-licenses e2e-bcc-install e2e-bcc-schema-upgrade e2e-install-ssh e2e-install-offline e2e-uninstall installer-faults") {
+		t.Run(missing, func(t *testing.T) {
+			runs, jobs := qualifiedCI()
+			for i, j := range jobs[21] {
+				if j.Name == missing {
+					jobs[21] = append(jobs[21][:i], jobs[21][i+1:]...)
+					break
+				}
+			}
+			out := ciSetup(t, runs, jobs)
+			if l := rowFor(out, "ci: "+missing); !strings.HasPrefix(l, "FAIL") {
+				t.Fatalf("missing mandatory job admitted: %q\n%s", l, out)
+			}
+		})
+	}
+}
+
+func TestReleaseCIRequiresIndependentSecurityAndR3(t *testing.T) {
+	for index, name := range map[int]string{1: "gosec", 2: "r3"} {
+		for _, scenario := range []string{"missing", "wrong-sha", "wrong-workflow", "later-failure"} {
+			t.Run(name+"/"+scenario, func(t *testing.T) {
+				runs, jobs := qualifiedCI()
+				switch scenario {
+				case "missing":
+					runs = append(runs[:index], runs[index+1:]...)
+				case "wrong-sha":
+					runs[index].HeadSHA = strings.Repeat("0", 40)
+				case "wrong-workflow":
+					runs[index].Path = ".github/workflows/lookalike.yml"
+				case "later-failure":
+					later := runs[index]
+					later.ID, later.RunNumber, later.Conclusion = 99, 2, "failure"
+					runs = append(runs, later)
+					jobs[99] = jobs[runs[index].ID]
+				}
+				out := ciSetup(t, runs, jobs)
+				if l := rowFor(out, "ci: "+name); !strings.HasPrefix(l, "FAIL") {
+					t.Fatalf("mandatory independent gate admitted without valid evidence: %q\n%s", l, out)
+				}
+			})
+		}
+	}
+}
+
+func TestReleaseCIQualificationDoesNotReplaceArtifactAcceptance(t *testing.T) {
+	runs, jobs := qualifiedCI()
+	out := ciSetup(t, runs, jobs)
+	for _, name := range []string{"workflow", "test", "gosec", "r3", "installer-faults", "e2e-install-offline"} {
+		if l := rowFor(out, "ci: "+name); !strings.HasPrefix(l, "PASS") {
+			t.Fatalf("qualified CI rejected: %q\n%s", l, out)
+		}
+	}
+	if l := rowFor(out, "release assets"); !strings.HasPrefix(l, "FAIL") || strings.Contains(out, "ACCEPTED:") {
+		t.Fatalf("green CI bypassed missing release artifact acceptance:\n%s", out)
 	}
 }

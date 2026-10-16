@@ -72,5 +72,17 @@
   "claim_id": 6221933471,
   "release_promotion": false,
   "main_merge": false,
-  "tag_release_deploy": false
+  "tag_release_deploy": false,
+  "log_recovery": {
+    "verified_from": "4036faa39a8ff56401475ec8a7f2018a7adbd68c",
+    "logs": 17,
+    "utf8_bytes": 3775908,
+    "truncations": 0,
+    "all_blob_and_length_checks_match": true
+  },
+  "concurrent_hq": {
+    "comment": 6222445762,
+    "owner_report": "manual signing performed; independent output verification still pending",
+    "worker_action": "read-only coordination; no signing verification or release activity by this worker"
+  }
 }

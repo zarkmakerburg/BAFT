@@ -18,8 +18,9 @@ was normally skipped because correctness passed; mandatory race/vet/fuzz all
 completed SUCCESS. R3 BCC package75.891s correctness/426.884s race; main BCC
 race431.488s. Full logs, not excerpts, are stored under logs/: all15 main jobs,
 R3 and GoSec, **17 logs / 3775868 characters**. Log manifest records Git blob
-identities and lengths. Earlier15 completed logs were independently fetched,
-rehash-checked with no truncation; their SHA256s are also retained.
+identities and lengths. All17 logs were independently fetched from evidence4036faa3,
+rehash-checked with no truncation: 3775908 UTF-8 bytes. Every Git blob identity,
+length and SHA256 is retained in verified-log-checksums.json.
 
 Actions actually checked out synthetic PR merge
 `5bc5a4ac79c13f878425f8042be634c41fa6a72b`, parents ae27cae/14cfc6a.

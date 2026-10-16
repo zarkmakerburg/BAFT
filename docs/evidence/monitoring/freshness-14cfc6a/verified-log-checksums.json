@@ -1,0 +1,143 @@
+{
+  "verified_from_evidence_commit": "4036faa39a8ff56401475ec8a7f2018a7adbd68c",
+  "source": "14cfc6a42186ece49393f5401b69ffa8046771c3",
+  "log_count": 17,
+  "logs": [
+    {
+      "key": "static",
+      "sha": "be537c18f9fdac889ed4cb52cb3ee87f3eee3ffa",
+      "characters": 50296,
+      "job": 117132807774,
+      "bytes": 50298,
+      "sha256": "b95c219c3781b0b433667a6e2e65ecea72739cbf63c4a03dc56cb8d0ee3fcc6d"
+    },
+    {
+      "key": "dry",
+      "sha": "439a644cbcc8f66e8e3e543e00dfb55635d02c57",
+      "characters": 22978,
+      "job": 117132808751,
+      "bytes": 22980,
+      "sha256": "096916ccc3a338499124b167de9b7da7f308967729e23411c8b746cc39ca98e0"
+    },
+    {
+      "key": "schema",
+      "sha": "71721389c761038426e5e5f135919423313ee27e",
+      "characters": 54476,
+      "job": 117132808954,
+      "bytes": 54478,
+      "sha256": "b35f4bea1d5396628b753e9186ee58a0d6e548c67722c141140cbb5da1c9fe80"
+    },
+    {
+      "key": "bcc",
+      "sha": "e102a74129a6c0b6c3924c21709489f43f604c32",
+      "characters": 56348,
+      "job": 117132809397,
+      "bytes": 56350,
+      "sha256": "6bc2240f7c1b9a12a5078bc2fae89b06679675e4d13a489926bd61b2789a8960"
+    },
+    {
+      "key": "ssh",
+      "sha": "5e4b5512efa0dff45fdec43213d72b7cc36e5917",
+      "characters": 21456,
+      "job": 117132809004,
+      "bytes": 21458,
+      "sha256": "29922de37fdc2f8c346f69365a5038f7e250cceaf67d276653e66f36aa809e7c"
+    },
+    {
+      "key": "launch",
+      "sha": "941ff84628d3c5a287902d99538d15d6833cdc8b",
+      "characters": 22899,
+      "job": 117132809167,
+      "bytes": 22901,
+      "sha256": "4841268ec357b07a76acd24613615ed338a019dd6ec3e68977728a0739c901ff"
+    },
+    {
+      "key": "licenses",
+      "sha": "e1a5a404673b0e697e6533aa848f77aeca2d58a8",
+      "characters": 18793,
+      "job": 117132808522,
+      "bytes": 18795,
+      "sha256": "83efe19d6a9e78129339759fd49cdcb5e2fbbf37885e8d4cd3b67916312aa9fd"
+    },
+    {
+      "key": "installer-faults",
+      "sha": "5ec221de0078b98f15fda1d4ba2d38dc31b047b9",
+      "characters": 22470,
+      "job": 117132808718,
+      "bytes": 22472,
+      "sha256": "4613354a3e2768b505e1195180f74dd0142a12cc76df37c31f004c0ef6d750b3"
+    },
+    {
+      "key": "e2e-binaries",
+      "sha": "931d8443a531e225267eefede9ad3407c91f4bed",
+      "characters": 25155,
+      "job": 117132808739,
+      "bytes": 25157,
+      "sha256": "ca810280efa52b57b8daaed86d57ee53f25856f79ec03550922bef7f36c459a6"
+    },
+    {
+      "key": "e2e-install",
+      "sha": "c5b29785f724d7597759440a78d879e6db8e9f5f",
+      "characters": 61377,
+      "job": 117132808903,
+      "bytes": 61379,
+      "sha256": "b3bdb90d813759564bb738c0959cdddf62a1f3aa971b5cad777db08d3119a8f0"
+    },
+    {
+      "key": "e2e-uninstall",
+      "sha": "6fa2e58ef3e14b19ce13a326ad12579adf2b9ae6",
+      "characters": 68032,
+      "job": 117132809028,
+      "bytes": 68038,
+      "sha256": "78504c1582fb9305712edb58ec9828415763c5d755e5dfbac7552ed00be491dc"
+    },
+    {
+      "key": "e2e-agent-enroll",
+      "sha": "13dc5b60b6fc3d3c7196a6b48b3da1e228166b02",
+      "characters": 21946,
+      "job": 117132809094,
+      "bytes": 21948,
+      "sha256": "512796e0ef7e93a7e64d64a8eadcadf7492a9afbffbbd66724a9f77afc2be792"
+    },
+    {
+      "key": "e2e-install-offline",
+      "sha": "39c73e4d7949cb49d9d692228f4fca0936175b2c",
+      "characters": 35274,
+      "job": 117132809107,
+      "bytes": 35276,
+      "sha256": "8e90f03e7093ea0834d1b7f5ce7dc14e3f280c9b332ebf2cc6b5512937d3cb6c"
+    },
+    {
+      "key": "e2e-install-release",
+      "sha": "78ee7545f769b06f85a7df2b3f33e3963ddc7c43",
+      "characters": 35828,
+      "job": 117132809184,
+      "bytes": 35830,
+      "sha256": "9be115779520417f88fb2dedfcbcf30652c4aa0c70cbabb97e2395711c285e55"
+    },
+    {
+      "key": "e2e-install-ssh",
+      "sha": "3a651468d1696a2e29f02d4e802a70aaab9ecbbb",
+      "characters": 57880,
+      "job": 117132809323,
+      "bytes": 57882,
+      "sha256": "2c5b838c68e97fda8d6064e1715871cc18b4c34ac62d0d13a7caba3a3c7b670a"
+    },
+    {
+      "key": "r3",
+      "sha": "6da3e666203f73960774cada1c650cc2babd54a6",
+      "characters": 41564,
+      "job": 117132807969,
+      "bytes": 41566,
+      "sha256": "cd25211371226e670c697d7c2844311ae9239435edfb20aba0bd54a50d5be850"
+    },
+    {
+      "key": "main",
+      "sha": "93465088f9ae8e3688e38cfda20ced81a246666f",
+      "characters": 3159096,
+      "job": 117132808822,
+      "bytes": 3159100,
+      "sha256": "8ece3dfa4d04ed65c5265c062aacf397cd1b7553f42bc01e5a8eb1545edd505c"
+    }
+  ]
+}

@@ -389,3 +389,15 @@ td select{min-height:34px;padding:5px 10px;width:auto;min-width:150px}
  .table-wrap td{white-space:nowrap}
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* Aurora Tunnel Studio — fused into the existing Command Center, not a separate dashboard. */
+.ops-card.aurora-tunnel-studio{border:1px solid var(--gold-line);background:linear-gradient(135deg,var(--gold-soft),transparent 42%),var(--panel);box-shadow:0 14px 34px rgba(0,0,0,.09)}
+.aurora-tunnel-studio>.top b{font-size:1.04rem;letter-spacing:.02em}
+.aurora-mode-bar{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:14px;padding:12px;border-radius:14px;background:var(--panel2);border:1px solid var(--line)}
+.aurora-mode-bar label{font-size:13px;font-weight:700;color:var(--text)}
+.aurora-mode-bar select{min-width:220px;flex:1}
+.aurora-legacy-consent{display:flex;gap:10px;align-items:flex-start;padding:12px;margin-top:12px;border:1px solid var(--gold-line);border-radius:12px;background:var(--gold-soft);font-size:13px;line-height:1.65}
+.aurora-legacy-consent input{width:17px;height:17px;flex-shrink:0;accent-color:var(--gold)}
+.aurora-scope[hidden]{display:none!important}
+.aurora-scope .muted{margin:10px 0 2px;line-height:1.75}
+@media(max-width:620px){.aurora-mode-bar{align-items:stretch}.aurora-mode-bar select{min-width:0;width:100%}}

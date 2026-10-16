@@ -1,0 +1,8 @@
+2026-10-13T19:58:40.3097520Z --- FAIL: TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle (0.63s)
+2026-10-13T19:58:40.3100011Z     multi_instance_proc_test.go:154: 127.0.0.1:22852 does not accept connections: dial tcp 127.0.0.1:22852: connect: connection refused
+2026-10-13T19:58:40.3100820Z     multi_instance_proc_test.go:44: fixture baft-bulgaria runtime log:
+2026-10-13T19:58:40.3101333Z     multi_instance_proc_test.go:44: fixture baft-germany runtime log:
+2026-10-13T19:58:40.3105203Z     multi_instance_proc_test.go:44: fixture baft-germany runtime log:
+2026-10-13T19:58:40.3106213Z     multi_instance_proc_test.go:44: fixture baft-bulgaria runtime log:
+2026-10-13T19:58:40.3107201Z FAIL	github.com/zarkmakerburg/baft/internal/tunnelnode	50.205s
+2026-10-13T19:58:40.5649214Z ##[error]Process completed with exit code 1.

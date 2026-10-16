@@ -1,0 +1,5 @@
+--- FAIL: TestRollbackRestoresActiveButDisabledService (0.21s)
+    rollback_errors_test.go:115: rollback did not restore the previous active/disabled state
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/tunnelnode	1.043s
+FAIL

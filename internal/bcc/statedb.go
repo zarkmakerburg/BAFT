@@ -26,6 +26,7 @@ import (
 	"time"
 
 	_ "modernc.org/sqlite"
+	"github.com/zarkmakerburg/baft/internal/incidentclass"
 )
 
 const sqliteMagic = "SQLite format 3\x00"
@@ -69,11 +70,14 @@ var stateMigrations = []string{
 	 CREATE TABLE path_discoveries (id TEXT PRIMARY KEY, doc TEXT NOT NULL);`,
 	// 12: append-only managed configuration change ledger (OPS-P5).
 	`CREATE TABLE change_ledger (seq INTEGER PRIMARY KEY, doc TEXT NOT NULL);`,
+	// 13: atomic singleton incident lifecycle snapshot.
+	`CREATE TABLE incident_snapshot (id INTEGER PRIMARY KEY CHECK (id = 1), doc TEXT NOT NULL);
+	 INSERT INTO incident_snapshot (id, doc) VALUES (1, '{"active":{},"history":[]}');`,
 }
 
 var stateTables = []string{
 	"nodes", "jobs", "finance", "finance_policies", "finance_rate_history", "finance_ledger",
-	"finance_remainders", "telemetry", "history", "active_alerts", "retired_boot_ids", "counters", "tunnels", "node_health", "node_discovery", "cert_rotations", "security_audit_intents", "topology", "ingress_selections", "ingress_distributions", "smart_ingress_plans", "path_probes", "path_discoveries", "change_ledger",
+	"finance_remainders", "telemetry", "history", "active_alerts", "retired_boot_ids", "counters", "tunnels", "node_health", "node_discovery", "cert_rotations", "security_audit_intents", "topology", "ingress_selections", "ingress_distributions", "smart_ingress_plans", "path_probes", "path_discoveries", "change_ledger", "incident_snapshot",
 }
 
 func isSQLiteFile(b []byte) bool { return bytes.HasPrefix(b, []byte(sqliteMagic)) }
@@ -162,6 +166,8 @@ func stateSchemaVersion(path string) (int, error) {
 
 // writeStateDB replaces the whole state in one transaction.
 func writeStateDB(path string, st state) error {
+	if _, err := incidentclass.NewTracker(st.IncidentSnapshot); err != nil { return fmt.Errorf("invalid incident snapshot: %w", err) }
+	if b, err := json.Marshal(st.IncidentSnapshot); err != nil { return err } else if len(b)>incidentclass.MaxSnapshotBytes { return errors.New("incident snapshot exceeds size limit") }
 	db, err := openStateDB(path)
 	if err != nil {
 		return err
@@ -225,6 +231,7 @@ func writeStateTx(tx *sql.Tx, st state) error {
 		_, err := tx.Exec(query, args...)
 		return err
 	}
+	if err := put(`INSERT INTO incident_snapshot VALUES (1, ?)`, st.IncidentSnapshot); err != nil { return err }
 	for id, v := range st.Nodes {
 		if err := put(`INSERT INTO nodes VALUES (?, ?)`, id, v); err != nil {
 			return err
@@ -404,10 +411,22 @@ func readStateDB(path string) (state, error) {
 		}
 		return nil
 	}
+	incidentRows := 0
 	steps := []struct {
 		query string
 		fn    func(string, int64, []byte) error
 	}{
+		{`SELECT CAST(id AS TEXT), 0, doc FROM incident_snapshot`, func(k string, _ int64, d []byte) error {
+			if k != "1" { return fmt.Errorf("invalid incident snapshot key %q", k) }
+			incidentRows++
+			if incidentRows != 1 { return errors.New("duplicate incident snapshot rows") }
+			if len(d)>incidentclass.MaxSnapshotBytes { return errors.New("incident snapshot exceeds size limit") }
+			var v incidentclass.Snapshot
+			if err := decode("incident_snapshot", d, &v); err != nil { return err }
+			if _, err := incidentclass.NewTracker(v); err != nil { return fmt.Errorf("invalid persisted incident snapshot: %w", err) }
+			st.IncidentSnapshot=v
+			return nil
+		}},
 		{`SELECT id, 0, doc FROM nodes`, func(k string, _ int64, d []byte) error {
 			var v Node
 			err := decode("nodes", d, &v)
@@ -572,6 +591,7 @@ func readStateDB(path string) (state, error) {
 			return st, err
 		}
 	}
+	if incidentRows != 1 { return st, errors.New("missing incident snapshot row") }
 	normalizeState(&st)
 	return st, nil
 }

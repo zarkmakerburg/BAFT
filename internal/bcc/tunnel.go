@@ -3,7 +3,7 @@ package bcc
 // Native tunnel builder (Launch-1 P1-E): BCC plans an IR/EX tunnel between
 // two enrolled servers and drives both agents through
 //
-//	prepare EX -> prepare IR -> commit EX -> commit IR -> health IR/EX -> finalize
+//	prepare EX/IR -> stage EX -> validate IR -> commit EX/IR -> verify -> finalize
 //
 // with signed jobs only. A node keeps its previous config until the change is
 // finalized, so any failure (or an operator cancel) rolls both sides back.
@@ -30,35 +30,47 @@ import (
 
 // Tunnel job types are the agent actions of the same name.
 const (
-	JobTunnelPrepareEX = agentjob.ActionTunnelPrepareEX
-	JobTunnelPrepareIR = agentjob.ActionTunnelPrepareIR
-	JobTunnelCommitEX  = agentjob.ActionTunnelCommitEX
-	JobTunnelCommitIR  = agentjob.ActionTunnelCommitIR
-	JobTunnelHealth    = agentjob.ActionTunnelHealth
-	JobTunnelObserve   = agentjob.ActionTunnelObserve
-	JobTunnelInspect   = agentjob.ActionTunnelInspect
-	JobTunnelDiscover  = agentjob.ActionTunnelDiscover
-	JobTunnelFinalize  = agentjob.ActionTunnelFinalize
-	JobTunnelRollback  = agentjob.ActionTunnelRollback
+	JobTunnelPrepareEX         = agentjob.ActionTunnelPrepareEX
+	JobTunnelPrepareIR         = agentjob.ActionTunnelPrepareIR
+	JobTunnelStageEX           = agentjob.ActionTunnelStageEX
+	JobTunnelValidateCandidate = agentjob.ActionTunnelValidateCandidate
+	JobTunnelCommitCandidate   = agentjob.ActionTunnelCommitCandidate
+	JobTunnelCommitEX          = agentjob.ActionTunnelCommitEX
+	JobTunnelCommitIR          = agentjob.ActionTunnelCommitIR
+	JobTunnelHealth            = agentjob.ActionTunnelHealth
+	JobTunnelObserve           = agentjob.ActionTunnelObserve
+	JobTunnelData              = agentjob.ActionTunnelData
+	JobTunnelSeal              = agentjob.ActionTunnelSeal
+	JobTunnelInspect           = agentjob.ActionTunnelInspect
+	JobTunnelDiscover          = agentjob.ActionTunnelDiscover
+	JobTunnelFinalize          = agentjob.ActionTunnelFinalize
+	JobTunnelRollback          = agentjob.ActionTunnelRollback
 )
 
 // Tunnel phases. active, superseded, rolled_back, rollback_failed, decommissioned and decommission_failed are final.
 const (
-	TunnelPreparingEX    = "preparing_ex"
-	TunnelPreparingIR    = "preparing_ir"
-	TunnelCommittingEX   = "committing_ex"
-	TunnelCommittingIR   = "committing_ir"
-	TunnelHealthIR       = "health_ir"
-	TunnelHealthEX       = "health_ex"
-	TunnelObservingIR    = "observing_ir"
-	TunnelObservingEX    = "observing_ex"
-	TunnelFinalizingIR   = "finalizing_ir"
-	TunnelFinalizingEX   = "finalizing_ex"
-	TunnelActive         = "active"
-	TunnelSuperseded     = "superseded"
-	TunnelRollingBack    = "rolling_back"
-	TunnelRolledBack     = "rolled_back"
-	TunnelRollbackFailed = "rollback_failed"
+	TunnelPreparingEX        = "preparing_ex"
+	TunnelPreparingIR        = "preparing_ir"
+	TunnelStagingEX          = "staging_ex"
+	TunnelValidatingIR       = "validating_candidate_ir"
+	TunnelCommittingEX       = "committing_ex"
+	TunnelCommittingIR       = "committing_ir"
+	TunnelHealthIR           = "health_ir"
+	TunnelHealthEX           = "health_ex"
+	TunnelObservingIR        = "observing_ir"
+	TunnelObservingEX        = "observing_ex"
+	TunnelDataIR             = "verifying_data_ir"
+	TunnelDataEX             = "verifying_data_ex"
+	TunnelSealingIR          = "sealing_ir"
+	TunnelSealingEX          = "sealing_ex"
+	TunnelFinalizeIncomplete = "finalize_incomplete"
+	TunnelFinalizingIR       = "finalizing_ir"
+	TunnelFinalizingEX       = "finalizing_ex"
+	TunnelActive             = "active"
+	TunnelSuperseded         = "superseded"
+	TunnelRollingBack        = "rolling_back"
+	TunnelRolledBack         = "rolled_back"
+	TunnelRollbackFailed     = "rollback_failed"
 )
 
 const (
@@ -82,6 +94,10 @@ type Tunnel struct {
 	EXMetricsListen string `json:"ex_metrics_listen,omitempty"`
 	IRMetricsListen string `json:"ir_metrics_listen,omitempty"`
 	RecordShaping   bool   `json:"record_shaping,omitempty"`
+	// Only new deployments opt in. Do not change the protocol of an older
+	// in-flight transaction when BCC is upgraded.
+	CandidatePreparation bool                                  `json:"candidate_preparation,omitempty"`
+	Candidates           map[string]tunnelnode.CandidateReport `json:"candidates,omitempty"`
 
 	PlanHash string           `json:"plan_hash,omitempty"`
 	Evidence []TunnelEvidence `json:"evidence,omitempty"`
@@ -112,16 +128,19 @@ type Tunnel struct {
 	CertEpoch  int    `json:"cert_epoch,omitempty"`
 	CertSHA256 string `json:"cert_sha256,omitempty"`
 
-	Phase          string    `json:"phase"`
-	Error          string    `json:"error,omitempty"`
-	JobID          string    `json:"job_id,omitempty"`
-	RollbackJobs   []string  `json:"rollback_jobs,omitempty"`
-	Jobs           []string  `json:"jobs,omitempty"`
-	Touched        []string  `json:"touched,omitempty"`
-	HealthAttempts int       `json:"health_attempts,omitempty"`
-	StepStarted    time.Time `json:"step_started"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	Phase               string    `json:"phase"`
+	Error               string    `json:"error,omitempty"`
+	JobID               string    `json:"job_id,omitempty"`
+	RollbackJobs        []string  `json:"rollback_jobs,omitempty"`
+	Jobs                []string  `json:"jobs,omitempty"`
+	Touched             []string  `json:"touched,omitempty"`
+	HealthAttempts      int       `json:"health_attempts,omitempty"`
+	VerificationStarted time.Time `json:"verification_started,omitempty"`
+	VerificationRetryAt time.Time `json:"verification_retry_at,omitempty"`
+	FinalizationBegan   bool      `json:"finalization_began,omitempty"`
+	StepStarted         time.Time `json:"step_started"`
+	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
 }
 
 // TunnelEvidence is one piece of proof kept with the deployment: a health
@@ -196,35 +215,86 @@ func tunnelResourceConflict(a, b Tunnel) string {
 	if !tunnelsShareNode(a, b) || sameManagedSlot(a, b) {
 		return ""
 	}
-	if a.EXNode == b.EXNode {
-		if a.Port == b.Port {
-			return fmt.Sprintf("EX listener port %d is already used by tunnel %s", a.Port, b.ID)
-		}
-		if a.EXMetricsListen != "" && a.EXMetricsListen == b.EXMetricsListen {
-			return fmt.Sprintf("EX metrics listener %s is already used by tunnel %s", a.EXMetricsListen, b.ID)
-		}
-	}
-	if a.IRNode == b.IRNode {
-		if a.RouteListen == b.RouteListen {
-			return fmt.Sprintf("IR route listener %s is already used by tunnel %s", a.RouteListen, b.ID)
-		}
-		if a.IRMetricsListen != "" && a.IRMetricsListen == b.IRMetricsListen {
-			return fmt.Sprintf("IR metrics listener %s is already used by tunnel %s", a.IRMetricsListen, b.ID)
+	for _, x := range tunnelBinds(a) {
+		for _, y := range tunnelBinds(b) {
+			if x.node == y.node && bindEndpointsOverlap(x.address, y.address) {
+				return fmt.Sprintf("%s %s conflicts with %s %s already used by tunnel %s on node %s", x.name, x.address, y.name, y.address, b.ID, x.node)
+			}
 		}
 	}
 	return ""
 }
 
 func validateLoopbackEndpoint(v, field string) error {
-	host, port, err := net.SplitHostPort(v)
-	if err != nil || port == "" || port == "0" {
-		return fmt.Errorf("%s must be an explicit loopback IP:port", field)
+	if err := validateFixedEndpoint(v, field); err != nil {
+		return err
 	}
-	ip := net.ParseIP(host)
-	if ip == nil || !ip.IsLoopback() {
+	host, _, _ := net.SplitHostPort(v)
+	if !net.ParseIP(host).IsLoopback() {
 		return fmt.Errorf("%s must use a loopback IP", field)
 	}
 	return nil
+}
+
+func validateFixedEndpoint(v, field string) error {
+	host, port, err := net.SplitHostPort(v)
+	if err != nil || net.ParseIP(host) == nil {
+		return fmt.Errorf("%s must be an explicit IP:port", field)
+	}
+	n, err := strconv.Atoi(port)
+	if err != nil || n < 1 || n > 65535 {
+		return fmt.Errorf("%s port must be between 1 and 65535", field)
+	}
+	return nil
+}
+
+type tunnelBind struct{ node, name, address string }
+
+func tunnelBinds(t Tunnel) []tunnelBind {
+	out := []tunnelBind{
+		{t.EXNode, "EX listener port", net.JoinHostPort("0.0.0.0", strconv.Itoa(t.Port))},
+		{t.IRNode, "IR route listener", t.RouteListen},
+	}
+	if t.EXMetricsListen != "" {
+		out = append(out, tunnelBind{t.EXNode, "EX metrics listener", t.EXMetricsListen})
+	}
+	if t.IRMetricsListen != "" {
+		out = append(out, tunnelBind{t.IRNode, "IR metrics listener", t.IRMetricsListen})
+	}
+	return out
+}
+
+// Compare actual TCP binds, not field names or endpoint spelling. An IPv4
+// wildcard may become a dual-stack socket in Go, so reserve its port across
+// families. Explicit distinct loopback addresses can still coexist.
+func bindEndpointsOverlap(a, b string) bool {
+	ah, ap, ae := net.SplitHostPort(a)
+	bh, bp, be := net.SplitHostPort(b)
+	an, ane := strconv.Atoi(ap)
+	bn, bne := strconv.Atoi(bp)
+	if ae != nil || be != nil || ane != nil || bne != nil || an != bn {
+		return false
+	}
+	ai, bi := net.ParseIP(ah), net.ParseIP(bh)
+	if ai == nil || bi == nil {
+		return false
+	}
+	if ai.Equal(bi) {
+		return true
+	}
+	return ai.IsUnspecified() || bi.IsUnspecified()
+}
+
+func tunnelInternalResourceConflict(t Tunnel) string {
+	binds := tunnelBinds(t)
+	for i, x := range binds {
+		for _, y := range binds[i+1:] {
+			if x.node == y.node && bindEndpointsOverlap(x.address, y.address) {
+				return fmt.Sprintf("%s %s conflicts with %s %s on node %s", x.name, x.address, y.name, y.address, x.node)
+			}
+		}
+	}
+	return ""
 }
 
 // secretParams are job parameters that must not outlive the job.
@@ -266,6 +336,8 @@ func (s *Store) tunnelJobLocked(t *Tunnel, node, typ string, params map[string]s
 		params["instance_id"] = t.InstanceID
 	}
 	j := s.newJobLocked(Job{Type: typ, NodeID: node, Params: params})
+	j.CreatedAt, j.UpdatedAt = now.UTC(), now.UTC()
+	s.st.Jobs[j.ID] = j
 	t.Jobs = append(t.Jobs, j.ID)
 	t.JobID = j.ID
 	t.StepStarted = now
@@ -331,8 +403,20 @@ func (s *Store) resolveTunnelLocked(req TunnelRequest, now time.Time) (Tunnel, N
 	if t.RouteID == "" {
 		t.RouteID = "service-main"
 	}
+	if t.Port < 1 || t.Port > 65535 {
+		return Tunnel{}, Node{}, Node{}, errors.New("listener port must be between 1 and 65535")
+	}
+	if err := validateFixedEndpoint(t.Target, "target"); err != nil {
+		return Tunnel{}, Node{}, Node{}, err
+	}
+	if err := validateLoopbackEndpoint(t.RouteListen, "route_listen"); err != nil {
+		return Tunnel{}, Node{}, Node{}, err
+	}
 	if t.InstanceID == "default" {
 		return Tunnel{}, Node{}, Node{}, errors.New("instance_id default is reserved for the legacy singleton")
+	}
+	if t.InstanceID == "" && (t.EXMetricsListen != "" || t.IRMetricsListen != "") {
+		return Tunnel{}, Node{}, Node{}, errors.New("explicit metrics listeners require an instance-scoped tunnel")
 	}
 	if t.InstanceID != "" {
 		if t.EXMetricsListen == "" || t.IRMetricsListen == "" {
@@ -344,6 +428,9 @@ func (s *Store) resolveTunnelLocked(req TunnelRequest, now time.Time) (Tunnel, N
 		if err := validateLoopbackEndpoint(t.IRMetricsListen, "ir_metrics_listen"); err != nil {
 			return Tunnel{}, Node{}, Node{}, err
 		}
+	}
+	if why := tunnelInternalResourceConflict(t); why != "" {
+		return Tunnel{}, Node{}, Node{}, errors.New(why)
 	}
 	for _, other := range s.st.Tunnels {
 		if !tunnelsShareNode(t, other) {
@@ -411,7 +498,9 @@ func (s *Store) CreateTunnel(req TunnelRequest, now time.Time) (Tunnel, error) {
 // created against. On a mismatch it creates nothing and returns ErrStalePlan
 // carrying the fresh plan.
 func (s *Store) CreateTunnelFromPlan(req TunnelRequest, planHash string, now time.Time, audits ...AuditEntry) (Tunnel, Plan, error) {
-	if len(audits)>1{return Tunnel{},Plan{},errors.New("at most one audit intent is allowed")}
+	if len(audits) > 1 {
+		return Tunnel{}, Plan{}, errors.New("at most one audit intent is allowed")
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if planHash != "" {
@@ -432,11 +521,17 @@ func (s *Store) createTunnelLocked(req TunnelRequest, planHash, topologyKey stri
 	if err != nil {
 		return Tunnel{}, err
 	}
-	before,err:=cloneState(s.st)
-	if err!=nil{return Tunnel{},err}
+	if err := requireTunnelVerification(ex, ir, now); err != nil {
+		return Tunnel{}, err
+	}
+	before, err := cloneState(s.st)
+	if err != nil {
+		return Tunnel{}, err
+	}
 	t.PlanHash = planHash
 	t.TopologyKey = topologyKey
 	t.ExpectedGen = map[string]GenExpect{ex.ID: expectedGeneration(ex, t.InstanceID), ir.ID: expectedGeneration(ir, t.InstanceID)}
+	t.CandidatePreparation = true
 	exParams := t.prepareEXParams()
 	t.Phase = TunnelPreparingEX
 	touch(&t, t.EXNode)
@@ -445,15 +540,20 @@ func (s *Store) createTunnelLocked(req TunnelRequest, planHash, topologyKey stri
 		s.st.Tunnels = map[string]Tunnel{}
 	}
 	s.st.Tunnels[t.ID] = t
-	if len(audits)==1{
-		a:=audits[0]
-		a.Action,a.Target,a.Outcome="tunnel.create",t.ID,"success"
-		if a.Actor==""{a.Actor="admin"}
-		a.Details=mergeAuditDetails(a.Details,map[string]any{"tunnel_id":t.ID,"job_id":t.JobID})
-		if _,err:=s.enqueueSecurityAuditLocked(a);err!=nil{s.st=before;return Tunnel{},err}
+	if len(audits) == 1 {
+		a := audits[0]
+		a.Action, a.Target, a.Outcome = "tunnel.create", t.ID, "success"
+		if a.Actor == "" {
+			a.Actor = "admin"
+		}
+		a.Details = mergeAuditDetails(a.Details, map[string]any{"tunnel_id": t.ID, "job_id": t.JobID})
+		if _, err := s.enqueueSecurityAuditLocked(a); err != nil {
+			s.st = before
+			return Tunnel{}, err
+		}
 	}
 	if err := s.saveLocked(); err != nil {
-		s.st=before
+		s.st = before
 		return Tunnel{}, err
 	}
 	return t, nil
@@ -463,6 +563,11 @@ func (t Tunnel) prepareEXParams() map[string]string {
 	p := map[string]string{
 		"tunnel_id": t.ID, "public_address": t.PublicAddress, "port": strconv.Itoa(t.Port), "target": t.Target,
 		"route_id": t.RouteID, "record_shaping": strconv.FormatBool(t.RecordShaping),
+		"verify_data":      "true",
+		"verify_resources": "true",
+	}
+	if t.CandidatePreparation {
+		p["stage_config"] = "true"
 	}
 	if t.InstanceID != "" {
 		p["instance_id"] = t.InstanceID
@@ -492,12 +597,17 @@ func (s *Store) ListTunnels() []Tunnel {
 // CancelTunnel rolls a change back on request. A tunnel that is already
 // active is final: build a new change to alter it.
 func (s *Store) CancelTunnel(id, reason string, now time.Time, audits ...AuditEntry) (Tunnel, error) {
-	if len(audits)>1{return Tunnel{},errors.New("at most one audit intent is allowed")}
+	if len(audits) > 1 {
+		return Tunnel{}, errors.New("at most one audit intent is allowed")
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	t, ok := s.st.Tunnels[id]
 	if !ok {
 		return Tunnel{}, errors.New("tunnel not found")
+	}
+	if t.FinalizationBegan {
+		return t, errors.New("backup release already began; retry finalization instead of rollback")
 	}
 	switch t.Phase {
 	case TunnelRollingBack:
@@ -507,22 +617,32 @@ func (s *Store) CancelTunnel(id, reason string, now time.Time, audits ...AuditEn
 	case TunnelActive, TunnelSuperseded, TunnelRolledBack, TunnelDecommissioned, TunnelDecommissionFailed:
 		return t, fmt.Errorf("tunnel is %s; nothing to cancel", t.Phase)
 	}
-	before,err:=cloneState(s.st)
-	if err!=nil{return Tunnel{},err}
+	before, err := cloneState(s.st)
+	if err != nil {
+		return Tunnel{}, err
+	}
 	t.Error = "cancelled by operator"
 	if r := strings.TrimSpace(reason); r != "" {
 		t.Error += ": " + r
 	}
 	s.startRollbackLocked(&t, now)
 	s.st.Tunnels[id] = t
-	if len(audits)==1{
-		a:=audits[0]
-		a.Action,a.Target,a.Outcome="tunnel.cancel",id,"success"
-		if a.Actor==""{a.Actor="admin"}
-		if _,err:=s.enqueueSecurityAuditLocked(a);err!=nil{s.st=before;return Tunnel{},err}
+	if len(audits) == 1 {
+		a := audits[0]
+		a.Action, a.Target, a.Outcome = "tunnel.cancel", id, "success"
+		if a.Actor == "" {
+			a.Actor = "admin"
+		}
+		if _, err := s.enqueueSecurityAuditLocked(a); err != nil {
+			s.st = before
+			return Tunnel{}, err
+		}
 	}
-	if err:=s.saveLocked();err!=nil{s.st=before;return Tunnel{},err}
-	return t,nil
+	if err := s.saveLocked(); err != nil {
+		s.st = before
+		return Tunnel{}, err
+	}
+	return t, nil
 }
 
 // startRollbackLocked cancels steps nobody has picked up yet, drops secrets
@@ -654,6 +774,12 @@ func (s *Store) AdvanceTunnels(now time.Time) ([]TunnelEvent, error) {
 }
 
 func (s *Store) advanceLocked(t *Tunnel, now time.Time) *TunnelEvent {
+	if t.Phase == TunnelFinalizeIncomplete {
+		return nil
+	}
+	if verificationPhase(t.Phase) {
+		return s.advanceVerificationLocked(t, now)
+	}
 	if t.Phase == TunnelRollingBack {
 		return s.advanceRollbackLocked(t, now)
 	}
@@ -665,10 +791,14 @@ func (s *Store) advanceLocked(t *Tunnel, now time.Time) *TunnelEvent {
 		s.failLocked(t, "internal error: step job missing", now)
 		return nil
 	}
+	if t.CandidatePreparation && !candidateJobMatches(*t, j) {
+		s.failLocked(t, "candidate step job does not match the tunnel, node, action or artifact lease", now)
+		return nil
+	}
 	switch j.Status {
 	case "queued", "dispatched":
 		if now.Sub(t.StepStarted) > tunnelStepTimeout {
-			s.failLocked(t, fmt.Sprintf("step %s timed out waiting for node %s", t.Phase, j.NodeID), now)
+			s.failVerifiedLocked(t, fmt.Sprintf("step %s timed out waiting for node %s", t.Phase, j.NodeID), now)
 		}
 		return nil
 	case "failed":
@@ -685,9 +815,8 @@ func (s *Store) advanceLocked(t *Tunnel, now time.Time) *TunnelEvent {
 			return nil
 		}
 		if t.Phase == TunnelFinalizingIR || t.Phase == TunnelFinalizingEX {
-			// Live and healthy; only the cleanup of backups failed.
-			t.Error = "finalize incomplete on " + j.NodeID + ": " + j.Message
-			return s.nextAfterFinalizeLocked(t, now)
+			s.failVerifiedLocked(t, "finalize incomplete on "+j.NodeID+": "+j.Message, now)
+			return nil
 		}
 		s.failLocked(t, fmt.Sprintf("%s failed on %s: %s", t.Phase, j.NodeID, j.Message), now)
 		return nil
@@ -707,6 +836,11 @@ func (s *Store) advanceLocked(t *Tunnel, now time.Time) *TunnelEvent {
 		touch(t, t.IRNode)
 		t.Phase = TunnelPreparingIR
 		params := map[string]string{"code": secret, "route_listen": t.RouteListen, "route_id": t.RouteID}
+		params["verify_data"] = "true"
+		params["verify_resources"] = "true"
+		if t.CandidatePreparation {
+			params["stage_config"] = "true"
+		}
 		if t.InstanceID != "" {
 			params["metrics_listen"] = t.IRMetricsListen
 		}
@@ -716,11 +850,45 @@ func (s *Store) advanceLocked(t *Tunnel, now time.Time) *TunnelEvent {
 			s.failLocked(t, "IR returned no reply code", now)
 			return nil
 		}
-		t.Phase = TunnelCommittingEX
-		s.tunnelJobLocked(t, t.EXNode, JobTunnelCommitEX, map[string]string{"reply": secret}, now)
+		if t.CandidatePreparation {
+			t.Phase = TunnelStagingEX
+			s.tunnelJobLocked(t, t.EXNode, JobTunnelStageEX, map[string]string{"reply": secret}, now)
+		} else {
+			t.Phase = TunnelCommittingEX
+			s.tunnelJobLocked(t, t.EXNode, JobTunnelCommitEX, map[string]string{"reply": secret}, now)
+		}
+	case TunnelStagingEX, TunnelValidatingIR:
+		role := tunnelnode.RoleEX
+		if t.Phase == TunnelValidatingIR {
+			role = tunnelnode.RoleIR
+		}
+		report, problems := verifyCandidateReport(*t, j.NodeID, role, j.Message, now)
+		t.Evidence = append(t.Evidence, TunnelEvidence{Step: "candidate_artifacts", Node: j.NodeID, At: now, OK: len(problems) == 0, Detail: j.Message, Problems: problems})
+		if len(problems) > 0 {
+			s.failLocked(t, "candidate preparation refused: "+strings.Join(problems, "; "), now)
+			return nil
+		}
+		if t.Candidates == nil {
+			t.Candidates = map[string]tunnelnode.CandidateReport{}
+		}
+		t.Candidates[j.NodeID] = report
+		if t.Phase == TunnelStagingEX {
+			t.Phase = TunnelValidatingIR
+			s.tunnelJobLocked(t, t.IRNode, JobTunnelValidateCandidate, nil, now)
+		} else if s.candidatesReadyLocked(t, now) {
+			t.Phase = TunnelCommittingEX
+			s.queueCandidateCommitLocked(t, t.EXNode, now)
+		}
 	case TunnelCommittingEX:
+		if t.CandidatePreparation && !s.candidatesReadyLocked(t, now) {
+			return nil
+		}
 		t.Phase = TunnelCommittingIR
-		s.tunnelJobLocked(t, t.IRNode, JobTunnelCommitIR, nil, now)
+		if t.CandidatePreparation {
+			s.queueCandidateCommitLocked(t, t.IRNode, now)
+		} else {
+			s.tunnelJobLocked(t, t.IRNode, JobTunnelCommitIR, nil, now)
+		}
 	case TunnelCommittingIR:
 		t.Phase = TunnelHealthIR
 		t.HealthAttempts = 0
@@ -765,8 +933,9 @@ func (s *Store) advanceLocked(t *Tunnel, now time.Time) *TunnelEvent {
 			t.Phase = TunnelObservingEX
 			s.tunnelJobLocked(t, t.EXNode, JobTunnelObserve, nil, now)
 		} else {
-			t.Phase = TunnelFinalizingIR
-			s.tunnelJobLocked(t, t.IRNode, JobTunnelFinalize, nil, now)
+			t.Phase = TunnelDataIR
+			t.VerificationStarted = now
+			s.tunnelJobLocked(t, t.IRNode, JobTunnelData, nil, now)
 		}
 	case TunnelFinalizingIR, TunnelFinalizingEX:
 		return s.nextAfterFinalizeLocked(t, now)
@@ -904,7 +1073,7 @@ func (s *Server) tunnels(w http.ResponseWriter, r *http.Request) {
 		}
 		details := map[string]any{"ex_node": in.EXNode, "ir_node": in.IRNode, "port": in.Port, "target": in.Target, "route_listen": in.RouteListen}
 		t, _, err := s.store.CreateTunnelFromPlan(in, in.PlanHash, s.now(), AuditEntry{
-			Timestamp:s.now().UTC(),Actor:"admin",RemoteIP:s.clientIP(r),Details:withRequest(r,details),
+			Timestamp: s.now().UTC(), Actor: "admin", RemoteIP: s.clientIP(r), Details: withRequest(r, details),
 		})
 		if in.PlanHash != "" {
 			details["plan_hash"] = in.PlanHash
@@ -949,7 +1118,7 @@ func (s *Server) tunnelCancel(w http.ResponseWriter, r *http.Request) {
 	}
 	details := map[string]any{"reason": strings.TrimSpace(in.Reason)}
 	t, err := s.store.CancelTunnel(in.ID, in.Reason, s.now(), AuditEntry{
-		Timestamp:s.now().UTC(),Actor:"admin",RemoteIP:s.clientIP(r),Details:withRequest(r,details),
+		Timestamp: s.now().UTC(), Actor: "admin", RemoteIP: s.clientIP(r), Details: withRequest(r, details),
 	})
 	if err != nil {
 		s.auditFailure(w, r, "tunnel.cancel", in.ID, details, err, 400)
@@ -998,6 +1167,11 @@ func verifyObserved(t Tunnel, node, role string, o tunnelnode.Observed) []string
 	}
 	if len(o.ConfigSHA256) != 64 {
 		bad("config digest missing")
+	}
+	if t.CandidatePreparation {
+		if r, ok := t.Candidates[node]; !ok || o.ConfigSHA256 != r.ConfigSHA256 {
+			bad("installed config differs from the reviewed candidate")
+		}
 	}
 	if !o.Managed {
 		bad("the node has no BAFT ownership marker for this configuration")

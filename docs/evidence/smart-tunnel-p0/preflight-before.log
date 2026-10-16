@@ -1,0 +1,62 @@
+go: downloading golang.org/x/crypto v0.57.0
+go: downloading modernc.org/sqlite v1.60.1
+go: downloading golang.org/x/sys v0.48.0
+go: downloading go.yaml.in/yaml/v3 v3.0.5
+go: downloading github.com/flynn/noise v1.1.0
+go: downloading modernc.org/libc v1.77.1
+go: downloading github.com/google/uuid v1.6.0
+go: downloading modernc.org/memory v1.12.1
+go: downloading modernc.org/mathutil v1.7.1
+go: downloading github.com/dustin/go-humanize v1.0.1
+go: downloading github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec
+--- FAIL: TestPreflightRejectsCrossPurposeBindCollisionsBeforeJobs (0.06s)
+    --- FAIL: TestPreflightRejectsCrossPurposeBindCollisionsBeforeJobs/own_EX_listener_and_metrics (0.01s)
+        resource_preflight_test.go:28: unsafe plan was accepted
+        resource_preflight_test.go:29: unsafe change queued
+        resource_preflight_test.go:30: rejected preflight changed tunnel or job inventory
+    --- FAIL: TestPreflightRejectsCrossPurposeBindCollisionsBeforeJobs/own_IR_route_and_metrics (0.01s)
+        resource_preflight_test.go:28: unsafe plan was accepted
+        resource_preflight_test.go:29: unsafe change queued
+        resource_preflight_test.go:30: rejected preflight changed tunnel or job inventory
+    --- FAIL: TestPreflightRejectsCrossPurposeBindCollisionsBeforeJobs/EX_metrics_meets_sibling_listener (0.01s)
+        resource_preflight_test.go:28: unsafe plan was accepted
+        resource_preflight_test.go:29: unsafe change queued
+        resource_preflight_test.go:30: rejected preflight changed tunnel or job inventory
+    --- FAIL: TestPreflightRejectsCrossPurposeBindCollisionsBeforeJobs/EX_listener_meets_sibling_metrics (0.01s)
+        resource_preflight_test.go:28: unsafe plan was accepted
+        resource_preflight_test.go:29: unsafe change queued
+        resource_preflight_test.go:30: rejected preflight changed tunnel or job inventory
+    --- FAIL: TestPreflightRejectsCrossPurposeBindCollisionsBeforeJobs/IR_metrics_meets_sibling_route (0.01s)
+        resource_preflight_test.go:28: unsafe plan was accepted
+        resource_preflight_test.go:29: unsafe change queued
+        resource_preflight_test.go:30: rejected preflight changed tunnel or job inventory
+    --- FAIL: TestPreflightRejectsCrossPurposeBindCollisionsBeforeJobs/IR_route_meets_sibling_metrics (0.01s)
+        resource_preflight_test.go:28: unsafe plan was accepted
+        resource_preflight_test.go:29: unsafe change queued
+        resource_preflight_test.go:30: rejected preflight changed tunnel or job inventory
+    --- FAIL: TestPreflightRejectsCrossPurposeBindCollisionsBeforeJobs/equivalent_decimal_metrics_ports (0.01s)
+        resource_preflight_test.go:28: unsafe plan was accepted
+        resource_preflight_test.go:29: unsafe change queued
+        resource_preflight_test.go:30: rejected preflight changed tunnel or job inventory
+--- FAIL: TestPreflightRejectsInvalidNumericEndpointsBeforeJobs (0.04s)
+    --- FAIL: TestPreflightRejectsInvalidNumericEndpointsBeforeJobs/listener_range (0.01s)
+        resource_preflight_test.go:46: invalid endpoint queued a change
+        resource_preflight_test.go:47: invalid endpoint changed inventory
+    --- FAIL: TestPreflightRejectsInvalidNumericEndpointsBeforeJobs/route_range (0.01s)
+        resource_preflight_test.go:46: invalid endpoint queued a change
+        resource_preflight_test.go:47: invalid endpoint changed inventory
+    --- FAIL: TestPreflightRejectsInvalidNumericEndpointsBeforeJobs/metrics_range (0.01s)
+        resource_preflight_test.go:46: invalid endpoint queued a change
+        resource_preflight_test.go:47: invalid endpoint changed inventory
+    --- FAIL: TestPreflightRejectsInvalidNumericEndpointsBeforeJobs/metrics_padded_zero (0.01s)
+        resource_preflight_test.go:46: invalid endpoint queued a change
+        resource_preflight_test.go:47: invalid endpoint changed inventory
+    --- FAIL: TestPreflightRejectsInvalidNumericEndpointsBeforeJobs/target_invalid_IP (0.01s)
+        resource_preflight_test.go:46: invalid endpoint queued a change
+        resource_preflight_test.go:47: invalid endpoint changed inventory
+    --- FAIL: TestPreflightRejectsInvalidNumericEndpointsBeforeJobs/target_range (0.01s)
+        resource_preflight_test.go:46: invalid endpoint queued a change
+        resource_preflight_test.go:47: invalid endpoint changed inventory
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/bcc	0.124s
+FAIL

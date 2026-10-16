@@ -19,7 +19,9 @@ func TestFailedTelemetrySaveCanRetryBootSwitchWithoutLosingAccounting(t *testing
     const token = "telemetry-secret"
     if _,err := store.UpsertNode(Node{ID:"node",Address:"127.0.0.1:23000",Role:"foreign"}, token);err!=nil{t.Fatal(err)}
     if err:=store.SetFinancePolicy("node",100,300);err!=nil{t.Fatal(err)}
-    at:=time.Date(2026,10,8,0,0,0,0,time.UTC)
+    // Keep both reports inside the seven-day history window regardless of
+    // when this persistence regression runs.
+    at:=time.Now().UTC().Add(-time.Hour).Truncate(time.Second)
     send:=func(rep telemetry.Report)(bool,error){
         body,err:=json.Marshal(rep);if err!=nil{t.Fatal(err)}
         _,duplicate,err:=store.ApplyTelemetry(token,telemetry.Sign(token,body),body,rep)

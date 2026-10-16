@@ -28,7 +28,7 @@ type NoiseOptions struct {
 	HandshakeTimeout time.Duration
 	MaxPending       int
 	Revocations      RevocationWatcher
-	OnHandshakeError   func()
+	OnHandshakeError func()
 	// OnHandshakeFailure receives a bounded phase label only; no peer address,
 	// key material, payload, or endpoint is included.
 	OnHandshakeFailure func(phase string)
@@ -204,10 +204,12 @@ type noisePhaseEvent struct {
 }
 
 type noisePhaseTrace struct {
-	mu     sync.Mutex
-	start  time.Time
-	phase  string
-	events []noisePhaseEvent
+	mu               sync.Mutex
+	start            time.Time
+	phase            string
+	transportFailure string
+	connectionReady  bool
+	events           []noisePhaseEvent
 }
 
 func newNoisePhaseTrace() *noisePhaseTrace {
@@ -217,7 +219,34 @@ func newNoisePhaseTrace() *noisePhaseTrace {
 func (t *noisePhaseTrace) note(name, info string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	t.phase = name
+	// A pipe writer can report its secondary failure after net/http reports
+	// the actual TCP/TLS cause. Preserve that cause for transport diagnostics.
+	// Successful/reused connections clear failed dial attempts (including
+	// parallel address attempts) rather than blaming a later Noise failure.
+	ignoredDialFailure := false
+	switch name {
+	case "connection_acquire":
+		t.connectionReady = false
+		t.transportFailure = ""
+	case "tcp_connect_error", "tls_handshake_error":
+		if t.connectionReady {
+			ignoredDialFailure = true
+		} else if name == "tls_handshake_error" || t.transportFailure != "tls_handshake_error" {
+			t.transportFailure = name
+		}
+	case "tcp_connect_complete":
+		if t.transportFailure == "tcp_connect_error" {
+			t.transportFailure = ""
+		}
+	case "tls_handshake_complete":
+		t.transportFailure = ""
+	case "connection_ready":
+		t.connectionReady = true
+		t.transportFailure = ""
+	}
+	if !ignoredDialFailure {
+		t.phase = name
+	}
 	if len(t.events) < 24 {
 		t.events = append(t.events, noisePhaseEvent{name: name, at: time.Since(t.start), info: info})
 	}
@@ -307,8 +336,12 @@ func (t *noisePhaseTrace) wrap(err error, timedOut, sanitizeTransport bool) erro
 	if sanitizeTransport {
 		cause = &sanitizedTransportError{cause: err}
 	}
+	phase := t.phase
+	if sanitizeTransport && t.transportFailure != "" {
+		phase = t.transportFailure
+	}
 	return fmt.Errorf("h2: OpenNoise failed phase=%s elapsed=%dms trace=%s: %w",
-		t.phase, time.Since(t.start).Milliseconds(), b.String(), cause)
+		phase, time.Since(t.start).Milliseconds(), b.String(), cause)
 }
 
 type traceFirstWriter struct {

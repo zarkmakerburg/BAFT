@@ -27,14 +27,26 @@ The plan carries a `hash` over everything it depends on (not over times). Sendin
 |---|---|---|
 | `preparing_ex` | `tunnel_prepare_ex` on EX | keys and outer-TLS PKI are created if missing; a one-time pairing code is produced. Nothing live changes. |
 | `preparing_ir` | `tunnel_prepare_ir` on IR | the code is consumed, the dialer config is staged and validated, a reply code is produced. Nothing live changes. |
-| `committing_ex` | `tunnel_commit_ex` | the reply is verified, the listener config is installed (previous one backed up), the service restarts and must stay active. |
-| `committing_ir` | `tunnel_commit_ir` | same for the dialer. |
+| `staging_ex` | `tunnel_stage_ex` | verify/consume the reply and complete/validate the listener config without changing the live config, certificates, service, unit or generation; return a scoped artifact report. |
+| `validating_candidate_ir` | `tunnel_validate_candidate` | revalidate the IR config, key/CA identities and passive local resource evidence. BCC requires complete reports from BOTH nodes with matching tunnel/instance/role, plan parameters and generation, observed within five minutes. |
+| `committing_ex` | `tunnel_commit_candidate` on EX | install only the already prepared config identified by the signed digest/generation lease; repeat local config/PKI/resource checks, preserve backups and restart the service. |
+| `committing_ir` | `tunnel_commit_candidate` on IR | same for the dialer; BCC rechecks both reports' freshness before queuing this job. |
 | `health_ir`, `health_ex` | `tunnel_health` | service active and not restarting across a settle window, and the listener (EX) or local route (IR) accepts connections. Retried up to 5 times. |
 | `observing_ir`, `observing_ex` | `tunnel_observe` | the node reports its own state (read-only) and BCC compares it with the plan: change id and phase, role, service active, unit equal to the expected one, route id, listener / peer / target, and generation: previous and current must equal the **reviewed** `from` and `to`, and the current one must equal the node's own counter. Any difference is listed and rolls the change back. |
 | `finalizing_ir`, `finalizing_ex` | `tunnel_finalize` | backups and one-time secrets are deleted. |
 | `active` | | done; an earlier `active` tunnel on the same nodes becomes `superseded`. |
 
 Any failure, step timeout (20 minutes) or operator cancel moves to `rolling_back`: jobs nobody picked up are cancelled, and every node that reached a step gets `tunnel_rollback`, IR first. The node restores its previous config and unit (or removes them and stops the service when there was none) and restarts the old service. Outcomes: `rolled_back`, or `rollback_failed` if a node did not restore or did not answer within 2 hours. A `rollback_failed` tunnel blocks new changes on its nodes; cancel it again once the node is back to retry.
+
+The two candidate reports prove artifact validation and passive resource checks,
+not a candidate handshake or application payload. Those pre-cutover checks remain
+open; post-commit delivery/seal gates still protect final backup release. New
+prepares explicitly request `stage_config=true`: older agents refuse that unknown
+parameter before cutover. Older persisted in-flight transactions keep their
+existing `tunnel_commit_ex`/`tunnel_commit_ir` protocol. The reply is wiped after
+EX staging; activation carries only the config digest and generation. Singleton
+metrics retain the Agent's configured loopback endpoint; scoped requests must
+match the reviewed explicit metrics endpoint.
 
 An `active` tunnel is final. To change it, build a new one: it replaces the old one and the old one is restored if the new one fails.
 

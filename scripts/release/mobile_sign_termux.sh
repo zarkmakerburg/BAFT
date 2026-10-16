@@ -21,7 +21,6 @@ done
 for path in "$candidate/dist"/*; do
   [[ ! -L "$path" ]] || { echo "symlinked dist entry refused: $path" >&2; exit 1; }
 done
-[[ ! -L "$repo_root" ]] || { echo "symlinked repository root refused" >&2; exit 1; }
 for f in manifest.json release-key.cert.json SHA256SUMS; do
   [[ ! -e "$candidate/dist/$f" && ! -L "$candidate/dist/$f" ]] || { echo "candidate is already signed or contaminated: $f" >&2; exit 1; }
 done

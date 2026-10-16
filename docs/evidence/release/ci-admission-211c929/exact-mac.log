@@ -1,0 +1,60 @@
+=== RUN   TestStaleLocalTagIsNeverUsed
+--- PASS: TestStaleLocalTagIsNeverUsed (1.31s)
+=== RUN   TestCIEvidenceMustComeFromTheIntendedWorkflowFile
+--- PASS: TestCIEvidenceMustComeFromTheIntendedWorkflowFile (0.94s)
+=== RUN   TestRerunRuleLatestRunDecides
+--- PASS: TestRerunRuleLatestRunDecides (4.20s)
+=== RUN   TestReleaseCIRejectsUnsuccessfulWholeRun
+=== RUN   TestReleaseCIRejectsUnsuccessfulWholeRun/failure
+=== RUN   TestReleaseCIRejectsUnsuccessfulWholeRun/cancelled
+=== RUN   TestReleaseCIRejectsUnsuccessfulWholeRun/timed_out
+=== RUN   TestReleaseCIRejectsUnsuccessfulWholeRun/neutral
+=== RUN   TestReleaseCIRejectsUnsuccessfulWholeRun/skipped
+=== RUN   TestReleaseCIRejectsUnsuccessfulWholeRun/unknown
+=== RUN   TestReleaseCIRejectsUnsuccessfulWholeRun/#00
+--- PASS: TestReleaseCIRejectsUnsuccessfulWholeRun (6.91s)
+    --- PASS: TestReleaseCIRejectsUnsuccessfulWholeRun/failure (0.97s)
+    --- PASS: TestReleaseCIRejectsUnsuccessfulWholeRun/cancelled (0.98s)
+    --- PASS: TestReleaseCIRejectsUnsuccessfulWholeRun/timed_out (0.98s)
+    --- PASS: TestReleaseCIRejectsUnsuccessfulWholeRun/neutral (1.04s)
+    --- PASS: TestReleaseCIRejectsUnsuccessfulWholeRun/skipped (0.98s)
+    --- PASS: TestReleaseCIRejectsUnsuccessfulWholeRun/unknown (0.97s)
+    --- PASS: TestReleaseCIRejectsUnsuccessfulWholeRun/#00 (0.98s)
+=== RUN   TestReleaseCIRequiresEveryCurrentMainJob
+=== RUN   TestReleaseCIRequiresEveryCurrentMainJob/third-party-licenses
+=== RUN   TestReleaseCIRequiresEveryCurrentMainJob/e2e-bcc-install
+=== RUN   TestReleaseCIRequiresEveryCurrentMainJob/e2e-bcc-schema-upgrade
+=== RUN   TestReleaseCIRequiresEveryCurrentMainJob/e2e-install-ssh
+=== RUN   TestReleaseCIRequiresEveryCurrentMainJob/e2e-install-offline
+=== RUN   TestReleaseCIRequiresEveryCurrentMainJob/e2e-uninstall
+=== RUN   TestReleaseCIRequiresEveryCurrentMainJob/installer-faults
+--- PASS: TestReleaseCIRequiresEveryCurrentMainJob (8.24s)
+    --- PASS: TestReleaseCIRequiresEveryCurrentMainJob/third-party-licenses (1.18s)
+    --- PASS: TestReleaseCIRequiresEveryCurrentMainJob/e2e-bcc-install (1.18s)
+    --- PASS: TestReleaseCIRequiresEveryCurrentMainJob/e2e-bcc-schema-upgrade (1.18s)
+    --- PASS: TestReleaseCIRequiresEveryCurrentMainJob/e2e-install-ssh (1.18s)
+    --- PASS: TestReleaseCIRequiresEveryCurrentMainJob/e2e-install-offline (1.18s)
+    --- PASS: TestReleaseCIRequiresEveryCurrentMainJob/e2e-uninstall (1.18s)
+    --- PASS: TestReleaseCIRequiresEveryCurrentMainJob/installer-faults (1.18s)
+=== RUN   TestReleaseCIRequiresIndependentSecurityAndR3
+=== RUN   TestReleaseCIRequiresIndependentSecurityAndR3/gosec/missing
+=== RUN   TestReleaseCIRequiresIndependentSecurityAndR3/gosec/wrong-sha
+=== RUN   TestReleaseCIRequiresIndependentSecurityAndR3/gosec/wrong-workflow
+=== RUN   TestReleaseCIRequiresIndependentSecurityAndR3/gosec/later-failure
+=== RUN   TestReleaseCIRequiresIndependentSecurityAndR3/r3/missing
+=== RUN   TestReleaseCIRequiresIndependentSecurityAndR3/r3/wrong-sha
+=== RUN   TestReleaseCIRequiresIndependentSecurityAndR3/r3/wrong-workflow
+=== RUN   TestReleaseCIRequiresIndependentSecurityAndR3/r3/later-failure
+--- PASS: TestReleaseCIRequiresIndependentSecurityAndR3 (9.31s)
+    --- PASS: TestReleaseCIRequiresIndependentSecurityAndR3/gosec/missing (1.16s)
+    --- PASS: TestReleaseCIRequiresIndependentSecurityAndR3/gosec/wrong-sha (1.17s)
+    --- PASS: TestReleaseCIRequiresIndependentSecurityAndR3/gosec/wrong-workflow (1.17s)
+    --- PASS: TestReleaseCIRequiresIndependentSecurityAndR3/gosec/later-failure (1.16s)
+    --- PASS: TestReleaseCIRequiresIndependentSecurityAndR3/r3/missing (1.17s)
+    --- PASS: TestReleaseCIRequiresIndependentSecurityAndR3/r3/wrong-sha (1.16s)
+    --- PASS: TestReleaseCIRequiresIndependentSecurityAndR3/r3/wrong-workflow (1.16s)
+    --- PASS: TestReleaseCIRequiresIndependentSecurityAndR3/r3/later-failure (1.16s)
+=== RUN   TestReleaseCIQualificationDoesNotReplaceArtifactAcceptance
+--- PASS: TestReleaseCIQualificationDoesNotReplaceArtifactAcceptance (1.18s)
+PASS
+ok  	github.com/zarkmakerburg/baft/tests/release	34.375s

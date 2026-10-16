@@ -1,0 +1,400 @@
+=== RUN   TestReleaseCIRejectsUnsuccessfulWholeRun
+=== RUN   TestReleaseCIRejectsUnsuccessfulWholeRun/failure
+    accept_test.go:247: unsuccessful whole run admitted: ""
+        INFO   tag                          vtest -> 46fbcf714c50a67d302a879fdf8277d7513cbcac
+        PASS   on main                      commit is on /var/folders/cp/11zv52hn7zs42gs1lgd4wf6m0000gn/T/TestReleaseCIRejectsUnsuccessfulWholeRunfailure3923229270/001/remote.git/main
+        PASS   ci: test                     success in ci.yml run #1 on 46fbcf714c50a67d302a879fdf8277d7513cbcac
+        PASS   ci: release-dry-run          success in ci.yml run #1 on 46fbcf714c50a67d302a879fdf8277d7513cbcac
+        PASS   ci: e2e-binaries             success in ci.yml run #1 on 46fbcf714c50a67d302a879fdf8277d7513cbcac
+        PASS   ci: e2e-install              success in ci.yml run #1 on 46fbcf714c50a67d302a879fdf8277d7513cbcac
+        PASS   ci: e2e-install-release      success in ci.yml run #1 on 46fbcf714c50a67d302a879fdf8277d7513cbcac
+        PASS   ci: e2e-agent-enroll         success in ci.yml run #1 on 46fbcf714c50a67d302a879fdf8277d7513cbcac
+        PASS   ci: e2e-ssh-bootstrap        success in ci.yml run #1 on 46fbcf714c50a67d302a879fdf8277d7513cbcac
+        PASS   ci: e2e-launch1              success in ci.yml run #1 on 46fbcf714c50a67d302a879fdf8277d7513cbcac
+        PASS   ci: r3                       success in r2-noise.yml run #1 on 46fbcf714c50a67d302a879fdf8277d7513cbcac
+        FAIL   release assets               no published release vtest (draft or missing)
+        
+        REJECTED: 1 check(s) failed
+=== RUN   TestReleaseCIRejectsUnsuccessfulWholeRun/cancelled
+    accept_test.go:247: unsuccessful whole run admitted: ""
+        INFO   tag                          vtest -> 137452a40bc62421585a368702a9948372e37517
+        PASS   on main                      commit is on /var/folders/cp/11zv52hn7zs42gs1lgd4wf6m0000gn/T/TestReleaseCIRejectsUnsuccessfulWholeRuncancelled220890761/001/remote.git/main
+        PASS   ci: test                     success in ci.yml run #1 on 137452a40bc62421585a368702a9948372e37517
+        PASS   ci: release-dry-run          success in ci.yml run #1 on 137452a40bc62421585a368702a9948372e37517
+        PASS   ci: e2e-binaries             success in ci.yml run #1 on 137452a40bc62421585a368702a9948372e37517
+        PASS   ci: e2e-install              success in ci.yml run #1 on 137452a40bc62421585a368702a9948372e37517
+        PASS   ci: e2e-install-release      success in ci.yml run #1 on 137452a40bc62421585a368702a9948372e37517
+        PASS   ci: e2e-agent-enroll         success in ci.yml run #1 on 137452a40bc62421585a368702a9948372e37517
+        PASS   ci: e2e-ssh-bootstrap        success in ci.yml run #1 on 137452a40bc62421585a368702a9948372e37517
+        PASS   ci: e2e-launch1              success in ci.yml run #1 on 137452a40bc62421585a368702a9948372e37517
+        PASS   ci: r3                       success in r2-noise.yml run #1 on 137452a40bc62421585a368702a9948372e37517
+        FAIL   release assets               no published release vtest (draft or missing)
+        
+        REJECTED: 1 check(s) failed
+=== RUN   TestReleaseCIRejectsUnsuccessfulWholeRun/timed_out
+    accept_test.go:247: unsuccessful whole run admitted: ""
+        INFO   tag                          vtest -> 137452a40bc62421585a368702a9948372e37517
+        PASS   on main                      commit is on /var/folders/cp/11zv52hn7zs42gs1lgd4wf6m0000gn/T/TestReleaseCIRejectsUnsuccessfulWholeRuntimed_out971156512/001/remote.git/main
+        PASS   ci: test                     success in ci.yml run #1 on 137452a40bc62421585a368702a9948372e37517
+        PASS   ci: release-dry-run          success in ci.yml run #1 on 137452a40bc62421585a368702a9948372e37517
+        PASS   ci: e2e-binaries             success in ci.yml run #1 on 137452a40bc62421585a368702a9948372e37517
+        PASS   ci: e2e-install              success in ci.yml run #1 on 137452a40bc62421585a368702a9948372e37517
+        PASS   ci: e2e-install-release      success in ci.yml run #1 on 137452a40bc62421585a368702a9948372e37517
+        PASS   ci: e2e-agent-enroll         success in ci.yml run #1 on 137452a40bc62421585a368702a9948372e37517
+        PASS   ci: e2e-ssh-bootstrap        success in ci.yml run #1 on 137452a40bc62421585a368702a9948372e37517
+        PASS   ci: e2e-launch1              success in ci.yml run #1 on 137452a40bc62421585a368702a9948372e37517
+        PASS   ci: r3                       success in r2-noise.yml run #1 on 137452a40bc62421585a368702a9948372e37517
+        FAIL   release assets               no published release vtest (draft or missing)
+        
+        REJECTED: 1 check(s) failed
+=== RUN   TestReleaseCIRejectsUnsuccessfulWholeRun/neutral
+    accept_test.go:247: unsuccessful whole run admitted: ""
+        INFO   tag                          vtest -> 1d951b345f4534789b9d8a15129bcca88f86daba
+        PASS   on main                      commit is on /var/folders/cp/11zv52hn7zs42gs1lgd4wf6m0000gn/T/TestReleaseCIRejectsUnsuccessfulWholeRunneutral411950360/001/remote.git/main
+        PASS   ci: test                     success in ci.yml run #1 on 1d951b345f4534789b9d8a15129bcca88f86daba
+        PASS   ci: release-dry-run          success in ci.yml run #1 on 1d951b345f4534789b9d8a15129bcca88f86daba
+        PASS   ci: e2e-binaries             success in ci.yml run #1 on 1d951b345f4534789b9d8a15129bcca88f86daba
+        PASS   ci: e2e-install              success in ci.yml run #1 on 1d951b345f4534789b9d8a15129bcca88f86daba
+        PASS   ci: e2e-install-release      success in ci.yml run #1 on 1d951b345f4534789b9d8a15129bcca88f86daba
+        PASS   ci: e2e-agent-enroll         success in ci.yml run #1 on 1d951b345f4534789b9d8a15129bcca88f86daba
+        PASS   ci: e2e-ssh-bootstrap        success in ci.yml run #1 on 1d951b345f4534789b9d8a15129bcca88f86daba
+        PASS   ci: e2e-launch1              success in ci.yml run #1 on 1d951b345f4534789b9d8a15129bcca88f86daba
+        PASS   ci: r3                       success in r2-noise.yml run #1 on 1d951b345f4534789b9d8a15129bcca88f86daba
+        FAIL   release assets               no published release vtest (draft or missing)
+        
+        REJECTED: 1 check(s) failed
+=== RUN   TestReleaseCIRejectsUnsuccessfulWholeRun/skipped
+    accept_test.go:247: unsuccessful whole run admitted: ""
+        INFO   tag                          vtest -> 47607da99b5ed62232444e14aa9b68670bfe7d01
+        PASS   on main                      commit is on /var/folders/cp/11zv52hn7zs42gs1lgd4wf6m0000gn/T/TestReleaseCIRejectsUnsuccessfulWholeRunskipped2188152124/001/remote.git/main
+        PASS   ci: test                     success in ci.yml run #1 on 47607da99b5ed62232444e14aa9b68670bfe7d01
+        PASS   ci: release-dry-run          success in ci.yml run #1 on 47607da99b5ed62232444e14aa9b68670bfe7d01
+        PASS   ci: e2e-binaries             success in ci.yml run #1 on 47607da99b5ed62232444e14aa9b68670bfe7d01
+        PASS   ci: e2e-install              success in ci.yml run #1 on 47607da99b5ed62232444e14aa9b68670bfe7d01
+        PASS   ci: e2e-install-release      success in ci.yml run #1 on 47607da99b5ed62232444e14aa9b68670bfe7d01
+        PASS   ci: e2e-agent-enroll         success in ci.yml run #1 on 47607da99b5ed62232444e14aa9b68670bfe7d01
+        PASS   ci: e2e-ssh-bootstrap        success in ci.yml run #1 on 47607da99b5ed62232444e14aa9b68670bfe7d01
+        PASS   ci: e2e-launch1              success in ci.yml run #1 on 47607da99b5ed62232444e14aa9b68670bfe7d01
+        PASS   ci: r3                       success in r2-noise.yml run #1 on 47607da99b5ed62232444e14aa9b68670bfe7d01
+        FAIL   release assets               no published release vtest (draft or missing)
+        
+        REJECTED: 1 check(s) failed
+=== RUN   TestReleaseCIRejectsUnsuccessfulWholeRun/unknown
+    accept_test.go:247: unsuccessful whole run admitted: ""
+        INFO   tag                          vtest -> d4e65ff69adca9141b79be26fc9c56c60e902da3
+        PASS   on main                      commit is on /var/folders/cp/11zv52hn7zs42gs1lgd4wf6m0000gn/T/TestReleaseCIRejectsUnsuccessfulWholeRununknown3953821737/001/remote.git/main
+        PASS   ci: test                     success in ci.yml run #1 on d4e65ff69adca9141b79be26fc9c56c60e902da3
+        PASS   ci: release-dry-run          success in ci.yml run #1 on d4e65ff69adca9141b79be26fc9c56c60e902da3
+        PASS   ci: e2e-binaries             success in ci.yml run #1 on d4e65ff69adca9141b79be26fc9c56c60e902da3
+        PASS   ci: e2e-install              success in ci.yml run #1 on d4e65ff69adca9141b79be26fc9c56c60e902da3
+        PASS   ci: e2e-install-release      success in ci.yml run #1 on d4e65ff69adca9141b79be26fc9c56c60e902da3
+        PASS   ci: e2e-agent-enroll         success in ci.yml run #1 on d4e65ff69adca9141b79be26fc9c56c60e902da3
+        PASS   ci: e2e-ssh-bootstrap        success in ci.yml run #1 on d4e65ff69adca9141b79be26fc9c56c60e902da3
+        PASS   ci: e2e-launch1              success in ci.yml run #1 on d4e65ff69adca9141b79be26fc9c56c60e902da3
+        PASS   ci: r3                       success in r2-noise.yml run #1 on d4e65ff69adca9141b79be26fc9c56c60e902da3
+        FAIL   release assets               no published release vtest (draft or missing)
+        
+        REJECTED: 1 check(s) failed
+=== RUN   TestReleaseCIRejectsUnsuccessfulWholeRun/#00
+    accept_test.go:247: unsuccessful whole run admitted: ""
+        INFO   tag                          vtest -> 1bba0182430be32b94edf5a15ad9b32535d1a0d1
+        PASS   on main                      commit is on /var/folders/cp/11zv52hn7zs42gs1lgd4wf6m0000gn/T/TestReleaseCIRejectsUnsuccessfulWholeRun#00894579316/001/remote.git/main
+        PASS   ci: test                     success in ci.yml run #1 on 1bba0182430be32b94edf5a15ad9b32535d1a0d1
+        PASS   ci: release-dry-run          success in ci.yml run #1 on 1bba0182430be32b94edf5a15ad9b32535d1a0d1
+        PASS   ci: e2e-binaries             success in ci.yml run #1 on 1bba0182430be32b94edf5a15ad9b32535d1a0d1
+        PASS   ci: e2e-install              success in ci.yml run #1 on 1bba0182430be32b94edf5a15ad9b32535d1a0d1
+        PASS   ci: e2e-install-release      success in ci.yml run #1 on 1bba0182430be32b94edf5a15ad9b32535d1a0d1
+        PASS   ci: e2e-agent-enroll         success in ci.yml run #1 on 1bba0182430be32b94edf5a15ad9b32535d1a0d1
+        PASS   ci: e2e-ssh-bootstrap        success in ci.yml run #1 on 1bba0182430be32b94edf5a15ad9b32535d1a0d1
+        PASS   ci: e2e-launch1              success in ci.yml run #1 on 1bba0182430be32b94edf5a15ad9b32535d1a0d1
+        PASS   ci: r3                       success in r2-noise.yml run #1 on 1bba0182430be32b94edf5a15ad9b32535d1a0d1
+        FAIL   release assets               no published release vtest (draft or missing)
+        
+        REJECTED: 1 check(s) failed
+--- FAIL: TestReleaseCIRejectsUnsuccessfulWholeRun (5.95s)
+    --- FAIL: TestReleaseCIRejectsUnsuccessfulWholeRun/failure (0.96s)
+    --- FAIL: TestReleaseCIRejectsUnsuccessfulWholeRun/cancelled (0.82s)
+    --- FAIL: TestReleaseCIRejectsUnsuccessfulWholeRun/timed_out (0.82s)
+    --- FAIL: TestReleaseCIRejectsUnsuccessfulWholeRun/neutral (0.85s)
+    --- FAIL: TestReleaseCIRejectsUnsuccessfulWholeRun/skipped (0.87s)
+    --- FAIL: TestReleaseCIRejectsUnsuccessfulWholeRun/unknown (0.82s)
+    --- FAIL: TestReleaseCIRejectsUnsuccessfulWholeRun/#00 (0.82s)
+=== RUN   TestReleaseCIRequiresEveryCurrentMainJob
+=== RUN   TestReleaseCIRequiresEveryCurrentMainJob/third-party-licenses
+    accept_test.go:265: missing mandatory job admitted: ""
+        INFO   tag                          vtest -> bf8abe611a9a86a12335bc13aabfcd48d2ad67f8
+        PASS   on main                      commit is on /var/folders/cp/11zv52hn7zs42gs1lgd4wf6m0000gn/T/TestReleaseCIRequiresEveryCurrentMainJobthird-party-licenses1682818652/001/remote.git/main
+        PASS   ci: test                     success in ci.yml run #1 on bf8abe611a9a86a12335bc13aabfcd48d2ad67f8
+        PASS   ci: release-dry-run          success in ci.yml run #1 on bf8abe611a9a86a12335bc13aabfcd48d2ad67f8
+        PASS   ci: e2e-binaries             success in ci.yml run #1 on bf8abe611a9a86a12335bc13aabfcd48d2ad67f8
+        PASS   ci: e2e-install              success in ci.yml run #1 on bf8abe611a9a86a12335bc13aabfcd48d2ad67f8
+        PASS   ci: e2e-install-release      success in ci.yml run #1 on bf8abe611a9a86a12335bc13aabfcd48d2ad67f8
+        PASS   ci: e2e-agent-enroll         success in ci.yml run #1 on bf8abe611a9a86a12335bc13aabfcd48d2ad67f8
+        PASS   ci: e2e-ssh-bootstrap        success in ci.yml run #1 on bf8abe611a9a86a12335bc13aabfcd48d2ad67f8
+        PASS   ci: e2e-launch1              success in ci.yml run #1 on bf8abe611a9a86a12335bc13aabfcd48d2ad67f8
+        PASS   ci: r3                       success in r2-noise.yml run #1 on bf8abe611a9a86a12335bc13aabfcd48d2ad67f8
+        FAIL   release assets               no published release vtest (draft or missing)
+        
+        REJECTED: 1 check(s) failed
+=== RUN   TestReleaseCIRequiresEveryCurrentMainJob/e2e-bcc-install
+    accept_test.go:265: missing mandatory job admitted: ""
+        INFO   tag                          vtest -> bf8abe611a9a86a12335bc13aabfcd48d2ad67f8
+        PASS   on main                      commit is on /var/folders/cp/11zv52hn7zs42gs1lgd4wf6m0000gn/T/TestReleaseCIRequiresEveryCurrentMainJobe2e-bcc-install4222327131/001/remote.git/main
+        PASS   ci: test                     success in ci.yml run #1 on bf8abe611a9a86a12335bc13aabfcd48d2ad67f8
+        PASS   ci: release-dry-run          success in ci.yml run #1 on bf8abe611a9a86a12335bc13aabfcd48d2ad67f8
+        PASS   ci: e2e-binaries             success in ci.yml run #1 on bf8abe611a9a86a12335bc13aabfcd48d2ad67f8
+        PASS   ci: e2e-install              success in ci.yml run #1 on bf8abe611a9a86a12335bc13aabfcd48d2ad67f8
+        PASS   ci: e2e-install-release      success in ci.yml run #1 on bf8abe611a9a86a12335bc13aabfcd48d2ad67f8
+        PASS   ci: e2e-agent-enroll         success in ci.yml run #1 on bf8abe611a9a86a12335bc13aabfcd48d2ad67f8
+        PASS   ci: e2e-ssh-bootstrap        success in ci.yml run #1 on bf8abe611a9a86a12335bc13aabfcd48d2ad67f8
+        PASS   ci: e2e-launch1              success in ci.yml run #1 on bf8abe611a9a86a12335bc13aabfcd48d2ad67f8
+        PASS   ci: r3                       success in r2-noise.yml run #1 on bf8abe611a9a86a12335bc13aabfcd48d2ad67f8
+        FAIL   release assets               no published release vtest (draft or missing)
+        
+        REJECTED: 1 check(s) failed
+=== RUN   TestReleaseCIRequiresEveryCurrentMainJob/e2e-bcc-schema-upgrade
+    accept_test.go:265: missing mandatory job admitted: ""
+        INFO   tag                          vtest -> a591ecab9aaad5de5ad353edb6884beb05cd5040
+        PASS   on main                      commit is on /var/folders/cp/11zv52hn7zs42gs1lgd4wf6m0000gn/T/TestReleaseCIRequiresEveryCurrentMainJobe2e-bcc-schema-upgrade3009316212/001/remote.git/main
+        PASS   ci: test                     success in ci.yml run #1 on a591ecab9aaad5de5ad353edb6884beb05cd5040
+        PASS   ci: release-dry-run          success in ci.yml run #1 on a591ecab9aaad5de5ad353edb6884beb05cd5040
+        PASS   ci: e2e-binaries             success in ci.yml run #1 on a591ecab9aaad5de5ad353edb6884beb05cd5040
+        PASS   ci: e2e-install              success in ci.yml run #1 on a591ecab9aaad5de5ad353edb6884beb05cd5040
+        PASS   ci: e2e-install-release      success in ci.yml run #1 on a591ecab9aaad5de5ad353edb6884beb05cd5040
+        PASS   ci: e2e-agent-enroll         success in ci.yml run #1 on a591ecab9aaad5de5ad353edb6884beb05cd5040
+        PASS   ci: e2e-ssh-bootstrap        success in ci.yml run #1 on a591ecab9aaad5de5ad353edb6884beb05cd5040
+        PASS   ci: e2e-launch1              success in ci.yml run #1 on a591ecab9aaad5de5ad353edb6884beb05cd5040
+        PASS   ci: r3                       success in r2-noise.yml run #1 on a591ecab9aaad5de5ad353edb6884beb05cd5040
+        FAIL   release assets               no published release vtest (draft or missing)
+        
+        REJECTED: 1 check(s) failed
+=== RUN   TestReleaseCIRequiresEveryCurrentMainJob/e2e-install-ssh
+    accept_test.go:265: missing mandatory job admitted: ""
+        INFO   tag                          vtest -> 068b6afc5a6609e7e897dc2600ce6576aa7bfd89
+        PASS   on main                      commit is on /var/folders/cp/11zv52hn7zs42gs1lgd4wf6m0000gn/T/TestReleaseCIRequiresEveryCurrentMainJobe2e-install-ssh3379482278/001/remote.git/main
+        PASS   ci: test                     success in ci.yml run #1 on 068b6afc5a6609e7e897dc2600ce6576aa7bfd89
+        PASS   ci: release-dry-run          success in ci.yml run #1 on 068b6afc5a6609e7e897dc2600ce6576aa7bfd89
+        PASS   ci: e2e-binaries             success in ci.yml run #1 on 068b6afc5a6609e7e897dc2600ce6576aa7bfd89
+        PASS   ci: e2e-install              success in ci.yml run #1 on 068b6afc5a6609e7e897dc2600ce6576aa7bfd89
+        PASS   ci: e2e-install-release      success in ci.yml run #1 on 068b6afc5a6609e7e897dc2600ce6576aa7bfd89
+        PASS   ci: e2e-agent-enroll         success in ci.yml run #1 on 068b6afc5a6609e7e897dc2600ce6576aa7bfd89
+        PASS   ci: e2e-ssh-bootstrap        success in ci.yml run #1 on 068b6afc5a6609e7e897dc2600ce6576aa7bfd89
+        PASS   ci: e2e-launch1              success in ci.yml run #1 on 068b6afc5a6609e7e897dc2600ce6576aa7bfd89
+        PASS   ci: r3                       success in r2-noise.yml run #1 on 068b6afc5a6609e7e897dc2600ce6576aa7bfd89
+        FAIL   release assets               no published release vtest (draft or missing)
+        
+        REJECTED: 1 check(s) failed
+=== RUN   TestReleaseCIRequiresEveryCurrentMainJob/e2e-install-offline
+    accept_test.go:265: missing mandatory job admitted: ""
+        INFO   tag                          vtest -> fd047354dd312f2a5bfc4826af6b82dbad0c4ebc
+        PASS   on main                      commit is on /var/folders/cp/11zv52hn7zs42gs1lgd4wf6m0000gn/T/TestReleaseCIRequiresEveryCurrentMainJobe2e-install-offline1016099125/001/remote.git/main
+        PASS   ci: test                     success in ci.yml run #1 on fd047354dd312f2a5bfc4826af6b82dbad0c4ebc
+        PASS   ci: release-dry-run          success in ci.yml run #1 on fd047354dd312f2a5bfc4826af6b82dbad0c4ebc
+        PASS   ci: e2e-binaries             success in ci.yml run #1 on fd047354dd312f2a5bfc4826af6b82dbad0c4ebc
+        PASS   ci: e2e-install              success in ci.yml run #1 on fd047354dd312f2a5bfc4826af6b82dbad0c4ebc
+        PASS   ci: e2e-install-release      success in ci.yml run #1 on fd047354dd312f2a5bfc4826af6b82dbad0c4ebc
+        PASS   ci: e2e-agent-enroll         success in ci.yml run #1 on fd047354dd312f2a5bfc4826af6b82dbad0c4ebc
+        PASS   ci: e2e-ssh-bootstrap        success in ci.yml run #1 on fd047354dd312f2a5bfc4826af6b82dbad0c4ebc
+        PASS   ci: e2e-launch1              success in ci.yml run #1 on fd047354dd312f2a5bfc4826af6b82dbad0c4ebc
+        PASS   ci: r3                       success in r2-noise.yml run #1 on fd047354dd312f2a5bfc4826af6b82dbad0c4ebc
+        FAIL   release assets               no published release vtest (draft or missing)
+        
+        REJECTED: 1 check(s) failed
+=== RUN   TestReleaseCIRequiresEveryCurrentMainJob/e2e-uninstall
+    accept_test.go:265: missing mandatory job admitted: ""
+        INFO   tag                          vtest -> 1a73b40889f334a2f8cda548f731614f8937fce0
+        PASS   on main                      commit is on /var/folders/cp/11zv52hn7zs42gs1lgd4wf6m0000gn/T/TestReleaseCIRequiresEveryCurrentMainJobe2e-uninstall546333937/001/remote.git/main
+        PASS   ci: test                     success in ci.yml run #1 on 1a73b40889f334a2f8cda548f731614f8937fce0
+        PASS   ci: release-dry-run          success in ci.yml run #1 on 1a73b40889f334a2f8cda548f731614f8937fce0
+        PASS   ci: e2e-binaries             success in ci.yml run #1 on 1a73b40889f334a2f8cda548f731614f8937fce0
+        PASS   ci: e2e-install              success in ci.yml run #1 on 1a73b40889f334a2f8cda548f731614f8937fce0
+        PASS   ci: e2e-install-release      success in ci.yml run #1 on 1a73b40889f334a2f8cda548f731614f8937fce0
+        PASS   ci: e2e-agent-enroll         success in ci.yml run #1 on 1a73b40889f334a2f8cda548f731614f8937fce0
+        PASS   ci: e2e-ssh-bootstrap        success in ci.yml run #1 on 1a73b40889f334a2f8cda548f731614f8937fce0
+        PASS   ci: e2e-launch1              success in ci.yml run #1 on 1a73b40889f334a2f8cda548f731614f8937fce0
+        PASS   ci: r3                       success in r2-noise.yml run #1 on 1a73b40889f334a2f8cda548f731614f8937fce0
+        FAIL   release assets               no published release vtest (draft or missing)
+        
+        REJECTED: 1 check(s) failed
+=== RUN   TestReleaseCIRequiresEveryCurrentMainJob/installer-faults
+    accept_test.go:265: missing mandatory job admitted: ""
+        INFO   tag                          vtest -> a36a56dbf6e9a796b186f256aad37b999c14d8ff
+        PASS   on main                      commit is on /var/folders/cp/11zv52hn7zs42gs1lgd4wf6m0000gn/T/TestReleaseCIRequiresEveryCurrentMainJobinstaller-faults3984951095/001/remote.git/main
+        PASS   ci: test                     success in ci.yml run #1 on a36a56dbf6e9a796b186f256aad37b999c14d8ff
+        PASS   ci: release-dry-run          success in ci.yml run #1 on a36a56dbf6e9a796b186f256aad37b999c14d8ff
+        PASS   ci: e2e-binaries             success in ci.yml run #1 on a36a56dbf6e9a796b186f256aad37b999c14d8ff
+        PASS   ci: e2e-install              success in ci.yml run #1 on a36a56dbf6e9a796b186f256aad37b999c14d8ff
+        PASS   ci: e2e-install-release      success in ci.yml run #1 on a36a56dbf6e9a796b186f256aad37b999c14d8ff
+        PASS   ci: e2e-agent-enroll         success in ci.yml run #1 on a36a56dbf6e9a796b186f256aad37b999c14d8ff
+        PASS   ci: e2e-ssh-bootstrap        success in ci.yml run #1 on a36a56dbf6e9a796b186f256aad37b999c14d8ff
+        PASS   ci: e2e-launch1              success in ci.yml run #1 on a36a56dbf6e9a796b186f256aad37b999c14d8ff
+        PASS   ci: r3                       success in r2-noise.yml run #1 on a36a56dbf6e9a796b186f256aad37b999c14d8ff
+        FAIL   release assets               no published release vtest (draft or missing)
+        
+        REJECTED: 1 check(s) failed
+--- FAIL: TestReleaseCIRequiresEveryCurrentMainJob (5.73s)
+    --- FAIL: TestReleaseCIRequiresEveryCurrentMainJob/third-party-licenses (0.81s)
+    --- FAIL: TestReleaseCIRequiresEveryCurrentMainJob/e2e-bcc-install (0.82s)
+    --- FAIL: TestReleaseCIRequiresEveryCurrentMainJob/e2e-bcc-schema-upgrade (0.84s)
+    --- FAIL: TestReleaseCIRequiresEveryCurrentMainJob/e2e-install-ssh (0.81s)
+    --- FAIL: TestReleaseCIRequiresEveryCurrentMainJob/e2e-install-offline (0.81s)
+    --- FAIL: TestReleaseCIRequiresEveryCurrentMainJob/e2e-uninstall (0.82s)
+    --- FAIL: TestReleaseCIRequiresEveryCurrentMainJob/installer-faults (0.82s)
+=== RUN   TestReleaseCIRequiresIndependentSecurityAndR3
+=== RUN   TestReleaseCIRequiresIndependentSecurityAndR3/gosec/missing
+    accept_test.go:291: mandatory independent gate admitted without valid evidence: ""
+        INFO   tag                          vtest -> a36a56dbf6e9a796b186f256aad37b999c14d8ff
+        PASS   on main                      commit is on /var/folders/cp/11zv52hn7zs42gs1lgd4wf6m0000gn/T/TestReleaseCIRequiresIndependentSecurityAndR3gosecmissing1396117166/001/remote.git/main
+        PASS   ci: test                     success in ci.yml run #1 on a36a56dbf6e9a796b186f256aad37b999c14d8ff
+        PASS   ci: release-dry-run          success in ci.yml run #1 on a36a56dbf6e9a796b186f256aad37b999c14d8ff
+        PASS   ci: e2e-binaries             success in ci.yml run #1 on a36a56dbf6e9a796b186f256aad37b999c14d8ff
+        PASS   ci: e2e-install              success in ci.yml run #1 on a36a56dbf6e9a796b186f256aad37b999c14d8ff
+        PASS   ci: e2e-install-release      success in ci.yml run #1 on a36a56dbf6e9a796b186f256aad37b999c14d8ff
+        PASS   ci: e2e-agent-enroll         success in ci.yml run #1 on a36a56dbf6e9a796b186f256aad37b999c14d8ff
+        PASS   ci: e2e-ssh-bootstrap        success in ci.yml run #1 on a36a56dbf6e9a796b186f256aad37b999c14d8ff
+        PASS   ci: e2e-launch1              success in ci.yml run #1 on a36a56dbf6e9a796b186f256aad37b999c14d8ff
+        PASS   ci: r3                       success in r2-noise.yml run #1 on a36a56dbf6e9a796b186f256aad37b999c14d8ff
+        FAIL   release assets               no published release vtest (draft or missing)
+        
+        REJECTED: 1 check(s) failed
+=== RUN   TestReleaseCIRequiresIndependentSecurityAndR3/gosec/wrong-sha
+    accept_test.go:291: mandatory independent gate admitted without valid evidence: ""
+        INFO   tag                          vtest -> ae6d5cb03bf7d4b1e570eae688d16d9707129d9d
+        PASS   on main                      commit is on /var/folders/cp/11zv52hn7zs42gs1lgd4wf6m0000gn/T/TestReleaseCIRequiresIndependentSecurityAndR3gosecwrong-sha2929663817/001/remote.git/main
+        PASS   ci: test                     success in ci.yml run #1 on ae6d5cb03bf7d4b1e570eae688d16d9707129d9d
+        PASS   ci: release-dry-run          success in ci.yml run #1 on ae6d5cb03bf7d4b1e570eae688d16d9707129d9d
+        PASS   ci: e2e-binaries             success in ci.yml run #1 on ae6d5cb03bf7d4b1e570eae688d16d9707129d9d
+        PASS   ci: e2e-install              success in ci.yml run #1 on ae6d5cb03bf7d4b1e570eae688d16d9707129d9d
+        PASS   ci: e2e-install-release      success in ci.yml run #1 on ae6d5cb03bf7d4b1e570eae688d16d9707129d9d
+        PASS   ci: e2e-agent-enroll         success in ci.yml run #1 on ae6d5cb03bf7d4b1e570eae688d16d9707129d9d
+        PASS   ci: e2e-ssh-bootstrap        success in ci.yml run #1 on ae6d5cb03bf7d4b1e570eae688d16d9707129d9d
+        PASS   ci: e2e-launch1              success in ci.yml run #1 on ae6d5cb03bf7d4b1e570eae688d16d9707129d9d
+        PASS   ci: r3                       success in r2-noise.yml run #1 on ae6d5cb03bf7d4b1e570eae688d16d9707129d9d
+        FAIL   release assets               no published release vtest (draft or missing)
+        
+        REJECTED: 1 check(s) failed
+=== RUN   TestReleaseCIRequiresIndependentSecurityAndR3/gosec/wrong-workflow
+    accept_test.go:291: mandatory independent gate admitted without valid evidence: ""
+        INFO   tag                          vtest -> 77dd0b6f89fd2cacda73b13634232db6af52ab59
+        PASS   on main                      commit is on /var/folders/cp/11zv52hn7zs42gs1lgd4wf6m0000gn/T/TestReleaseCIRequiresIndependentSecurityAndR3gosecwrong-workfl3261076165/001/remote.git/main
+        PASS   ci: test                     success in ci.yml run #1 on 77dd0b6f89fd2cacda73b13634232db6af52ab59
+        PASS   ci: release-dry-run          success in ci.yml run #1 on 77dd0b6f89fd2cacda73b13634232db6af52ab59
+        PASS   ci: e2e-binaries             success in ci.yml run #1 on 77dd0b6f89fd2cacda73b13634232db6af52ab59
+        PASS   ci: e2e-install              success in ci.yml run #1 on 77dd0b6f89fd2cacda73b13634232db6af52ab59
+        PASS   ci: e2e-install-release      success in ci.yml run #1 on 77dd0b6f89fd2cacda73b13634232db6af52ab59
+        PASS   ci: e2e-agent-enroll         success in ci.yml run #1 on 77dd0b6f89fd2cacda73b13634232db6af52ab59
+        PASS   ci: e2e-ssh-bootstrap        success in ci.yml run #1 on 77dd0b6f89fd2cacda73b13634232db6af52ab59
+        PASS   ci: e2e-launch1              success in ci.yml run #1 on 77dd0b6f89fd2cacda73b13634232db6af52ab59
+        PASS   ci: r3                       success in r2-noise.yml run #1 on 77dd0b6f89fd2cacda73b13634232db6af52ab59
+        FAIL   release assets               no published release vtest (draft or missing)
+        
+        REJECTED: 1 check(s) failed
+=== RUN   TestReleaseCIRequiresIndependentSecurityAndR3/gosec/later-failure
+    accept_test.go:291: mandatory independent gate admitted without valid evidence: ""
+        INFO   tag                          vtest -> 56a1c42bd8dca3ac6e8ab9b934d1514fde7bb63b
+        PASS   on main                      commit is on /var/folders/cp/11zv52hn7zs42gs1lgd4wf6m0000gn/T/TestReleaseCIRequiresIndependentSecurityAndR3goseclater-failur202308598/001/remote.git/main
+        PASS   ci: test                     success in ci.yml run #1 on 56a1c42bd8dca3ac6e8ab9b934d1514fde7bb63b
+        PASS   ci: release-dry-run          success in ci.yml run #1 on 56a1c42bd8dca3ac6e8ab9b934d1514fde7bb63b
+        PASS   ci: e2e-binaries             success in ci.yml run #1 on 56a1c42bd8dca3ac6e8ab9b934d1514fde7bb63b
+        PASS   ci: e2e-install              success in ci.yml run #1 on 56a1c42bd8dca3ac6e8ab9b934d1514fde7bb63b
+        PASS   ci: e2e-install-release      success in ci.yml run #1 on 56a1c42bd8dca3ac6e8ab9b934d1514fde7bb63b
+        PASS   ci: e2e-agent-enroll         success in ci.yml run #1 on 56a1c42bd8dca3ac6e8ab9b934d1514fde7bb63b
+        PASS   ci: e2e-ssh-bootstrap        success in ci.yml run #1 on 56a1c42bd8dca3ac6e8ab9b934d1514fde7bb63b
+        PASS   ci: e2e-launch1              success in ci.yml run #1 on 56a1c42bd8dca3ac6e8ab9b934d1514fde7bb63b
+        PASS   ci: r3                       success in r2-noise.yml run #1 on 56a1c42bd8dca3ac6e8ab9b934d1514fde7bb63b
+        FAIL   release assets               no published release vtest (draft or missing)
+        
+        REJECTED: 1 check(s) failed
+=== RUN   TestReleaseCIRequiresIndependentSecurityAndR3/r3/missing
+    accept_test.go:291: mandatory independent gate admitted without valid evidence: "INFO   ci: r3                       r2-noise.yml did not run on this commit (path-filtered)"
+        INFO   tag                          vtest -> 895a9e7c6b1b00a107eaeac33e69c57fa5095097
+        PASS   on main                      commit is on /var/folders/cp/11zv52hn7zs42gs1lgd4wf6m0000gn/T/TestReleaseCIRequiresIndependentSecurityAndR3r3missing2158447934/001/remote.git/main
+        PASS   ci: test                     success in ci.yml run #1 on 895a9e7c6b1b00a107eaeac33e69c57fa5095097
+        PASS   ci: release-dry-run          success in ci.yml run #1 on 895a9e7c6b1b00a107eaeac33e69c57fa5095097
+        PASS   ci: e2e-binaries             success in ci.yml run #1 on 895a9e7c6b1b00a107eaeac33e69c57fa5095097
+        PASS   ci: e2e-install              success in ci.yml run #1 on 895a9e7c6b1b00a107eaeac33e69c57fa5095097
+        PASS   ci: e2e-install-release      success in ci.yml run #1 on 895a9e7c6b1b00a107eaeac33e69c57fa5095097
+        PASS   ci: e2e-agent-enroll         success in ci.yml run #1 on 895a9e7c6b1b00a107eaeac33e69c57fa5095097
+        PASS   ci: e2e-ssh-bootstrap        success in ci.yml run #1 on 895a9e7c6b1b00a107eaeac33e69c57fa5095097
+        PASS   ci: e2e-launch1              success in ci.yml run #1 on 895a9e7c6b1b00a107eaeac33e69c57fa5095097
+        INFO   ci: r3                       r2-noise.yml did not run on this commit (path-filtered)
+        FAIL   release assets               no published release vtest (draft or missing)
+        
+        REJECTED: 1 check(s) failed
+=== RUN   TestReleaseCIRequiresIndependentSecurityAndR3/r3/wrong-sha
+    accept_test.go:291: mandatory independent gate admitted without valid evidence: "INFO   ci: r3                       r2-noise.yml did not run on this commit (path-filtered)"
+        INFO   tag                          vtest -> 895a9e7c6b1b00a107eaeac33e69c57fa5095097
+        PASS   on main                      commit is on /var/folders/cp/11zv52hn7zs42gs1lgd4wf6m0000gn/T/TestReleaseCIRequiresIndependentSecurityAndR3r3wrong-sha2195273448/001/remote.git/main
+        PASS   ci: test                     success in ci.yml run #1 on 895a9e7c6b1b00a107eaeac33e69c57fa5095097
+        PASS   ci: release-dry-run          success in ci.yml run #1 on 895a9e7c6b1b00a107eaeac33e69c57fa5095097
+        PASS   ci: e2e-binaries             success in ci.yml run #1 on 895a9e7c6b1b00a107eaeac33e69c57fa5095097
+        PASS   ci: e2e-install              success in ci.yml run #1 on 895a9e7c6b1b00a107eaeac33e69c57fa5095097
+        PASS   ci: e2e-install-release      success in ci.yml run #1 on 895a9e7c6b1b00a107eaeac33e69c57fa5095097
+        PASS   ci: e2e-agent-enroll         success in ci.yml run #1 on 895a9e7c6b1b00a107eaeac33e69c57fa5095097
+        PASS   ci: e2e-ssh-bootstrap        success in ci.yml run #1 on 895a9e7c6b1b00a107eaeac33e69c57fa5095097
+        PASS   ci: e2e-launch1              success in ci.yml run #1 on 895a9e7c6b1b00a107eaeac33e69c57fa5095097
+        INFO   ci: r3                       r2-noise.yml did not run on this commit (path-filtered)
+        FAIL   release assets               no published release vtest (draft or missing)
+        
+        REJECTED: 1 check(s) failed
+=== RUN   TestReleaseCIRequiresIndependentSecurityAndR3/r3/wrong-workflow
+    accept_test.go:291: mandatory independent gate admitted without valid evidence: "INFO   ci: r3                       r2-noise.yml did not run on this commit (path-filtered)"
+        INFO   tag                          vtest -> e6654c830bbc8a47bf688f4e582d349df2d549cb
+        PASS   on main                      commit is on /var/folders/cp/11zv52hn7zs42gs1lgd4wf6m0000gn/T/TestReleaseCIRequiresIndependentSecurityAndR3r3wrong-workflow898494230/001/remote.git/main
+        PASS   ci: test                     success in ci.yml run #1 on e6654c830bbc8a47bf688f4e582d349df2d549cb
+        PASS   ci: release-dry-run          success in ci.yml run #1 on e6654c830bbc8a47bf688f4e582d349df2d549cb
+        PASS   ci: e2e-binaries             success in ci.yml run #1 on e6654c830bbc8a47bf688f4e582d349df2d549cb
+        PASS   ci: e2e-install              success in ci.yml run #1 on e6654c830bbc8a47bf688f4e582d349df2d549cb
+        PASS   ci: e2e-install-release      success in ci.yml run #1 on e6654c830bbc8a47bf688f4e582d349df2d549cb
+        PASS   ci: e2e-agent-enroll         success in ci.yml run #1 on e6654c830bbc8a47bf688f4e582d349df2d549cb
+        PASS   ci: e2e-ssh-bootstrap        success in ci.yml run #1 on e6654c830bbc8a47bf688f4e582d349df2d549cb
+        PASS   ci: e2e-launch1              success in ci.yml run #1 on e6654c830bbc8a47bf688f4e582d349df2d549cb
+        INFO   ci: r3                       r2-noise.yml did not run on this commit (path-filtered)
+        FAIL   release assets               no published release vtest (draft or missing)
+        
+        REJECTED: 1 check(s) failed
+=== RUN   TestReleaseCIRequiresIndependentSecurityAndR3/r3/later-failure
+    accept_test.go:291: mandatory independent gate admitted without valid evidence: "PASS   ci: r3                       success in r2-noise.yml run #2 on 5719fb73b3da9e3a4306b0fa09a2f2a2f64e4715"
+        INFO   tag                          vtest -> 5719fb73b3da9e3a4306b0fa09a2f2a2f64e4715
+        PASS   on main                      commit is on /var/folders/cp/11zv52hn7zs42gs1lgd4wf6m0000gn/T/TestReleaseCIRequiresIndependentSecurityAndR3r3later-failure4114225006/001/remote.git/main
+        PASS   ci: test                     success in ci.yml run #1 on 5719fb73b3da9e3a4306b0fa09a2f2a2f64e4715
+        PASS   ci: release-dry-run          success in ci.yml run #1 on 5719fb73b3da9e3a4306b0fa09a2f2a2f64e4715
+        PASS   ci: e2e-binaries             success in ci.yml run #1 on 5719fb73b3da9e3a4306b0fa09a2f2a2f64e4715
+        PASS   ci: e2e-install              success in ci.yml run #1 on 5719fb73b3da9e3a4306b0fa09a2f2a2f64e4715
+        PASS   ci: e2e-install-release      success in ci.yml run #1 on 5719fb73b3da9e3a4306b0fa09a2f2a2f64e4715
+        PASS   ci: e2e-agent-enroll         success in ci.yml run #1 on 5719fb73b3da9e3a4306b0fa09a2f2a2f64e4715
+        PASS   ci: e2e-ssh-bootstrap        success in ci.yml run #1 on 5719fb73b3da9e3a4306b0fa09a2f2a2f64e4715
+        PASS   ci: e2e-launch1              success in ci.yml run #1 on 5719fb73b3da9e3a4306b0fa09a2f2a2f64e4715
+        PASS   ci: r3                       success in r2-noise.yml run #2 on 5719fb73b3da9e3a4306b0fa09a2f2a2f64e4715
+        FAIL   release assets               no published release vtest (draft or missing)
+        
+        REJECTED: 1 check(s) failed
+--- FAIL: TestReleaseCIRequiresIndependentSecurityAndR3 (6.40s)
+    --- FAIL: TestReleaseCIRequiresIndependentSecurityAndR3/gosec/missing (0.82s)
+    --- FAIL: TestReleaseCIRequiresIndependentSecurityAndR3/gosec/wrong-sha (0.81s)
+    --- FAIL: TestReleaseCIRequiresIndependentSecurityAndR3/gosec/wrong-workflow (0.80s)
+    --- FAIL: TestReleaseCIRequiresIndependentSecurityAndR3/gosec/later-failure (0.80s)
+    --- FAIL: TestReleaseCIRequiresIndependentSecurityAndR3/r3/missing (0.79s)
+    --- FAIL: TestReleaseCIRequiresIndependentSecurityAndR3/r3/wrong-sha (0.78s)
+    --- FAIL: TestReleaseCIRequiresIndependentSecurityAndR3/r3/wrong-workflow (0.79s)
+    --- FAIL: TestReleaseCIRequiresIndependentSecurityAndR3/r3/later-failure (0.81s)
+=== RUN   TestReleaseCIQualificationDoesNotReplaceArtifactAcceptance
+    accept_test.go:303: qualified CI rejected: ""
+        INFO   tag                          vtest -> 12bd604ed7fce7a0a6549db5412d0b98d0787c1b
+        PASS   on main                      commit is on /var/folders/cp/11zv52hn7zs42gs1lgd4wf6m0000gn/T/TestReleaseCIQualificationDoesNotReplaceArtifactAcceptance128220674/001/remote.git/main
+        PASS   ci: test                     success in ci.yml run #1 on 12bd604ed7fce7a0a6549db5412d0b98d0787c1b
+        PASS   ci: release-dry-run          success in ci.yml run #1 on 12bd604ed7fce7a0a6549db5412d0b98d0787c1b
+        PASS   ci: e2e-binaries             success in ci.yml run #1 on 12bd604ed7fce7a0a6549db5412d0b98d0787c1b
+        PASS   ci: e2e-install              success in ci.yml run #1 on 12bd604ed7fce7a0a6549db5412d0b98d0787c1b
+        PASS   ci: e2e-install-release      success in ci.yml run #1 on 12bd604ed7fce7a0a6549db5412d0b98d0787c1b
+        PASS   ci: e2e-agent-enroll         success in ci.yml run #1 on 12bd604ed7fce7a0a6549db5412d0b98d0787c1b
+        PASS   ci: e2e-ssh-bootstrap        success in ci.yml run #1 on 12bd604ed7fce7a0a6549db5412d0b98d0787c1b
+        PASS   ci: e2e-launch1              success in ci.yml run #1 on 12bd604ed7fce7a0a6549db5412d0b98d0787c1b
+        PASS   ci: r3                       success in r2-noise.yml run #1 on 12bd604ed7fce7a0a6549db5412d0b98d0787c1b
+        FAIL   release assets               no published release vtest (draft or missing)
+        
+        REJECTED: 1 check(s) failed
+--- FAIL: TestReleaseCIQualificationDoesNotReplaceArtifactAcceptance (0.79s)
+FAIL
+FAIL	github.com/zarkmakerburg/baft/tests/release	20.146s
+FAIL

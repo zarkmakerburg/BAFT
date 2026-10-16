@@ -1,0 +1,67 @@
+name: Core reconciliation preflight
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  merge-diagnostics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify pinned parents and inspect three-way merge
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=1816f2a35dfeb8a51d32575dbb57e6e0c4c27dc7
+          incoming=39424cf6e4f5a79ec1282b7c2bc516ac306ea6aa
+          common=b028fd580fb2c3f0ebffe2fbf1a52f6b577cbf5f
+          git merge-base --is-ancestor "$base" HEAD
+          if git merge-base --is-ancestor "$incoming" HEAD; then
+            echo "Incoming PR203 is already an ancestor: verify persisted integration directly."
+            test "$(git rev-parse 9bc830241fa2531199ed7cb697149b953217e722^{tree})" = "0eaa77d0eb5e27098fadc7b15ce6c53c05f74a6f"
+            grep -q "TunnelVerification" internal/bcc/store.go
+            grep -q "ObserveTunnelIncident" internal/bcc/store.go
+            go test ./internal/bcc ./internal/incidentclass
+            exit 0
+          fi
+          test "$(git merge-base HEAD "$incoming")" = "$common"
+          git config user.name "BAFT reconciliation preflight"
+          git config user.email "baft-preflight@users.noreply.github.com"
+          if git merge --no-commit --no-ff "$incoming"; then
+            echo "Clean textual merge. Semantic and regression validation still required."
+          else
+            echo "::warning::Merge conflicts require manual semantic resolution"
+            git status --short
+            git ls-files -u
+            conflicts="$(git diff --name-only --diff-filter=U)"
+            if [ "$conflicts" != "internal/bcc/telemetry_write_failure_test.go" ]; then
+              echo "::error::Unexpected merge conflicts: $conflicts"
+              exit 1
+            fi
+            # Both branches use the same dynamic timestamp; ours also retains
+            # the explanatory seven-day retention comment.
+            git checkout --ours -- internal/bcc/telemetry_write_failure_test.go
+            git add internal/bcc/telemetry_write_failure_test.go
+            test -z "$(git diff --name-only --diff-filter=U)"
+            echo "Resolved the single reviewed test-only conflict using PR200 version."
+          fi
+          git diff --cached --check
+          # Fail closed if either branch loses its defining BCC behavior.
+          grep -q "TunnelVerification" internal/bcc/store.go
+          grep -q "CapabilitiesAt" internal/bcc/store.go
+          grep -q "RestoreAutoCountry" internal/bcc/store.go
+          grep -q "ObserveTunnelIncident" internal/bcc/store.go
+          test -f internal/incidentclass/tracker.go
+          test -f internal/incidentclass/snapshot_test.go
+          echo "INTEGRATED_TREE_SHA=$(git write-tree)"
+          echo "INTEGRATED_STORE_BLOB=$(git rev-parse :internal/bcc/store.go)"
+          echo "INTEGRATED_STATE_DB_BLOB=$(git rev-parse :internal/bcc/statedb.go)"
+          go test ./internal/bcc ./internal/incidentclass
+          echo "Merged source was tested in CI workspace only; no commit or push."

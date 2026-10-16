@@ -129,6 +129,7 @@ func TestAuditNamesTheJobsAnActionCreated(t *testing.T) {
 	if rr := r.do(authReq(http.MethodPost, "/api/deploy", "admin-secret", map[string]any{"node_ids": []string{"ex-1"}, "version": "v1.0.0"})); rr.Code != http.StatusAccepted {
 		t.Fatalf("deploy: %d", rr.Code)
 	}
+	for id,n:=range r.app.store.st.Nodes { n.CapabilitiesAt=r.app.now().UTC();n.TunnelVerification=1;r.app.store.st.Nodes[id]=n }
 	if rr := r.do(authReq(http.MethodPost, "/api/tunnels", "admin-secret", map[string]any{"ex_node": "ex-1", "ir_node": "ir-1"})); rr.Code != http.StatusAccepted {
 		t.Fatalf("tunnel: %d %s", rr.Code, rr.Body.String())
 	}

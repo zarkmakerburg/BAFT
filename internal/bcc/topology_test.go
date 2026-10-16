@@ -20,6 +20,7 @@ func desiredTopologyStore(t *testing.T) *Store {
 		{ID: "ex-4", Address: "203.0.113.14:22", Role: "foreign"},
 		{ID: "ex-5", Address: "203.0.113.15:22", Role: "foreign"},
 	} {
+		n.TunnelVerification,n.CapabilitiesAt=1,time.Now().UTC()
 		if _, err := s.UpsertNode(n, "tok-"+n.ID); err != nil {
 			t.Fatal(err)
 		}
@@ -53,6 +54,7 @@ func reportBindings(r TopologyReport) map[string]TopologyBinding {
 func TestDesiredTopologyTwoIRFiveExplicitEXMakesTenStableEdges(t *testing.T) {
 	s := desiredTopologyStore(t)
 	now := time.Unix(100, 0).UTC()
+	for id,n:=range s.st.Nodes { if n.TunnelVerification==1 { n.CapabilitiesAt=now;s.st.Nodes[id]=n } }
 	r, err := s.SetTopologySpec(desiredSpec([]string{"ir-1", "ir-2"}, ""), now)
 	if err != nil {
 		t.Fatal(err)
@@ -112,6 +114,7 @@ func TestDesiredTopologyTwoIRFiveExplicitEXMakesTenStableEdges(t *testing.T) {
 func TestTopologyReconcileIsIdempotentAndDisableIsNonDestructive(t *testing.T) {
 	s := desiredTopologyStore(t)
 	now := time.Unix(200, 0).UTC()
+	for id,n:=range s.st.Nodes { if n.TunnelVerification==1 { n.CapabilitiesAt=now;s.st.Nodes[id]=n } }
 	spec := desiredSpec([]string{"ir-1", "ir-2"}, "")
 	if _, err := s.SetTopologySpec(spec, now); err != nil {
 		t.Fatal(err)
@@ -164,6 +167,7 @@ func TestTopologyReconcileIsIdempotentAndDisableIsNonDestructive(t *testing.T) {
 func TestTopologyStatePersistsBindingsAcrossRestart(t *testing.T) {
 	s := desiredTopologyStore(t)
 	now := time.Unix(300, 0).UTC()
+	for id,n:=range s.st.Nodes { if n.TunnelVerification==1 { n.CapabilitiesAt=now;s.st.Nodes[id]=n } }
 	spec := desiredSpec([]string{"ir-1", "ir-2"}, "")
 	before, err := s.SetTopologySpec(spec, now)
 	if err != nil {
@@ -185,6 +189,7 @@ func TestTopologyStatePersistsBindingsAcrossRestart(t *testing.T) {
 func TestTopologyRouteCannotSilentlyChangeEX(t *testing.T) {
 	s := desiredTopologyStore(t)
 	now := time.Unix(400, 0).UTC()
+	for id,n:=range s.st.Nodes { if n.TunnelVerification==1 { n.CapabilitiesAt=now;s.st.Nodes[id]=n } }
 	spec := TopologySpec{
 		IRMembers: []IRPoolMember{{NodeID: "ir-1", Enabled: true}},
 		EXRoutes:  []ExplicitEXRoute{{ID: "de", EXNode: "ex-1", Enabled: true}},
@@ -209,6 +214,7 @@ func TestTopologyRouteCannotSilentlyChangeEX(t *testing.T) {
 func TestTopologyRollbackFailedBlocksAutomaticRetry(t *testing.T) {
 	s := desiredTopologyStore(t)
 	now := time.Unix(500, 0).UTC()
+	for id,n:=range s.st.Nodes { if n.TunnelVerification==1 { n.CapabilitiesAt=now;s.st.Nodes[id]=n } }
 	spec := TopologySpec{
 		IRMembers: []IRPoolMember{{NodeID: "ir-1", Enabled: true}},
 		EXRoutes:  []ExplicitEXRoute{{ID: "de", EXNode: "ex-1", Enabled: true}},
@@ -247,6 +253,7 @@ func TestTopologyRollbackFailedBlocksAutomaticRetry(t *testing.T) {
 func TestTopologyDecommissionedIsMissingAndDecommissionFailedIsBlocked(t *testing.T) {
 	s := desiredTopologyStore(t)
 	now := time.Unix(550, 0).UTC()
+	for id,n:=range s.st.Nodes { if n.TunnelVerification==1 { n.CapabilitiesAt=now;s.st.Nodes[id]=n } }
 	spec := TopologySpec{
 		IRMembers: []IRPoolMember{{NodeID: "ir-1", Enabled: true}},
 		EXRoutes:  []ExplicitEXRoute{{ID: "de", EXNode: "ex-1", Enabled: true}},

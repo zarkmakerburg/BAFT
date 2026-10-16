@@ -52,13 +52,18 @@ const (
 
 	// Tunnel changes (P1-E). prepare stages, commit installs, health checks,
 	// finalize makes permanent, rollback restores the previous state.
-	ActionTunnelPrepareEX = "tunnel_prepare_ex"
-	ActionTunnelPrepareIR = "tunnel_prepare_ir"
-	ActionTunnelCommitEX  = "tunnel_commit_ex"
-	ActionTunnelCommitIR  = "tunnel_commit_ir"
-	ActionTunnelHealth    = "tunnel_health"
-	ActionTunnelObserve   = "tunnel_observe"
-	ActionTunnelInspect   = "tunnel_inspect"
+	ActionTunnelPrepareEX         = "tunnel_prepare_ex"
+	ActionTunnelPrepareIR         = "tunnel_prepare_ir"
+	ActionTunnelStageEX           = "tunnel_stage_ex"
+	ActionTunnelValidateCandidate = "tunnel_validate_candidate"
+	ActionTunnelCommitCandidate   = "tunnel_commit_candidate"
+	ActionTunnelCommitEX          = "tunnel_commit_ex"
+	ActionTunnelCommitIR          = "tunnel_commit_ir"
+	ActionTunnelHealth            = "tunnel_health"
+	ActionTunnelObserve           = "tunnel_observe"
+	ActionTunnelData              = "tunnel_data"
+	ActionTunnelSeal              = "tunnel_seal"
+	ActionTunnelInspect           = "tunnel_inspect"
 	// ActionTunnelDiscover is a read-only inventory of the BAFT units on a node.
 	ActionTunnelDiscover = "tunnel_discover"
 	ActionTunnelFinalize = "tunnel_finalize"
@@ -95,6 +100,7 @@ var (
 	pairCodeRe      = regexp.MustCompile(`^BAFTPAIR1:[A-Za-z0-9_-]{16,}$`)
 	replyCodeRe     = regexp.MustCompile(`^BAFTREPLY1:[A-Za-z0-9_-]{16,}$`)
 	epochRe         = regexp.MustCompile(`^[1-9][0-9]{0,8}$`)
+	generationRe    = regexp.MustCompile(`^(0|[1-9][0-9]{0,8})$`)
 	sha256Re        = regexp.MustCompile(`^[0-9a-f]{64}$`)
 	derB64Re        = regexp.MustCompile(`^[A-Za-z0-9_-]{64,}$`)
 	familyRe        = regexp.MustCompile(`^[46]$`)
@@ -120,17 +126,22 @@ var paramRules = map[string]map[string]*regexp.Regexp{
 	ActionPathProbeRun:         {"probe_id": tunnelIDRe, "family": familyRe, "target": endpointRe, "payload_bytes": probeBytesRe, "attempts": probeAttemptsRe, "trickle_bytes": probeBytesRe, "trickle_ms": probeDelayRe},
 	ActionPathProbeStop:        {"probe_id": tunnelIDRe},
 
-	ActionTunnelPrepareEX: {"tunnel_id": tunnelIDRe, "public_address": addressRe, "port": portRe, "target": fixedTargetR, "route_id": tunnelIDRe, "record_shaping": boolRe},
-	ActionTunnelPrepareIR: {"tunnel_id": tunnelIDRe, "code": pairCodeRe, "route_listen": loopbackListenR, "route_id": tunnelIDRe},
-	ActionTunnelCommitEX:  {"tunnel_id": tunnelIDRe, "reply": replyCodeRe},
-	ActionTunnelCommitIR:  {"tunnel_id": tunnelIDRe},
-	ActionTunnelHealth:    {"tunnel_id": tunnelIDRe},
-	ActionTunnelObserve:   {"tunnel_id": tunnelIDRe},
-	ActionTunnelInspect:   {},
-	ActionTunnelDiscover:  {},
-	ActionTunnelFinalize:  {"tunnel_id": tunnelIDRe},
-	ActionTunnelRollback:  {"tunnel_id": tunnelIDRe},
-	ActionTunnelRetire:    {"tunnel_id": tunnelIDRe, "generation": epochRe, "config_sha256": sha256Re, "unit_sha256": sha256Re, "marker_sha256": sha256Re},
+	ActionTunnelPrepareEX:         {"tunnel_id": tunnelIDRe, "public_address": addressRe, "port": portRe, "target": fixedTargetR, "route_id": tunnelIDRe, "record_shaping": boolRe},
+	ActionTunnelPrepareIR:         {"tunnel_id": tunnelIDRe, "code": pairCodeRe, "route_listen": loopbackListenR, "route_id": tunnelIDRe},
+	ActionTunnelStageEX:           {"tunnel_id": tunnelIDRe, "reply": replyCodeRe},
+	ActionTunnelValidateCandidate: {"tunnel_id": tunnelIDRe},
+	ActionTunnelCommitCandidate:   {"tunnel_id": tunnelIDRe, "config_sha256": sha256Re, "generation": generationRe},
+	ActionTunnelCommitEX:          {"tunnel_id": tunnelIDRe, "reply": replyCodeRe},
+	ActionTunnelCommitIR:          {"tunnel_id": tunnelIDRe},
+	ActionTunnelHealth:            {"tunnel_id": tunnelIDRe},
+	ActionTunnelObserve:           {"tunnel_id": tunnelIDRe},
+	ActionTunnelData:              {"tunnel_id": tunnelIDRe},
+	ActionTunnelSeal:              {"tunnel_id": tunnelIDRe},
+	ActionTunnelInspect:           {},
+	ActionTunnelDiscover:          {},
+	ActionTunnelFinalize:          {"tunnel_id": tunnelIDRe},
+	ActionTunnelRollback:          {"tunnel_id": tunnelIDRe},
+	ActionTunnelRetire:            {"tunnel_id": tunnelIDRe, "generation": epochRe, "config_sha256": sha256Re, "unit_sha256": sha256Re, "marker_sha256": sha256Re},
 
 	ActionCertPrepareEX:  {"tunnel_id": tunnelIDRe, "rotation_id": tunnelIDRe, "epoch": epochRe},
 	ActionCertTrustIR:    {"tunnel_id": tunnelIDRe, "rotation_id": tunnelIDRe, "epoch": epochRe, "ca_der": derB64Re, "ca_sha256": sha256Re},
@@ -147,25 +158,30 @@ var paramRules = map[string]map[string]*regexp.Regexp{
 // Legacy BCCs may omit these fields; new BCCs use them for multi-instance
 // tunnel isolation.
 var optionalParamRules = map[string]map[string]*regexp.Regexp{
-	ActionTunnelPrepareEX: {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
-	ActionTunnelPrepareIR: {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
-	ActionTunnelCommitEX:  {"instance_id": instanceIDRe},
-	ActionTunnelCommitIR:  {"instance_id": instanceIDRe},
-	ActionTunnelHealth:    {"instance_id": instanceIDRe},
-	ActionTunnelObserve:   {"instance_id": instanceIDRe},
-	ActionTunnelInspect:   {"instance_id": instanceIDRe},
-	ActionTunnelFinalize:  {"instance_id": instanceIDRe},
-	ActionTunnelRollback:  {"instance_id": instanceIDRe},
-	ActionTunnelRetire:    {"instance_id": instanceIDRe},
-	ActionCertPrepareEX:   {"instance_id": instanceIDRe},
-	ActionCertTrustIR:     {"instance_id": instanceIDRe},
-	ActionCertVerifyEX:    {"instance_id": instanceIDRe},
-	ActionCertVerifyIR:    {"instance_id": instanceIDRe},
-	ActionCertActivateEX:  {"instance_id": instanceIDRe},
-	ActionCertConfirmIR:   {"instance_id": instanceIDRe},
-	ActionCertRetireIR:    {"instance_id": instanceIDRe},
-	ActionCertRetireEX:    {"instance_id": instanceIDRe},
-	ActionCertRollback:    {"instance_id": instanceIDRe},
+	ActionTunnelPrepareEX:         {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR, "verify_data": boolRe, "verify_resources": boolRe, "stage_config": boolRe},
+	ActionTunnelPrepareIR:         {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR, "verify_data": boolRe, "verify_resources": boolRe, "stage_config": boolRe},
+	ActionTunnelStageEX:           {"instance_id": instanceIDRe},
+	ActionTunnelValidateCandidate: {"instance_id": instanceIDRe},
+	ActionTunnelCommitCandidate:   {"instance_id": instanceIDRe},
+	ActionTunnelCommitEX:          {"instance_id": instanceIDRe},
+	ActionTunnelCommitIR:          {"instance_id": instanceIDRe},
+	ActionTunnelHealth:            {"instance_id": instanceIDRe},
+	ActionTunnelObserve:           {"instance_id": instanceIDRe},
+	ActionTunnelData:              {"instance_id": instanceIDRe},
+	ActionTunnelSeal:              {"instance_id": instanceIDRe},
+	ActionTunnelInspect:           {"instance_id": instanceIDRe},
+	ActionTunnelFinalize:          {"instance_id": instanceIDRe},
+	ActionTunnelRollback:          {"instance_id": instanceIDRe},
+	ActionTunnelRetire:            {"instance_id": instanceIDRe},
+	ActionCertPrepareEX:           {"instance_id": instanceIDRe},
+	ActionCertTrustIR:             {"instance_id": instanceIDRe},
+	ActionCertVerifyEX:            {"instance_id": instanceIDRe},
+	ActionCertVerifyIR:            {"instance_id": instanceIDRe},
+	ActionCertActivateEX:          {"instance_id": instanceIDRe},
+	ActionCertConfirmIR:           {"instance_id": instanceIDRe},
+	ActionCertRetireIR:            {"instance_id": instanceIDRe},
+	ActionCertRetireEX:            {"instance_id": instanceIDRe},
+	ActionCertRollback:            {"instance_id": instanceIDRe},
 }
 
 // Actions returns the allowlist, sorted.

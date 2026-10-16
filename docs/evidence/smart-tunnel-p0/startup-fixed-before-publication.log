@@ -1,0 +1,17 @@
+=== RUN   TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle
+    multi_instance_proc_test.go:246: Germany: same TCP flow, same IR PID/generation and unchanged config/unit/marker/keys across Bulgaria creation, port edit, rollback, injected failure and retirement
+--- PASS: TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle (3.98s)
+=== RUN   TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle
+    multi_instance_proc_test.go:246: Germany: same TCP flow, same IR PID/generation and unchanged config/unit/marker/keys across Bulgaria creation, port edit, rollback, injected failure and retirement
+--- PASS: TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle (3.94s)
+=== RUN   TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle
+    multi_instance_proc_test.go:246: Germany: same TCP flow, same IR PID/generation and unchanged config/unit/marker/keys across Bulgaria creation, port edit, rollback, injected failure and retirement
+--- PASS: TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle (3.94s)
+=== RUN   TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle
+    multi_instance_proc_test.go:246: Germany: same TCP flow, same IR PID/generation and unchanged config/unit/marker/keys across Bulgaria creation, port edit, rollback, injected failure and retirement
+--- PASS: TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle (3.96s)
+=== RUN   TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle
+    multi_instance_proc_test.go:246: Germany: same TCP flow, same IR PID/generation and unchanged config/unit/marker/keys across Bulgaria creation, port edit, rollback, injected failure and retirement
+--- PASS: TestTwoLiveInstancesKeepGermanyFlowAcrossBulgariaLifecycle (3.94s)
+PASS
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	21.167s

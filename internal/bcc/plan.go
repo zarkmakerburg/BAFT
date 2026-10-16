@@ -123,19 +123,24 @@ func (s *Store) buildPlanLocked(req TunnelRequest, now time.Time) (Plan, error) 
 			}},
 		},
 		Steps: []string{
-			"prepare EX (nothing live changes)", "prepare IR (nothing live changes)", "commit EX", "commit IR",
-			"health check IR then EX", "observe both nodes and compare with this plan", "finalize IR then EX (backups and one-time secrets deleted)",
+			"prepare EX (candidate PKI is staged; live artifacts and service stay unchanged)", "prepare IR (nothing live changes)",
+			"complete and validate EX config without changing its active service", "revalidate IR candidate and require fresh scoped artifact/resource reports from BOTH nodes",
+			"commit the reviewed EX config digest/generation", "commit the reviewed IR config digest/generation",
+			"health check IR then EX", "observe both nodes and compare with this plan", "wait for actual application data delivery on IR and EX", "seal both nodes while retaining backups", "finalize IR then EX (backups and one-time secrets deleted)",
 		},
 		Verify: []string{
+			"both candidate configs and their private dependencies validate before either service changes; signed commit jobs bind the config digests and generations",
+			"candidate artifact reports are scoped and fresh; they do not prove pre-cutover TLS/Noise handshake or application payload",
 			"service active and not restarting for a settle window",
 			"instance identity and instance-scoped config/state/service ownership match this plan",
 			"EX listener and IR local route accept connections",
 			"observed role, route, listener/peer/target and unit equal this plan",
 			"each node's generation equals the reviewed plan (previous = from, current = to; bootstrap nodes: one step ahead of their own previous) and its own counter",
 			"change id on each node equals this deployment",
+			"fresh authenticated DATA was delivered to application sockets by both exact runtimes; idle and unsupported evidence is NOT_ASSESSED",
 		},
 		Rollback: []string{
-			"any failure, timeout or cancel before finalize restores, on every node that reached a step: previous config, unit, service state and generation",
+			"any failure, timeout or cancel before backup release begins restores, on every node that reached a step: previous config, unit, service state and generation",
 			"IR is restored first, then EX",
 		},
 	}
@@ -143,6 +148,11 @@ func (s *Store) buildPlanLocked(req TunnelRequest, now time.Time) (Plan, error) 
 		p.Gates = append(p.Gates, PlanGate{Name: name, Status: status, Detail: detail})
 	}
 	for _, n := range []Node{ex, ir} {
+		if supportsTunnelVerification(n, now) {
+			gate("data verification: "+n.ID, "PASS", "agent and installed BAFT binary support scoped delivery proof and backup sealing")
+		} else {
+			gate("data verification: "+n.ID, "FAIL", "capability is unavailable or stale; update BAFT and its agent before deployment")
+		}
 		switch {
 		case n.AgentSeen.IsZero():
 			gate("agent contact: "+n.ID, "FAIL", "the agent has never contacted BCC")

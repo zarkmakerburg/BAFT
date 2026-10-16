@@ -218,7 +218,11 @@ func (a *Agent) request(ctx context.Context, method, path string, body any) (*ht
 }
 
 func (a *Agent) pull(ctx context.Context) ([]pulledJob, error) {
-	resp, err := a.request(ctx, http.MethodGet, "/api/agent/jobs?node_id="+url.QueryEscape(a.cfg.NodeID), nil)
+	path := "/api/agent/jobs?node_id=" + url.QueryEscape(a.cfg.NodeID)
+	if a.cfg.Tunnel != nil && a.cfg.Tunnel.VerificationCapability(ctx) {
+		path += "&capabilities=tunnel-verify-v1"
+	}
+	resp, err := a.request(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, err
 	}

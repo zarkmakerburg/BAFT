@@ -3,8 +3,10 @@
 **Bounded slice PASS; release HOLD.** Source [211c929d41924fbe17ec3bb19615f7d0e8429490](https://github.com/zarkmakerburg/BAFT/commit/211c929d41924fbe17ec3bb19615f7d0e8429490),
 tree7f6d49880cdd422d80cdd3d6eb15e543f3e65044, parent27cca1a763310212a2f2a6b27c4cf7201b3f1b57.
 [Draft PR220](https://github.com/zarkmakerburg/BAFT/pull/220) remains unmerged.
-The HQ proposed candidate27cca1a and original PR216/218/219 are unchanged.
 This source is a separate follow-up requiring explicit HQ scope selection.
+During final readback, HQ advanced main/PR219 in its separately owned release
+operation. The concurrent-update section below supersedes earlier frozen-head
+status; this worker did not perform that merge or promote a candidate.
 
 ## Exact-source gates
 
@@ -91,10 +93,33 @@ CI here is not unmerged Aurora/Core parity or real UI/browser acceptance.
 No new auth/session/CSRF/API or actual BCC mounting change is made.
 
 This bounded CLAIM6221370689 can be RELEASED after durable evidence readback.
-Future code needs a fresh claim and live HEAD/ownership checks. HQ must choose
-the final source (do not silently replace frozen27cca1a), review release scope,
-then authorize any main integration/tag and independently verify unsigned
-candidate provenance, protected-key signing, final assets and upgrade/rollback.
+Future code needs a fresh claim and live HEAD/ownership checks. HQ owns the final source choice and ongoing release operation. Its new blanket
+authorization remains conditional on gates; do not seek duplicate permission or
+launch overlapping merge/sign/release/deploy activity. Independently verify
+unsigned candidate provenance, protected-key signing, final assets and
+upgrade/rollback within that separately owned lane.
 No production key was read or used by this slice. No real release tag, main
 merge, publication, deployment or node mutation occurred. Native Iran–Germany
 remains owner-DEFERRED; UI/rendered acceptance remains separate and OPEN.
+
+## Concurrent HQ update reviewed before publication
+
+[HQ Stage246/comment6221716604](https://github.com/zarkmakerburg/BAFT/issues/67#issuecomment-6221716604)
+records new blanket owner authorization subject to safety gates and an active
+integration/release lane. PR216 is now merged by HQ, mainf39df857c6f888613af4e431f250122dad59b8f5,
+tree410b3ee6d020f7d6004d1c17c9255d0f15c13310. PR218 remains unmerged;
+PR219 advanced to2630c2179dc2cfcf8e9dce83f7cfc12ed1b650fe, ready/main-targeted.
+Git data proves its tree5efa8deb exactly equals the earlier parent27cca1a;
+parents are retained, not reset/rebased. No product-content change is inferred.
+PR220 head remains211c929/draft/unmerged. Its newly computed synthetic merge
+4ec6cf7adacb435d31d951b91117a291bd3542b8 has parentsf39df857/211c929 and
+exact tree7f6d4988, so this patch remains content-compatible with updated main.
+This tree comparison does not transfer211c929's exact-SHA CI to2630c217 or to
+any future merged/release SHA. HQ's new2630c217 workflows require their own
+conclusions. No overlapping operational work was started; this worker closes
+only claim6221370689 and delivers the independently qualified follow-up.
+
+An evidence closeout commit1bbdc177 was created before detecting this concurrent
+update and was not published to a branch then; this corrective child retains
+it in history, superseding its stale authority/parent-status text. Initial
+checkpoint files remain historical observations. No existing commit removed.

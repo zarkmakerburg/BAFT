@@ -3,8 +3,8 @@
   "tree": "7f6d49880cdd422d80cdd3d6eb15e543f3e65044",
   "parent": "27cca1a763310212a2f2a6b27c4cf7201b3f1b57",
   "source_qualification": "PASS",
-  "release_approval": "NOT_GRANTED",
-  "candidate_promotion": "NOT_PERFORMED",
+  "release_approval": "HQ_BLANKET_AUTHORIZATION_SUBJECT_TO_GATES; SEPARATE_ACTIVE_HQ_LANE",
+  "candidate_promotion": "NOT_PERFORMED_BY_THIS_WORKER",
   "runs": [
     {
       "id": 38943151691,
@@ -1225,5 +1225,166 @@
     "git_blob_sha": "7f889995d401f4977aa90892bb39dcfb9ee7d505"
   },
   "native": "OWNER_DEFERRED",
-  "rendered_ui": "NOT_RUN_BY_THIS_SLICE"
+  "rendered_ui": "NOT_RUN_BY_THIS_SLICE",
+  "concurrent_hq": {
+    "comment": 6221716604,
+    "prs": [
+      {
+        "n": 216,
+        "head": "1c63b819d28669d21f7203abb33630ed8b4d3a16",
+        "base": "b028fd580fb2c3f0ebffe2fbf1a52f6b577cbf5f",
+        "state": "closed",
+        "draft": false,
+        "merged": true,
+        "merge": "f39df857c6f888613af4e431f250122dad59b8f5"
+      },
+      {
+        "n": 218,
+        "head": "d96a40bfad7174ac2ffecf40bf7b322ac529e2ed",
+        "base": "f39df857c6f888613af4e431f250122dad59b8f5",
+        "state": "open",
+        "draft": false,
+        "merged": false,
+        "merge": "8ed56c8064aaa7f18b715595f3ff8cd1acca693c"
+      },
+      {
+        "n": 219,
+        "head": "2630c2179dc2cfcf8e9dce83f7cfc12ed1b650fe",
+        "base": "f39df857c6f888613af4e431f250122dad59b8f5",
+        "state": "open",
+        "draft": false,
+        "merged": false,
+        "merge": "cffa7c9216506147cd3bd9f04a5319031c3660d6"
+      },
+      {
+        "n": 220,
+        "head": "211c929d41924fbe17ec3bb19615f7d0e8429490",
+        "base": "b028fd580fb2c3f0ebffe2fbf1a52f6b577cbf5f",
+        "state": "open",
+        "draft": true,
+        "merged": false,
+        "merge": "4ec6cf7adacb435d31d951b91117a291bd3542b8"
+      }
+    ],
+    "main": {
+      "sha": "f39df857c6f888613af4e431f250122dad59b8f5",
+      "node_id": "C_kwDOUuMHKNoAKGYzOWRmODU3YzZmODg4NjEzYWY0ZTQzMWYyNTAxMjJkYWQ1OWI4ZjU",
+      "url": "https://api.github.com/repos/zarkmakerburg/BAFT/git/commits/f39df857c6f888613af4e431f250122dad59b8f5",
+      "html_url": "https://github.com/zarkmakerburg/BAFT/commit/f39df857c6f888613af4e431f250122dad59b8f5",
+      "author": {
+        "name": "Goldapp",
+        "email": "zarkmakerburg@gmail.com",
+        "date": "2026-10-16T17:59:57Z"
+      },
+      "committer": {
+        "name": "GitHub",
+        "email": "noreply@github.com",
+        "date": "2026-10-16T17:59:57Z"
+      },
+      "tree": {
+        "sha": "410b3ee6d020f7d6004d1c17c9255d0f15c13310",
+        "url": "https://api.github.com/repos/zarkmakerburg/BAFT/git/trees/410b3ee6d020f7d6004d1c17c9255d0f15c13310"
+      },
+      "message": "Merge pull request #216 from zarkmakerburg/hq/rc0-release-readiness-stage209\n\ndocs(release): R0 decision record and qualification gates",
+      "parents": [
+        {
+          "sha": "b028fd580fb2c3f0ebffe2fbf1a52f6b577cbf5f",
+          "url": "https://api.github.com/repos/zarkmakerburg/BAFT/git/commits/b028fd580fb2c3f0ebffe2fbf1a52f6b577cbf5f",
+          "html_url": "https://github.com/zarkmakerburg/BAFT/commit/b028fd580fb2c3f0ebffe2fbf1a52f6b577cbf5f"
+        },
+        {
+          "sha": "1c63b819d28669d21f7203abb33630ed8b4d3a16",
+          "url": "https://api.github.com/repos/zarkmakerburg/BAFT/git/commits/1c63b819d28669d21f7203abb33630ed8b4d3a16",
+          "html_url": "https://github.com/zarkmakerburg/BAFT/commit/1c63b819d28669d21f7203abb33630ed8b4d3a16"
+        }
+      ],
+      "verification": {
+        "verified": true,
+        "reason": "valid",
+        "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq0mYdCRC1aQ7uu5UhlAAAlO0QADZoLhHIEVEGsi7DGMPbwlEi\nv8v01yRg8m/NVzSKKDquUs9lJcwbd1M0+gP577rScpjACai19IcYMfCh9lsWi51x\nCJJ0yezbaKb6XCLnWEjdytIya4XFESghgE5LpjJxylnDGRxsUmOkgTnNoO5KIP2V\nKMX82E4Ekuw7NB9wLTL3Ew0whcgPLouAauKzB+iQg8sMSRc6NXhgUwmLc1jKWCh+\nwkSxJ2LN8BywaqoJMG4eyY03pXyF5J/mpBcAbsiUTmqdh+hsdEFqS7y6XCpv1XFv\nC4dAMEK7vWxHppu6O5oBWB0on/fJrWDt16NPoJGbQaIwdfwnneTci10Rfbhm9+R3\nd6QhFQRbuxJWZap5s9yHZ/5QaiB+EPD0T72psgwasXvaKIrI7Bhao14QtRr6YhjL\n3Y3tcnm+lAwF1vZAtsP3zqbxliiD7asOYTTScSZAfl/aPEPIwdl+7E8u4Fd8hK1e\nxOlyCXSeHo/fdWo0baR2q6NOp3TxuE6JAcV4h0juSwwN57vlfQ56cfJyt3YOhSam\nBDxzgKJMxKERvN9av/V31D1GakLx0D92VA0e5oXBoBwkv10K3t+PdPe7DtUJEhHm\nGVgX01pKXLSlL+VZjVwAoSOMcwjmhMnnPvf2bRarFt0aAZLuXV9rpgQhfbND5Zuc\nemUd0+pX/2rb7L5gIVDM\n=ZN46\n-----END PGP SIGNATURE-----\n",
+        "payload": "tree 410b3ee6d020f7d6004d1c17c9255d0f15c13310\nparent b028fd580fb2c3f0ebffe2fbf1a52f6b577cbf5f\nparent 1c63b819d28669d21f7203abb33630ed8b4d3a16\nauthor Goldapp <zarkmakerburg@gmail.com> 1792173597 +0330\ncommitter GitHub <noreply@github.com> 1792173597 +0330\n\nMerge pull request #216 from zarkmakerburg/hq/rc0-release-readiness-stage209\n\ndocs(release): R0 decision record and qualification gates",
+        "verified_at": "2026-10-16T17:59:58Z"
+      }
+    },
+    "updated_pr219": {
+      "sha": "2630c2179dc2cfcf8e9dce83f7cfc12ed1b650fe",
+      "node_id": "C_kwDOUuMHKNoAKDI2MzBjMjE3OWRjMmNmY2Y4ZTlkY2U4M2Y3Y2ZjMTJlZDFiNjUwZmU",
+      "url": "https://api.github.com/repos/zarkmakerburg/BAFT/git/commits/2630c2179dc2cfcf8e9dce83f7cfc12ed1b650fe",
+      "html_url": "https://github.com/zarkmakerburg/BAFT/commit/2630c2179dc2cfcf8e9dce83f7cfc12ed1b650fe",
+      "author": {
+        "name": "Goldapp",
+        "email": "zarkmakerburg@gmail.com",
+        "date": "2026-10-16T18:01:14Z"
+      },
+      "committer": {
+        "name": "GitHub",
+        "email": "noreply@github.com",
+        "date": "2026-10-16T18:01:14Z"
+      },
+      "tree": {
+        "sha": "5efa8deb3e6474db0f67b944f8cd4cb78e19f038",
+        "url": "https://api.github.com/repos/zarkmakerburg/BAFT/git/trees/5efa8deb3e6474db0f67b944f8cd4cb78e19f038"
+      },
+      "message": "Merge branch 'main' into hq/r3-tls-phase-stage237",
+      "parents": [
+        {
+          "sha": "27cca1a763310212a2f2a6b27c4cf7201b3f1b57",
+          "url": "https://api.github.com/repos/zarkmakerburg/BAFT/git/commits/27cca1a763310212a2f2a6b27c4cf7201b3f1b57",
+          "html_url": "https://github.com/zarkmakerburg/BAFT/commit/27cca1a763310212a2f2a6b27c4cf7201b3f1b57"
+        },
+        {
+          "sha": "f39df857c6f888613af4e431f250122dad59b8f5",
+          "url": "https://api.github.com/repos/zarkmakerburg/BAFT/git/commits/f39df857c6f888613af4e431f250122dad59b8f5",
+          "html_url": "https://github.com/zarkmakerburg/BAFT/commit/f39df857c6f888613af4e431f250122dad59b8f5"
+        }
+      ],
+      "verification": {
+        "verified": true,
+        "reason": "valid",
+        "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq0mZqCRC1aQ7uu5UhlAAAq0oQAGU5kCGG6p5zLRKwv+qCLGrO\nkfm4cGQX4eWbMgLjZ91TrHmahyZpQsTioco0jpcAmcc4b2DotCPm6ImyhieaSrZK\nx0SnAobtsyFseNOwU8AeoquzsawUhAYOd0vNQWemnKpg0gT0fBcUCUBvMSBd89Mp\nxmyuLrFqubGg8oZeCtO45T8zy9HYT64yhEnzSMybNeQW/e3InTGKUF7VSoERt8jw\nXi0ng9km/uUPvt60hnwa9v74jDauvAe0TJRAEr1WfC5LWwQFqXODhgTUsd+0WIUL\nCYfKpsRMru3b0Eh9mzpwjpKflWi34JLxXIQaPNWCXGXmSt4/OqAX8TXlF/LiBe+9\nU8j110pg9CDGMZadEGu8Ld1n7+bwzg20W001WPk07gjY1y3FGOIOkFDsR5FiQImO\nKvisGbXqtUeCGWCpr/lv49iTIVmkyZV7ITWZnZm96Y5G2AfYNvItds4xKtsJNpfd\nM4klnh9VSKqonJCZzQc8v2ngNGf8g8CGZGFTztbkcuOyPUGDnVr3pfa+FjuZoWp8\n1mQn8+/HSq2fU9KTQJ1a0whaaZDELJNPYwglqfz/NEiOKGhOJc+c5McCgA2IWmut\nyAOctq4srw2wmvbAGsIg5E/NYiW1u1e2b4yJ+klQ+XLjDcDsAzgPyi3ybFaYlxRs\nMMpCOwwVm/37D/x1Wykz\n=k9la\n-----END PGP SIGNATURE-----\n",
+        "payload": "tree 5efa8deb3e6474db0f67b944f8cd4cb78e19f038\nparent 27cca1a763310212a2f2a6b27c4cf7201b3f1b57\nparent f39df857c6f888613af4e431f250122dad59b8f5\nauthor Goldapp <zarkmakerburg@gmail.com> 1792173674 +0330\ncommitter GitHub <noreply@github.com> 1792173674 +0330\n\nMerge branch 'main' into hq/r3-tls-phase-stage237",
+        "verified_at": "2026-10-16T18:01:14Z"
+      }
+    },
+    "new_pr220_test_merge": {
+      "sha": "4ec6cf7adacb435d31d951b91117a291bd3542b8",
+      "node_id": "C_kwDOUuMHKNoAKDRlYzZjZjdhZGFjYjQzNWQzMWQ5NTFiOTExMTdhMjkxYmQzNTQyYjg",
+      "url": "https://api.github.com/repos/zarkmakerburg/BAFT/git/commits/4ec6cf7adacb435d31d951b91117a291bd3542b8",
+      "html_url": "https://github.com/zarkmakerburg/BAFT/commit/4ec6cf7adacb435d31d951b91117a291bd3542b8",
+      "author": {
+        "name": "Goldapp",
+        "email": "zarkmakerburg@gmail.com",
+        "date": "2026-10-16T18:02:03Z"
+      },
+      "committer": {
+        "name": "GitHub",
+        "email": "noreply@github.com",
+        "date": "2026-10-16T18:02:03Z"
+      },
+      "tree": {
+        "sha": "7f6d49880cdd422d80cdd3d6eb15e543f3e65044",
+        "url": "https://api.github.com/repos/zarkmakerburg/BAFT/git/trees/7f6d49880cdd422d80cdd3d6eb15e543f3e65044"
+      },
+      "message": "Merge 211c929d41924fbe17ec3bb19615f7d0e8429490 into f39df857c6f888613af4e431f250122dad59b8f5",
+      "parents": [
+        {
+          "sha": "f39df857c6f888613af4e431f250122dad59b8f5",
+          "url": "https://api.github.com/repos/zarkmakerburg/BAFT/git/commits/f39df857c6f888613af4e431f250122dad59b8f5",
+          "html_url": "https://github.com/zarkmakerburg/BAFT/commit/f39df857c6f888613af4e431f250122dad59b8f5"
+        },
+        {
+          "sha": "211c929d41924fbe17ec3bb19615f7d0e8429490",
+          "url": "https://api.github.com/repos/zarkmakerburg/BAFT/git/commits/211c929d41924fbe17ec3bb19615f7d0e8429490",
+          "html_url": "https://github.com/zarkmakerburg/BAFT/commit/211c929d41924fbe17ec3bb19615f7d0e8429490"
+        }
+      ],
+      "verification": {
+        "verified": true,
+        "reason": "valid",
+        "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq0mabCRC1aQ7uu5UhlAAAAMMQAAkGKFA9L6KdJSt12dTQxxFg\nvUTMjY9MdTEry80v3uxH5U1TDgzEW7AMQg9k/lQ7T50+nZFVcE3AOCQKMCxQs/X3\naJBa1K7R7gjQledUC2u1r5Wf1LbimCe7v7ilmFXeYDAXL6q9jukAFxIkXkxpBMev\nMs6UrKpe/XBGiv0McWZQ0aH1cQo3EEKgeWuRyT4ymhCyuLh8GxhPLrvyaXhsV8yJ\nZU4OwG2Maf1V3M1gnQbHja2JgfXZur5TFg5UCV63UNvRMplZgQzLRQvAseLX11Hm\n1BXFpIO/Arn4bJM/may6RY2CEr7iK3PmI6jkGpnyz5WB4WlKwrpye34I3wk5PQSb\n5ETecKq7DMNjzYkymqcEREtO+VzB+FZAN2615bOSFJV8fIE1ZCcWQhwx4xmi82WT\nssRAPsjpfuBWBqBMen91FHhF7LWI/6HqOCfXZNbc/634tSnD7vptX2Gtgdpg7yky\nQfNryFSdQDS8mW8gp7HyLhiXMmOxEP9OqpZU5sWAqbMOm20tTdaN9+KbWq5+uuCl\n1aLApFbaXykv1Qu1hSFFMzwzl67Sz8ObtTRAGsNHxv9CK/hepBJrWSSr9RXtbUt/\ni983DIuA1YQvw75kpVKmsr1Zq+DeKT7pCu8rLUBw9/b7SOuwkrNJ+JQI1uSNVfc7\ndaY8SA1vZH6voPlKn++7\n=Zl3o\n-----END PGP SIGNATURE-----\n",
+        "payload": "tree 7f6d49880cdd422d80cdd3d6eb15e543f3e65044\nparent f39df857c6f888613af4e431f250122dad59b8f5\nparent 211c929d41924fbe17ec3bb19615f7d0e8429490\nauthor Goldapp <zarkmakerburg@gmail.com> 1792173723 +0000\ncommitter GitHub <noreply@github.com> 1792173723 +0000\n\nMerge 211c929d41924fbe17ec3bb19615f7d0e8429490 into f39df857c6f888613af4e431f250122dad59b8f5\n",
+        "verified_at": "2026-10-16T18:02:04Z"
+      }
+    }
+  }
 }

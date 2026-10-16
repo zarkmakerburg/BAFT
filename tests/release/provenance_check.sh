@@ -46,7 +46,13 @@ reject "missing approved release tag" "approved release tag does not exist" \
 # A local tag pointing at a different commit must never satisfy the gate.
 git clone -q "$repo_root" "$work/check"
 git -C "$work/check" checkout -q --detach "$commit"
-git -C "$work/check" tag "$version" "$(git -C "$work/check" rev-parse HEAD^)"
+# GitHub Actions uses fetch-depth=1: HEAD^ is not present there.
+# Create an inert, distinct commit object from the checked-out tree without
+# altering the candidate checkout, relying on no parent history.
+wrong_commit=$(git -C "$work/check" -c user.name="BAFT CI Fixture" \
+  -c user.email="baft-ci@invalid.example" commit-tree \
+  "$(git -C "$work/check" rev-parse 'HEAD^{tree}')" -m "synthetic wrong tag target")
+git -C "$work/check" tag "$version" "$wrong_commit"
 reject "release tag points to different SHA" "release tag points to a different commit" \
   bash "$work/check/scripts/release/mobile_sign_termux.sh" "$candidate" "$version" "$commit" \
   "$work/dummy-release.key" "$work/dummy-release.cert.json"

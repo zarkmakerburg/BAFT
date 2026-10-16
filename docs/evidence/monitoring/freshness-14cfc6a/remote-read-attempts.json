@@ -1,0 +1,102 @@
+{
+  "full_bcc_read_process": {
+    "content": [
+      {
+        "type": "text",
+        "text": "tool call error: tool call failed for `codex_apps/remote_desktop_commander.read_process_output`\n\nCaused by:\n    Mcp error: -32603: MCP request timed out"
+      }
+    ],
+    "isError": true
+  },
+  "full_bcc_read_file": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Remote tool call b9161dd2-a996-42da-a570-1b90d386e607 (read_file) failed: Timeout - no response from device"
+      }
+    ],
+    "structuredContent": {
+      "call_id": "b9161dd2-a996-42da-a570-1b90d386e607",
+      "tool_name": "read_file",
+      "status": "failed",
+      "device_id": "e450ee98-c746-4324-ba18-aaf02b86857d",
+      "created_at": "2026-10-16T18:32:21.489339+00:00",
+      "completed_at": "2026-10-16T18:34:24.406021+00:00",
+      "retry_original": false,
+      "error": "Timeout - no response from device",
+      "error_code": "INVALID_ARGUMENT"
+    },
+    "isError": true
+  },
+  "earlier_log_reads": [
+    {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Remote tool call f93edb56-09fd-43d3-9c7b-f66e0e058efb (read_file) failed: Timeout - no response from device"
+          }
+        ],
+        "structuredContent": {
+          "call_id": "f93edb56-09fd-43d3-9c7b-f66e0e058efb",
+          "tool_name": "read_file",
+          "status": "failed",
+          "device_id": "e450ee98-c746-4324-ba18-aaf02b86857d",
+          "created_at": "2026-10-16T18:34:30.842394+00:00",
+          "completed_at": "2026-10-16T18:36:31.683243+00:00",
+          "retry_original": false,
+          "error": "Timeout - no response from device",
+          "error_code": "INVALID_ARGUMENT"
+        },
+        "isError": true
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Remote tool call eb03159d-1965-44e4-a2f2-25a032209255 (read_file) failed: Timeout - no response from device"
+          }
+        ],
+        "structuredContent": {
+          "call_id": "eb03159d-1965-44e4-a2f2-25a032209255",
+          "tool_name": "read_file",
+          "status": "failed",
+          "device_id": "e450ee98-c746-4324-ba18-aaf02b86857d",
+          "created_at": "2026-10-16T18:34:31.062309+00:00",
+          "completed_at": "2026-10-16T18:36:31.683243+00:00",
+          "retry_original": false,
+          "error": "Timeout - no response from device",
+          "error_code": "INVALID_ARGUMENT"
+        },
+        "isError": true
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Remote tool call 3704f425-063f-4bed-810c-5149e2142d00 (read_file) failed: Timeout - no response from device"
+          }
+        ],
+        "structuredContent": {
+          "call_id": "3704f425-063f-4bed-810c-5149e2142d00",
+          "tool_name": "read_file",
+          "status": "failed",
+          "device_id": "e450ee98-c746-4324-ba18-aaf02b86857d",
+          "created_at": "2026-10-16T18:34:30.880151+00:00",
+          "completed_at": "2026-10-16T18:36:31.683243+00:00",
+          "retry_original": false,
+          "error": "Timeout - no response from device",
+          "error_code": "INVALID_ARGUMENT"
+        },
+        "isError": true
+      }
+    }
+  ]
+}

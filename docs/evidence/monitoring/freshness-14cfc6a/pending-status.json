@@ -1,0 +1,30 @@
+{
+  "checkpoint": "Stage253 pending qualification",
+  "observed": "2026-10-16 18:43:38 UTC",
+  "source": "14cfc6a42186ece49393f5401b69ffa8046771c3",
+  "tested_checkout": "5bc5a4ac79c13f878425f8042be634c41fa6a72b",
+  "tree": "86b8f2cc9a07e3ee3df6ddc628e7c5b7135ca2dd",
+  "ci": {
+    "run": 38948263357,
+    "success_jobs": 14,
+    "total_jobs": 15,
+    "remaining": "test / Race detector; overall workflow IN_PROGRESS"
+  },
+  "r3": {
+    "run": 38948263416,
+    "status": "IN_PROGRESS",
+    "remaining": "Race and static analysis"
+  },
+  "gosec": {
+    "run": 38948263379,
+    "status": "SUCCESS",
+    "issues": 0
+  },
+  "mac_final_staged_full_bcc": "UNKNOWN — remote output unavailable",
+  "raw_mac_logs": "NOT RECOVERED; read requests timed out",
+  "human_review": "NOT OBSERVED",
+  "browser": "NOT RUN",
+  "native": "OWNER-DEFERRED/OPEN",
+  "claim": "ACTIVE #67/comment6221933471",
+  "promotion": "none"
+}

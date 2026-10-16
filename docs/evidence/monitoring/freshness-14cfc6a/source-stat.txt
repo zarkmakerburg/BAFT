@@ -1,0 +1,7 @@
+ docs/monitoring-freshness-contract.md     |  55 +++++++++
+ internal/bcc/monitoring_freshness_test.go | 180 ++++++++++++++++++++++++++++++
+ internal/bcc/overview.go                  |  10 +-
+ internal/bcc/overview_test.go             |   2 +-
+ internal/bcc/server_test.go               |   4 +-
+ internal/bcc/store.go                     |  31 +++--
+ 6 files changed, 265 insertions(+), 17 deletions(-)

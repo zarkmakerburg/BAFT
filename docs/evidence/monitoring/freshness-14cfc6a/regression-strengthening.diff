@@ -1,0 +1,20 @@
+--- initial-Mac-baseline-test
++++ published-14cfc6a-test
+@@ -86,6 +86,7 @@
+ 		t.Run(tc.name, func(t *testing.T) {
+ 			s := monitoringFixture(t, tc.node, tc.report)
+ 			before := s.st.Telemetry["fixture"]
++			before.Routes = append([]telemetry.RouteSnapshot(nil), before.Routes...)
+ 			for _, duration := range []time.Duration{ttl, 0, -time.Second} {
+ 				got := s.MonitoringSnapshot(now, duration)[0]
+ 				wantProbe, wantLatency := tc.probe, tc.latency
+@@ -173,7 +174,7 @@
+ 		t.Fatal(err)
+ 	}
+ 	o := app.Overview(now, time.Hour)
+-	if o.Nodes[0].InBps != nil || o.Nodes[0].OutBps != nil || o.Health.AgentsStale != 1 {
+-		t.Fatalf("future samples advertised as current: node=%+v agents-stale=%d", o.Nodes[0], o.Health.AgentsStale)
++	if o.Nodes[0].InBps != nil || o.Nodes[0].OutBps != nil || o.Traffic.InBps != nil || o.Traffic.OutBps != nil || o.Health.AgentsStale != 1 {
++		t.Fatalf("future samples advertised as current: node=%+v traffic=%+v agents-stale=%d", o.Nodes[0], o.Traffic, o.Health.AgentsStale)
+ 	}
+ }

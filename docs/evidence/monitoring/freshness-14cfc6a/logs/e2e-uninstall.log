@@ -1,0 +1,736 @@
+﻿2026-10-16T18:33:36.9925664Z Current runner version: '2.337.0'
+2026-10-16T18:33:36.9950993Z ##[group]Runner Image Provisioner
+2026-10-16T18:33:36.9951879Z Hosted Compute Agent
+2026-10-16T18:33:36.9952482Z Version: 20261012.601
+2026-10-16T18:33:36.9953260Z Commit: f3dc54e1fb89da6852db922499a0233137369e1d
+2026-10-16T18:33:36.9954046Z Build Date: 2026-10-12T17:48:21Z
+2026-10-16T18:33:36.9954980Z Worker ID: {dcff3d17-80cc-49cd-82ea-e96aae456796}
+2026-10-16T18:33:36.9955814Z Region: westus
+2026-10-16T18:33:36.9956362Z Cloud: Azure
+2026-10-16T18:33:36.9956957Z ##[endgroup]
+2026-10-16T18:33:36.9958438Z ##[group]Operating System
+2026-10-16T18:33:36.9959102Z Ubuntu
+2026-10-16T18:33:36.9959716Z 24.04.5
+2026-10-16T18:33:36.9960230Z LTS
+2026-10-16T18:33:36.9960814Z ##[endgroup]
+2026-10-16T18:33:36.9961391Z ##[group]Runner Image
+2026-10-16T18:33:36.9962001Z Image: ubuntu-24.04
+2026-10-16T18:33:36.9962615Z Version: 20261012.334.1
+2026-10-16T18:33:36.9963897Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-16T18:33:36.9965869Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261012.334
+2026-10-16T18:33:36.9966930Z ##[endgroup]
+2026-10-16T18:33:36.9968104Z ##[group]GITHUB_TOKEN Permissions
+2026-10-16T18:33:36.9969990Z Contents: read
+2026-10-16T18:33:36.9970711Z Metadata: read
+2026-10-16T18:33:36.9971326Z ##[endgroup]
+2026-10-16T18:33:36.9973539Z Secret source: Actions
+2026-10-16T18:33:36.9974512Z Cache mode: write
+2026-10-16T18:33:36.9975599Z Prepare workflow directory
+2026-10-16T18:33:37.0320354Z Prepare all required actions
+2026-10-16T18:33:37.0390784Z Getting action download info
+2026-10-16T18:33:37.3933605Z Download action repository 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-10-16T18:33:37.4943713Z Download action repository 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e' (SHA:b7ad1dad31e06c5925ef5d2fc7ad053ef454303e)
+2026-10-16T18:33:38.0693127Z Complete job name: e2e-uninstall
+2026-10-16T18:33:38.1498246Z ##[group]Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+2026-10-16T18:33:38.1499513Z with:
+2026-10-16T18:33:38.1500034Z   repository: zarkmakerburg/BAFT
+2026-10-16T18:33:38.1504079Z   token: ***
+2026-10-16T18:33:38.1504581Z   ssh-strict: true
+2026-10-16T18:33:38.1505271Z   ssh-user: git
+2026-10-16T18:33:38.1505775Z   persist-credentials: true
+2026-10-16T18:33:38.1506327Z   clean: true
+2026-10-16T18:33:38.1506826Z   sparse-checkout-cone-mode: true
+2026-10-16T18:33:38.1507405Z   fetch-depth: 1
+2026-10-16T18:33:38.1507889Z   fetch-tags: false
+2026-10-16T18:33:38.1508380Z   show-progress: true
+2026-10-16T18:33:38.1508869Z   lfs: false
+2026-10-16T18:33:38.1509336Z   submodules: false
+2026-10-16T18:33:38.1509839Z   set-safe-directory: true
+2026-10-16T18:33:38.1510403Z   allow-unsafe-pr-checkout: false
+2026-10-16T18:33:38.1511260Z ##[endgroup]
+2026-10-16T18:33:38.2517646Z Syncing repository: zarkmakerburg/BAFT
+2026-10-16T18:33:38.2520080Z ##[group]Getting Git version info
+2026-10-16T18:33:38.2521276Z Working directory is '/home/runner/work/BAFT/BAFT'
+2026-10-16T18:33:38.2522592Z [command]/usr/bin/git version
+2026-10-16T18:33:38.2639433Z git version 2.55.0
+2026-10-16T18:33:38.2669299Z ##[endgroup]
+2026-10-16T18:33:38.2682743Z Temporarily overriding HOME='/home/runner/work/_temp/c74ea7e2-0de8-4dcf-ae13-55f22cee43bd' before making global git config changes
+2026-10-16T18:33:38.2685580Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-16T18:33:38.2688968Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/BAFT/BAFT
+2026-10-16T18:33:38.2757437Z Deleting the contents of '/home/runner/work/BAFT/BAFT'
+2026-10-16T18:33:38.2761300Z ##[group]Determining repository object format
+2026-10-16T18:33:38.2763269Z ##[endgroup]
+2026-10-16T18:33:38.2764294Z ##[group]Initializing the repository
+2026-10-16T18:33:38.2767977Z [command]/usr/bin/git init /home/runner/work/BAFT/BAFT
+2026-10-16T18:33:38.2902710Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-16T18:33:38.2905316Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-16T18:33:38.2908340Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-16T18:33:38.2909303Z hint: call:
+2026-10-16T18:33:38.2909797Z hint:
+2026-10-16T18:33:38.2910435Z hint: 	git config --global init.defaultBranch <name>
+2026-10-16T18:33:38.2911172Z hint:
+2026-10-16T18:33:38.2911918Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-16T18:33:38.2913018Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-16T18:33:38.2913909Z hint:
+2026-10-16T18:33:38.2914410Z hint: 	git branch -m <name>
+2026-10-16T18:33:38.2915529Z hint:
+2026-10-16T18:33:38.2916809Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-16T18:33:38.2918118Z Initialized empty Git repository in /home/runner/work/BAFT/BAFT/.git/
+2026-10-16T18:33:38.2920954Z [command]/usr/bin/git remote add origin https://github.com/zarkmakerburg/BAFT
+2026-10-16T18:33:38.2998351Z ##[endgroup]
+2026-10-16T18:33:38.3000059Z ##[group]Disabling automatic garbage collection
+2026-10-16T18:33:38.3002140Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-16T18:33:38.3042430Z ##[endgroup]
+2026-10-16T18:33:38.3043957Z ##[group]Setting up auth
+2026-10-16T18:33:38.3045433Z Removing SSH command configuration
+2026-10-16T18:33:38.3050123Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-16T18:33:38.3087682Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-16T18:33:38.3491722Z Removing HTTP extra header
+2026-10-16T18:33:38.3497826Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-16T18:33:38.3534351Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-16T18:33:38.3759738Z Removing includeIf entries pointing to credentials config files
+2026-10-16T18:33:38.3763665Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-16T18:33:38.3798122Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-16T18:33:38.4033665Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-bfa155b6-d5b5-4137-a14f-2e7291e34d09.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-16T18:33:38.4081300Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/BAFT/BAFT/.git.path /home/runner/work/_temp/git-credentials-bfa155b6-d5b5-4137-a14f-2e7291e34d09.config
+2026-10-16T18:33:38.4119429Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/BAFT/BAFT/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-bfa155b6-d5b5-4137-a14f-2e7291e34d09.config
+2026-10-16T18:33:38.4161158Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-bfa155b6-d5b5-4137-a14f-2e7291e34d09.config
+2026-10-16T18:33:38.4197384Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-bfa155b6-d5b5-4137-a14f-2e7291e34d09.config
+2026-10-16T18:33:38.4228202Z ##[endgroup]
+2026-10-16T18:33:38.4229040Z ##[group]Fetching the repository
+2026-10-16T18:33:38.4237218Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +5bc5a4ac79c13f878425f8042be634c41fa6a72b:refs/remotes/pull/221/merge
+2026-10-16T18:33:40.0702930Z From https://github.com/zarkmakerburg/BAFT
+2026-10-16T18:33:40.0705363Z  * [new ref]         5bc5a4ac79c13f878425f8042be634c41fa6a72b -> pull/221/merge
+2026-10-16T18:33:40.0710696Z ##[endgroup]
+2026-10-16T18:33:40.0712211Z ##[group]Determining the checkout info
+2026-10-16T18:33:40.0714369Z ##[endgroup]
+2026-10-16T18:33:40.0715554Z [command]/usr/bin/git sparse-checkout disable
+2026-10-16T18:33:40.0772448Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-16T18:33:40.0806952Z ##[group]Checking out the ref
+2026-10-16T18:33:40.0810652Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/221/merge
+2026-10-16T18:33:40.1772803Z Note: switching to 'refs/remotes/pull/221/merge'.
+2026-10-16T18:33:40.1774385Z 
+2026-10-16T18:33:40.1775932Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-10-16T18:33:40.1779167Z changes and commit them, and you can discard any commits you make in this
+2026-10-16T18:33:40.1782567Z state without impacting any branches by switching back to a branch.
+2026-10-16T18:33:40.1784585Z 
+2026-10-16T18:33:40.1786241Z If you want to create a new branch to retain commits you create, you may
+2026-10-16T18:33:40.1789125Z do so (now or later) by using -c with the switch command. Example:
+2026-10-16T18:33:40.1790465Z 
+2026-10-16T18:33:40.1791047Z   git switch -c <new-branch-name>
+2026-10-16T18:33:40.1792251Z 
+2026-10-16T18:33:40.1793070Z Or undo this operation with:
+2026-10-16T18:33:40.1794005Z 
+2026-10-16T18:33:40.1794540Z   git switch -
+2026-10-16T18:33:40.1795546Z 
+2026-10-16T18:33:40.1796747Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-10-16T18:33:40.1798599Z 
+2026-10-16T18:33:40.1800537Z HEAD is now at 5bc5a4a Merge 14cfc6a42186ece49393f5401b69ffa8046771c3 into ae27cae89e7d88b7e6f75396105fe3c3b904b97f
+2026-10-16T18:33:40.1805938Z ##[endgroup]
+2026-10-16T18:33:40.1845039Z [command]/usr/bin/git log -1 --format=%H
+2026-10-16T18:33:40.1874058Z 5bc5a4ac79c13f878425f8042be634c41fa6a72b
+2026-10-16T18:33:40.2242844Z ##[group]Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+2026-10-16T18:33:40.2244512Z with:
+2026-10-16T18:33:40.2245716Z   go-version-file: go.mod
+2026-10-16T18:33:40.2246748Z   check-latest: false
+2026-10-16T18:33:40.2247718Z   cache: false
+2026-10-16T18:33:40.2257964Z   token: ***
+2026-10-16T18:33:40.2258851Z ##[endgroup]
+2026-10-16T18:33:40.3408210Z Setup go version spec 1.27.1
+2026-10-16T18:33:40.3418215Z Attempting to download 1.27.1...
+2026-10-16T18:33:41.0047298Z matching 1.27.1...
+2026-10-16T18:33:41.0059520Z Acquiring 1.27.1 from https://github.com/actions/go-versions/releases/download/1.27.1-33583469715/go-1.27.1-linux-x64.tar.gz
+2026-10-16T18:33:41.6208747Z Extracting Go...
+2026-10-16T18:33:41.6331881Z [command]/usr/bin/tar xz --warning=no-unknown-keyword --overwrite -C /home/runner/work/_temp/d6a6bf59-1570-4b3c-b5a4-f1548525a5bf -f /home/runner/work/_temp/3d1f616f-1ade-41d9-8699-c0a13be58a6f
+2026-10-16T18:33:43.3336701Z Successfully extracted go to /home/runner/work/_temp/d6a6bf59-1570-4b3c-b5a4-f1548525a5bf
+2026-10-16T18:33:43.3337520Z Adding to the cache ...
+2026-10-16T18:33:49.5524184Z Successfully cached go to /opt/hostedtoolcache/go/1.27.1/x64
+2026-10-16T18:33:49.5526872Z Added go to the path
+2026-10-16T18:33:49.5529153Z Successfully set up Go version 1.27.1
+2026-10-16T18:33:49.5749198Z go version go1.27.1 linux/amd64
+2026-10-16T18:33:49.5749420Z 
+2026-10-16T18:33:49.5749718Z ##[group]go env
+2026-10-16T18:33:50.6765856Z AR='ar'
+2026-10-16T18:33:50.6766270Z CC='gcc'
+2026-10-16T18:33:50.6766659Z CGO_CFLAGS='-O2 -g'
+2026-10-16T18:33:50.6767072Z CGO_CPPFLAGS=''
+2026-10-16T18:33:50.6767462Z CGO_CXXFLAGS='-O2 -g'
+2026-10-16T18:33:50.6767832Z CGO_ENABLED='1'
+2026-10-16T18:33:50.6768048Z CGO_FFLAGS='-O2 -g'
+2026-10-16T18:33:50.6768509Z CGO_LDFLAGS='-O2 -g'
+2026-10-16T18:33:50.6768781Z CXX='g++'
+2026-10-16T18:33:50.6768984Z GCCGO='gccgo'
+2026-10-16T18:33:50.6769409Z GO111MODULE=''
+2026-10-16T18:33:50.6769912Z GOAMD64='v1'
+2026-10-16T18:33:50.6770354Z GOARCH='amd64'
+2026-10-16T18:33:50.6770661Z GOAUTH='netrc'
+2026-10-16T18:33:50.6770895Z GOBIN='/home/runner/go/bin'
+2026-10-16T18:33:50.6771559Z GOCACHE='/home/runner/.cache/go-build'
+2026-10-16T18:33:50.6771878Z GOCACHEPROG=''
+2026-10-16T18:33:50.6772188Z GODEBUG=''
+2026-10-16T18:33:50.6772434Z GOENV='/home/runner/.config/go/env'
+2026-10-16T18:33:50.6773071Z GOEXE=''
+2026-10-16T18:33:50.6773442Z GOEXPERIMENT=''
+2026-10-16T18:33:50.6773887Z GOFIPS140='off'
+2026-10-16T18:33:50.6774318Z GOFLAGS=''
+2026-10-16T18:33:50.6775759Z GOGCCFLAGS='-fPIC -m64 -pthread -Wl,--no-gc-sections -fmessage-length=0 -ffile-prefix-map=/tmp/go-build940955984=/tmp/go-build -gno-record-gcc-switches'
+2026-10-16T18:33:50.6777133Z GOHOSTARCH='amd64'
+2026-10-16T18:33:50.6777564Z GOHOSTOS='linux'
+2026-10-16T18:33:50.6777938Z GOINSECURE=''
+2026-10-16T18:33:50.6778346Z GOMOD='/home/runner/work/BAFT/BAFT/go.mod'
+2026-10-16T18:33:50.6778890Z GOMODCACHE='/home/runner/go/pkg/mod'
+2026-10-16T18:33:50.6779351Z GONOPROXY=''
+2026-10-16T18:33:50.6779706Z GONOSUMDB=''
+2026-10-16T18:33:50.6780036Z GOOS='linux'
+2026-10-16T18:33:50.6780381Z GOPACKAGESDRIVER=''
+2026-10-16T18:33:50.6780775Z GOPATH='/home/runner/go'
+2026-10-16T18:33:50.6781192Z GOPRIVATE=''
+2026-10-16T18:33:50.6781645Z GOPROXY='https://proxy.golang.org,direct'
+2026-10-16T18:33:50.6782221Z GOROOT='/opt/hostedtoolcache/go/1.27.1/x64'
+2026-10-16T18:33:50.6782740Z GOSUMDB='sum.golang.org'
+2026-10-16T18:33:50.6783139Z GOTELEMETRY='local'
+2026-10-16T18:33:50.6783616Z GOTELEMETRYDIR='/home/runner/.config/go/telemetry'
+2026-10-16T18:33:50.6784171Z GOTMPDIR=''
+2026-10-16T18:33:50.6784526Z GOTOOLCHAIN='local'
+2026-10-16T18:33:50.6785339Z GOTOOLDIR='/opt/hostedtoolcache/go/1.27.1/x64/pkg/tool/linux_amd64'
+2026-10-16T18:33:50.6786027Z GOVCS=''
+2026-10-16T18:33:50.6786410Z GOVERSION='go1.27.1'
+2026-10-16T18:33:50.6786812Z GOWORK=''
+2026-10-16T18:33:50.6787171Z PKG_CONFIG='pkg-config'
+2026-10-16T18:33:50.6787684Z 
+2026-10-16T18:33:50.6788403Z ##[endgroup]
+2026-10-16T18:33:50.7166602Z ##[group]Run export BAFT_LOCAL_RELEASE_ROOT="$RUNNER_TEMP/root"
+2026-10-16T18:33:50.7167143Z [36;1mexport BAFT_LOCAL_RELEASE_ROOT="$RUNNER_TEMP/root"[0m
+2026-10-16T18:33:50.7167635Z [36;1mscripts/release/local_release.sh "$RUNNER_TEMP/rel1" v0.0.1-ci[0m
+2026-10-16T18:33:50.7168128Z [36;1mscripts/release/local_release.sh "$RUNNER_TEMP/rel2" v0.0.2-ci[0m
+2026-10-16T18:33:50.8239927Z shell: /usr/bin/bash -e {0}
+2026-10-16T18:33:50.8240373Z env:
+2026-10-16T18:33:50.8240702Z   GOTOOLCHAIN: local
+2026-10-16T18:33:50.8241026Z ##[endgroup]
+2026-10-16T18:33:57.6756281Z go: downloading go.yaml.in/yaml/v3 v3.0.5
+2026-10-16T18:33:57.6814011Z go: downloading golang.org/x/sys v0.48.0
+2026-10-16T18:33:57.6954965Z go: downloading github.com/flynn/noise v1.1.0
+2026-10-16T18:33:57.6956202Z go: downloading github.com/refraction-networking/utls v1.8.2
+2026-10-16T18:33:57.7495388Z go: downloading golang.org/x/crypto v0.57.0
+2026-10-16T18:33:57.9193209Z go: downloading github.com/klauspost/compress v1.17.4
+2026-10-16T18:33:57.9194464Z go: downloading github.com/andybalholm/brotli v1.0.6
+2026-10-16T18:34:15.9562508Z go: downloading modernc.org/sqlite v1.60.1
+2026-10-16T18:34:17.6855828Z go: downloading modernc.org/libc v1.77.1
+2026-10-16T18:34:19.0185847Z go: downloading modernc.org/mathutil v1.7.1
+2026-10-16T18:34:19.0186627Z go: downloading github.com/dustin/go-humanize v1.0.1
+2026-10-16T18:34:19.0187313Z go: downloading github.com/google/uuid v1.6.0
+2026-10-16T18:34:19.0187883Z go: downloading modernc.org/memory v1.12.1
+2026-10-16T18:34:19.0440108Z go: downloading github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec
+2026-10-16T18:35:05.4049766Z OK v0.0.1-ci 5bc5a4ac79c1: 10 artifacts, release key 8b8fc8a7ff0d731d50e70e17b540e5a5, root 575c05a0fabc90b0aa596768b0b3e86b, revocation list 1 (expires 2026-11-15T18:35:05Z)
+2026-10-16T18:35:08.0017655Z OK v0.0.2-ci 5bc5a4ac79c1: 10 artifacts, release key 317b13044409d96753389ebb077a6dfa, root 575c05a0fabc90b0aa596768b0b3e86b, revocation list 1 (expires 2026-11-15T18:35:05Z)
+2026-10-16T18:35:08.0103812Z ##[group]Run sudo env GITHUB_ACTIONS=true tests/e2e/uninstall.sh "$RUNNER_TEMP/rel1" "$RUNNER_TEMP/rel2"
+2026-10-16T18:35:08.0105048Z [36;1msudo env GITHUB_ACTIONS=true tests/e2e/uninstall.sh "$RUNNER_TEMP/rel1" "$RUNNER_TEMP/rel2"[0m
+2026-10-16T18:35:08.0168936Z shell: /usr/bin/bash -e {0}
+2026-10-16T18:35:08.0169194Z env:
+2026-10-16T18:35:08.0169407Z   GOTOOLCHAIN: local
+2026-10-16T18:35:08.0169628Z ##[endgroup]
+2026-10-16T18:35:08.0668530Z [uninstall-e2e] install EX and IR from release 1 and pass traffic
+2026-10-16T18:35:43.7236023Z [uninstall-e2e] a labelled BCC (systemd) with state, and an agent enrolled to it
+2026-10-16T18:35:44.0657013Z Created symlink /etc/systemd/system/multi-user.target.wants/baft-bcc.service → /etc/systemd/system/baft-bcc.service.
+2026-10-16T18:35:48.3596123Z active
+2026-10-16T18:35:48.3596545Z active
+2026-10-16T18:35:48.3600407Z [uninstall-e2e] two units the operator wrote: a running 'tunnel' and one that runs the BAFT binary
+2026-10-16T18:35:48.6500786Z Created symlink /etc/systemd/system/multi-user.target.wants/baft-hand.service → /etc/systemd/system/baft-hand.service.
+2026-10-16T18:35:48.9817585Z [uninstall-e2e] preview: exact plan, nothing changes
+2026-10-16T18:35:52.6822178Z [uninstall-e2e] ownership conflict blocks the destructive action
+2026-10-16T18:35:54.5048314Z [uninstall-e2e] an active tunnel is never stopped without explicit consent
+2026-10-16T18:35:56.4386036Z [uninstall-e2e] interrupted uninstall (killed after the first file moved) -> --restore
+2026-10-16T18:36:09.8970070Z [uninstall-e2e] interrupted uninstall (killed before the commit) -> --resume: the normal uninstall
+2026-10-16T18:36:19.5276459Z [uninstall-e2e] reinstall over the kept data: same node, no re-pairing
+2026-10-16T18:36:28.9946761Z [uninstall-e2e] upgrade to release 2, uninstall, reinstall: release 1 is refused (anti-rollback kept), release 2 is fine
+2026-10-16T18:36:55.2369759Z [uninstall-e2e] BCC state: deleted only after a verified emergency backup
+2026-10-16T18:36:56.2502439Z [uninstall-e2e] full uninstall removes only the confirmed data (tunnel configs)
+2026-10-16T18:37:02.3621412Z [uninstall-e2e] everything chosen: verify clean (the operator first removes their manual unit)
+2026-10-16T18:37:03.8167510Z preserved (UNKNOWN / unmanaged): 278
+2026-10-16T18:37:03.8168034Z    /var/lib/baft-ex/.cargo/bin/cargo
+2026-10-16T18:37:03.8168464Z    /var/lib/baft-ex/.cargo/bin/cargo-clippy
+2026-10-16T18:37:03.8168917Z    /var/lib/baft-ex/.cargo/bin/cargo-fmt
+2026-10-16T18:37:03.8169357Z    /var/lib/baft-ex/.cargo/bin/cargo-miri
+2026-10-16T18:37:03.8169807Z    /var/lib/baft-ex/.cargo/bin/clippy-driver
+2026-10-16T18:37:03.8170237Z    /var/lib/baft-ex/.cargo/bin/rls
+2026-10-16T18:37:03.8170646Z    /var/lib/baft-ex/.cargo/bin/rust-analyzer
+2026-10-16T18:37:03.8171072Z    /var/lib/baft-ex/.cargo/bin/rust-gdb
+2026-10-16T18:37:03.8171488Z    /var/lib/baft-ex/.cargo/bin/rust-gdbgui
+2026-10-16T18:37:03.8171909Z    /var/lib/baft-ex/.cargo/bin/rust-lldb
+2026-10-16T18:37:03.8172351Z    /var/lib/baft-ex/.cargo/bin/rustc
+2026-10-16T18:37:03.8172750Z    /var/lib/baft-ex/.cargo/bin/rustdoc
+2026-10-16T18:37:03.8173199Z    /var/lib/baft-ex/.cargo/bin/rustfmt
+2026-10-16T18:37:03.8174149Z    /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net10.0/any/DotnetToolSettings.xml
+2026-10-16T18:37:03.8175584Z    /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net10.0/any/LibGit2Sharp.dll
+2026-10-16T18:37:03.8176739Z    /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net10.0/any/Microsoft.Build.Framework.dll
+2026-10-16T18:37:03.8177885Z    /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net10.0/any/Microsoft.Build.dll
+2026-10-16T18:37:03.8179138Z    /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net10.0/any/Microsoft.DotNet.PlatformAbstractions.dll
+2026-10-16T18:37:03.8180945Z    /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net10.0/any/Microsoft.Extensions.FileProviders.Abstractions.dll
+2026-10-16T18:37:03.8182459Z    /var/lib/baft-ex/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94/tools/net10.0/any/Microsoft.Extensions.FileSystemGlobbing.dll
+2026-10-16T18:37:03.8354279Z [uninstall-e2e] fresh reinstall after the purge pairs anew and passes traffic
+2026-10-16T18:37:10.1169914Z [uninstall-e2e] PASS
+2026-10-16T18:37:10.1170713Z == provenance of service-home entries
+2026-10-16T18:37:10.1179789Z --- /etc/skel before any install:
+2026-10-16T18:37:10.1183648Z total 56
+2026-10-16T18:37:10.1184434Z drwxr-xr-x   8 root root  4096 Oct 12 21:32 .
+2026-10-16T18:37:10.1185519Z drwxr-xr-x 139 root root 12288 Oct 16 18:33 ..
+2026-10-16T18:37:10.1186178Z -rw-r--r--   1 root root   220 Mar 31  2024 .bash_logout
+2026-10-16T18:37:10.1188317Z -rw-r--r--   1 root root    67 Oct 12 21:28 .bash_profile
+2026-10-16T18:37:10.1188999Z -rw-r--r--   1 root root  3771 Mar 31  2024 .bashrc
+2026-10-16T18:37:10.1189729Z drwxr-xr-x   3 root root  4096 Oct 12 21:32 .cargo
+2026-10-16T18:37:10.1190415Z drwxr-xr-x   2 root root  4096 Oct 12 21:30 .composer
+2026-10-16T18:37:10.1191061Z drwxr-xr-x   3 root root  4096 Oct 12 21:07 .config
+2026-10-16T18:37:10.1191752Z drwxr-xr-x   3 root root  4096 Oct 12 21:18 .dotnet
+2026-10-16T18:37:10.1192589Z lrwxrwxrwx   1 root root    17 Oct 12 21:24 .ghcup -> /usr/local/.ghcup
+2026-10-16T18:37:10.1193402Z drwxr-xr-x   6 root root  4096 Oct 12 21:28 .nvm
+2026-10-16T18:37:10.1194017Z -rw-r--r--   1 root root   807 Mar 31  2024 .profile
+2026-10-16T18:37:10.1194626Z drwxr-xr-x   6 root root  4096 Oct 12 21:32 .rustup
+2026-10-16T18:37:10.1195992Z no baft user yet
+2026-10-16T18:37:10.1196380Z --- phase: fresh install
+2026-10-16T18:37:10.1197263Z /var/lib/baft-ex uid=999 gid=987 mode=750 mtime=2026-10-16 18:35:39.858185722 +0000 ctime=2026-10-16 18:35:39.858185722 +0000
+2026-10-16T18:37:10.1199011Z   /var/lib/baft-ex/.bash_logout uid=999 gid=987 mode=644 type=regular file mtime=2024-03-31 08:41:03.000000000 +0000 ctime=2026-10-16 18:35:17.768831461 +0000
+2026-10-16T18:37:10.1200690Z     skeleton original: uid=0 gid=0 mode=644 type=regular file; differences (no dereference):
+2026-10-16T18:37:10.1201586Z     symlinks inside: 0, files: 1
+2026-10-16T18:37:10.1202806Z   /var/lib/baft-ex/.bash_profile uid=999 gid=987 mode=644 type=regular file mtime=2026-10-12 21:28:02.474008455 +0000 ctime=2026-10-16 18:35:17.767831445 +0000
+2026-10-16T18:37:10.1203703Z     skeleton original: uid=0 gid=0 mode=644 type=regular file; differences (no dereference):
+2026-10-16T18:37:10.1204199Z     symlinks inside: 0, files: 1
+2026-10-16T18:37:10.1205171Z   /var/lib/baft-ex/.bashrc uid=999 gid=987 mode=644 type=regular file mtime=2024-03-31 08:41:03.000000000 +0000 ctime=2026-10-16 18:35:36.078125070 +0000
+2026-10-16T18:37:10.1206810Z     skeleton original: uid=0 gid=0 mode=644 type=regular file; differences (no dereference):
+2026-10-16T18:37:10.1207661Z     symlinks inside: 0, files: 1
+2026-10-16T18:37:10.1208846Z   /var/lib/baft-ex/.cargo uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:32:00.290990741 +0000 ctime=2026-10-16 18:35:36.655134328 +0000
+2026-10-16T18:37:10.1210304Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1210879Z     symlinks inside: 13, files: 3
+2026-10-16T18:37:10.1211542Z   /var/lib/baft-ex/.composer uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:30:14.698696200 +0000 ctime=2026-10-16 18:35:08.376680137 +0000
+2026-10-16T18:37:10.1212354Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1212797Z     symlinks inside: 0, files: 0
+2026-10-16T18:37:10.1213488Z   /var/lib/baft-ex/.config uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:07:12.801639587 +0000 ctime=2026-10-16 18:35:17.768831461 +0000
+2026-10-16T18:37:10.1214299Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1215107Z     symlinks inside: 0, files: 0
+2026-10-16T18:37:10.1216065Z   /var/lib/baft-ex/.dotnet uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:18:28.377400172 +0000 ctime=2026-10-16 18:35:17.759831316 +0000
+2026-10-16T18:37:10.1216895Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1217490Z     symlinks inside: 0, files: 268
+2026-10-16T18:37:10.1218163Z   /var/lib/baft-ex/.ghcup uid=999 gid=987 mode=777 type=symbolic link mtime=2026-10-12 21:24:41.920188250 +0000 ctime=2026-10-16 18:35:37.633150020 +0000
+2026-10-16T18:37:10.1219002Z     skeleton original: uid=0 gid=0 mode=777 type=symbolic link; differences (no dereference):
+2026-10-16T18:37:10.1219478Z     symlinks inside: 1, files: 0
+2026-10-16T18:37:10.1220128Z   /var/lib/baft-ex/.nvm uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:28:04.809040174 +0000 ctime=2026-10-16 18:35:37.633150020 +0000
+2026-10-16T18:37:10.1220915Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1221370Z     symlinks inside: 0, files: 515
+2026-10-16T18:37:10.1222189Z   /var/lib/baft-ex/.profile uid=999 gid=987 mode=644 type=regular file mtime=2024-03-31 08:41:03.000000000 +0000 ctime=2026-10-16 18:35:17.759831316 +0000
+2026-10-16T18:37:10.1224110Z     skeleton original: uid=0 gid=0 mode=644 type=regular file; differences (no dereference):
+2026-10-16T18:37:10.1225128Z     symlinks inside: 0, files: 1
+2026-10-16T18:37:10.1226337Z   /var/lib/baft-ex/.rustup uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:32:01.307003221 +0000 ctime=2026-10-16 18:35:36.078125070 +0000
+2026-10-16T18:37:10.1227969Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1228813Z     symlinks inside: 0, files: 168
+2026-10-16T18:37:10.1229723Z /var/lib/baft-ir uid=999 gid=987 mode=700 mtime=2026-10-16 18:35:39.370586730 +0000 ctime=2026-10-16 18:35:39.373177940 +0000
+2026-10-16T18:37:10.1230638Z --- phase: services started, traffic
+2026-10-16T18:37:10.1231538Z /var/lib/baft-ex uid=999 gid=987 mode=750 mtime=2026-10-16 18:35:39.858185722 +0000 ctime=2026-10-16 18:35:39.858185722 +0000
+2026-10-16T18:37:10.1233217Z   /var/lib/baft-ex/.bash_logout uid=999 gid=987 mode=644 type=regular file mtime=2024-03-31 08:41:03.000000000 +0000 ctime=2026-10-16 18:35:17.768831461 +0000
+2026-10-16T18:37:10.1235112Z     skeleton original: uid=0 gid=0 mode=644 type=regular file; differences (no dereference):
+2026-10-16T18:37:10.1235946Z     symlinks inside: 0, files: 1
+2026-10-16T18:37:10.1237218Z   /var/lib/baft-ex/.bash_profile uid=999 gid=987 mode=644 type=regular file mtime=2026-10-12 21:28:02.474008455 +0000 ctime=2026-10-16 18:35:17.767831445 +0000
+2026-10-16T18:37:10.1238513Z     skeleton original: uid=0 gid=0 mode=644 type=regular file; differences (no dereference):
+2026-10-16T18:37:10.1238981Z     symlinks inside: 0, files: 1
+2026-10-16T18:37:10.1239630Z   /var/lib/baft-ex/.bashrc uid=999 gid=987 mode=644 type=regular file mtime=2024-03-31 08:41:03.000000000 +0000 ctime=2026-10-16 18:35:36.078125070 +0000
+2026-10-16T18:37:10.1240492Z     skeleton original: uid=0 gid=0 mode=644 type=regular file; differences (no dereference):
+2026-10-16T18:37:10.1241078Z     symlinks inside: 0, files: 1
+2026-10-16T18:37:10.1242072Z   /var/lib/baft-ex/.cargo uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:32:00.290990741 +0000 ctime=2026-10-16 18:35:36.655134328 +0000
+2026-10-16T18:37:10.1243010Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1243462Z     symlinks inside: 13, files: 3
+2026-10-16T18:37:10.1244109Z   /var/lib/baft-ex/.composer uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:30:14.698696200 +0000 ctime=2026-10-16 18:35:08.376680137 +0000
+2026-10-16T18:37:10.1245204Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1245669Z     symlinks inside: 0, files: 0
+2026-10-16T18:37:10.1246508Z   /var/lib/baft-ex/.config uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:07:12.801639587 +0000 ctime=2026-10-16 18:35:17.768831461 +0000
+2026-10-16T18:37:10.1247315Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1247876Z     symlinks inside: 0, files: 0
+2026-10-16T18:37:10.1248502Z   /var/lib/baft-ex/.dotnet uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:18:28.377400172 +0000 ctime=2026-10-16 18:35:17.759831316 +0000
+2026-10-16T18:37:10.1249291Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1249739Z     symlinks inside: 0, files: 268
+2026-10-16T18:37:10.1250408Z   /var/lib/baft-ex/.ghcup uid=999 gid=987 mode=777 type=symbolic link mtime=2026-10-12 21:24:41.920188250 +0000 ctime=2026-10-16 18:35:37.633150020 +0000
+2026-10-16T18:37:10.1251225Z     skeleton original: uid=0 gid=0 mode=777 type=symbolic link; differences (no dereference):
+2026-10-16T18:37:10.1251691Z     symlinks inside: 1, files: 0
+2026-10-16T18:37:10.1252438Z   /var/lib/baft-ex/.nvm uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:28:04.809040174 +0000 ctime=2026-10-16 18:35:37.633150020 +0000
+2026-10-16T18:37:10.1253228Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1274202Z     symlinks inside: 0, files: 515
+2026-10-16T18:37:10.1275222Z   /var/lib/baft-ex/.profile uid=999 gid=987 mode=644 type=regular file mtime=2024-03-31 08:41:03.000000000 +0000 ctime=2026-10-16 18:35:17.759831316 +0000
+2026-10-16T18:37:10.1276110Z     skeleton original: uid=0 gid=0 mode=644 type=regular file; differences (no dereference):
+2026-10-16T18:37:10.1276596Z     symlinks inside: 0, files: 1
+2026-10-16T18:37:10.1277436Z   /var/lib/baft-ex/.rustup uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:32:01.307003221 +0000 ctime=2026-10-16 18:35:36.078125070 +0000
+2026-10-16T18:37:10.1279283Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1280004Z     symlinks inside: 0, files: 168
+2026-10-16T18:37:10.1280530Z /var/lib/baft-ir uid=999 gid=987 mode=700 mtime=2026-10-16 18:35:39.370586730 +0000 ctime=2026-10-16 18:35:39.373177940 +0000
+2026-10-16T18:37:10.1281043Z --- phase: crash and restore
+2026-10-16T18:37:10.1281529Z /var/lib/baft-ex uid=999 gid=987 mode=750 mtime=2026-10-16 18:35:39.858185722 +0000 ctime=2026-10-16 18:35:39.858185722 +0000
+2026-10-16T18:37:10.1282444Z   /var/lib/baft-ex/.bash_logout uid=999 gid=987 mode=644 type=regular file mtime=2024-03-31 08:41:03.000000000 +0000 ctime=2026-10-16 18:35:17.768831461 +0000
+2026-10-16T18:37:10.1283286Z     skeleton original: uid=0 gid=0 mode=644 type=regular file; differences (no dereference):
+2026-10-16T18:37:10.1283748Z     symlinks inside: 0, files: 1
+2026-10-16T18:37:10.1284422Z   /var/lib/baft-ex/.bash_profile uid=999 gid=987 mode=644 type=regular file mtime=2026-10-12 21:28:02.474008455 +0000 ctime=2026-10-16 18:35:17.767831445 +0000
+2026-10-16T18:37:10.1285611Z     skeleton original: uid=0 gid=0 mode=644 type=regular file; differences (no dereference):
+2026-10-16T18:37:10.1286080Z     symlinks inside: 0, files: 1
+2026-10-16T18:37:10.1286735Z   /var/lib/baft-ex/.bashrc uid=999 gid=987 mode=644 type=regular file mtime=2024-03-31 08:41:03.000000000 +0000 ctime=2026-10-16 18:35:36.078125070 +0000
+2026-10-16T18:37:10.1287564Z     skeleton original: uid=0 gid=0 mode=644 type=regular file; differences (no dereference):
+2026-10-16T18:37:10.1288011Z     symlinks inside: 0, files: 1
+2026-10-16T18:37:10.1288640Z   /var/lib/baft-ex/.cargo uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:32:00.290990741 +0000 ctime=2026-10-16 18:35:36.655134328 +0000
+2026-10-16T18:37:10.1289434Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1289885Z     symlinks inside: 13, files: 3
+2026-10-16T18:37:10.1290536Z   /var/lib/baft-ex/.composer uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:30:14.698696200 +0000 ctime=2026-10-16 18:35:08.376680137 +0000
+2026-10-16T18:37:10.1291674Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1292564Z     symlinks inside: 0, files: 0
+2026-10-16T18:37:10.1294278Z   /var/lib/baft-ex/.config uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:07:12.801639587 +0000 ctime=2026-10-16 18:35:17.768831461 +0000
+2026-10-16T18:37:10.1305353Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1306297Z     symlinks inside: 0, files: 0
+2026-10-16T18:37:10.1307590Z   /var/lib/baft-ex/.dotnet uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:18:28.377400172 +0000 ctime=2026-10-16 18:35:17.759831316 +0000
+2026-10-16T18:37:10.1309258Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1310193Z     symlinks inside: 0, files: 268
+2026-10-16T18:37:10.1311457Z   /var/lib/baft-ex/.ghcup uid=999 gid=987 mode=777 type=symbolic link mtime=2026-10-12 21:24:41.920188250 +0000 ctime=2026-10-16 18:35:37.633150020 +0000
+2026-10-16T18:37:10.1313344Z     skeleton original: uid=0 gid=0 mode=777 type=symbolic link; differences (no dereference):
+2026-10-16T18:37:10.1314234Z     symlinks inside: 1, files: 0
+2026-10-16T18:37:10.1315772Z   /var/lib/baft-ex/.nvm uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:28:04.809040174 +0000 ctime=2026-10-16 18:35:37.633150020 +0000
+2026-10-16T18:37:10.1317444Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1318394Z     symlinks inside: 0, files: 515
+2026-10-16T18:37:10.1319842Z   /var/lib/baft-ex/.profile uid=999 gid=987 mode=644 type=regular file mtime=2024-03-31 08:41:03.000000000 +0000 ctime=2026-10-16 18:35:17.759831316 +0000
+2026-10-16T18:37:10.1321497Z     skeleton original: uid=0 gid=0 mode=644 type=regular file; differences (no dereference):
+2026-10-16T18:37:10.1322394Z     symlinks inside: 0, files: 1
+2026-10-16T18:37:10.1323601Z   /var/lib/baft-ex/.rustup uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:32:01.307003221 +0000 ctime=2026-10-16 18:35:36.078125070 +0000
+2026-10-16T18:37:10.1325344Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1326213Z     symlinks inside: 0, files: 168
+2026-10-16T18:37:10.1327078Z /var/lib/baft-ir uid=999 gid=987 mode=700 mtime=2026-10-16 18:35:39.370586730 +0000 ctime=2026-10-16 18:35:39.373177940 +0000
+2026-10-16T18:37:10.1327956Z --- phase: normal uninstall (resumed)
+2026-10-16T18:37:10.1328834Z /var/lib/baft-ex uid=999 gid=987 mode=750 mtime=2026-10-16 18:36:19.335824122 +0000 ctime=2026-10-16 18:36:19.335824122 +0000
+2026-10-16T18:37:10.1329762Z   /var/lib/baft-ex/.cargo uid=999 gid=987 mode=755 type=directory mtime=2026-10-16 18:36:17.611796373 +0000 ctime=2026-10-16 18:36:17.611796373 +0000
+2026-10-16T18:37:10.1330577Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1331080Z       Only in /etc/skel/.cargo/bin: rustup
+2026-10-16T18:37:10.1331417Z       Only in /etc/skel/.cargo: env
+2026-10-16T18:37:10.1331751Z       Only in /etc/skel/.cargo: env.ps1
+2026-10-16T18:37:10.1332071Z     symlinks inside: 13, files: 0
+2026-10-16T18:37:10.1332721Z   /var/lib/baft-ex/.dotnet uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:18:28.377400172 +0000 ctime=2026-10-16 18:35:17.759831316 +0000
+2026-10-16T18:37:10.1333533Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1334070Z       Only in /etc/skel/.dotnet/tools/.store: .stage
+2026-10-16T18:37:10.1334617Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .nupkg.metadata
+2026-10-16T18:37:10.1335663Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .signature.p7s
+2026-10-16T18:37:10.1336348Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: 3rdPartyNotices.txt
+2026-10-16T18:37:10.1337260Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: README.md
+2026-10-16T18:37:10.1337693Z     symlinks inside: 0, files: 258
+2026-10-16T18:37:10.1338370Z   /var/lib/baft-ex/.ghcup uid=999 gid=987 mode=777 type=symbolic link mtime=2026-10-12 21:24:41.920188250 +0000 ctime=2026-10-16 18:35:37.633150020 +0000
+2026-10-16T18:37:10.1339343Z     skeleton original: uid=0 gid=0 mode=777 type=symbolic link; differences (no dereference):
+2026-10-16T18:37:10.1339815Z     symlinks inside: 1, files: 0
+2026-10-16T18:37:10.1340446Z   /var/lib/baft-ex/.nvm uid=999 gid=987 mode=755 type=directory mtime=2026-10-16 18:36:19.335824122 +0000 ctime=2026-10-16 18:36:19.335824122 +0000
+2026-10-16T18:37:10.1341232Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1341721Z       Only in /etc/skel/.nvm: .dockerignore
+2026-10-16T18:37:10.1342076Z       Only in /etc/skel/.nvm: .editorconfig
+2026-10-16T18:37:10.1342401Z       Only in /etc/skel/.nvm: .git
+2026-10-16T18:37:10.1342918Z       Only in /etc/skel/.nvm: .gitattributes
+2026-10-16T18:37:10.1343408Z       Only in /etc/skel/.nvm: .github
+2026-10-16T18:37:10.1343715Z     symlinks inside: 0, files: 6
+2026-10-16T18:37:10.1344427Z /var/lib/baft-ir uid=999 gid=987 mode=700 mtime=2026-10-16 18:35:39.370586730 +0000 ctime=2026-10-16 18:35:39.373177940 +0000
+2026-10-16T18:37:10.1345294Z --- phase: reinstall
+2026-10-16T18:37:10.1345924Z /var/lib/baft-ex uid=999 gid=987 mode=750 mtime=2026-10-16 18:36:19.335824122 +0000 ctime=2026-10-16 18:36:19.335824122 +0000
+2026-10-16T18:37:10.1346886Z   /var/lib/baft-ex/.cargo uid=999 gid=987 mode=755 type=directory mtime=2026-10-16 18:36:17.611796373 +0000 ctime=2026-10-16 18:36:17.611796373 +0000
+2026-10-16T18:37:10.1348301Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1349112Z       Only in /etc/skel/.cargo/bin: rustup
+2026-10-16T18:37:10.1349647Z       Only in /etc/skel/.cargo: env
+2026-10-16T18:37:10.1350157Z       Only in /etc/skel/.cargo: env.ps1
+2026-10-16T18:37:10.1350703Z     symlinks inside: 13, files: 0
+2026-10-16T18:37:10.1351792Z   /var/lib/baft-ex/.dotnet uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:18:28.377400172 +0000 ctime=2026-10-16 18:35:17.759831316 +0000
+2026-10-16T18:37:10.1353283Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1354239Z       Only in /etc/skel/.dotnet/tools/.store: .stage
+2026-10-16T18:37:10.1355745Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .nupkg.metadata
+2026-10-16T18:37:10.1356885Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .signature.p7s
+2026-10-16T18:37:10.1357923Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: 3rdPartyNotices.txt
+2026-10-16T18:37:10.1358560Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: README.md
+2026-10-16T18:37:10.1358975Z     symlinks inside: 0, files: 258
+2026-10-16T18:37:10.1359653Z   /var/lib/baft-ex/.ghcup uid=999 gid=987 mode=777 type=symbolic link mtime=2026-10-12 21:24:41.920188250 +0000 ctime=2026-10-16 18:35:37.633150020 +0000
+2026-10-16T18:37:10.1361426Z     skeleton original: uid=0 gid=0 mode=777 type=symbolic link; differences (no dereference):
+2026-10-16T18:37:10.1362572Z     symlinks inside: 1, files: 0
+2026-10-16T18:37:10.1363804Z   /var/lib/baft-ex/.nvm uid=999 gid=987 mode=755 type=directory mtime=2026-10-16 18:36:19.335824122 +0000 ctime=2026-10-16 18:36:19.335824122 +0000
+2026-10-16T18:37:10.1365209Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1365970Z       Only in /etc/skel/.nvm: .dockerignore
+2026-10-16T18:37:10.1366332Z       Only in /etc/skel/.nvm: .editorconfig
+2026-10-16T18:37:10.1366653Z       Only in /etc/skel/.nvm: .git
+2026-10-16T18:37:10.1366993Z       Only in /etc/skel/.nvm: .gitattributes
+2026-10-16T18:37:10.1367323Z       Only in /etc/skel/.nvm: .github
+2026-10-16T18:37:10.1367617Z     symlinks inside: 0, files: 6
+2026-10-16T18:37:10.1368744Z /var/lib/baft-ir uid=999 gid=987 mode=700 mtime=2026-10-16 18:35:39.370586730 +0000 ctime=2026-10-16 18:35:39.373177940 +0000
+2026-10-16T18:37:10.1369749Z --- phase: upgrade
+2026-10-16T18:37:10.1370341Z /var/lib/baft-ex uid=999 gid=987 mode=750 mtime=2026-10-16 18:36:19.335824122 +0000 ctime=2026-10-16 18:36:19.335824122 +0000
+2026-10-16T18:37:10.1371263Z   /var/lib/baft-ex/.cargo uid=999 gid=987 mode=755 type=directory mtime=2026-10-16 18:36:17.611796373 +0000 ctime=2026-10-16 18:36:17.611796373 +0000
+2026-10-16T18:37:10.1372080Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1372578Z       Only in /etc/skel/.cargo/bin: rustup
+2026-10-16T18:37:10.1372908Z       Only in /etc/skel/.cargo: env
+2026-10-16T18:37:10.1373224Z       Only in /etc/skel/.cargo: env.ps1
+2026-10-16T18:37:10.1373526Z     symlinks inside: 13, files: 0
+2026-10-16T18:37:10.1374394Z   /var/lib/baft-ex/.dotnet uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:18:28.377400172 +0000 ctime=2026-10-16 18:35:17.759831316 +0000
+2026-10-16T18:37:10.1375726Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1376262Z       Only in /etc/skel/.dotnet/tools/.store: .stage
+2026-10-16T18:37:10.1376862Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .nupkg.metadata
+2026-10-16T18:37:10.1377500Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .signature.p7s
+2026-10-16T18:37:10.1378375Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: 3rdPartyNotices.txt
+2026-10-16T18:37:10.1379092Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: README.md
+2026-10-16T18:37:10.1379731Z     symlinks inside: 0, files: 258
+2026-10-16T18:37:10.1380605Z   /var/lib/baft-ex/.ghcup uid=999 gid=987 mode=777 type=symbolic link mtime=2026-10-12 21:24:41.920188250 +0000 ctime=2026-10-16 18:35:37.633150020 +0000
+2026-10-16T18:37:10.1381507Z     skeleton original: uid=0 gid=0 mode=777 type=symbolic link; differences (no dereference):
+2026-10-16T18:37:10.1381978Z     symlinks inside: 1, files: 0
+2026-10-16T18:37:10.1382943Z   /var/lib/baft-ex/.nvm uid=999 gid=987 mode=755 type=directory mtime=2026-10-16 18:36:19.335824122 +0000 ctime=2026-10-16 18:36:19.335824122 +0000
+2026-10-16T18:37:10.1383739Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1384423Z       Only in /etc/skel/.nvm: .dockerignore
+2026-10-16T18:37:10.1385163Z       Only in /etc/skel/.nvm: .editorconfig
+2026-10-16T18:37:10.1385997Z       Only in /etc/skel/.nvm: .git
+2026-10-16T18:37:10.1386981Z       Only in /etc/skel/.nvm: .gitattributes
+2026-10-16T18:37:10.1390327Z       Only in /etc/skel/.nvm: .github
+2026-10-16T18:37:10.1390678Z     symlinks inside: 0, files: 6
+2026-10-16T18:37:10.1391379Z /var/lib/baft-ir uid=999 gid=987 mode=700 mtime=2026-10-16 18:35:39.370586730 +0000 ctime=2026-10-16 18:35:39.373177940 +0000
+2026-10-16T18:37:10.1391967Z --- phase: uninstall after upgrade, reinstall
+2026-10-16T18:37:10.1392817Z /var/lib/baft-ex uid=999 gid=987 mode=750 mtime=2026-10-16 18:36:19.335824122 +0000 ctime=2026-10-16 18:36:19.335824122 +0000
+2026-10-16T18:37:10.1394031Z   /var/lib/baft-ex/.cargo uid=999 gid=987 mode=755 type=directory mtime=2026-10-16 18:36:17.611796373 +0000 ctime=2026-10-16 18:36:17.611796373 +0000
+2026-10-16T18:37:10.1395539Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1401885Z       Only in /etc/skel/.cargo/bin: rustup
+2026-10-16T18:37:10.1402317Z       Only in /etc/skel/.cargo: env
+2026-10-16T18:37:10.1402783Z       Only in /etc/skel/.cargo: env.ps1
+2026-10-16T18:37:10.1403177Z     symlinks inside: 13, files: 0
+2026-10-16T18:37:10.1404147Z   /var/lib/baft-ex/.dotnet uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:18:28.377400172 +0000 ctime=2026-10-16 18:35:17.759831316 +0000
+2026-10-16T18:37:10.1405919Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1408501Z       Only in /etc/skel/.dotnet/tools/.store: .stage
+2026-10-16T18:37:10.1409567Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .nupkg.metadata
+2026-10-16T18:37:10.1410709Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .signature.p7s
+2026-10-16T18:37:10.1411568Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: 3rdPartyNotices.txt
+2026-10-16T18:37:10.1412240Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: README.md
+2026-10-16T18:37:10.1412829Z     symlinks inside: 0, files: 258
+2026-10-16T18:37:10.1413781Z   /var/lib/baft-ex/.ghcup uid=999 gid=987 mode=777 type=symbolic link mtime=2026-10-12 21:24:41.920188250 +0000 ctime=2026-10-16 18:35:37.633150020 +0000
+2026-10-16T18:37:10.1415106Z     skeleton original: uid=0 gid=0 mode=777 type=symbolic link; differences (no dereference):
+2026-10-16T18:37:10.1415645Z     symlinks inside: 1, files: 0
+2026-10-16T18:37:10.1416480Z   /var/lib/baft-ex/.nvm uid=999 gid=987 mode=755 type=directory mtime=2026-10-16 18:36:19.335824122 +0000 ctime=2026-10-16 18:36:19.335824122 +0000
+2026-10-16T18:37:10.1417319Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1417823Z       Only in /etc/skel/.nvm: .dockerignore
+2026-10-16T18:37:10.1418176Z       Only in /etc/skel/.nvm: .editorconfig
+2026-10-16T18:37:10.1418499Z       Only in /etc/skel/.nvm: .git
+2026-10-16T18:37:10.1418832Z       Only in /etc/skel/.nvm: .gitattributes
+2026-10-16T18:37:10.1419166Z       Only in /etc/skel/.nvm: .github
+2026-10-16T18:37:10.1419459Z     symlinks inside: 0, files: 6
+2026-10-16T18:37:10.1420106Z /var/lib/baft-ir uid=999 gid=987 mode=700 mtime=2026-10-16 18:35:39.370586730 +0000 ctime=2026-10-16 18:35:39.373177940 +0000
+2026-10-16T18:37:10.1420651Z --- phase: full uninstall (tunnel configs)
+2026-10-16T18:37:10.1421290Z /var/lib/baft-ex uid=999 gid=987 mode=750 mtime=2026-10-16 18:36:19.335824122 +0000 ctime=2026-10-16 18:36:19.335824122 +0000
+2026-10-16T18:37:10.1422382Z   /var/lib/baft-ex/.cargo uid=999 gid=987 mode=755 type=directory mtime=2026-10-16 18:36:17.611796373 +0000 ctime=2026-10-16 18:36:17.611796373 +0000
+2026-10-16T18:37:10.1423365Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1423930Z       Only in /etc/skel/.cargo/bin: rustup
+2026-10-16T18:37:10.1424316Z       Only in /etc/skel/.cargo: env
+2026-10-16T18:37:10.1424639Z       Only in /etc/skel/.cargo: env.ps1
+2026-10-16T18:37:10.1425406Z     symlinks inside: 13, files: 0
+2026-10-16T18:37:10.1426583Z   /var/lib/baft-ex/.dotnet uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:18:28.377400172 +0000 ctime=2026-10-16 18:35:17.759831316 +0000
+2026-10-16T18:37:10.1428004Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1428553Z       Only in /etc/skel/.dotnet/tools/.store: .stage
+2026-10-16T18:37:10.1429285Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .nupkg.metadata
+2026-10-16T18:37:10.1430042Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .signature.p7s
+2026-10-16T18:37:10.1431315Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: 3rdPartyNotices.txt
+2026-10-16T18:37:10.1432964Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: README.md
+2026-10-16T18:37:10.1434005Z     symlinks inside: 0, files: 258
+2026-10-16T18:37:10.1435673Z   /var/lib/baft-ex/.ghcup uid=999 gid=987 mode=777 type=symbolic link mtime=2026-10-12 21:24:41.920188250 +0000 ctime=2026-10-16 18:35:37.633150020 +0000
+2026-10-16T18:37:10.1437080Z     skeleton original: uid=0 gid=0 mode=777 type=symbolic link; differences (no dereference):
+2026-10-16T18:37:10.1437920Z     symlinks inside: 1, files: 0
+2026-10-16T18:37:10.1439373Z   /var/lib/baft-ex/.nvm uid=999 gid=987 mode=755 type=directory mtime=2026-10-16 18:36:19.335824122 +0000 ctime=2026-10-16 18:36:19.335824122 +0000
+2026-10-16T18:37:10.1440710Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1441880Z       Only in /etc/skel/.nvm: .dockerignore
+2026-10-16T18:37:10.1442519Z       Only in /etc/skel/.nvm: .editorconfig
+2026-10-16T18:37:10.1443110Z       Only in /etc/skel/.nvm: .git
+2026-10-16T18:37:10.1443782Z       Only in /etc/skel/.nvm: .gitattributes
+2026-10-16T18:37:10.1444559Z       Only in /etc/skel/.nvm: .github
+2026-10-16T18:37:10.1445281Z     symlinks inside: 0, files: 6
+2026-10-16T18:37:10.1446034Z /var/lib/baft-ir uid=999 gid=987 mode=700 mtime=2026-10-16 18:37:01.925512855 +0000 ctime=2026-10-16 18:37:01.925512855 +0000
+2026-10-16T18:37:10.1446536Z --- phase: purge
+2026-10-16T18:37:10.1446985Z /var/lib/baft-ex uid=999 gid=987 mode=750 mtime=2026-10-16 18:36:19.335824122 +0000 ctime=2026-10-16 18:36:19.335824122 +0000
+2026-10-16T18:37:10.1448107Z   /var/lib/baft-ex/.cargo uid=999 gid=987 mode=755 type=directory mtime=2026-10-16 18:36:17.611796373 +0000 ctime=2026-10-16 18:36:17.611796373 +0000
+2026-10-16T18:37:10.1449500Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1450213Z       Only in /etc/skel/.cargo/bin: rustup
+2026-10-16T18:37:10.1450588Z       Only in /etc/skel/.cargo: env
+2026-10-16T18:37:10.1450966Z       Only in /etc/skel/.cargo: env.ps1
+2026-10-16T18:37:10.1451435Z     symlinks inside: 13, files: 0
+2026-10-16T18:37:10.1452342Z   /var/lib/baft-ex/.dotnet uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:18:28.377400172 +0000 ctime=2026-10-16 18:35:17.759831316 +0000
+2026-10-16T18:37:10.1453147Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1453684Z       Only in /etc/skel/.dotnet/tools/.store: .stage
+2026-10-16T18:37:10.1454236Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .nupkg.metadata
+2026-10-16T18:37:10.1455348Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .signature.p7s
+2026-10-16T18:37:10.1456114Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: 3rdPartyNotices.txt
+2026-10-16T18:37:10.1456757Z       Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: README.md
+2026-10-16T18:37:10.1457176Z     symlinks inside: 0, files: 258
+2026-10-16T18:37:10.1457900Z   /var/lib/baft-ex/.ghcup uid=999 gid=987 mode=777 type=symbolic link mtime=2026-10-12 21:24:41.920188250 +0000 ctime=2026-10-16 18:35:37.633150020 +0000
+2026-10-16T18:37:10.1458848Z     skeleton original: uid=0 gid=0 mode=777 type=symbolic link; differences (no dereference):
+2026-10-16T18:37:10.1459325Z     symlinks inside: 1, files: 0
+2026-10-16T18:37:10.1460261Z   /var/lib/baft-ex/.nvm uid=999 gid=987 mode=755 type=directory mtime=2026-10-16 18:36:19.335824122 +0000 ctime=2026-10-16 18:36:19.335824122 +0000
+2026-10-16T18:37:10.1461528Z     skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+2026-10-16T18:37:10.1462246Z       Only in /etc/skel/.nvm: .dockerignore
+2026-10-16T18:37:10.1462608Z       Only in /etc/skel/.nvm: .editorconfig
+2026-10-16T18:37:10.1462939Z       Only in /etc/skel/.nvm: .git
+2026-10-16T18:37:10.1463302Z       Only in /etc/skel/.nvm: .gitattributes
+2026-10-16T18:37:10.1463702Z       Only in /etc/skel/.nvm: .github
+2026-10-16T18:37:10.1464015Z     symlinks inside: 0, files: 6
+2026-10-16T18:37:10.1464273Z /var/lib/baft-ir absent
+2026-10-16T18:37:10.1517143Z ##[notice]irectory mtime=2026-10-12 21:18:28.377400172 +0000 ctime=2026-10-16 18:35:17.759831316 +0000
+    skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+      Only in /etc/skel/.dotnet/tools/.store: .stage
+      Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .nupkg.metadata
+      Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .signature.p7s
+      Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: 3rdPartyNotices.txt
+      Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: README.md
+    symlinks inside: 0, files: 258
+  /var/lib/baft-ex/.ghcup uid=999 gid=987 mode=777 type=symbolic link mtime=2026-10-12 21:24:41.920188250 +0000 ctime=2026-10-16 18:35:37.633150020 +0000
+    skeleton original: uid=0 gid=0 mode=777 type=symbolic link; differences (no dereference):
+    symlinks inside: 1, files: 0
+  /var/lib/baft-ex/.nvm uid=999 gid=987 mode=755 type=directory mtime=2026-10-16 18:36:19.335824122 +0000 ctime=2026-10-16 18:36:19.335824122 +0000
+    skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+      Only in /etc/skel/.nvm: .dockerignore
+      Only in /etc/skel/.nvm: .editorconfig
+      Only in /etc/skel/.nvm: .git
+      Only in /etc/skel/.nvm: .gitattributes
+      Only in /etc/skel/.nvm: .github
+    symlinks inside: 0, files: 6
+/var/lib/baft-ir uid=999 gid=987 mode=700 mtime=2026-10-16 18:37:01.925512855 +0000 ctime=2026-10-16 18:37:01.925512855 +0000
+--- phase: purge
+/var/lib/baft-ex uid=999 gid=987 mode=750 mtime=2026-10-16 18:36:19.335824122 +0000 ctime=2026-10-16 18:36:19.335824122 +0000
+  /var/lib/baft-ex/.cargo uid=999 gid=987 mode=755 type=directory mtime=2026-10-16 18:36:17.611796373 +0000 ctime=2026-10-16 18:36:17.611796373 +0000
+    skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+      Only in /etc/skel/.cargo/bin: rustup
+      Only in /etc/skel/.cargo: env
+      Only in /etc/skel/.cargo: env.ps1
+    symlinks inside: 13, files: 0
+  /var/lib/baft-ex/.dotnet uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:18:28.377400172 +0000 ctime=2026-10-16 18:35:17.759831316 +0000
+    skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+      Only in /etc/skel/.dotnet/tools/.store: .stage
+      Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .nupkg.metadata
+      Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .signature.p7s
+      Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: 3rdPartyNotices.txt
+      Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: README.md
+    symlinks inside: 0, files: 258
+  /var/lib/baft-ex/.ghcup uid=999 gid=987 mode=777 type=symbolic link mtime=2026-10-12 21:24:41.920188250 +0000 ctime=2026-10-16 18:35:37.633150020 +0000
+    skeleton original: uid=0 gid=0 mode=777 type=symbolic link; differences (no dereference):
+    symlinks inside: 1, files: 0
+  /var/lib/baft-ex/.nvm uid=999 gid=987 mode=755 type=directory mtime=2026-10-16 18:36:19.335824122 +0000 ctime=2026-10-16 18:36:19.335824122 +0000
+    skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+      Only in /etc/skel/.nvm: .dockerignore
+      Only in /etc/skel/.nvm: .editorconfig
+      Only in /etc/skel/.nvm: .git
+      Only in /etc/skel/.nvm: .gitattributes
+      Only in /etc/skel/.nvm: .github
+    symlinks inside: 0, files: 6
+/var/lib/baft-ir absent
+2026-10-16T18:37:10.1624149Z ##[group]Run d=/tmp/uninstall-e2e-report
+2026-10-16T18:37:10.1624535Z [36;1md=/tmp/uninstall-e2e-report[0m
+2026-10-16T18:37:10.1625350Z [36;1m[ -d "$d" ] || { echo "::warning title=uninstall evidence::no report directory"; exit 0; }[0m
+2026-10-16T18:37:10.1626070Z [36;1mfor f in zz-fail.log clean.txt resume.out crash2.out prov.log diag; do[0m
+2026-10-16T18:37:10.1626487Z [36;1m  [ -f "$d/$f" ] || continue[0m
+2026-10-16T18:37:10.1626866Z [36;1m  m="$(tail -c 3000 "$d/$f")"; m="${m//'%'/'%25'}"; m="${m//$'\r'/}"; m="${m//$'\n'/'%0A'}"[0m
+2026-10-16T18:37:10.1627299Z [36;1m  echo "::notice title=uninstall evidence: $f::$m"[0m
+2026-10-16T18:37:10.1627606Z [36;1mdone[0m
+2026-10-16T18:37:10.1693402Z shell: /usr/bin/bash -e {0}
+2026-10-16T18:37:10.1693678Z env:
+2026-10-16T18:37:10.1693879Z   GOTOOLCHAIN: local
+2026-10-16T18:37:10.1694107Z ##[endgroup]
+2026-10-16T18:37:10.1823999Z ##[notice]Uninstall finished and verified.
+  stopped:  baft-agent.service, baft-ex.service, baft-ir.service
+  removed:  699 item(s)
+  removed empty directories: /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-both/node_modules, /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/nested-n_m/node_modules, /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/no-nesting-both/node_modules, /var/lib/baft-ex/.nvm/test/fast/Unit tests/mocks/project_dirs/no-nesting-n_m/node_modules, /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld, ... 116 more (see the journal)
+  journal:  /var/lib/baft-uninstall/run-20261016T183611.686293079Z-10651-0
+2026-10-16T18:37:10.1865993Z ##[notice]baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-locate-project.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-login.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-logout.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-metadata.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-new.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-owner.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-package.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-pkgid.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-publish.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-remove.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-report-future-incompatibilities.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-report.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-run.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-rustc.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-rustdoc.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-search.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-test.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-tree.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-uninstall.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-update.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-vendor.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-version.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo-yank.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/cargo.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/rustc.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/man/man1/rustdoc.1
+removed /var/lib/baft-ex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/share/zsh/site-functions/_cargo
+removed /var/lib/baft-ex/.rustup/update-hashes/stable-x86_64-unknown-linux-gnu
+removed /usr/local/bin/baft-pair
+removed /usr/local/bin/baft-agent
+2026-10-16T18:37:10.1896379Z ##[notice]xt
+      Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: README.md
+    symlinks inside: 0, files: 258
+  /var/lib/baft-ex/.ghcup uid=999 gid=987 mode=777 type=symbolic link mtime=2026-10-12 21:24:41.920188250 +0000 ctime=2026-10-16 18:35:37.633150020 +0000
+    skeleton original: uid=0 gid=0 mode=777 type=symbolic link; differences (no dereference):
+    symlinks inside: 1, files: 0
+  /var/lib/baft-ex/.nvm uid=999 gid=987 mode=755 type=directory mtime=2026-10-16 18:36:19.335824122 +0000 ctime=2026-10-16 18:36:19.335824122 +0000
+    skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+      Only in /etc/skel/.nvm: .dockerignore
+      Only in /etc/skel/.nvm: .editorconfig
+      Only in /etc/skel/.nvm: .git
+      Only in /etc/skel/.nvm: .gitattributes
+      Only in /etc/skel/.nvm: .github
+    symlinks inside: 0, files: 6
+/var/lib/baft-ir uid=999 gid=987 mode=700 mtime=2026-10-16 18:37:01.925512855 +0000 ctime=2026-10-16 18:37:01.925512855 +0000
+--- phase: purge
+/var/lib/baft-ex uid=999 gid=987 mode=750 mtime=2026-10-16 18:36:19.335824122 +0000 ctime=2026-10-16 18:36:19.335824122 +0000
+  /var/lib/baft-ex/.cargo uid=999 gid=987 mode=755 type=directory mtime=2026-10-16 18:36:17.611796373 +0000 ctime=2026-10-16 18:36:17.611796373 +0000
+    skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+      Only in /etc/skel/.cargo/bin: rustup
+      Only in /etc/skel/.cargo: env
+      Only in /etc/skel/.cargo: env.ps1
+    symlinks inside: 13, files: 0
+  /var/lib/baft-ex/.dotnet uid=999 gid=987 mode=755 type=directory mtime=2026-10-12 21:18:28.377400172 +0000 ctime=2026-10-16 18:35:17.759831316 +0000
+    skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+      Only in /etc/skel/.dotnet/tools/.store: .stage
+      Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .nupkg.metadata
+      Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: .signature.p7s
+      Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: 3rdPartyNotices.txt
+      Only in /etc/skel/.dotnet/tools/.store/nbgv/3.10.94/nbgv/3.10.94: README.md
+    symlinks inside: 0, files: 258
+  /var/lib/baft-ex/.ghcup uid=999 gid=987 mode=777 type=symbolic link mtime=2026-10-12 21:24:41.920188250 +0000 ctime=2026-10-16 18:35:37.633150020 +0000
+    skeleton original: uid=0 gid=0 mode=777 type=symbolic link; differences (no dereference):
+    symlinks inside: 1, files: 0
+  /var/lib/baft-ex/.nvm uid=999 gid=987 mode=755 type=directory mtime=2026-10-16 18:36:19.335824122 +0000 ctime=2026-10-16 18:36:19.335824122 +0000
+    skeleton original: uid=0 gid=0 mode=755 type=directory; differences (no dereference):
+      Only in /etc/skel/.nvm: .dockerignore
+      Only in /etc/skel/.nvm: .editorconfig
+      Only in /etc/skel/.nvm: .git
+      Only in /etc/skel/.nvm: .gitattributes
+      Only in /etc/skel/.nvm: .github
+    symlinks inside: 0, files: 6
+/var/lib/baft-ir absent
+2026-10-16T18:37:10.1993954Z Post job cleanup.
+2026-10-16T18:37:10.3425605Z Post job cleanup.
+2026-10-16T18:37:10.4453001Z [command]/usr/bin/git version
+2026-10-16T18:37:10.4502335Z git version 2.55.0
+2026-10-16T18:37:10.4549253Z Temporarily overriding HOME='/home/runner/work/_temp/9ef6e066-935a-4172-81e6-2f6b8743cedc' before making global git config changes
+2026-10-16T18:37:10.4550712Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-16T18:37:10.4565709Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/BAFT/BAFT
+2026-10-16T18:37:10.4616518Z Removing SSH command configuration
+2026-10-16T18:37:10.4617342Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-16T18:37:10.4670124Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-16T18:37:10.5003517Z Removing HTTP extra header
+2026-10-16T18:37:10.5025162Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-16T18:37:10.5068383Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-16T18:37:10.5386746Z Removing includeIf entries pointing to credentials config files
+2026-10-16T18:37:10.5387959Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-16T18:37:10.5422801Z includeif.gitdir:/home/runner/work/BAFT/BAFT/.git.path
+2026-10-16T18:37:10.5424405Z includeif.gitdir:/home/runner/work/BAFT/BAFT/.git/worktrees/*.path
+2026-10-16T18:37:10.5425629Z includeif.gitdir:/github/workspace/.git.path
+2026-10-16T18:37:10.5426449Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-16T18:37:10.5431758Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/BAFT/BAFT/.git.path
+2026-10-16T18:37:10.5479970Z /home/runner/work/_temp/git-credentials-bfa155b6-d5b5-4137-a14f-2e7291e34d09.config
+2026-10-16T18:37:10.5494522Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/BAFT/BAFT/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-bfa155b6\-d5b5\-4137\-a14f\-2e7291e34d09\.config
+2026-10-16T18:37:10.5554199Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/BAFT/BAFT/.git/worktrees/*.path
+2026-10-16T18:37:10.5594357Z /home/runner/work/_temp/git-credentials-bfa155b6-d5b5-4137-a14f-2e7291e34d09.config
+2026-10-16T18:37:10.5605193Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/BAFT/BAFT/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-bfa155b6\-d5b5\-4137\-a14f\-2e7291e34d09\.config
+2026-10-16T18:37:10.5656378Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-10-16T18:37:10.5688625Z /github/runner_temp/git-credentials-bfa155b6-d5b5-4137-a14f-2e7291e34d09.config
+2026-10-16T18:37:10.5696972Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-bfa155b6\-d5b5\-4137\-a14f\-2e7291e34d09\.config
+2026-10-16T18:37:10.5740585Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-16T18:37:10.5770536Z /github/runner_temp/git-credentials-bfa155b6-d5b5-4137-a14f-2e7291e34d09.config
+2026-10-16T18:37:10.5781986Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-bfa155b6\-d5b5\-4137\-a14f\-2e7291e34d09\.config
+2026-10-16T18:37:10.5830154Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-16T18:37:10.6098797Z Removing credentials config '/home/runner/work/_temp/git-credentials-bfa155b6-d5b5-4137-a14f-2e7291e34d09.config'
+2026-10-16T18:37:10.6261028Z Cleaning up orphan processes

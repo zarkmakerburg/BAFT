@@ -1,0 +1,528 @@
+﻿2026-10-16T18:33:35.7350338Z Current runner version: '2.337.0'
+2026-10-16T18:33:35.7377195Z ##[group]Runner Image Provisioner
+2026-10-16T18:33:35.7378468Z Hosted Compute Agent
+2026-10-16T18:33:35.7379131Z Version: 20261012.601
+2026-10-16T18:33:35.7379829Z Commit: f3dc54e1fb89da6852db922499a0233137369e1d
+2026-10-16T18:33:35.7380567Z Build Date: 2026-10-12T17:48:21Z
+2026-10-16T18:33:35.7381416Z Worker ID: {c458fec5-1c1d-4f3a-80a1-acad507f3914}
+2026-10-16T18:33:35.7382129Z Region: eastus
+2026-10-16T18:33:35.7382877Z Cloud: Azure
+2026-10-16T18:33:35.7383531Z ##[endgroup]
+2026-10-16T18:33:35.7385061Z ##[group]Operating System
+2026-10-16T18:33:35.7385833Z Ubuntu
+2026-10-16T18:33:35.7386368Z 24.04.5
+2026-10-16T18:33:35.7386866Z LTS
+2026-10-16T18:33:35.7387503Z ##[endgroup]
+2026-10-16T18:33:35.7388075Z ##[group]Runner Image
+2026-10-16T18:33:35.7388723Z Image: ubuntu-24.04
+2026-10-16T18:33:35.7389362Z Version: 20261012.334.1
+2026-10-16T18:33:35.7390777Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-16T18:33:35.7392681Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261012.334
+2026-10-16T18:33:35.7393760Z ##[endgroup]
+2026-10-16T18:33:35.7394897Z ##[group]GITHUB_TOKEN Permissions
+2026-10-16T18:33:35.7397146Z Contents: read
+2026-10-16T18:33:35.7397795Z Metadata: read
+2026-10-16T18:33:35.7398368Z ##[endgroup]
+2026-10-16T18:33:35.7401022Z Secret source: Actions
+2026-10-16T18:33:35.7402003Z Cache mode: write
+2026-10-16T18:33:35.7403667Z Prepare workflow directory
+2026-10-16T18:33:35.7733748Z Prepare all required actions
+2026-10-16T18:33:35.7781495Z Getting action download info
+2026-10-16T18:33:36.0096870Z Download action repository 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-10-16T18:33:36.1044414Z Download action repository 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e' (SHA:b7ad1dad31e06c5925ef5d2fc7ad053ef454303e)
+2026-10-16T18:33:36.3749624Z Complete job name: gosec
+2026-10-16T18:33:36.4609739Z ##[group]Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+2026-10-16T18:33:36.4610816Z with:
+2026-10-16T18:33:36.4611284Z   repository: zarkmakerburg/BAFT
+2026-10-16T18:33:36.4615176Z   token: ***
+2026-10-16T18:33:36.4615629Z   ssh-strict: true
+2026-10-16T18:33:36.4616083Z   ssh-user: git
+2026-10-16T18:33:36.4616544Z   persist-credentials: true
+2026-10-16T18:33:36.4617038Z   clean: true
+2026-10-16T18:33:36.4617493Z   sparse-checkout-cone-mode: true
+2026-10-16T18:33:36.4618028Z   fetch-depth: 1
+2026-10-16T18:33:36.4618462Z   fetch-tags: false
+2026-10-16T18:33:36.4618912Z   show-progress: true
+2026-10-16T18:33:36.4619363Z   lfs: false
+2026-10-16T18:33:36.4619784Z   submodules: false
+2026-10-16T18:33:36.4620238Z   set-safe-directory: true
+2026-10-16T18:33:36.4620748Z   allow-unsafe-pr-checkout: false
+2026-10-16T18:33:36.4621550Z ##[endgroup]
+2026-10-16T18:33:36.5631081Z Syncing repository: zarkmakerburg/BAFT
+2026-10-16T18:33:36.5634369Z ##[group]Getting Git version info
+2026-10-16T18:33:36.5635720Z Working directory is '/home/runner/work/BAFT/BAFT'
+2026-10-16T18:33:36.5637655Z [command]/usr/bin/git version
+2026-10-16T18:33:36.5725709Z git version 2.55.0
+2026-10-16T18:33:36.5753878Z ##[endgroup]
+2026-10-16T18:33:36.5764301Z Temporarily overriding HOME='/home/runner/work/_temp/1d636f6e-9bd5-41eb-ab56-53a539b2df5c' before making global git config changes
+2026-10-16T18:33:36.5766942Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-16T18:33:36.5769604Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/BAFT/BAFT
+2026-10-16T18:33:36.5832917Z Deleting the contents of '/home/runner/work/BAFT/BAFT'
+2026-10-16T18:33:36.5835182Z ##[group]Determining repository object format
+2026-10-16T18:33:36.5836926Z ##[endgroup]
+2026-10-16T18:33:36.5843799Z ##[group]Initializing the repository
+2026-10-16T18:33:36.5844875Z [command]/usr/bin/git init /home/runner/work/BAFT/BAFT
+2026-10-16T18:33:36.5959131Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-16T18:33:36.5961446Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-16T18:33:36.5963442Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-16T18:33:36.5964861Z hint: call:
+2026-10-16T18:33:36.5965643Z hint:
+2026-10-16T18:33:36.5966627Z hint: 	git config --global init.defaultBranch <name>
+2026-10-16T18:33:36.5967757Z hint:
+2026-10-16T18:33:36.5968793Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-16T18:33:36.5970434Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-16T18:33:36.5971692Z hint:
+2026-10-16T18:33:36.5972668Z hint: 	git branch -m <name>
+2026-10-16T18:33:36.5973506Z hint:
+2026-10-16T18:33:36.5974609Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-16T18:33:36.5976342Z Initialized empty Git repository in /home/runner/work/BAFT/BAFT/.git/
+2026-10-16T18:33:36.5979548Z [command]/usr/bin/git remote add origin https://github.com/zarkmakerburg/BAFT
+2026-10-16T18:33:36.6041147Z ##[endgroup]
+2026-10-16T18:33:36.6043306Z ##[group]Disabling automatic garbage collection
+2026-10-16T18:33:36.6044966Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-16T18:33:36.6081668Z ##[endgroup]
+2026-10-16T18:33:36.6083493Z ##[group]Setting up auth
+2026-10-16T18:33:36.6084346Z Removing SSH command configuration
+2026-10-16T18:33:36.6089176Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-16T18:33:36.6127966Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-16T18:33:36.6522022Z Removing HTTP extra header
+2026-10-16T18:33:36.6527185Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-16T18:33:36.6563101Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-16T18:33:36.6814692Z Removing includeIf entries pointing to credentials config files
+2026-10-16T18:33:36.6819655Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-16T18:33:36.6861925Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-16T18:33:36.7097977Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-3057a6b3-1394-4c13-92ea-30e13d2855c5.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-16T18:33:36.7140487Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/BAFT/BAFT/.git.path /home/runner/work/_temp/git-credentials-3057a6b3-1394-4c13-92ea-30e13d2855c5.config
+2026-10-16T18:33:36.7176215Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/BAFT/BAFT/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-3057a6b3-1394-4c13-92ea-30e13d2855c5.config
+2026-10-16T18:33:36.7215547Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-3057a6b3-1394-4c13-92ea-30e13d2855c5.config
+2026-10-16T18:33:36.7254718Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-3057a6b3-1394-4c13-92ea-30e13d2855c5.config
+2026-10-16T18:33:36.7287464Z ##[endgroup]
+2026-10-16T18:33:36.7288400Z ##[group]Fetching the repository
+2026-10-16T18:33:36.7293933Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +5bc5a4ac79c13f878425f8042be634c41fa6a72b:refs/remotes/pull/221/merge
+2026-10-16T18:33:37.4077742Z From https://github.com/zarkmakerburg/BAFT
+2026-10-16T18:33:37.4079897Z  * [new ref]         5bc5a4ac79c13f878425f8042be634c41fa6a72b -> pull/221/merge
+2026-10-16T18:33:37.4085848Z ##[endgroup]
+2026-10-16T18:33:37.4087838Z ##[group]Determining the checkout info
+2026-10-16T18:33:37.4089831Z ##[endgroup]
+2026-10-16T18:33:37.4091060Z [command]/usr/bin/git sparse-checkout disable
+2026-10-16T18:33:37.4155185Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-16T18:33:37.4195129Z ##[group]Checking out the ref
+2026-10-16T18:33:37.4201079Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/221/merge
+2026-10-16T18:33:37.5176388Z Note: switching to 'refs/remotes/pull/221/merge'.
+2026-10-16T18:33:37.5177400Z 
+2026-10-16T18:33:37.5178126Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-10-16T18:33:37.5179825Z changes and commit them, and you can discard any commits you make in this
+2026-10-16T18:33:37.5181517Z state without impacting any branches by switching back to a branch.
+2026-10-16T18:33:37.5182761Z 
+2026-10-16T18:33:37.5183562Z If you want to create a new branch to retain commits you create, you may
+2026-10-16T18:33:37.5185270Z do so (now or later) by using -c with the switch command. Example:
+2026-10-16T18:33:37.5186628Z 
+2026-10-16T18:33:37.5187077Z   git switch -c <new-branch-name>
+2026-10-16T18:33:37.5187717Z 
+2026-10-16T18:33:37.5188098Z Or undo this operation with:
+2026-10-16T18:33:37.5188785Z 
+2026-10-16T18:33:37.5189307Z   git switch -
+2026-10-16T18:33:37.5189998Z 
+2026-10-16T18:33:37.5190890Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-10-16T18:33:37.5192057Z 
+2026-10-16T18:33:37.5193550Z HEAD is now at 5bc5a4a Merge 14cfc6a42186ece49393f5401b69ffa8046771c3 into ae27cae89e7d88b7e6f75396105fe3c3b904b97f
+2026-10-16T18:33:37.5197464Z ##[endgroup]
+2026-10-16T18:33:37.5242668Z [command]/usr/bin/git log -1 --format=%H
+2026-10-16T18:33:37.5273691Z 5bc5a4ac79c13f878425f8042be634c41fa6a72b
+2026-10-16T18:33:37.5645205Z ##[group]Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+2026-10-16T18:33:37.5646856Z with:
+2026-10-16T18:33:37.5647860Z   go-version-file: go.mod
+2026-10-16T18:33:37.5648926Z   cache: false
+2026-10-16T18:33:37.5649906Z   check-latest: false
+2026-10-16T18:33:37.5658840Z   token: ***
+2026-10-16T18:33:37.5659831Z ##[endgroup]
+2026-10-16T18:33:37.6887466Z Setup go version spec 1.27.1
+2026-10-16T18:33:37.6925083Z Attempting to download 1.27.1...
+2026-10-16T18:33:38.2404795Z matching 1.27.1...
+2026-10-16T18:33:38.2428158Z Acquiring 1.27.1 from https://github.com/actions/go-versions/releases/download/1.27.1-33583469715/go-1.27.1-linux-x64.tar.gz
+2026-10-16T18:33:38.7725153Z Extracting Go...
+2026-10-16T18:33:38.7851747Z [command]/usr/bin/tar xz --warning=no-unknown-keyword --overwrite -C /home/runner/work/_temp/2bf97706-86e7-4678-9af5-ab7ce514a95b -f /home/runner/work/_temp/60bc2630-a78b-4138-b353-73ebdd3129ec
+2026-10-16T18:33:40.4757860Z Successfully extracted go to /home/runner/work/_temp/2bf97706-86e7-4678-9af5-ab7ce514a95b
+2026-10-16T18:33:40.4758764Z Adding to the cache ...
+2026-10-16T18:33:46.4802328Z Successfully cached go to /opt/hostedtoolcache/go/1.27.1/x64
+2026-10-16T18:33:46.4803320Z Added go to the path
+2026-10-16T18:33:46.4804578Z Successfully set up Go version 1.27.1
+2026-10-16T18:33:46.5032088Z go version go1.27.1 linux/amd64
+2026-10-16T18:33:46.5032707Z 
+2026-10-16T18:33:46.5033162Z ##[group]go env
+2026-10-16T18:33:46.6414442Z AR='ar'
+2026-10-16T18:33:46.6414754Z CC='gcc'
+2026-10-16T18:33:46.6415420Z CGO_CFLAGS='-O2 -g'
+2026-10-16T18:33:46.6416120Z CGO_CPPFLAGS=''
+2026-10-16T18:33:46.6416507Z CGO_CXXFLAGS='-O2 -g'
+2026-10-16T18:33:46.6416753Z CGO_ENABLED='1'
+2026-10-16T18:33:46.6417065Z CGO_FFLAGS='-O2 -g'
+2026-10-16T18:33:46.6417456Z CGO_LDFLAGS='-O2 -g'
+2026-10-16T18:33:46.6417857Z CXX='g++'
+2026-10-16T18:33:46.6418185Z GCCGO='gccgo'
+2026-10-16T18:33:46.6418396Z GO111MODULE=''
+2026-10-16T18:33:46.6418600Z GOAMD64='v1'
+2026-10-16T18:33:46.6418893Z GOARCH='amd64'
+2026-10-16T18:33:46.6419107Z GOAUTH='netrc'
+2026-10-16T18:33:46.6419325Z GOBIN='/home/runner/go/bin'
+2026-10-16T18:33:46.6419611Z GOCACHE='/home/runner/.cache/go-build'
+2026-10-16T18:33:46.6420241Z GOCACHEPROG=''
+2026-10-16T18:33:46.6420473Z GODEBUG=''
+2026-10-16T18:33:46.6420717Z GOENV='/home/runner/.config/go/env'
+2026-10-16T18:33:46.6421007Z GOEXE=''
+2026-10-16T18:33:46.6421219Z GOEXPERIMENT=''
+2026-10-16T18:33:46.6421460Z GOFIPS140='off'
+2026-10-16T18:33:46.6421665Z GOFLAGS=''
+2026-10-16T18:33:46.6422975Z GOGCCFLAGS='-fPIC -m64 -pthread -Wl,--no-gc-sections -fmessage-length=0 -ffile-prefix-map=/tmp/go-build3334821098=/tmp/go-build -gno-record-gcc-switches'
+2026-10-16T18:33:46.6423717Z GOHOSTARCH='amd64'
+2026-10-16T18:33:46.6423933Z GOHOSTOS='linux'
+2026-10-16T18:33:46.6424137Z GOINSECURE=''
+2026-10-16T18:33:46.6424383Z GOMOD='/home/runner/work/BAFT/BAFT/go.mod'
+2026-10-16T18:33:46.6424691Z GOMODCACHE='/home/runner/go/pkg/mod'
+2026-10-16T18:33:46.6424967Z GONOPROXY=''
+2026-10-16T18:33:46.6425202Z GONOSUMDB=''
+2026-10-16T18:33:46.6425393Z GOOS='linux'
+2026-10-16T18:33:46.6425650Z GOPACKAGESDRIVER=''
+2026-10-16T18:33:46.6425885Z GOPATH='/home/runner/go'
+2026-10-16T18:33:46.6426118Z GOPRIVATE=''
+2026-10-16T18:33:46.6426383Z GOPROXY='https://proxy.golang.org,direct'
+2026-10-16T18:33:46.6426712Z GOROOT='/opt/hostedtoolcache/go/1.27.1/x64'
+2026-10-16T18:33:46.6427007Z GOSUMDB='sum.golang.org'
+2026-10-16T18:33:46.6427238Z GOTELEMETRY='local'
+2026-10-16T18:33:46.6427512Z GOTELEMETRYDIR='/home/runner/.config/go/telemetry'
+2026-10-16T18:33:46.6427813Z GOTMPDIR=''
+2026-10-16T18:33:46.6428012Z GOTOOLCHAIN='local'
+2026-10-16T18:33:46.6428365Z GOTOOLDIR='/opt/hostedtoolcache/go/1.27.1/x64/pkg/tool/linux_amd64'
+2026-10-16T18:33:46.6428747Z GOVCS=''
+2026-10-16T18:33:46.6428947Z GOVERSION='go1.27.1'
+2026-10-16T18:33:46.6429159Z GOWORK=''
+2026-10-16T18:33:46.6429362Z PKG_CONFIG='pkg-config'
+2026-10-16T18:33:46.6429537Z 
+2026-10-16T18:33:46.6429950Z ##[endgroup]
+2026-10-16T18:33:46.6618097Z ##[group]Run go run github.com/securego/gosec/v2/cmd/gosec@v2.29.0 -exclude-dir=tests -exclude=G115,G703,G101,G122 -severity high ./...
+2026-10-16T18:33:46.6619113Z [36;1mgo run github.com/securego/gosec/v2/cmd/gosec@v2.29.0 -exclude-dir=tests -exclude=G115,G703,G101,G122 -severity high ./...[0m
+2026-10-16T18:33:46.6887964Z shell: /usr/bin/bash -e {0}
+2026-10-16T18:33:46.6888298Z env:
+2026-10-16T18:33:46.6888537Z   GOTOOLCHAIN: local
+2026-10-16T18:33:46.6888812Z ##[endgroup]
+2026-10-16T18:33:46.7345773Z go: downloading github.com/securego/gosec/v2 v2.29.0
+2026-10-16T18:33:47.1535661Z go: downloading golang.org/x/sync v0.22.0
+2026-10-16T18:33:47.1563232Z go: downloading golang.org/x/tools v0.49.0
+2026-10-16T18:33:47.5083816Z go: downloading github.com/anthropics/anthropic-sdk-go v1.66.0
+2026-10-16T18:33:47.5089609Z go: downloading github.com/openai/openai-go/v3 v3.52.0
+2026-10-16T18:33:48.0114046Z go: downloading google.golang.org/genai v1.69.0
+2026-10-16T18:33:48.0167706Z go: downloading github.com/ccojocar/zxcvbn-go v1.0.4
+2026-10-16T18:33:48.1520850Z go: downloading github.com/tidwall/sjson v1.2.5
+2026-10-16T18:33:48.1896342Z go: downloading github.com/google/uuid v1.6.0
+2026-10-16T18:33:48.2203976Z go: downloading github.com/gookit/color v1.6.1
+2026-10-16T18:33:48.2915052Z go: downloading go.yaml.in/yaml/v3 v3.0.5
+2026-10-16T18:33:48.3191161Z go: downloading golang.org/x/mod v0.40.0
+2026-10-16T18:33:48.3754638Z go: downloading github.com/tidwall/gjson v1.19.0
+2026-10-16T18:33:48.3801603Z go: downloading cloud.google.com/go/auth v0.23.2
+2026-10-16T18:33:48.4339563Z go: downloading cloud.google.com/go v0.123.0
+2026-10-16T18:33:48.4768926Z go: downloading github.com/google/go-cmp v0.7.0
+2026-10-16T18:33:48.4805600Z go: downloading github.com/gorilla/websocket v1.5.3
+2026-10-16T18:33:48.5106430Z go: downloading github.com/xo/terminfo v1.0.0
+2026-10-16T18:33:48.5169219Z go: downloading github.com/tidwall/match v1.2.0
+2026-10-16T18:33:48.5397156Z go: downloading github.com/tidwall/pretty v1.2.1
+2026-10-16T18:33:48.5407220Z go: downloading github.com/googleapis/gax-go/v2 v2.24.0
+2026-10-16T18:33:48.5753628Z go: downloading go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.70.0
+2026-10-16T18:33:48.5755034Z go: downloading go.opentelemetry.io/otel v1.45.0
+2026-10-16T18:33:48.6053272Z go: downloading go.opentelemetry.io/otel/trace v1.45.0
+2026-10-16T18:33:48.8822774Z go: downloading golang.org/x/net v0.58.0
+2026-10-16T18:33:48.8826431Z go: downloading google.golang.org/api v0.293.0
+2026-10-16T18:33:49.1057949Z go: downloading cloud.google.com/go/compute/metadata v0.9.0
+2026-10-16T18:33:49.1400200Z go: downloading github.com/google/s2a-go v0.1.9
+2026-10-16T18:33:49.1963240Z go: downloading google.golang.org/grpc v1.83.1
+2026-10-16T18:33:49.5124329Z go: downloading github.com/googleapis/enterprise-certificate-proxy v0.3.20
+2026-10-16T18:33:49.5203117Z go: downloading go.opentelemetry.io/otel/metric v1.45.0
+2026-10-16T18:33:49.5444948Z go: downloading google.golang.org/protobuf v1.36.12
+2026-10-16T18:33:49.7706972Z go: downloading github.com/felixge/httpsnoop v1.1.0
+2026-10-16T18:33:49.7716169Z go: downloading github.com/invopop/jsonschema v0.14.0
+2026-10-16T18:33:49.7717360Z go: downloading github.com/pb33f/ordered-map/v2 v2.3.1
+2026-10-16T18:33:49.7995039Z go: downloading github.com/standard-webhooks/standard-webhooks/libraries v0.0.1
+2026-10-16T18:33:49.8008909Z go: downloading google.golang.org/genproto/googleapis/rpc v0.0.0-20260819154853-08b0e4226688
+2026-10-16T18:33:49.8058346Z go: downloading github.com/go-logr/logr v1.4.4
+2026-10-16T18:33:49.8863491Z go: downloading github.com/cespare/xxhash/v2 v2.3.0
+2026-10-16T18:33:49.8893120Z go: downloading golang.org/x/text v0.41.0
+2026-10-16T18:33:50.3042575Z go: downloading github.com/bahlo/generic-list-go v0.2.0
+2026-10-16T18:33:50.3043933Z go: downloading go.yaml.in/yaml/v4 v4.0.0-rc.6
+2026-10-16T18:33:50.3045230Z go: downloading github.com/buger/jsonparser v1.6.1
+2026-10-16T18:33:50.3326408Z go: downloading github.com/go-logr/stdr v1.2.2
+2026-10-16T18:33:50.3583141Z go: downloading go.opentelemetry.io/auto/sdk v1.2.1
+2026-10-16T18:33:50.3748280Z go: downloading golang.org/x/sys v0.47.0
+2026-10-16T18:33:50.3901817Z go: downloading golang.org/x/crypto v0.55.0
+2026-10-16T18:34:42.7901990Z [gosec] 2026/10/16 18:34:42 Including rules: default
+2026-10-16T18:34:42.7902957Z [gosec] 2026/10/16 18:34:42 Excluding rules: G115,G703,G101,G122
+2026-10-16T18:34:42.7903672Z [gosec] 2026/10/16 18:34:42 Including analyzers: default
+2026-10-16T18:34:42.7904343Z [gosec] 2026/10/16 18:34:42 Excluding analyzers: G115,G703,G101,G122
+2026-10-16T18:34:42.7955009Z [gosec] 2026/10/16 18:34:42 Import directory: /home/runner/work/BAFT/BAFT/cmd/baft-release
+2026-10-16T18:34:42.7972356Z [gosec] 2026/10/16 18:34:42 Import directory: /home/runner/work/BAFT/BAFT/cmd/baft-pair
+2026-10-16T18:34:42.7981788Z [gosec] 2026/10/16 18:34:42 Import directory: /home/runner/work/BAFT/BAFT/internal/carrier/utlsdial
+2026-10-16T18:34:42.7982855Z [gosec] 2026/10/16 18:34:42 Import directory: /home/runner/work/BAFT/BAFT/internal/protocol
+2026-10-16T18:34:43.0723941Z [gosec] 2026/10/16 18:34:43 Checking package: protocol
+2026-10-16T18:34:43.0733457Z [gosec] 2026/10/16 18:34:43 Checking file: /home/runner/work/BAFT/BAFT/internal/protocol/control.go
+2026-10-16T18:34:43.0790823Z [gosec] 2026/10/16 18:34:43 Checking file: /home/runner/work/BAFT/BAFT/internal/protocol/frame.go
+2026-10-16T18:34:43.0795381Z [gosec] 2026/10/16 18:34:43 Checking file: /home/runner/work/BAFT/BAFT/internal/protocol/handshake.go
+2026-10-16T18:34:43.0844204Z [gosec] 2026/10/16 18:34:43 Import directory: /home/runner/work/BAFT/BAFT/internal/sshmigrate
+2026-10-16T18:34:43.2145725Z [gosec] 2026/10/16 18:34:43 Checking package: main
+2026-10-16T18:34:43.2155189Z [gosec] 2026/10/16 18:34:43 Checking file: /home/runner/work/BAFT/BAFT/cmd/baft-release/main.go
+2026-10-16T18:34:43.2322038Z [gosec] 2026/10/16 18:34:43 Import directory: /home/runner/work/BAFT/BAFT/internal/bcc
+2026-10-16T18:34:43.3048162Z [gosec] 2026/10/16 18:34:43 Checking package: sshmigrate
+2026-10-16T18:34:43.3049673Z [gosec] 2026/10/16 18:34:43 Checking file: /home/runner/work/BAFT/BAFT/internal/sshmigrate/sshmigrate.go
+2026-10-16T18:34:43.3080935Z [gosec] 2026/10/16 18:34:43 Import directory: /home/runner/work/BAFT/BAFT/internal/carrier/ws
+2026-10-16T18:34:44.4889694Z [gosec] 2026/10/16 18:34:44 Checking package: main
+2026-10-16T18:34:44.4903873Z [gosec] 2026/10/16 18:34:44 Checking file: /home/runner/work/BAFT/BAFT/cmd/baft-pair/main.go
+2026-10-16T18:34:44.4953467Z [gosec] 2026/10/16 18:34:44 Checking file: /home/runner/work/BAFT/BAFT/cmd/baft-pair/pki.go
+2026-10-16T18:34:44.5023583Z [gosec] 2026/10/16 18:34:44 Checking file: /home/runner/work/BAFT/BAFT/cmd/baft-pair/provision.go
+2026-10-16T18:34:44.5113717Z [gosec] 2026/10/16 18:34:44 Checking package: ws
+2026-10-16T18:34:44.5114972Z [gosec] 2026/10/16 18:34:44 Checking file: /home/runner/work/BAFT/BAFT/internal/carrier/ws/client.go
+2026-10-16T18:34:44.5116697Z [gosec] 2026/10/16 18:34:44 Checking file: /home/runner/work/BAFT/BAFT/internal/carrier/ws/conn.go
+2026-10-16T18:34:44.5162281Z [gosec] 2026/10/16 18:34:44 Checking file: /home/runner/work/BAFT/BAFT/internal/carrier/ws/noise.go
+2026-10-16T18:34:44.5215815Z [gosec] 2026/10/16 18:34:44 Checking file: /home/runner/work/BAFT/BAFT/internal/carrier/ws/server.go
+2026-10-16T18:34:44.5494044Z [gosec] 2026/10/16 18:34:44 Import directory: /home/runner/work/BAFT/BAFT/internal/cluster
+2026-10-16T18:34:44.5687943Z [gosec] 2026/10/16 18:34:44 Import directory: /home/runner/work/BAFT/BAFT/internal/session
+2026-10-16T18:34:47.1543448Z [gosec] 2026/10/16 18:34:47 Checking package: session
+2026-10-16T18:34:47.1573461Z [gosec] 2026/10/16 18:34:47 Checking file: /home/runner/work/BAFT/BAFT/internal/session/commit_uncertainty.go
+2026-10-16T18:34:47.1675291Z [gosec] 2026/10/16 18:34:47 Checking file: /home/runner/work/BAFT/BAFT/internal/session/conservation.go
+2026-10-16T18:34:47.1694735Z [gosec] 2026/10/16 18:34:47 Checking file: /home/runner/work/BAFT/BAFT/internal/session/data_sender.go
+2026-10-16T18:34:47.1833455Z [gosec] 2026/10/16 18:34:47 Checking file: /home/runner/work/BAFT/BAFT/internal/session/poison_norace.go
+2026-10-16T18:34:47.1893405Z [gosec] 2026/10/16 18:34:47 Checking file: /home/runner/work/BAFT/BAFT/internal/session/receive_ring.go
+2026-10-16T18:34:47.1961490Z [gosec] 2026/10/16 18:34:47 Checking file: /home/runner/work/BAFT/BAFT/internal/session/recovery_runtime.go
+2026-10-16T18:34:47.2313642Z [gosec] 2026/10/16 18:34:47 Checking file: /home/runner/work/BAFT/BAFT/internal/session/session.go
+2026-10-16T18:34:47.4277333Z [gosec] 2026/10/16 18:34:47 Import directory: /home/runner/work/BAFT/BAFT/internal/telemetry
+2026-10-16T18:34:47.9411202Z [gosec] 2026/10/16 18:34:47 Checking package: telemetry
+2026-10-16T18:34:47.9433934Z [gosec] 2026/10/16 18:34:47 Checking file: /home/runner/work/BAFT/BAFT/internal/telemetry/exporter.go
+2026-10-16T18:34:47.9463435Z [gosec] 2026/10/16 18:34:47 Checking file: /home/runner/work/BAFT/BAFT/internal/telemetry/spool.go
+2026-10-16T18:34:47.9518710Z [gosec] 2026/10/16 18:34:47 Import directory: /home/runner/work/BAFT/BAFT/internal/config
+2026-10-16T18:34:48.4703840Z [gosec] 2026/10/16 18:34:48 Checking package: config
+2026-10-16T18:34:48.4713497Z [gosec] 2026/10/16 18:34:48 Checking file: /home/runner/work/BAFT/BAFT/internal/config/config.go
+2026-10-16T18:34:48.4734033Z [gosec] 2026/10/16 18:34:48 Checking file: /home/runner/work/BAFT/BAFT/internal/config/load.go
+2026-10-16T18:34:48.4765164Z [gosec] 2026/10/16 18:34:48 Checking file: /home/runner/work/BAFT/BAFT/internal/config/noise.go
+2026-10-16T18:34:48.4813253Z [gosec] 2026/10/16 18:34:48 Checking file: /home/runner/work/BAFT/BAFT/internal/config/revocation.go
+2026-10-16T18:34:48.4846742Z [gosec] 2026/10/16 18:34:48 Checking file: /home/runner/work/BAFT/BAFT/internal/config/yaml.go
+2026-10-16T18:34:48.5143487Z [gosec] 2026/10/16 18:34:48 Import directory: /home/runner/work/BAFT/BAFT/internal/recovery
+2026-10-16T18:34:48.9214079Z [gosec] 2026/10/16 18:34:48 Checking package: recovery
+2026-10-16T18:34:48.9243647Z [gosec] 2026/10/16 18:34:48 Checking file: /home/runner/work/BAFT/BAFT/internal/recovery/engine.go
+2026-10-16T18:34:48.9273751Z [gosec] 2026/10/16 18:34:48 Checking file: /home/runner/work/BAFT/BAFT/internal/recovery/lease.go
+2026-10-16T18:34:48.9333345Z [gosec] 2026/10/16 18:34:48 Checking file: /home/runner/work/BAFT/BAFT/internal/recovery/ledger.go
+2026-10-16T18:34:48.9401606Z [gosec] 2026/10/16 18:34:48 Import directory: /home/runner/work/BAFT/BAFT/internal/carrier/h2
+2026-10-16T18:34:49.4305043Z [gosec] 2026/10/16 18:34:49 Checking package: h2
+2026-10-16T18:34:49.4349586Z [gosec] 2026/10/16 18:34:49 Checking file: /home/runner/work/BAFT/BAFT/internal/carrier/h2/h2.go
+2026-10-16T18:34:49.4413298Z [gosec] 2026/10/16 18:34:49 Checking file: /home/runner/work/BAFT/BAFT/internal/carrier/h2/noise.go
+2026-10-16T18:34:49.4748992Z [gosec] 2026/10/16 18:34:49 Import directory: /home/runner/work/BAFT/BAFT/cmd/baft-agent
+2026-10-16T18:34:52.6383671Z [gosec] 2026/10/16 18:34:52 Checking package: utlsdial
+2026-10-16T18:34:52.6443960Z [gosec] 2026/10/16 18:34:52 Checking file: /home/runner/work/BAFT/BAFT/internal/carrier/utlsdial/utlsdial.go
+2026-10-16T18:34:52.7004000Z [gosec] 2026/10/16 18:34:52 Import directory: /home/runner/work/BAFT/BAFT/cmd/baft-bcc-audit-verify
+2026-10-16T18:34:52.8993467Z [gosec] 2026/10/16 18:34:52 Checking package: main
+2026-10-16T18:34:52.9024020Z [gosec] 2026/10/16 18:34:52 Checking file: /home/runner/work/BAFT/BAFT/cmd/baft-agent/main.go
+2026-10-16T18:34:52.9196574Z [gosec] 2026/10/16 18:34:52 Import directory: /home/runner/work/BAFT/BAFT/cmd/baft-worker
+2026-10-16T18:34:54.7752923Z [gosec] 2026/10/16 18:34:54 Checking package: cluster
+2026-10-16T18:34:54.7803443Z [gosec] 2026/10/16 18:34:54 Checking file: /home/runner/work/BAFT/BAFT/internal/cluster/controller.go
+2026-10-16T18:34:54.7949820Z [gosec] 2026/10/16 18:34:54 Checking file: /home/runner/work/BAFT/BAFT/internal/cluster/master.go
+2026-10-16T18:34:54.8420129Z [gosec] 2026/10/16 18:34:54 Import directory: /home/runner/work/BAFT/BAFT/internal/agentjob
+2026-10-16T18:34:54.8483238Z [gosec] 2026/10/16 18:34:54 Checking package: main
+2026-10-16T18:34:54.8523830Z [gosec] 2026/10/16 18:34:54 Checking file: /home/runner/work/BAFT/BAFT/cmd/baft-worker/main.go
+2026-10-16T18:34:54.8865408Z [gosec] 2026/10/16 18:34:54 Import directory: /home/runner/work/BAFT/BAFT/internal/failover
+2026-10-16T18:34:55.0893657Z [gosec] 2026/10/16 18:34:55 Checking package: failover
+2026-10-16T18:34:55.0923240Z [gosec] 2026/10/16 18:34:55 Checking file: /home/runner/work/BAFT/BAFT/internal/failover/proxy.go
+2026-10-16T18:34:55.0924380Z [gosec] 2026/10/16 18:34:55 Import directory: /home/runner/work/BAFT/BAFT/internal/node
+2026-10-16T18:34:55.1134892Z [gosec] 2026/10/16 18:34:55 Checking package: agentjob
+2026-10-16T18:34:55.1173633Z [gosec] 2026/10/16 18:34:55 Checking file: /home/runner/work/BAFT/BAFT/internal/agentjob/agentjob.go
+2026-10-16T18:34:55.1340980Z [gosec] 2026/10/16 18:34:55 Import directory: /home/runner/work/BAFT/BAFT/internal/release
+2026-10-16T18:34:55.4593559Z [gosec] 2026/10/16 18:34:55 Checking package: release
+2026-10-16T18:34:55.4622225Z [gosec] 2026/10/16 18:34:55 Checking file: /home/runner/work/BAFT/BAFT/internal/release/release.go
+2026-10-16T18:34:55.5045635Z [gosec] 2026/10/16 18:34:55 Import directory: /home/runner/work/BAFT/BAFT/cmd/baft
+2026-10-16T18:34:56.0203656Z [gosec] 2026/10/16 18:34:56 Checking package: node
+2026-10-16T18:34:56.0244344Z [gosec] 2026/10/16 18:34:56 Checking file: /home/runner/work/BAFT/BAFT/internal/node/listener_provider.go
+2026-10-16T18:34:56.0293749Z [gosec] 2026/10/16 18:34:56 Checking file: /home/runner/work/BAFT/BAFT/internal/node/metrics.go
+2026-10-16T18:34:56.0323714Z [gosec] 2026/10/16 18:34:56 Checking file: /home/runner/work/BAFT/BAFT/internal/node/node.go
+2026-10-16T18:34:56.0493416Z [gosec] 2026/10/16 18:34:56 Checking file: /home/runner/work/BAFT/BAFT/internal/node/noise.go
+2026-10-16T18:34:56.0523390Z [gosec] 2026/10/16 18:34:56 Checking file: /home/runner/work/BAFT/BAFT/internal/node/recovery_runtime.go
+2026-10-16T18:34:56.2521457Z [gosec] 2026/10/16 18:34:56 Import directory: /home/runner/work/BAFT/BAFT/internal/recordshape
+2026-10-16T18:34:56.6728971Z [gosec] 2026/10/16 18:34:56 Checking package: recordshape
+2026-10-16T18:34:56.6783417Z [gosec] 2026/10/16 18:34:56 Checking file: /home/runner/work/BAFT/BAFT/internal/recordshape/morphing.go
+2026-10-16T18:34:56.6805397Z [gosec] 2026/10/16 18:34:56 Import directory: /home/runner/work/BAFT/BAFT/internal/resources
+2026-10-16T18:34:56.9513703Z [gosec] 2026/10/16 18:34:56 Checking package: resources
+2026-10-16T18:34:56.9549982Z [gosec] 2026/10/16 18:34:56 Checking file: /home/runner/work/BAFT/BAFT/internal/resources/allocator.go
+2026-10-16T18:34:56.9573676Z [gosec] 2026/10/16 18:34:56 Checking file: /home/runner/work/BAFT/BAFT/internal/resources/control_queue.go
+2026-10-16T18:34:56.9603992Z [gosec] 2026/10/16 18:34:56 Checking file: /home/runner/work/BAFT/BAFT/internal/resources/flow_slots.go
+2026-10-16T18:34:56.9620460Z [gosec] 2026/10/16 18:34:56 Import directory: /home/runner/work/BAFT/BAFT/internal/scheduler
+2026-10-16T18:34:57.1230444Z [gosec] 2026/10/16 18:34:57 Checking package: scheduler
+2026-10-16T18:34:57.1259062Z [gosec] 2026/10/16 18:34:57 Checking file: /home/runner/work/BAFT/BAFT/internal/scheduler/drr.go
+2026-10-16T18:34:57.1287845Z [gosec] 2026/10/16 18:34:57 Checking file: /home/runner/work/BAFT/BAFT/internal/scheduler/padl.go
+2026-10-16T18:34:57.1297969Z [gosec] 2026/10/16 18:34:57 Import directory: /home/runner/work/BAFT/BAFT/cmd/baft-bcc
+2026-10-16T18:34:58.1843544Z [gosec] 2026/10/16 18:34:58 Checking package: main
+2026-10-16T18:34:58.1873266Z [gosec] 2026/10/16 18:34:58 Checking file: /home/runner/work/BAFT/BAFT/cmd/baft/brand.go
+2026-10-16T18:34:58.1903281Z [gosec] 2026/10/16 18:34:58 Checking file: /home/runner/work/BAFT/BAFT/cmd/baft/bundle.go
+2026-10-16T18:34:58.1904630Z [gosec] 2026/10/16 18:34:58 Checking file: /home/runner/work/BAFT/BAFT/cmd/baft/doctor_report.go
+2026-10-16T18:34:58.1928687Z [gosec] 2026/10/16 18:34:58 Checking file: /home/runner/work/BAFT/BAFT/cmd/baft/isterm_linux.go
+2026-10-16T18:34:58.1930049Z [gosec] 2026/10/16 18:34:58 Checking file: /home/runner/work/BAFT/BAFT/cmd/baft/main.go
+2026-10-16T18:34:58.1931275Z [gosec] 2026/10/16 18:34:58 Checking file: /home/runner/work/BAFT/BAFT/cmd/baft/menu.go
+2026-10-16T18:34:58.1953251Z [gosec] 2026/10/16 18:34:58 Checking file: /home/runner/work/BAFT/BAFT/cmd/baft/ops.go
+2026-10-16T18:34:58.2013081Z [gosec] 2026/10/16 18:34:58 Checking file: /home/runner/work/BAFT/BAFT/cmd/baft/stealth.go
+2026-10-16T18:34:58.2028722Z [gosec] 2026/10/16 18:34:58 Checking file: /home/runner/work/BAFT/BAFT/cmd/baft/term.go
+2026-10-16T18:34:58.2043127Z [gosec] 2026/10/16 18:34:58 Checking file: /home/runner/work/BAFT/BAFT/cmd/baft/termsize_unix.go
+2026-10-16T18:34:58.2044188Z [gosec] 2026/10/16 18:34:58 Checking file: /home/runner/work/BAFT/BAFT/cmd/baft/uninstall.go
+2026-10-16T18:34:58.2746137Z [gosec] 2026/10/16 18:34:58 Import directory: /home/runner/work/BAFT/BAFT/cmd/baft-master
+2026-10-16T18:34:58.6503625Z [gosec] 2026/10/16 18:34:58 Checking package: main
+2026-10-16T18:34:58.6513281Z [gosec] 2026/10/16 18:34:58 Checking file: /home/runner/work/BAFT/BAFT/cmd/baft-master/main.go
+2026-10-16T18:34:58.6599586Z [gosec] 2026/10/16 18:34:58 Import directory: /home/runner/work/BAFT/BAFT/internal/agent
+2026-10-16T18:34:59.2293613Z [gosec] 2026/10/16 18:34:59 Checking package: agent
+2026-10-16T18:34:59.2313647Z [gosec] 2026/10/16 18:34:59 Checking file: /home/runner/work/BAFT/BAFT/internal/agent/agent.go
+2026-10-16T18:34:59.2363327Z [gosec] 2026/10/16 18:34:59 Checking file: /home/runner/work/BAFT/BAFT/internal/agent/pathprobe.go
+2026-10-16T18:34:59.2373268Z [gosec] 2026/10/16 18:34:59 Checking file: /home/runner/work/BAFT/BAFT/internal/agent/tunnel.go
+2026-10-16T18:34:59.2744082Z [gosec] 2026/10/16 18:34:59 Import directory: /home/runner/work/BAFT/BAFT/internal/identity
+2026-10-16T18:34:59.5094088Z [gosec] 2026/10/16 18:34:59 Checking package: identity
+2026-10-16T18:34:59.5148419Z [gosec] 2026/10/16 18:34:59 Checking file: /home/runner/work/BAFT/BAFT/internal/identity/revocation.go
+2026-10-16T18:34:59.5161788Z [gosec] 2026/10/16 18:34:59 Checking file: /home/runner/work/BAFT/BAFT/internal/identity/tls.go
+2026-10-16T18:34:59.5256782Z [gosec] 2026/10/16 18:34:59 Import directory: /home/runner/work/BAFT/BAFT/web
+2026-10-16T18:34:59.8783603Z [gosec] 2026/10/16 18:34:59 Checking package: webui
+2026-10-16T18:34:59.8813218Z [gosec] 2026/10/16 18:34:59 Checking file: /home/runner/work/BAFT/BAFT/web/assets.go
+2026-10-16T18:34:59.8843519Z [gosec] 2026/10/16 18:34:59 Import directory: /home/runner/work/BAFT/BAFT/internal/geoip
+2026-10-16T18:35:00.2393801Z [gosec] 2026/10/16 18:35:00 Checking package: geoip
+2026-10-16T18:35:00.2426622Z [gosec] 2026/10/16 18:35:00 Checking file: /home/runner/work/BAFT/BAFT/internal/geoip/geoip.go
+2026-10-16T18:35:00.2813656Z [gosec] 2026/10/16 18:35:00 Import directory: /home/runner/work/BAFT/BAFT/internal/routes
+2026-10-16T18:35:00.6736423Z [gosec] 2026/10/16 18:35:00 Checking package: routes
+2026-10-16T18:35:00.6823529Z [gosec] 2026/10/16 18:35:00 Checking file: /home/runner/work/BAFT/BAFT/internal/routes/table.go
+2026-10-16T18:35:00.6853652Z [gosec] 2026/10/16 18:35:00 Import directory: /home/runner/work/BAFT/BAFT/internal/sshboot
+2026-10-16T18:35:01.2221156Z [gosec] 2026/10/16 18:35:01 Checking package: sshboot
+2026-10-16T18:35:01.2263596Z [gosec] 2026/10/16 18:35:01 Checking file: /home/runner/work/BAFT/BAFT/internal/sshboot/sshboot.go
+2026-10-16T18:35:01.2454988Z [gosec] 2026/10/16 18:35:01 Import directory: /home/runner/work/BAFT/BAFT/internal/tunnelnode
+2026-10-16T18:35:02.8303687Z [gosec] 2026/10/16 18:35:02 Checking package: tunnelnode
+2026-10-16T18:35:02.8351546Z [gosec] 2026/10/16 18:35:02 Checking file: /home/runner/work/BAFT/BAFT/internal/tunnelnode/discover.go
+2026-10-16T18:35:02.8529234Z [gosec] 2026/10/16 18:35:02 Checking file: /home/runner/work/BAFT/BAFT/internal/tunnelnode/exchange_linux.go
+2026-10-16T18:35:02.8584325Z [gosec] 2026/10/16 18:35:02 Checking file: /home/runner/work/BAFT/BAFT/internal/tunnelnode/nofollow_unix.go
+2026-10-16T18:35:02.8673555Z [gosec] 2026/10/16 18:35:02 Checking file: /home/runner/work/BAFT/BAFT/internal/tunnelnode/rotate.go
+2026-10-16T18:35:02.8793750Z [gosec] 2026/10/16 18:35:02 Checking file: /home/runner/work/BAFT/BAFT/internal/tunnelnode/tunnelnode.go
+2026-10-16T18:35:03.0794327Z [gosec] 2026/10/16 18:35:03 Import directory: /home/runner/work/BAFT/BAFT/cmd/baft-cluster-keygen
+2026-10-16T18:35:03.4551542Z [gosec] 2026/10/16 18:35:03 Checking package: main
+2026-10-16T18:35:03.4563866Z [gosec] 2026/10/16 18:35:03 Checking file: /home/runner/work/BAFT/BAFT/cmd/baft-cluster-keygen/main.go
+2026-10-16T18:35:03.4678130Z [gosec] 2026/10/16 18:35:03 Import directory: /home/runner/work/BAFT/BAFT/internal/clustersync
+2026-10-16T18:35:03.9081779Z [gosec] 2026/10/16 18:35:03 Checking package: clustersync
+2026-10-16T18:35:03.9093627Z [gosec] 2026/10/16 18:35:03 Checking file: /home/runner/work/BAFT/BAFT/internal/clustersync/keys.go
+2026-10-16T18:35:03.9123622Z [gosec] 2026/10/16 18:35:03 Checking file: /home/runner/work/BAFT/BAFT/internal/clustersync/sync.go
+2026-10-16T18:35:03.9183856Z [gosec] 2026/10/16 18:35:03 Checking file: /home/runner/work/BAFT/BAFT/internal/clustersync/token.go
+2026-10-16T18:35:03.9243741Z [gosec] 2026/10/16 18:35:03 Checking file: /home/runner/work/BAFT/BAFT/internal/clustersync/worker_config.go
+2026-10-16T18:35:03.9543533Z [gosec] 2026/10/16 18:35:03 Import directory: /home/runner/work/BAFT/BAFT/internal/mesh
+2026-10-16T18:35:04.2823609Z [gosec] 2026/10/16 18:35:04 Checking package: mesh
+2026-10-16T18:35:04.2855133Z [gosec] 2026/10/16 18:35:04 Checking file: /home/runner/work/BAFT/BAFT/internal/mesh/config.go
+2026-10-16T18:35:04.2880915Z [gosec] 2026/10/16 18:35:04 Import directory: /home/runner/work/BAFT/BAFT/internal/metrics
+2026-10-16T18:35:04.7633402Z [gosec] 2026/10/16 18:35:04 Checking package: metrics
+2026-10-16T18:35:04.7753626Z [gosec] 2026/10/16 18:35:04 Checking file: /home/runner/work/BAFT/BAFT/internal/metrics/handler.go
+2026-10-16T18:35:04.7993682Z [gosec] 2026/10/16 18:35:04 Import directory: /home/runner/work/BAFT/BAFT/internal/securityinternal
+2026-10-16T18:35:05.2013592Z [gosec] 2026/10/16 18:35:05 Checking package: securityinternal
+2026-10-16T18:35:05.2043575Z [gosec] 2026/10/16 18:35:05 Checking file: /home/runner/work/BAFT/BAFT/internal/securityinternal/keyfile.go
+2026-10-16T18:35:05.2044862Z [gosec] 2026/10/16 18:35:05 Checking file: /home/runner/work/BAFT/BAFT/internal/securityinternal/pairing.go
+2026-10-16T18:35:05.2046105Z [gosec] 2026/10/16 18:35:05 Checking file: /home/runner/work/BAFT/BAFT/internal/securityinternal/security.go
+2026-10-16T18:35:05.2126679Z [gosec] 2026/10/16 18:35:05 Import directory: /home/runner/work/BAFT/BAFT/internal/uninstall
+2026-10-16T18:35:06.5073473Z [gosec] 2026/10/16 18:35:06 Checking package: uninstall
+2026-10-16T18:35:06.5133572Z [gosec] 2026/10/16 18:35:06 Checking file: /home/runner/work/BAFT/BAFT/internal/uninstall/apply.go
+2026-10-16T18:35:06.5213685Z [gosec] 2026/10/16 18:35:06 Checking file: /home/runner/work/BAFT/BAFT/internal/uninstall/backup.go
+2026-10-16T18:35:06.5243445Z [gosec] 2026/10/16 18:35:06 Checking file: /home/runner/work/BAFT/BAFT/internal/uninstall/fileio.go
+2026-10-16T18:35:06.5293411Z [gosec] 2026/10/16 18:35:06 Checking file: /home/runner/work/BAFT/BAFT/internal/uninstall/inspect.go
+2026-10-16T18:35:06.5323390Z [gosec] 2026/10/16 18:35:06 Checking file: /home/runner/work/BAFT/BAFT/internal/uninstall/journal.go
+2026-10-16T18:35:06.5353371Z [gosec] 2026/10/16 18:35:06 Checking file: /home/runner/work/BAFT/BAFT/internal/uninstall/move.go
+2026-10-16T18:35:06.5413374Z [gosec] 2026/10/16 18:35:06 Checking file: /home/runner/work/BAFT/BAFT/internal/uninstall/nested.go
+2026-10-16T18:35:06.5473395Z [gosec] 2026/10/16 18:35:06 Checking file: /home/runner/work/BAFT/BAFT/internal/uninstall/nofollow_unix.go
+2026-10-16T18:35:06.5533404Z [gosec] 2026/10/16 18:35:06 Checking file: /home/runner/work/BAFT/BAFT/internal/uninstall/plan.go
+2026-10-16T18:35:06.5563947Z [gosec] 2026/10/16 18:35:06 Checking file: /home/runner/work/BAFT/BAFT/internal/uninstall/preview.go
+2026-10-16T18:35:06.5593291Z [gosec] 2026/10/16 18:35:06 Checking file: /home/runner/work/BAFT/BAFT/internal/uninstall/render.go
+2026-10-16T18:35:06.5594456Z [gosec] 2026/10/16 18:35:06 Checking file: /home/runner/work/BAFT/BAFT/internal/uninstall/types.go
+2026-10-16T18:35:23.7443580Z [gosec] 2026/10/16 18:35:23 Checking package: bcc
+2026-10-16T18:35:23.7473320Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/access.go
+2026-10-16T18:35:23.7583526Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/alert_engine.go
+2026-10-16T18:35:23.7613265Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/audit.go
+2026-10-16T18:35:23.7653237Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/audit_anchor.go
+2026-10-16T18:35:23.7705987Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/audit_outbox.go
+2026-10-16T18:35:23.7743272Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/backup.go
+2026-10-16T18:35:23.7863594Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/backup_admin.go
+2026-10-16T18:35:23.7918248Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/bootstrap.go
+2026-10-16T18:35:23.7920938Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/change_ledger.go
+2026-10-16T18:35:23.7943332Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/countries.go
+2026-10-16T18:35:23.7944173Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/dashboard.go
+2026-10-16T18:35:23.7964400Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/decommission.go
+2026-10-16T18:35:23.7980811Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/discovery.go
+2026-10-16T18:35:23.8000882Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/distribution_policy.go
+2026-10-16T18:35:23.8018120Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/drift.go
+2026-10-16T18:35:23.8030390Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/emergency_verify.go
+2026-10-16T18:35:23.8040248Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/finance_report.go
+2026-10-16T18:35:23.8051538Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/health_engine.go
+2026-10-16T18:35:23.8083267Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/health_model.go
+2026-10-16T18:35:23.8084980Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/ingress_policy.go
+2026-10-16T18:35:23.8104479Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/jobsign.go
+2026-10-16T18:35:23.8105864Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/overview.go
+2026-10-16T18:35:23.8133365Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/pathdiscovery.go
+2026-10-16T18:35:23.8153813Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/pathmatrix.go
+2026-10-16T18:35:23.8158381Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/pathprobe.go
+2026-10-16T18:35:23.8184720Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/plan.go
+2026-10-16T18:35:23.8194860Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/restore_files.go
+2026-10-16T18:35:23.8198993Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/restore_preview.go
+2026-10-16T18:35:23.8218823Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/restore_tx.go
+2026-10-16T18:35:23.8237421Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/rotation.go
+2026-10-16T18:35:23.8279387Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/route_doctor.go
+2026-10-16T18:35:23.8290350Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/security.go
+2026-10-16T18:35:23.8298961Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/security_audit_outbox.go
+2026-10-16T18:35:23.8304933Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/server.go
+2026-10-16T18:35:23.8383762Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/smart_ingress.go
+2026-10-16T18:35:23.8390157Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/smart_ingress_live.go
+2026-10-16T18:35:23.8431938Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/smart_ingress_provider.go
+2026-10-16T18:35:23.8450644Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/ssh_migration.go
+2026-10-16T18:35:23.8462900Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/statedb.go
+2026-10-16T18:35:23.8509226Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/statelock_unix.go
+2026-10-16T18:35:23.8510917Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/store.go
+2026-10-16T18:35:23.8653947Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/topology.go
+2026-10-16T18:35:23.8713555Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/tunnel.go
+2026-10-16T18:35:23.8759940Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/internal/bcc/webharden.go
+2026-10-16T18:35:23.9802667Z [gosec] 2026/10/16 18:35:23 Checking package: main
+2026-10-16T18:35:23.9807978Z [gosec] 2026/10/16 18:35:23 Checking file: /home/runner/work/BAFT/BAFT/cmd/baft-bcc-audit-verify/main.go
+2026-10-16T18:35:24.8524128Z [gosec] 2026/10/16 18:35:24 Checking package: main
+2026-10-16T18:35:24.8525799Z [gosec] 2026/10/16 18:35:24 Checking file: /home/runner/work/BAFT/BAFT/cmd/baft-bcc/access.go
+2026-10-16T18:35:24.8531282Z [gosec] 2026/10/16 18:35:24 Checking file: /home/runner/work/BAFT/BAFT/cmd/baft-bcc/main.go
+2026-10-16T18:35:24.8545365Z [gosec] 2026/10/16 18:35:24 Checking file: /home/runner/work/BAFT/BAFT/cmd/baft-bcc/restore.go
+2026-10-16T18:35:24.8549092Z [gosec] 2026/10/16 18:35:24 Checking file: /home/runner/work/BAFT/BAFT/cmd/baft-bcc/restore_preview.go
+2026-10-16T18:35:24.8554041Z [gosec] 2026/10/16 18:35:24 Checking file: /home/runner/work/BAFT/BAFT/cmd/baft-bcc/verify_backup.go
+2026-10-16T18:35:24.8633788Z Results:
+2026-10-16T18:35:24.8634655Z 
+2026-10-16T18:35:24.8634664Z 
+2026-10-16T18:35:24.8634828Z Summary:
+2026-10-16T18:35:24.8637238Z   Gosec  : dev
+2026-10-16T18:35:24.8637643Z   Files  : 148
+2026-10-16T18:35:24.8637999Z   Lines  : 45756
+2026-10-16T18:35:24.8638399Z   Nosec  : 0
+2026-10-16T18:35:24.8638685Z   Issues : 0
+2026-10-16T18:35:24.8638817Z 
+2026-10-16T18:35:25.1458646Z Post job cleanup.
+2026-10-16T18:35:25.2862579Z Post job cleanup.
+2026-10-16T18:35:25.3755819Z [command]/usr/bin/git version
+2026-10-16T18:35:25.3808073Z git version 2.55.0
+2026-10-16T18:35:25.3850048Z Temporarily overriding HOME='/home/runner/work/_temp/2f4949f6-3fb1-4b4b-8841-476c9595b075' before making global git config changes
+2026-10-16T18:35:25.3851519Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-16T18:35:25.3855668Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/BAFT/BAFT
+2026-10-16T18:35:25.3888897Z Removing SSH command configuration
+2026-10-16T18:35:25.3896148Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-16T18:35:25.3933567Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-16T18:35:25.4206223Z Removing HTTP extra header
+2026-10-16T18:35:25.4211758Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-16T18:35:25.4247887Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-16T18:35:25.4493933Z Removing includeIf entries pointing to credentials config files
+2026-10-16T18:35:25.4502583Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-16T18:35:25.4543274Z includeif.gitdir:/home/runner/work/BAFT/BAFT/.git.path
+2026-10-16T18:35:25.4544592Z includeif.gitdir:/home/runner/work/BAFT/BAFT/.git/worktrees/*.path
+2026-10-16T18:35:25.4545342Z includeif.gitdir:/github/workspace/.git.path
+2026-10-16T18:35:25.4545993Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-16T18:35:25.4548797Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/BAFT/BAFT/.git.path
+2026-10-16T18:35:25.4574894Z /home/runner/work/_temp/git-credentials-3057a6b3-1394-4c13-92ea-30e13d2855c5.config
+2026-10-16T18:35:25.4586614Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/BAFT/BAFT/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-3057a6b3\-1394\-4c13\-92ea\-30e13d2855c5\.config
+2026-10-16T18:35:25.4626904Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/BAFT/BAFT/.git/worktrees/*.path
+2026-10-16T18:35:25.4656832Z /home/runner/work/_temp/git-credentials-3057a6b3-1394-4c13-92ea-30e13d2855c5.config
+2026-10-16T18:35:25.4667420Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/BAFT/BAFT/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-3057a6b3\-1394\-4c13\-92ea\-30e13d2855c5\.config
+2026-10-16T18:35:25.4714511Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-10-16T18:35:25.4740782Z /github/runner_temp/git-credentials-3057a6b3-1394-4c13-92ea-30e13d2855c5.config
+2026-10-16T18:35:25.4752747Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-3057a6b3\-1394\-4c13\-92ea\-30e13d2855c5\.config
+2026-10-16T18:35:25.4797000Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-16T18:35:25.4827128Z /github/runner_temp/git-credentials-3057a6b3-1394-4c13-92ea-30e13d2855c5.config
+2026-10-16T18:35:25.4835871Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-3057a6b3\-1394\-4c13\-92ea\-30e13d2855c5\.config
+2026-10-16T18:35:25.4876909Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-16T18:35:25.5105997Z Removing credentials config '/home/runner/work/_temp/git-credentials-3057a6b3-1394-4c13-92ea-30e13d2855c5.config'
+2026-10-16T18:35:25.5248230Z Cleaning up orphan processes

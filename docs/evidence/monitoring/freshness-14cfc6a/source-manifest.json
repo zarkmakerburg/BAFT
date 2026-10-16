@@ -1,0 +1,31 @@
+{
+  "source": "14cfc6a42186ece49393f5401b69ffa8046771c3",
+  "tree": "86b8f2cc9a07e3ee3df6ddc628e7c5b7135ca2dd",
+  "parent": "ae27cae89e7d88b7e6f75396105fe3c3b904b97f",
+  "pr": "https://github.com/zarkmakerburg/BAFT/pull/221",
+  "claim": "https://github.com/zarkmakerburg/BAFT/issues/67#issuecomment-6221933471",
+  "published_via": {
+    "expected_sha": "ae27cae89e7d88b7e6f75396105fe3c3b904b97f",
+    "force": false
+  },
+  "paths": [
+    "internal/bcc/store.go",
+    "internal/bcc/overview.go",
+    "internal/bcc/server_test.go",
+    "internal/bcc/overview_test.go",
+    "internal/bcc/monitoring_freshness_test.go",
+    "docs/monitoring-freshness-contract.md"
+  ],
+  "initial_regression_sha256": "c7cb2cf3ed9723795d388d2dbaec106d1909389b3c946960323982e12a420352",
+  "initial_regression_blob": "6e329597010d549da3eead6084dd409d6e044a7c",
+  "ci_checkout": {
+    "commit": "5bc5a4ac79c13f878425f8042be634c41fa6a72b",
+    "tree": "86b8f2cc9a07e3ee3df6ddc628e7c5b7135ca2dd",
+    "parents": [
+      "ae27cae89e7d88b7e6f75396105fe3c3b904b97f",
+      "14cfc6a42186ece49393f5401b69ffa8046771c3"
+    ],
+    "kind": "GitHub pull-request test merge; not mainline integration",
+    "source_diff_exit": 0
+  }
+}

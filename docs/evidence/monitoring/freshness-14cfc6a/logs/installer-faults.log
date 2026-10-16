@@ -1,0 +1,280 @@
+﻿2026-10-16T18:33:36.0842542Z Current runner version: '2.337.0'
+2026-10-16T18:33:36.0870380Z ##[group]Runner Image Provisioner
+2026-10-16T18:33:36.0871356Z Hosted Compute Agent
+2026-10-16T18:33:36.0871985Z Version: 20261012.601
+2026-10-16T18:33:36.0872640Z Commit: f3dc54e1fb89da6852db922499a0233137369e1d
+2026-10-16T18:33:36.0873447Z Build Date: 2026-10-12T17:48:21Z
+2026-10-16T18:33:36.0874146Z Worker ID: {b358b96d-62e6-4d12-97b5-040f822321c8}
+2026-10-16T18:33:36.0875016Z Region: eastus2
+2026-10-16T18:33:36.0875596Z Cloud: Azure
+2026-10-16T18:33:36.0876507Z ##[endgroup]
+2026-10-16T18:33:36.0878161Z ##[group]Operating System
+2026-10-16T18:33:36.0878832Z Ubuntu
+2026-10-16T18:33:36.0879389Z 24.04.5
+2026-10-16T18:33:36.0880014Z LTS
+2026-10-16T18:33:36.0880544Z ##[endgroup]
+2026-10-16T18:33:36.0881137Z ##[group]Runner Image
+2026-10-16T18:33:36.0881775Z Image: ubuntu-24.04
+2026-10-16T18:33:36.0882411Z Version: 20261012.334.1
+2026-10-16T18:33:36.0883709Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-16T18:33:36.0885402Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261012.334
+2026-10-16T18:33:36.0886852Z ##[endgroup]
+2026-10-16T18:33:36.0888103Z ##[group]GITHUB_TOKEN Permissions
+2026-10-16T18:33:36.0890471Z Contents: read
+2026-10-16T18:33:36.0891091Z Metadata: read
+2026-10-16T18:33:36.0891854Z ##[endgroup]
+2026-10-16T18:33:36.0894121Z Secret source: Actions
+2026-10-16T18:33:36.0895156Z Cache mode: write
+2026-10-16T18:33:36.0896459Z Prepare workflow directory
+2026-10-16T18:33:36.1243335Z Prepare all required actions
+2026-10-16T18:33:36.1292486Z Getting action download info
+2026-10-16T18:33:36.3591424Z Download action repository 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-10-16T18:33:36.4437536Z Download action repository 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e' (SHA:b7ad1dad31e06c5925ef5d2fc7ad053ef454303e)
+2026-10-16T18:33:36.7566330Z Complete job name: installer-faults
+2026-10-16T18:33:36.8454681Z ##[group]Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+2026-10-16T18:33:36.8456182Z with:
+2026-10-16T18:33:36.8456682Z   repository: zarkmakerburg/BAFT
+2026-10-16T18:33:36.8460736Z   token: ***
+2026-10-16T18:33:36.8461192Z   ssh-strict: true
+2026-10-16T18:33:36.8461652Z   ssh-user: git
+2026-10-16T18:33:36.8462117Z   persist-credentials: true
+2026-10-16T18:33:36.8462625Z   clean: true
+2026-10-16T18:33:36.8463091Z   sparse-checkout-cone-mode: true
+2026-10-16T18:33:36.8463629Z   fetch-depth: 1
+2026-10-16T18:33:36.8464076Z   fetch-tags: false
+2026-10-16T18:33:36.8464540Z   show-progress: true
+2026-10-16T18:33:36.8465037Z   lfs: false
+2026-10-16T18:33:36.8465462Z   submodules: false
+2026-10-16T18:33:36.8466175Z   set-safe-directory: true
+2026-10-16T18:33:36.8466703Z   allow-unsafe-pr-checkout: false
+2026-10-16T18:33:36.8467563Z ##[endgroup]
+2026-10-16T18:33:36.9458148Z Syncing repository: zarkmakerburg/BAFT
+2026-10-16T18:33:36.9460112Z ##[group]Getting Git version info
+2026-10-16T18:33:36.9460930Z Working directory is '/home/runner/work/BAFT/BAFT'
+2026-10-16T18:33:36.9462016Z [command]/usr/bin/git version
+2026-10-16T18:33:36.9552349Z git version 2.55.0
+2026-10-16T18:33:36.9576888Z ##[endgroup]
+2026-10-16T18:33:36.9590017Z Temporarily overriding HOME='/home/runner/work/_temp/10738c8d-9ea2-48d3-bd13-4588440a6dad' before making global git config changes
+2026-10-16T18:33:36.9591765Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-16T18:33:36.9598072Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/BAFT/BAFT
+2026-10-16T18:33:36.9648211Z Deleting the contents of '/home/runner/work/BAFT/BAFT'
+2026-10-16T18:33:36.9650634Z ##[group]Determining repository object format
+2026-10-16T18:33:36.9652263Z ##[endgroup]
+2026-10-16T18:33:36.9653043Z ##[group]Initializing the repository
+2026-10-16T18:33:36.9657424Z [command]/usr/bin/git init /home/runner/work/BAFT/BAFT
+2026-10-16T18:33:36.9763501Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-16T18:33:36.9764896Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-16T18:33:36.9766950Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-16T18:33:36.9767955Z hint: call:
+2026-10-16T18:33:36.9768429Z hint:
+2026-10-16T18:33:36.9768972Z hint: 	git config --global init.defaultBranch <name>
+2026-10-16T18:33:36.9769774Z hint:
+2026-10-16T18:33:36.9770798Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-16T18:33:36.9772444Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-16T18:33:36.9773893Z hint:
+2026-10-16T18:33:36.9774650Z hint: 	git branch -m <name>
+2026-10-16T18:33:36.9775449Z hint:
+2026-10-16T18:33:36.9776371Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-16T18:33:36.9777384Z Initialized empty Git repository in /home/runner/work/BAFT/BAFT/.git/
+2026-10-16T18:33:36.9781195Z [command]/usr/bin/git remote add origin https://github.com/zarkmakerburg/BAFT
+2026-10-16T18:33:36.9829753Z ##[endgroup]
+2026-10-16T18:33:36.9830571Z ##[group]Disabling automatic garbage collection
+2026-10-16T18:33:36.9833404Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-16T18:33:36.9867704Z ##[endgroup]
+2026-10-16T18:33:36.9868698Z ##[group]Setting up auth
+2026-10-16T18:33:36.9869752Z Removing SSH command configuration
+2026-10-16T18:33:36.9873965Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-16T18:33:36.9915652Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-16T18:33:37.0279985Z Removing HTTP extra header
+2026-10-16T18:33:37.0287084Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-16T18:33:37.0328060Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-16T18:33:37.0576758Z Removing includeIf entries pointing to credentials config files
+2026-10-16T18:33:37.0578947Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-16T18:33:37.0611919Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-16T18:33:37.0847347Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-cbd0ccf4-1f80-49f1-933a-177d2c1dbdc6.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-16T18:33:37.0898915Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/BAFT/BAFT/.git.path /home/runner/work/_temp/git-credentials-cbd0ccf4-1f80-49f1-933a-177d2c1dbdc6.config
+2026-10-16T18:33:37.0933992Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/BAFT/BAFT/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-cbd0ccf4-1f80-49f1-933a-177d2c1dbdc6.config
+2026-10-16T18:33:37.0973424Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-cbd0ccf4-1f80-49f1-933a-177d2c1dbdc6.config
+2026-10-16T18:33:37.1009729Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-cbd0ccf4-1f80-49f1-933a-177d2c1dbdc6.config
+2026-10-16T18:33:37.1044533Z ##[endgroup]
+2026-10-16T18:33:37.1046423Z ##[group]Fetching the repository
+2026-10-16T18:33:37.1051575Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +5bc5a4ac79c13f878425f8042be634c41fa6a72b:refs/remotes/pull/221/merge
+2026-10-16T18:33:37.7369058Z From https://github.com/zarkmakerburg/BAFT
+2026-10-16T18:33:37.7371141Z  * [new ref]         5bc5a4ac79c13f878425f8042be634c41fa6a72b -> pull/221/merge
+2026-10-16T18:33:37.7377216Z ##[endgroup]
+2026-10-16T18:33:37.7378906Z ##[group]Determining the checkout info
+2026-10-16T18:33:37.7380848Z ##[endgroup]
+2026-10-16T18:33:37.7382085Z [command]/usr/bin/git sparse-checkout disable
+2026-10-16T18:33:37.7437095Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-16T18:33:37.7473951Z ##[group]Checking out the ref
+2026-10-16T18:33:37.7479357Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/221/merge
+2026-10-16T18:33:37.8438259Z Note: switching to 'refs/remotes/pull/221/merge'.
+2026-10-16T18:33:37.8439223Z 
+2026-10-16T18:33:37.8439870Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-10-16T18:33:37.8441227Z changes and commit them, and you can discard any commits you make in this
+2026-10-16T18:33:37.8442572Z state without impacting any branches by switching back to a branch.
+2026-10-16T18:33:37.8443345Z 
+2026-10-16T18:33:37.8443983Z If you want to create a new branch to retain commits you create, you may
+2026-10-16T18:33:37.8445398Z do so (now or later) by using -c with the switch command. Example:
+2026-10-16T18:33:37.8446901Z 
+2026-10-16T18:33:37.8447394Z   git switch -c <new-branch-name>
+2026-10-16T18:33:37.8448070Z 
+2026-10-16T18:33:37.8448469Z Or undo this operation with:
+2026-10-16T18:33:37.8449033Z 
+2026-10-16T18:33:37.8449416Z   git switch -
+2026-10-16T18:33:37.8450063Z 
+2026-10-16T18:33:37.8451178Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-10-16T18:33:37.8452367Z 
+2026-10-16T18:33:37.8453628Z HEAD is now at 5bc5a4a Merge 14cfc6a42186ece49393f5401b69ffa8046771c3 into ae27cae89e7d88b7e6f75396105fe3c3b904b97f
+2026-10-16T18:33:37.8457720Z ##[endgroup]
+2026-10-16T18:33:37.8503089Z [command]/usr/bin/git log -1 --format=%H
+2026-10-16T18:33:37.8532768Z 5bc5a4ac79c13f878425f8042be634c41fa6a72b
+2026-10-16T18:33:37.8913434Z ##[group]Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+2026-10-16T18:33:37.8915186Z with:
+2026-10-16T18:33:37.8916395Z   go-version-file: go.mod
+2026-10-16T18:33:37.8917565Z   check-latest: false
+2026-10-16T18:33:37.8918647Z   cache: false
+2026-10-16T18:33:37.8929050Z   token: ***
+2026-10-16T18:33:37.8930086Z ##[endgroup]
+2026-10-16T18:33:38.0071050Z Setup go version spec 1.27.1
+2026-10-16T18:33:38.0080342Z Attempting to download 1.27.1...
+2026-10-16T18:33:38.5917125Z matching 1.27.1...
+2026-10-16T18:33:38.5947428Z Acquiring 1.27.1 from https://github.com/actions/go-versions/releases/download/1.27.1-33583469715/go-1.27.1-linux-x64.tar.gz
+2026-10-16T18:33:39.2541473Z Extracting Go...
+2026-10-16T18:33:39.2662971Z [command]/usr/bin/tar xz --warning=no-unknown-keyword --overwrite -C /home/runner/work/_temp/436b2aad-19c8-490f-9ef0-4f7e2a33f468 -f /home/runner/work/_temp/ab89f67f-3c7c-4a4e-86df-eaf3a7608740
+2026-10-16T18:33:40.9654614Z Successfully extracted go to /home/runner/work/_temp/436b2aad-19c8-490f-9ef0-4f7e2a33f468
+2026-10-16T18:33:40.9655543Z Adding to the cache ...
+2026-10-16T18:33:47.1782535Z Successfully cached go to /opt/hostedtoolcache/go/1.27.1/x64
+2026-10-16T18:33:47.1782969Z Added go to the path
+2026-10-16T18:33:47.1784832Z Successfully set up Go version 1.27.1
+2026-10-16T18:33:47.2036722Z go version go1.27.1 linux/amd64
+2026-10-16T18:33:47.2037426Z 
+2026-10-16T18:33:47.2038146Z ##[group]go env
+2026-10-16T18:33:47.3305178Z AR='ar'
+2026-10-16T18:33:47.3306040Z CC='gcc'
+2026-10-16T18:33:47.3306476Z CGO_CFLAGS='-O2 -g'
+2026-10-16T18:33:47.3306889Z CGO_CPPFLAGS=''
+2026-10-16T18:33:47.3307248Z CGO_CXXFLAGS='-O2 -g'
+2026-10-16T18:33:47.3307795Z CGO_ENABLED='1'
+2026-10-16T18:33:47.3308277Z CGO_FFLAGS='-O2 -g'
+2026-10-16T18:33:47.3308745Z CGO_LDFLAGS='-O2 -g'
+2026-10-16T18:33:47.3309198Z CXX='g++'
+2026-10-16T18:33:47.3309672Z GCCGO='gccgo'
+2026-10-16T18:33:47.3310193Z GO111MODULE=''
+2026-10-16T18:33:47.3310724Z GOAMD64='v1'
+2026-10-16T18:33:47.3311254Z GOARCH='amd64'
+2026-10-16T18:33:47.3311717Z GOAUTH='netrc'
+2026-10-16T18:33:47.3312171Z GOBIN='/home/runner/go/bin'
+2026-10-16T18:33:47.3313221Z GOCACHE='/home/runner/.cache/go-build'
+2026-10-16T18:33:47.3313819Z GOCACHEPROG=''
+2026-10-16T18:33:47.3314299Z GODEBUG=''
+2026-10-16T18:33:47.3314869Z GOENV='/home/runner/.config/go/env'
+2026-10-16T18:33:47.3315382Z GOEXE=''
+2026-10-16T18:33:47.3316023Z GOEXPERIMENT=''
+2026-10-16T18:33:47.3316561Z GOFIPS140='off'
+2026-10-16T18:33:47.3316987Z GOFLAGS=''
+2026-10-16T18:33:47.3318182Z GOGCCFLAGS='-fPIC -m64 -pthread -Wl,--no-gc-sections -fmessage-length=0 -ffile-prefix-map=/tmp/go-build3685420070=/tmp/go-build -gno-record-gcc-switches'
+2026-10-16T18:33:47.3319390Z GOHOSTARCH='amd64'
+2026-10-16T18:33:47.3319818Z GOHOSTOS='linux'
+2026-10-16T18:33:47.3320230Z GOINSECURE=''
+2026-10-16T18:33:47.3320691Z GOMOD='/home/runner/work/BAFT/BAFT/go.mod'
+2026-10-16T18:33:47.3321255Z GOMODCACHE='/home/runner/go/pkg/mod'
+2026-10-16T18:33:47.3321757Z GONOPROXY=''
+2026-10-16T18:33:47.3322198Z GONOSUMDB=''
+2026-10-16T18:33:47.3322584Z GOOS='linux'
+2026-10-16T18:33:47.3323110Z GOPACKAGESDRIVER=''
+2026-10-16T18:33:47.3323573Z GOPATH='/home/runner/go'
+2026-10-16T18:33:47.3324015Z GOPRIVATE=''
+2026-10-16T18:33:47.3324505Z GOPROXY='https://proxy.golang.org,direct'
+2026-10-16T18:33:47.3325161Z GOROOT='/opt/hostedtoolcache/go/1.27.1/x64'
+2026-10-16T18:33:47.3327091Z GOSUMDB='sum.golang.org'
+2026-10-16T18:33:47.3327903Z GOTELEMETRY='local'
+2026-10-16T18:33:47.3328369Z GOTELEMETRYDIR='/home/runner/.config/go/telemetry'
+2026-10-16T18:33:47.3328882Z GOTMPDIR=''
+2026-10-16T18:33:47.3329199Z GOTOOLCHAIN='local'
+2026-10-16T18:33:47.3329726Z GOTOOLDIR='/opt/hostedtoolcache/go/1.27.1/x64/pkg/tool/linux_amd64'
+2026-10-16T18:33:47.3330314Z GOVCS=''
+2026-10-16T18:33:47.3330627Z GOVERSION='go1.27.1'
+2026-10-16T18:33:47.3330966Z GOWORK=''
+2026-10-16T18:33:47.3331303Z PKG_CONFIG='pkg-config'
+2026-10-16T18:33:47.3331552Z 
+2026-10-16T18:33:47.3332122Z ##[endgroup]
+2026-10-16T18:33:47.3557940Z ##[group]Run sudo git config --system --add safe.directory '*'
+2026-10-16T18:33:47.3558491Z [36;1msudo git config --system --add safe.directory '*'[0m
+2026-10-16T18:33:47.3811923Z shell: /usr/bin/bash -e {0}
+2026-10-16T18:33:47.3812256Z env:
+2026-10-16T18:33:47.3812490Z   GOTOOLCHAIN: local
+2026-10-16T18:33:47.3812753Z ##[endgroup]
+2026-10-16T18:33:47.4051634Z ##[group]Run sudo env "PATH=$PATH" "HOME=$HOME" tests/e2e/installer_faults.sh
+2026-10-16T18:33:47.4052213Z [36;1msudo env "PATH=$PATH" "HOME=$HOME" tests/e2e/installer_faults.sh[0m
+2026-10-16T18:33:47.4115522Z shell: /usr/bin/bash -e {0}
+2026-10-16T18:33:47.4116050Z env:
+2026-10-16T18:33:47.4116269Z   GOTOOLCHAIN: local
+2026-10-16T18:33:47.4116506Z ##[endgroup]
+2026-10-16T18:33:58.1378898Z [faults] build a signed release (v1), a newer one (v2) with the same root
+2026-10-16T18:34:04.8022010Z go: downloading go.yaml.in/yaml/v3 v3.0.5
+2026-10-16T18:34:04.8073784Z go: downloading golang.org/x/sys v0.48.0
+2026-10-16T18:34:04.8205979Z go: downloading github.com/flynn/noise v1.1.0
+2026-10-16T18:34:04.8215735Z go: downloading github.com/refraction-networking/utls v1.8.2
+2026-10-16T18:34:04.9196738Z go: downloading golang.org/x/crypto v0.57.0
+2026-10-16T18:34:05.1291038Z go: downloading github.com/klauspost/compress v1.17.4
+2026-10-16T18:34:05.1292219Z go: downloading github.com/andybalholm/brotli v1.0.6
+2026-10-16T18:34:23.1806642Z go: downloading modernc.org/sqlite v1.60.1
+2026-10-16T18:34:24.5796450Z go: downloading modernc.org/libc v1.77.1
+2026-10-16T18:34:25.7947211Z go: downloading modernc.org/mathutil v1.7.1
+2026-10-16T18:34:25.7947877Z go: downloading modernc.org/memory v1.12.1
+2026-10-16T18:34:25.7948586Z go: downloading github.com/google/uuid v1.6.0
+2026-10-16T18:34:25.7949273Z go: downloading github.com/dustin/go-humanize v1.0.1
+2026-10-16T18:34:25.8400131Z go: downloading github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec
+2026-10-16T18:35:13.5355607Z [faults] 0. service-user path preflight is non-mutating and names the first blocked parent
+2026-10-16T18:35:14.0561351Z [faults] install a paired EX and IR from release v1 on the fake tree
+2026-10-16T18:35:16.1600232Z [faults] 1. nothing on the host changes before the plan is confirmed
+2026-10-16T18:35:17.1768188Z [faults] 1b. a missing prerequisite on an existing install: no apt before confirmation
+2026-10-16T18:35:17.2802483Z [faults] 1c. --from-source on an existing install is refused the same way (no Go, no source tree)
+2026-10-16T18:35:21.3762610Z [faults] 1d. a broken install is refused before any mutation, even with --yes and a missing prerequisite
+2026-10-16T18:35:21.5454318Z [faults] 1e. valid config + Noise key + PKI + unit, but the installed baft binary is MISSING: binary only, config and pairing untouched
+2026-10-16T18:35:26.4394308Z [faults] 1f. INVALID config + missing binary: refused, config unchanged, binary still missing
+2026-10-16T18:35:30.6249886Z [faults] 2a. failure after restart/enable, service was ACTIVE + ENABLED: restored to active + enabled, old binary
+2026-10-16T18:35:34.6314385Z [faults] 2b. failure after start/enable, service was INACTIVE + DISABLED: back to inactive + disabled
+2026-10-16T18:35:38.6100546Z [faults] 2b'. the same repair without a failure starts and enables it
+2026-10-16T18:35:42.5652360Z [faults] 2c. failure on a FRESH role install: unit, key, PKI removed and nothing left enabled or running
+2026-10-16T18:35:43.4596595Z [faults] 3a. agent: failure on a FRESH install leaves nothing behind
+2026-10-16T18:35:50.0364226Z [faults] 3b. agent: a different token fails after restart -> old token, still active + enabled
+2026-10-16T18:35:53.3088453Z [faults] 3c. agent: inactive + disabled before, failure after start/enable -> inactive + disabled
+2026-10-16T18:35:56.5650891Z [faults] 4. a failed upgrade with a failed rollback restart reports incomplete and leaves the service stopped
+2026-10-16T18:35:57.5545554Z [faults] 5. BCC failed binary rollback retains the verified candidate without replacing state
+2026-10-16T18:36:01.3248105Z [faults] PASS
+2026-10-16T18:36:01.4126211Z Post job cleanup.
+2026-10-16T18:36:01.5507243Z Post job cleanup.
+2026-10-16T18:36:01.6423216Z [command]/usr/bin/git version
+2026-10-16T18:36:01.6483347Z git version 2.55.0
+2026-10-16T18:36:01.6522658Z Temporarily overriding HOME='/home/runner/work/_temp/ea9352f1-61e0-424d-8571-156cdd3b4518' before making global git config changes
+2026-10-16T18:36:01.6524220Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-16T18:36:01.6526365Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/BAFT/BAFT
+2026-10-16T18:36:01.6562942Z Removing SSH command configuration
+2026-10-16T18:36:01.6570182Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-16T18:36:01.6612467Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-16T18:36:01.6893593Z Removing HTTP extra header
+2026-10-16T18:36:01.6900112Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-16T18:36:01.6943646Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-16T18:36:01.7268892Z Removing includeIf entries pointing to credentials config files
+2026-10-16T18:36:01.7270067Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-16T18:36:01.7337342Z includeif.gitdir:/home/runner/work/BAFT/BAFT/.git.path
+2026-10-16T18:36:01.7357018Z includeif.gitdir:/home/runner/work/BAFT/BAFT/.git/worktrees/*.path
+2026-10-16T18:36:01.7357826Z includeif.gitdir:/github/workspace/.git.path
+2026-10-16T18:36:01.7376800Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-16T18:36:01.7378970Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/BAFT/BAFT/.git.path
+2026-10-16T18:36:01.7402399Z /home/runner/work/_temp/git-credentials-cbd0ccf4-1f80-49f1-933a-177d2c1dbdc6.config
+2026-10-16T18:36:01.7418669Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/BAFT/BAFT/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-cbd0ccf4\-1f80\-49f1\-933a\-177d2c1dbdc6\.config
+2026-10-16T18:36:01.7480667Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/BAFT/BAFT/.git/worktrees/*.path
+2026-10-16T18:36:01.7519767Z /home/runner/work/_temp/git-credentials-cbd0ccf4-1f80-49f1-933a-177d2c1dbdc6.config
+2026-10-16T18:36:01.7531520Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/BAFT/BAFT/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-cbd0ccf4\-1f80\-49f1\-933a\-177d2c1dbdc6\.config
+2026-10-16T18:36:01.7594885Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-10-16T18:36:01.7607062Z /github/runner_temp/git-credentials-cbd0ccf4-1f80-49f1-933a-177d2c1dbdc6.config
+2026-10-16T18:36:01.7611998Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-cbd0ccf4\-1f80\-49f1\-933a\-177d2c1dbdc6\.config
+2026-10-16T18:36:01.7654061Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-16T18:36:01.7686702Z /github/runner_temp/git-credentials-cbd0ccf4-1f80-49f1-933a-177d2c1dbdc6.config
+2026-10-16T18:36:01.7694117Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-cbd0ccf4\-1f80\-49f1\-933a\-177d2c1dbdc6\.config
+2026-10-16T18:36:01.7738048Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-16T18:36:01.7990814Z Removing credentials config '/home/runner/work/_temp/git-credentials-cbd0ccf4-1f80-49f1-933a-177d2c1dbdc6.config'
+2026-10-16T18:36:01.8167269Z Cleaning up orphan processes

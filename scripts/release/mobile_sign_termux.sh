@@ -29,6 +29,14 @@ grep -Fxq "commit=$commit" "$candidate/CANDIDATE" || { echo "candidate commit mi
 grep -Fxq "signed=false" "$candidate/CANDIDATE" || { echo "not an unsigned candidate" >&2; exit 1; }
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 [[ "$(git -C "$repo_root" rev-parse HEAD)" == "$commit" ]] || { echo "signer checkout does not match approved commit" >&2; exit 1; }
+# A candidate metadata file alone is not evidence that HQ approved a tag.
+tagged_commit=$(git -C "$repo_root" rev-parse -q --verify "refs/tags/$version^{commit}") || {
+  echo "approved release tag does not exist in local refs" >&2; exit 1;
+}
+[[ "$tagged_commit" == "$commit" ]] || { echo "release tag points to a different commit" >&2; exit 1; }
+git -C "$repo_root" merge-base --is-ancestor "$commit" refs/remotes/origin/main || {
+  echo "approved tag commit is not in the locally fetched origin/main history" >&2; exit 1;
+}
 [[ -z "$(git -C "$repo_root" status --porcelain --untracked-files=all)" ]] || { echo "signer checkout has tracked or untracked modifications" >&2; exit 1; }
 cmp -s "$candidate/root.pub" "$repo_root/release/keys/root.pub" || { echo "root key mismatch" >&2; exit 1; }
 cmp -s "$candidate/revocations.json" "$repo_root/release/keys/revocations.json" || { echo "revocations mismatch" >&2; exit 1; }

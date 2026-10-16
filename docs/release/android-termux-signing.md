@@ -21,6 +21,10 @@ mkdir -p "$HOME/baft-signing/keys" "$HOME/baft-signing/work"
 chmod 700 "$HOME/baft-signing/keys"
 git clone https://github.com/zarkmakerburg/BAFT.git "$HOME/baft-signing/source"
 cd "$HOME/baft-signing/source"
+# Replace vX.Y.Z with the independently HQ-approved pushed release tag.
+git fetch origin main --tags
+git checkout --detach vX.Y.Z
+git rev-parse HEAD  # Must match the approved full SHA before disconnecting.
 go build -o "$HOME/baft-signing/baft-release" ./cmd/baft-release
 ```
 
@@ -38,7 +42,7 @@ bash scripts/release/mobile_sign_termux.sh \
   "$HOME/baft-signing/keys/release-key.cert.json"
 ```
 
-The script refuses mismatched tag/commit, already signed or unexpected candidate contents, missing files, mismatched installer copies, untrusted root, local tracked/untracked changes, and signing key/certificate mismatches (checked by `baft-release sign`). Before it reads the signing key, it runs `scripts/release/verify_candidate_provenance.sh`: this exports the approved Git commit into a fresh temporary source tree, rebuilds all Linux assets using the Go patch version declared in `go.mod`, and requires byte-for-byte agreement for all ten unsigned assets and the installer/trust files. The signer itself is compiled from another clean Git archive. It then signs and verifies the output using the pinned root and revocations, producing `SHA256SUMS`, `manifest.json`, and `release-key.cert.json` under `candidate/dist/`. Prepare/cache the pinned Go toolchain and dependencies before disconnecting the signing device.
+The script requires a locally fetched release tag pointing to the exact reviewed commit on the fetched `origin/main` history. The presence of such a tag is necessary but **not itself HQ authorization**; independently check the tag and commit against the HQ decision record. The script also refuses mismatched candidate tag/commit, already signed or unexpected candidate contents, missing files, mismatched installer copies, untrusted root, local tracked/untracked changes, and signing key/certificate mismatches (checked by `baft-release sign`). Before it reads the signing key, it runs `scripts/release/verify_candidate_provenance.sh`: this exports the approved Git commit into a fresh temporary source tree, rebuilds all Linux assets using the Go patch version declared in `go.mod`, and requires byte-for-byte agreement for all ten unsigned assets and the installer/trust files. The signer itself is compiled from another clean Git archive. It then signs and verifies the output using the pinned root and revocations, producing `SHA256SUMS`, `manifest.json`, and `release-key.cert.json` under `candidate/dist/`. Prepare/cache the pinned Go toolchain and dependencies before disconnecting the signing device.
 
 **Important:** A matching independent rebuild establishes source-to-binary reproducibility but does not prove GitHub workflow identity or that the user selected an authorized tag/run. Confirm the approved tag, workflow run SHA, CI and artifact origin separately before signing. Do not run arbitrary scripts bundled in the downloaded artifact. Source checkout must be clean; keep the candidate outside the checkout.
 

@@ -21,6 +21,10 @@ printf 'tag=%s\ncommit=%s\nsigned=false\nsigning_boundary=external-offline\n' "$
 
 bash scripts/release/verify_candidate_provenance.sh "$candidate" "$version" "$commit"
 
+# The signer must reject a candidate with synthetic tag metadata before
+# reading any signing key, even if its binaries exactly match the commit.
+touch "$work/dummy-release.key" "$work/dummy-release.cert.json"
+
 reject() {
   local label=$1 needle=$2 output
   shift 2
@@ -34,6 +38,18 @@ reject() {
   fi
   echo "PASS rejected: $label"
 }
+
+reject "missing approved release tag" "approved release tag does not exist" \
+  bash scripts/release/mobile_sign_termux.sh "$candidate" "$version" "$commit" \
+  "$work/dummy-release.key" "$work/dummy-release.cert.json"
+
+# A local tag pointing at a different commit must never satisfy the gate.
+git clone -q "$repo_root" "$work/check"
+git -C "$work/check" checkout -q --detach "$commit"
+git -C "$work/check" tag "$version" "$(git -C "$work/check" rev-parse HEAD^)"
+reject "release tag points to different SHA" "release tag points to a different commit" \
+  bash "$work/check/scripts/release/mobile_sign_termux.sh" "$candidate" "$version" "$commit" \
+  "$work/dummy-release.key" "$work/dummy-release.cert.json"
 
 reject "wrong approved SHA" "checkout is not approved commit" \
   bash scripts/release/verify_candidate_provenance.sh "$candidate" "$version" "0000000000000000000000000000000000000000"

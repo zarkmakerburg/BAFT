@@ -112,4 +112,14 @@
 - مسیر rollback؛
 - ثبت محدودیت‌ها و نتیجه بدون اغراق.
 
+## افزونه پذیرفته‌شده پس از v0.3.2 (2026-10-16)
+
+نسخه [v0.3.2](https://github.com/zarkmakerburg/BAFT/releases/tag/v0.3.2) به‌صورت عمومی منتشر و بررسی امضا شده است؛ **آزمون میدانی IR↔EX و استقرار عملیاتی جداگانه و به تصمیم HQ موکول است.** جزییات [PLAN.md](../../PLAN.md)، [#199](https://github.com/zarkmakerburg/BAFT/issues/199) و [پرامپت جامع اصلاحی #67](https://github.com/zarkmakerburg/BAFT/issues/67#issuecomment-6223076976) معتبرند.
+
+- **P0:** تکمیل Link Test/Network Doctor با تازه‌بودن و عدم‌قطعیت شواهد، Failover چندآدرسی **همان peer** و آزمون جداگانه حفظ **همان TCP Flow** با ECRL در برابر صرفاً اتصال مجدد.
+- **P1:** راهنمای Transport در BCC/Aurora Hybrid با انتخاب دستی و مشخصات رمزنگاری واقعی؛ سقف پهنای باند و اتصال هم‌زمان به تفکیک تونل؛ پروفایل‌های Quiet/Balanced/Boost مبتنی بر اندازه‌گیری.
+- **P2:** تحقیق ایزوله KCP/QUIC/UDP/WireGuard/SOCKS5 و Packet/ICMP/Raw Socket با threat model و بدون فعال‌سازی عملیاتی؛ Benchmark تکرارپذیر Stage E و R-003.
+
+**قرارداد:** Multi-Address ≠ Multi-Exit. موارد جدید نباید امنیت، تخصیص محدود حافظه، صحت replay و هویت/ایزولاسیون تونل را نقض کنند. برای هر مرحله شاخه/PR مستقل و Gate دقیق لازم است؛ بدون مجوز HQ هیچ Merge/Release/Deploy صورت نگیرد.
+
 </div>

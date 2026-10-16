@@ -144,17 +144,20 @@ type TunnelEvent struct {
 
 // TunnelRequest is what an operator asks for; zero fields take defaults.
 type TunnelRequest struct {
-	InstanceID      string `json:"instance_id,omitempty"`
-	EXNode          string `json:"ex_node"`
-	IRNode          string `json:"ir_node"`
-	PublicAddress   string `json:"public_address"`
-	Port            int    `json:"port"`
-	Target          string `json:"target"`
-	RouteListen     string `json:"route_listen"`
-	RouteID         string `json:"route_id"`
-	EXMetricsListen string `json:"ex_metrics_listen,omitempty"`
-	IRMetricsListen string `json:"ir_metrics_listen,omitempty"`
-	RecordShaping   bool   `json:"record_shaping"`
+	InstanceID string `json:"instance_id,omitempty"`
+	// Explicit opt-in to an independent scoped tunnel alongside an active legacy
+	// singleton. The old tunnel stays untouched, with no implicit migration.
+	AllowLegacyCoexistence bool   `json:"allow_legacy_coexistence,omitempty"`
+	EXNode                 string `json:"ex_node"`
+	IRNode                 string `json:"ir_node"`
+	PublicAddress          string `json:"public_address"`
+	Port                   int    `json:"port"`
+	Target                 string `json:"target"`
+	RouteListen            string `json:"route_listen"`
+	RouteID                string `json:"route_id"`
+	EXMetricsListen        string `json:"ex_metrics_listen,omitempty"`
+	IRMetricsListen        string `json:"ir_metrics_listen,omitempty"`
+	RecordShaping          bool   `json:"record_shaping"`
 	// PlanHash, when set, must equal the hash of the plan BCC computes now.
 	PlanHash string `json:"plan_hash,omitempty"`
 }
@@ -200,16 +203,31 @@ func tunnelResourceConflict(a, b Tunnel) string {
 		if a.Port == b.Port {
 			return fmt.Sprintf("EX listener port %d is already used by tunnel %s", a.Port, b.ID)
 		}
-		if a.EXMetricsListen != "" && a.EXMetricsListen == b.EXMetricsListen {
-			return fmt.Sprintf("EX metrics listener %s is already used by tunnel %s", a.EXMetricsListen, b.ID)
+		// Empty in a legacy singleton means its runtime default :9191.
+		am, bm := a.EXMetricsListen, b.EXMetricsListen
+		if am == "" {
+			am = "127.0.0.1:9191"
+		}
+		if bm == "" {
+			bm = "127.0.0.1:9191"
+		}
+		if am == bm {
+			return fmt.Sprintf("EX metrics listener %s is already used by tunnel %s", am, b.ID)
 		}
 	}
 	if a.IRNode == b.IRNode {
 		if a.RouteListen == b.RouteListen {
 			return fmt.Sprintf("IR route listener %s is already used by tunnel %s", a.RouteListen, b.ID)
 		}
-		if a.IRMetricsListen != "" && a.IRMetricsListen == b.IRMetricsListen {
-			return fmt.Sprintf("IR metrics listener %s is already used by tunnel %s", a.IRMetricsListen, b.ID)
+		am, bm := a.IRMetricsListen, b.IRMetricsListen
+		if am == "" {
+			am = "127.0.0.1:9191"
+		}
+		if bm == "" {
+			bm = "127.0.0.1:9191"
+		}
+		if am == bm {
+			return fmt.Sprintf("IR metrics listener %s is already used by tunnel %s", am, b.ID)
 		}
 	}
 	return ""
@@ -334,6 +352,9 @@ func (s *Store) resolveTunnelLocked(req TunnelRequest, now time.Time) (Tunnel, N
 	if t.InstanceID == "default" {
 		return Tunnel{}, Node{}, Node{}, errors.New("instance_id default is reserved for the legacy singleton")
 	}
+	if req.AllowLegacyCoexistence && t.InstanceID == "" {
+		return Tunnel{}, Node{}, Node{}, errors.New("legacy coexistence requires a distinct nonempty instance_id")
+	}
 	if t.InstanceID != "" {
 		if t.EXMetricsListen == "" || t.IRMetricsListen == "" {
 			return Tunnel{}, Node{}, Node{}, errors.New("instance-scoped tunnels require ex_metrics_listen and ir_metrics_listen")
@@ -350,7 +371,11 @@ func (s *Store) resolveTunnelLocked(req TunnelRequest, now time.Time) (Tunnel, N
 			continue
 		}
 		if mixedLegacyScope(t, other) && (other.Phase == TunnelActive || !terminalTunnel(other.Phase) || other.Phase == TunnelRollbackFailed || other.Phase == TunnelDecommissionFailed) {
-			return Tunnel{}, Node{}, Node{}, fmt.Errorf("tunnel %s uses the legacy singleton on a shared node; migrate it explicitly before creating scoped instances", other.ID)
+			// A new scoped tunnel can coexist only after explicit consent and
+			// resource isolation. Nothing changes in the existing legacy instance.
+			if !(req.AllowLegacyCoexistence && t.InstanceID != "" && other.InstanceID == "" && other.Phase == TunnelActive) {
+				return Tunnel{}, Node{}, Node{}, fmt.Errorf("tunnel %s uses the legacy singleton on a shared node; use explicit legacy coexistence for a new independent instance or migrate it first", other.ID)
+			}
 		}
 		if sameManagedSlot(t, other) {
 			if !terminalTunnel(other.Phase) {
@@ -411,7 +436,9 @@ func (s *Store) CreateTunnel(req TunnelRequest, now time.Time) (Tunnel, error) {
 // created against. On a mismatch it creates nothing and returns ErrStalePlan
 // carrying the fresh plan.
 func (s *Store) CreateTunnelFromPlan(req TunnelRequest, planHash string, now time.Time, audits ...AuditEntry) (Tunnel, Plan, error) {
-	if len(audits)>1{return Tunnel{},Plan{},errors.New("at most one audit intent is allowed")}
+	if len(audits) > 1 {
+		return Tunnel{}, Plan{}, errors.New("at most one audit intent is allowed")
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if planHash != "" {
@@ -432,8 +459,10 @@ func (s *Store) createTunnelLocked(req TunnelRequest, planHash, topologyKey stri
 	if err != nil {
 		return Tunnel{}, err
 	}
-	before,err:=cloneState(s.st)
-	if err!=nil{return Tunnel{},err}
+	before, err := cloneState(s.st)
+	if err != nil {
+		return Tunnel{}, err
+	}
 	t.PlanHash = planHash
 	t.TopologyKey = topologyKey
 	t.ExpectedGen = map[string]GenExpect{ex.ID: expectedGeneration(ex, t.InstanceID), ir.ID: expectedGeneration(ir, t.InstanceID)}
@@ -445,15 +474,20 @@ func (s *Store) createTunnelLocked(req TunnelRequest, planHash, topologyKey stri
 		s.st.Tunnels = map[string]Tunnel{}
 	}
 	s.st.Tunnels[t.ID] = t
-	if len(audits)==1{
-		a:=audits[0]
-		a.Action,a.Target,a.Outcome="tunnel.create",t.ID,"success"
-		if a.Actor==""{a.Actor="admin"}
-		a.Details=mergeAuditDetails(a.Details,map[string]any{"tunnel_id":t.ID,"job_id":t.JobID})
-		if _,err:=s.enqueueSecurityAuditLocked(a);err!=nil{s.st=before;return Tunnel{},err}
+	if len(audits) == 1 {
+		a := audits[0]
+		a.Action, a.Target, a.Outcome = "tunnel.create", t.ID, "success"
+		if a.Actor == "" {
+			a.Actor = "admin"
+		}
+		a.Details = mergeAuditDetails(a.Details, map[string]any{"tunnel_id": t.ID, "job_id": t.JobID})
+		if _, err := s.enqueueSecurityAuditLocked(a); err != nil {
+			s.st = before
+			return Tunnel{}, err
+		}
 	}
 	if err := s.saveLocked(); err != nil {
-		s.st=before
+		s.st = before
 		return Tunnel{}, err
 	}
 	return t, nil
@@ -492,7 +526,9 @@ func (s *Store) ListTunnels() []Tunnel {
 // CancelTunnel rolls a change back on request. A tunnel that is already
 // active is final: build a new change to alter it.
 func (s *Store) CancelTunnel(id, reason string, now time.Time, audits ...AuditEntry) (Tunnel, error) {
-	if len(audits)>1{return Tunnel{},errors.New("at most one audit intent is allowed")}
+	if len(audits) > 1 {
+		return Tunnel{}, errors.New("at most one audit intent is allowed")
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	t, ok := s.st.Tunnels[id]
@@ -507,22 +543,32 @@ func (s *Store) CancelTunnel(id, reason string, now time.Time, audits ...AuditEn
 	case TunnelActive, TunnelSuperseded, TunnelRolledBack, TunnelDecommissioned, TunnelDecommissionFailed:
 		return t, fmt.Errorf("tunnel is %s; nothing to cancel", t.Phase)
 	}
-	before,err:=cloneState(s.st)
-	if err!=nil{return Tunnel{},err}
+	before, err := cloneState(s.st)
+	if err != nil {
+		return Tunnel{}, err
+	}
 	t.Error = "cancelled by operator"
 	if r := strings.TrimSpace(reason); r != "" {
 		t.Error += ": " + r
 	}
 	s.startRollbackLocked(&t, now)
 	s.st.Tunnels[id] = t
-	if len(audits)==1{
-		a:=audits[0]
-		a.Action,a.Target,a.Outcome="tunnel.cancel",id,"success"
-		if a.Actor==""{a.Actor="admin"}
-		if _,err:=s.enqueueSecurityAuditLocked(a);err!=nil{s.st=before;return Tunnel{},err}
+	if len(audits) == 1 {
+		a := audits[0]
+		a.Action, a.Target, a.Outcome = "tunnel.cancel", id, "success"
+		if a.Actor == "" {
+			a.Actor = "admin"
+		}
+		if _, err := s.enqueueSecurityAuditLocked(a); err != nil {
+			s.st = before
+			return Tunnel{}, err
+		}
 	}
-	if err:=s.saveLocked();err!=nil{s.st=before;return Tunnel{},err}
-	return t,nil
+	if err := s.saveLocked(); err != nil {
+		s.st = before
+		return Tunnel{}, err
+	}
+	return t, nil
 }
 
 // startRollbackLocked cancels steps nobody has picked up yet, drops secrets
@@ -904,7 +950,7 @@ func (s *Server) tunnels(w http.ResponseWriter, r *http.Request) {
 		}
 		details := map[string]any{"ex_node": in.EXNode, "ir_node": in.IRNode, "port": in.Port, "target": in.Target, "route_listen": in.RouteListen}
 		t, _, err := s.store.CreateTunnelFromPlan(in, in.PlanHash, s.now(), AuditEntry{
-			Timestamp:s.now().UTC(),Actor:"admin",RemoteIP:s.clientIP(r),Details:withRequest(r,details),
+			Timestamp: s.now().UTC(), Actor: "admin", RemoteIP: s.clientIP(r), Details: withRequest(r, details),
 		})
 		if in.PlanHash != "" {
 			details["plan_hash"] = in.PlanHash
@@ -949,7 +995,7 @@ func (s *Server) tunnelCancel(w http.ResponseWriter, r *http.Request) {
 	}
 	details := map[string]any{"reason": strings.TrimSpace(in.Reason)}
 	t, err := s.store.CancelTunnel(in.ID, in.Reason, s.now(), AuditEntry{
-		Timestamp:s.now().UTC(),Actor:"admin",RemoteIP:s.clientIP(r),Details:withRequest(r,details),
+		Timestamp: s.now().UTC(), Actor: "admin", RemoteIP: s.clientIP(r), Details: withRequest(r, details),
 	})
 	if err != nil {
 		s.auditFailure(w, r, "tunnel.cancel", in.ID, details, err, 400)

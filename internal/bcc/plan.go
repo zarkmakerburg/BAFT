@@ -106,7 +106,7 @@ func (s *Store) buildPlanLocked(req TunnelRequest, now time.Time) (Plan, error) 
 	peer := net.JoinHostPort(t.PublicAddress, strconv.Itoa(t.Port))
 	p := Plan{
 		Request: TunnelRequest{
-			InstanceID: t.InstanceID, EXNode: t.EXNode, IRNode: t.IRNode, PublicAddress: t.PublicAddress, Port: t.Port, Target: t.Target,
+			InstanceID: t.InstanceID, AllowLegacyCoexistence: req.AllowLegacyCoexistence, EXNode: t.EXNode, IRNode: t.IRNode, PublicAddress: t.PublicAddress, Port: t.Port, Target: t.Target,
 			RouteListen: t.RouteListen, RouteID: t.RouteID, EXMetricsListen: t.EXMetricsListen, IRMetricsListen: t.IRMetricsListen,
 			RecordShaping: t.RecordShaping,
 		},
@@ -156,6 +156,9 @@ func (s *Store) buildPlanLocked(req TunnelRequest, now time.Time) (Plan, error) 
 	gate("no conflicting change", "PASS", "no unfinished or failed change owns the same BAFT instance or conflicts with its listeners")
 	gate("parameters", "PASS", "validated with the rules the agents apply: fixed-IP target, loopback route listener, strict patterns")
 	for id, other := range s.st.Tunnels {
+		if other.Phase == TunnelActive && req.AllowLegacyCoexistence && t.InstanceID != "" && other.InstanceID == "" && tunnelsShareNode(t, other) {
+			gate("keeps legacy tunnel active", "WARN", "explicit independent instance: "+id+" stays active; new instance must pass isolated listener and runtime health checks")
+		}
 		if other.Phase == TunnelActive && sameManagedSlot(t, other) {
 			p.Replaces = id
 			gate("replaces active tunnel", "WARN", id+" owns the same BAFT instance and becomes superseded when this one is active; sibling instances remain active")

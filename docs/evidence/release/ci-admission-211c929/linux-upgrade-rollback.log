@@ -1,0 +1,431 @@
+﻿2026-10-16T17:53:36.9802114Z Current runner version: '2.337.0'
+2026-10-16T17:53:36.9827072Z ##[group]Runner Image Provisioner
+2026-10-16T17:53:36.9827998Z Hosted Compute Agent
+2026-10-16T17:53:36.9828648Z Version: 20261012.601
+2026-10-16T17:53:36.9829330Z Commit: f3dc54e1fb89da6852db922499a0233137369e1d
+2026-10-16T17:53:36.9830120Z Build Date: 2026-10-12T17:48:21Z
+2026-10-16T17:53:36.9830792Z Worker ID: {5a152d6a-4652-42d6-b7e9-e2ec5153c538}
+2026-10-16T17:53:36.9831488Z Region: westus
+2026-10-16T17:53:36.9832126Z Cloud: Azure
+2026-10-16T17:53:36.9832667Z ##[endgroup]
+2026-10-16T17:53:36.9834259Z ##[group]Operating System
+2026-10-16T17:53:36.9835434Z Ubuntu
+2026-10-16T17:53:36.9835955Z 24.04.5
+2026-10-16T17:53:36.9836621Z LTS
+2026-10-16T17:53:36.9837133Z ##[endgroup]
+2026-10-16T17:53:36.9837731Z ##[group]Runner Image
+2026-10-16T17:53:36.9838361Z Image: ubuntu-24.04
+2026-10-16T17:53:36.9838926Z Version: 20261012.334.1
+2026-10-16T17:53:36.9840276Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-16T17:53:36.9841872Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261012.334
+2026-10-16T17:53:36.9842872Z ##[endgroup]
+2026-10-16T17:53:36.9844018Z ##[group]GITHUB_TOKEN Permissions
+2026-10-16T17:53:36.9846275Z Contents: read
+2026-10-16T17:53:36.9846978Z Metadata: read
+2026-10-16T17:53:36.9847667Z ##[endgroup]
+2026-10-16T17:53:36.9849721Z Secret source: Actions
+2026-10-16T17:53:36.9850756Z Cache mode: write
+2026-10-16T17:53:36.9851452Z Prepare workflow directory
+2026-10-16T17:53:37.0192838Z Prepare all required actions
+2026-10-16T17:53:37.0243295Z Getting action download info
+2026-10-16T17:53:37.3953366Z Download action repository 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-10-16T17:53:37.5167858Z Download action repository 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e' (SHA:b7ad1dad31e06c5925ef5d2fc7ad053ef454303e)
+2026-10-16T17:53:38.0567683Z Complete job name: e2e-install-release
+2026-10-16T17:53:38.1377430Z ##[group]Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+2026-10-16T17:53:38.1378496Z with:
+2026-10-16T17:53:38.1378947Z   repository: zarkmakerburg/BAFT
+2026-10-16T17:53:38.1382960Z   token: ***
+2026-10-16T17:53:38.1383391Z   ssh-strict: true
+2026-10-16T17:53:38.1383818Z   ssh-user: git
+2026-10-16T17:53:38.1384259Z   persist-credentials: true
+2026-10-16T17:53:38.1385060Z   clean: true
+2026-10-16T17:53:38.1385502Z   sparse-checkout-cone-mode: true
+2026-10-16T17:53:38.1386026Z   fetch-depth: 1
+2026-10-16T17:53:38.1386458Z   fetch-tags: false
+2026-10-16T17:53:38.1386899Z   show-progress: true
+2026-10-16T17:53:38.1387346Z   lfs: false
+2026-10-16T17:53:38.1387757Z   submodules: false
+2026-10-16T17:53:38.1388204Z   set-safe-directory: true
+2026-10-16T17:53:38.1388704Z   allow-unsafe-pr-checkout: false
+2026-10-16T17:53:38.1389497Z ##[endgroup]
+2026-10-16T17:53:38.2451548Z Syncing repository: zarkmakerburg/BAFT
+2026-10-16T17:53:38.2454053Z ##[group]Getting Git version info
+2026-10-16T17:53:38.2455492Z Working directory is '/home/runner/work/BAFT/BAFT'
+2026-10-16T17:53:38.2457034Z [command]/usr/bin/git version
+2026-10-16T17:53:38.2517135Z git version 2.55.0
+2026-10-16T17:53:38.2539888Z ##[endgroup]
+2026-10-16T17:53:38.2566309Z Temporarily overriding HOME='/home/runner/work/_temp/2db3f7fd-1fe5-46fb-9f46-6068ce26f51a' before making global git config changes
+2026-10-16T17:53:38.2568619Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-16T17:53:38.2570626Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/BAFT/BAFT
+2026-10-16T17:53:38.2622122Z Deleting the contents of '/home/runner/work/BAFT/BAFT'
+2026-10-16T17:53:38.2626213Z ##[group]Determining repository object format
+2026-10-16T17:53:38.2627698Z ##[endgroup]
+2026-10-16T17:53:38.2628809Z ##[group]Initializing the repository
+2026-10-16T17:53:38.2632249Z [command]/usr/bin/git init /home/runner/work/BAFT/BAFT
+2026-10-16T17:53:38.2741037Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-16T17:53:38.2744736Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-16T17:53:38.2746858Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-16T17:53:38.2748375Z hint: call:
+2026-10-16T17:53:38.2749418Z hint:
+2026-10-16T17:53:38.2750373Z hint: 	git config --global init.defaultBranch <name>
+2026-10-16T17:53:38.2751459Z hint:
+2026-10-16T17:53:38.2752469Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-16T17:53:38.2754137Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-16T17:53:38.2755831Z hint:
+2026-10-16T17:53:38.2756590Z hint: 	git branch -m <name>
+2026-10-16T17:53:38.2757474Z hint:
+2026-10-16T17:53:38.2758660Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-16T17:53:38.2760393Z Initialized empty Git repository in /home/runner/work/BAFT/BAFT/.git/
+2026-10-16T17:53:38.2762347Z [command]/usr/bin/git remote add origin https://github.com/zarkmakerburg/BAFT
+2026-10-16T17:53:38.2815785Z ##[endgroup]
+2026-10-16T17:53:38.2817084Z ##[group]Disabling automatic garbage collection
+2026-10-16T17:53:38.2820357Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-16T17:53:38.2857013Z ##[endgroup]
+2026-10-16T17:53:38.2858530Z ##[group]Setting up auth
+2026-10-16T17:53:38.2859514Z Removing SSH command configuration
+2026-10-16T17:53:38.2864081Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-16T17:53:38.2905157Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-16T17:53:38.3297654Z Removing HTTP extra header
+2026-10-16T17:53:38.3305761Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-16T17:53:38.3343083Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-16T17:53:38.3564027Z Removing includeIf entries pointing to credentials config files
+2026-10-16T17:53:38.3569626Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-16T17:53:38.3604997Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-16T17:53:38.3834874Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-6ab4a956-0801-41eb-950b-f8ec727bbb4f.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-16T17:53:38.3876080Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/BAFT/BAFT/.git.path /home/runner/work/_temp/git-credentials-6ab4a956-0801-41eb-950b-f8ec727bbb4f.config
+2026-10-16T17:53:38.3911103Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/BAFT/BAFT/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-6ab4a956-0801-41eb-950b-f8ec727bbb4f.config
+2026-10-16T17:53:38.3948745Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-6ab4a956-0801-41eb-950b-f8ec727bbb4f.config
+2026-10-16T17:53:38.3985292Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-6ab4a956-0801-41eb-950b-f8ec727bbb4f.config
+2026-10-16T17:53:38.4016688Z ##[endgroup]
+2026-10-16T17:53:38.4017444Z ##[group]Fetching the repository
+2026-10-16T17:53:38.4026001Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +f0c63d757fc7a78cf6849422f30f00f47c5b15b4:refs/remotes/pull/220/merge
+2026-10-16T17:53:40.4850788Z From https://github.com/zarkmakerburg/BAFT
+2026-10-16T17:53:40.4852046Z  * [new ref]         f0c63d757fc7a78cf6849422f30f00f47c5b15b4 -> pull/220/merge
+2026-10-16T17:53:40.4865758Z ##[endgroup]
+2026-10-16T17:53:40.4866996Z ##[group]Determining the checkout info
+2026-10-16T17:53:40.4868656Z ##[endgroup]
+2026-10-16T17:53:40.4875180Z [command]/usr/bin/git sparse-checkout disable
+2026-10-16T17:53:40.4935024Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-16T17:53:40.4969961Z ##[group]Checking out the ref
+2026-10-16T17:53:40.4976595Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/220/merge
+2026-10-16T17:53:40.5940458Z Note: switching to 'refs/remotes/pull/220/merge'.
+2026-10-16T17:53:40.5952000Z 
+2026-10-16T17:53:40.5952559Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-10-16T17:53:40.5953231Z changes and commit them, and you can discard any commits you make in this
+2026-10-16T17:53:40.5954173Z state without impacting any branches by switching back to a branch.
+2026-10-16T17:53:40.5954987Z 
+2026-10-16T17:53:40.5955678Z If you want to create a new branch to retain commits you create, you may
+2026-10-16T17:53:40.5956598Z do so (now or later) by using -c with the switch command. Example:
+2026-10-16T17:53:40.5957103Z 
+2026-10-16T17:53:40.5957320Z   git switch -c <new-branch-name>
+2026-10-16T17:53:40.5957691Z 
+2026-10-16T17:53:40.5957919Z Or undo this operation with:
+2026-10-16T17:53:40.5958245Z 
+2026-10-16T17:53:40.5958466Z   git switch -
+2026-10-16T17:53:40.5958772Z 
+2026-10-16T17:53:40.5959267Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-10-16T17:53:40.5959900Z 
+2026-10-16T17:53:40.5960648Z HEAD is now at f0c63d7 Merge 211c929d41924fbe17ec3bb19615f7d0e8429490 into b028fd580fb2c3f0ebffe2fbf1a52f6b577cbf5f
+2026-10-16T17:53:40.5962297Z ##[endgroup]
+2026-10-16T17:53:40.6016892Z [command]/usr/bin/git log -1 --format=%H
+2026-10-16T17:53:40.6046119Z f0c63d757fc7a78cf6849422f30f00f47c5b15b4
+2026-10-16T17:53:40.6317110Z ##[group]Run actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+2026-10-16T17:53:40.6317612Z with:
+2026-10-16T17:53:40.6317869Z   go-version-file: go.mod
+2026-10-16T17:53:40.6318147Z   check-latest: false
+2026-10-16T17:53:40.6318408Z   cache: false
+2026-10-16T17:53:40.6321171Z   token: ***
+2026-10-16T17:53:40.6321415Z ##[endgroup]
+2026-10-16T17:53:40.7549261Z Setup go version spec 1.27.1
+2026-10-16T17:53:40.7557852Z Attempting to download 1.27.1...
+2026-10-16T17:53:41.3956165Z matching 1.27.1...
+2026-10-16T17:53:41.3969358Z Acquiring 1.27.1 from https://github.com/actions/go-versions/releases/download/1.27.1-33583469715/go-1.27.1-linux-x64.tar.gz
+2026-10-16T17:53:42.0720269Z Extracting Go...
+2026-10-16T17:53:42.0845226Z [command]/usr/bin/tar xz --warning=no-unknown-keyword --overwrite -C /home/runner/work/_temp/402c48d3-d772-4e71-8a8d-a596b6e361fe -f /home/runner/work/_temp/3c745548-36aa-4b55-929b-2c63c45d6699
+2026-10-16T17:53:43.7636258Z Successfully extracted go to /home/runner/work/_temp/402c48d3-d772-4e71-8a8d-a596b6e361fe
+2026-10-16T17:53:43.7637184Z Adding to the cache ...
+2026-10-16T17:53:49.8299906Z Successfully cached go to /opt/hostedtoolcache/go/1.27.1/x64
+2026-10-16T17:53:49.8301591Z Added go to the path
+2026-10-16T17:53:49.8304187Z Successfully set up Go version 1.27.1
+2026-10-16T17:53:49.8533166Z go version go1.27.1 linux/amd64
+2026-10-16T17:53:49.8533392Z 
+2026-10-16T17:53:49.8533728Z ##[group]go env
+2026-10-16T17:53:49.9828385Z AR='ar'
+2026-10-16T17:53:49.9828801Z CC='gcc'
+2026-10-16T17:53:49.9829197Z CGO_CFLAGS='-O2 -g'
+2026-10-16T17:53:49.9829479Z CGO_CPPFLAGS=''
+2026-10-16T17:53:49.9829713Z CGO_CXXFLAGS='-O2 -g'
+2026-10-16T17:53:49.9829942Z CGO_ENABLED='1'
+2026-10-16T17:53:49.9830156Z CGO_FFLAGS='-O2 -g'
+2026-10-16T17:53:49.9830378Z CGO_LDFLAGS='-O2 -g'
+2026-10-16T17:53:49.9830590Z CXX='g++'
+2026-10-16T17:53:49.9830786Z GCCGO='gccgo'
+2026-10-16T17:53:49.9830987Z GO111MODULE=''
+2026-10-16T17:53:49.9831197Z GOAMD64='v1'
+2026-10-16T17:53:49.9831494Z GOARCH='amd64'
+2026-10-16T17:53:49.9831700Z GOAUTH='netrc'
+2026-10-16T17:53:49.9831958Z GOBIN='/home/runner/go/bin'
+2026-10-16T17:53:49.9832639Z GOCACHE='/home/runner/.cache/go-build'
+2026-10-16T17:53:49.9832921Z GOCACHEPROG=''
+2026-10-16T17:53:49.9833157Z GODEBUG=''
+2026-10-16T17:53:49.9833385Z GOENV='/home/runner/.config/go/env'
+2026-10-16T17:53:49.9833693Z GOEXE=''
+2026-10-16T17:53:49.9833930Z GOEXPERIMENT=''
+2026-10-16T17:53:49.9834155Z GOFIPS140='off'
+2026-10-16T17:53:49.9834721Z GOFLAGS=''
+2026-10-16T17:53:49.9835478Z GOGCCFLAGS='-fPIC -m64 -pthread -Wl,--no-gc-sections -fmessage-length=0 -ffile-prefix-map=/tmp/go-build2777909069=/tmp/go-build -gno-record-gcc-switches'
+2026-10-16T17:53:49.9836239Z GOHOSTARCH='amd64'
+2026-10-16T17:53:49.9836456Z GOHOSTOS='linux'
+2026-10-16T17:53:49.9836664Z GOINSECURE=''
+2026-10-16T17:53:49.9836914Z GOMOD='/home/runner/work/BAFT/BAFT/go.mod'
+2026-10-16T17:53:49.9837226Z GOMODCACHE='/home/runner/go/pkg/mod'
+2026-10-16T17:53:49.9837490Z GONOPROXY=''
+2026-10-16T17:53:49.9837699Z GONOSUMDB=''
+2026-10-16T17:53:49.9837886Z GOOS='linux'
+2026-10-16T17:53:49.9838145Z GOPACKAGESDRIVER=''
+2026-10-16T17:53:49.9838386Z GOPATH='/home/runner/go'
+2026-10-16T17:53:49.9838622Z GOPRIVATE=''
+2026-10-16T17:53:49.9838890Z GOPROXY='https://proxy.golang.org,direct'
+2026-10-16T17:53:49.9839217Z GOROOT='/opt/hostedtoolcache/go/1.27.1/x64'
+2026-10-16T17:53:49.9839517Z GOSUMDB='sum.golang.org'
+2026-10-16T17:53:49.9839756Z GOTELEMETRY='local'
+2026-10-16T17:53:49.9840026Z GOTELEMETRYDIR='/home/runner/.config/go/telemetry'
+2026-10-16T17:53:49.9840335Z GOTMPDIR=''
+2026-10-16T17:53:49.9840530Z GOTOOLCHAIN='local'
+2026-10-16T17:53:49.9840850Z GOTOOLDIR='/opt/hostedtoolcache/go/1.27.1/x64/pkg/tool/linux_amd64'
+2026-10-16T17:53:49.9841200Z GOVCS=''
+2026-10-16T17:53:49.9841395Z GOVERSION='go1.27.1'
+2026-10-16T17:53:49.9841608Z GOWORK=''
+2026-10-16T17:53:49.9841810Z PKG_CONFIG='pkg-config'
+2026-10-16T17:53:49.9841955Z 
+2026-10-16T17:53:49.9842383Z ##[endgroup]
+2026-10-16T17:53:50.0047697Z ##[group]Run BAFT_LOCAL_RELEASE_ROOT="$RUNNER_TEMP/root" scripts/release/local_release.sh "$RUNNER_TEMP/rel" v0.0.1-ci
+2026-10-16T17:53:50.0048636Z [36;1mBAFT_LOCAL_RELEASE_ROOT="$RUNNER_TEMP/root" scripts/release/local_release.sh "$RUNNER_TEMP/rel" v0.0.1-ci[0m
+2026-10-16T17:53:50.0313108Z shell: /usr/bin/bash -e {0}
+2026-10-16T17:53:50.0313507Z env:
+2026-10-16T17:53:50.0313760Z   GOTOOLCHAIN: local
+2026-10-16T17:53:50.0314042Z ##[endgroup]
+2026-10-16T17:53:57.0045855Z go: downloading go.yaml.in/yaml/v3 v3.0.5
+2026-10-16T17:53:57.0146306Z go: downloading golang.org/x/sys v0.48.0
+2026-10-16T17:53:57.0364764Z go: downloading github.com/flynn/noise v1.1.0
+2026-10-16T17:53:57.0422958Z go: downloading github.com/refraction-networking/utls v1.8.2
+2026-10-16T17:53:57.0924132Z go: downloading golang.org/x/crypto v0.57.0
+2026-10-16T17:53:57.2505255Z go: downloading github.com/andybalholm/brotli v1.0.6
+2026-10-16T17:53:57.2506394Z go: downloading github.com/klauspost/compress v1.17.4
+2026-10-16T17:54:15.5879900Z go: downloading modernc.org/sqlite v1.60.1
+2026-10-16T17:54:17.0917810Z go: downloading modernc.org/libc v1.77.1
+2026-10-16T17:54:18.4383448Z go: downloading modernc.org/mathutil v1.7.1
+2026-10-16T17:54:18.4384106Z go: downloading modernc.org/memory v1.12.1
+2026-10-16T17:54:18.4385150Z go: downloading github.com/google/uuid v1.6.0
+2026-10-16T17:54:18.4387997Z go: downloading github.com/dustin/go-humanize v1.0.1
+2026-10-16T17:54:18.4602097Z go: downloading github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec
+2026-10-16T17:55:04.0317136Z OK v0.0.1-ci f0c63d757fc7: 10 artifacts, release key a3952f2175f51cbd69b9b2d59885f808, root 950b2bd05b15e053fa0282fa92f3a0ff, revocation list 1 (expires 2026-11-15T17:55:03Z)
+2026-10-16T17:55:04.0402087Z ##[group]Run export BAFT_LOCAL_RELEASE_ROOT="$RUNNER_TEMP/root"
+2026-10-16T17:55:04.0402576Z [36;1mexport BAFT_LOCAL_RELEASE_ROOT="$RUNNER_TEMP/root"[0m
+2026-10-16T17:55:04.0403035Z [36;1mscripts/release/local_release.sh "$RUNNER_TEMP/up/rel2" v0.0.2-ci[0m
+2026-10-16T17:55:04.0403682Z [36;1mBAFT_LOCAL_RELEASE_BREAK=version scripts/release/local_release.sh "$RUNNER_TEMP/up/brokenv" v0.0.3-ci[0m
+2026-10-16T17:55:04.0404944Z [36;1mBAFT_LOCAL_RELEASE_BREAK=run scripts/release/local_release.sh "$RUNNER_TEMP/up/brokenr" v0.0.3-ci[0m
+2026-10-16T17:55:04.0471410Z shell: /usr/bin/bash -e {0}
+2026-10-16T17:55:04.0471659Z env:
+2026-10-16T17:55:04.0471855Z   GOTOOLCHAIN: local
+2026-10-16T17:55:04.0472068Z ##[endgroup]
+2026-10-16T17:55:06.4503602Z OK v0.0.2-ci f0c63d757fc7: 10 artifacts, release key e6c3698af924d545daf910290a7a22a3, root 950b2bd05b15e053fa0282fa92f3a0ff, revocation list 1 (expires 2026-11-15T17:55:03Z)
+2026-10-16T17:55:08.8049118Z OK v0.0.3-ci f0c63d757fc7: 10 artifacts, release key 234341d18176cd5e8b15c22bad4a4b5b, root 950b2bd05b15e053fa0282fa92f3a0ff, revocation list 1 (expires 2026-11-15T17:55:03Z)
+2026-10-16T17:55:11.1997787Z OK v0.0.3-ci f0c63d757fc7: 10 artifacts, release key ea03a1f6ae8f637f977efd2a6aa326cf, root 950b2bd05b15e053fa0282fa92f3a0ff, revocation list 1 (expires 2026-11-15T17:55:03Z)
+2026-10-16T17:55:11.2080849Z ##[group]Run sudo env GITHUB_ACTIONS=true BAFT_INSTALL_FROM=release \
+2026-10-16T17:55:11.2081385Z [36;1msudo env GITHUB_ACTIONS=true BAFT_INSTALL_FROM=release \[0m
+2026-10-16T17:55:11.2081811Z [36;1m  BAFT_RELEASE_URL="file://$RUNNER_TEMP/rel/dist" \[0m
+2026-10-16T17:55:11.2082201Z [36;1m  BAFT_ROOT_PUB="$(cat "$RUNNER_TEMP/rel/root.pub")" \[0m
+2026-10-16T17:55:11.2082639Z [36;1m  BAFT_REVOCATIONS_URL="file://$RUNNER_TEMP/rel/revocations.json" \[0m
+2026-10-16T17:55:11.2083063Z [36;1m  BAFT_E2E_UPGRADE_DIR="$RUNNER_TEMP/up" \[0m
+2026-10-16T17:55:11.2083371Z [36;1m  tests/e2e/install_two_roles.sh[0m
+2026-10-16T17:55:11.2147340Z shell: /usr/bin/bash -e {0}
+2026-10-16T17:55:11.2147591Z env:
+2026-10-16T17:55:11.2147785Z   GOTOOLCHAIN: local
+2026-10-16T17:55:11.2148009Z ##[endgroup]
+2026-10-16T17:55:11.2361453Z [install-e2e] EX install (waits for the IR reply on stdin)
+2026-10-16T17:55:41.3351684Z [install-e2e] IR install with the pairing code
+2026-10-16T17:55:42.8837947Z [install-e2e] hand the reply to the EX installer
+2026-10-16T17:55:43.4607758Z [install-e2e] installed signed release: baft 0.0.1-ci
+2026-10-16T17:55:43.4608560Z [install-e2e] wait for both services and the IR route
+2026-10-16T17:55:45.5191867Z active
+2026-10-16T17:55:45.5192249Z active
+2026-10-16T17:55:45.5195581Z [install-e2e] traffic through the installed services
+2026-10-16T17:55:45.9345302Z conn 2: 8388608 bytes round-tripped, sha256=6c31e4d71157b38859a1aebeebf544ca51d284c8bed0f2661715e0defd1d7cd8
+2026-10-16T17:55:45.9346659Z conn 1: 8388608 bytes round-tripped, sha256=af264e3fbb1e96df3ace44e1b8058169f6d6798fe66e25b3ee3b611a76a97699
+2026-10-16T17:55:45.9347870Z conn 3: 8388608 bytes round-tripped, sha256=8440d39cd05b3e3c86705e47d4241676adb5195195640174cf90f571d275efb1
+2026-10-16T17:55:45.9349199Z conn 0: 8388608 bytes round-tripped, sha256=e3a7159aca9c5ec0e89e205515628581cbfd353de2d1cfa18ce3b77f844c9b3e
+2026-10-16T17:55:45.9451289Z active
+2026-10-16T17:55:45.9451658Z active
+2026-10-16T17:55:45.9455386Z [install-e2e] operator commands against the installed services
+2026-10-16T17:55:45.9610954Z baft      0.0.1-ci (release v0.0.1-ci, commit f0c63d757fc7)
+2026-10-16T17:55:45.9611855Z node      ex-41ed66b03af8 (listener), listening on 0.0.0.0:8443
+2026-10-16T17:55:45.9613014Z route     service-main: -> 127.0.0.1:2443
+2026-10-16T17:55:45.9613419Z service   baft-ex: active, restarts 0
+2026-10-16T17:55:45.9613891Z flows     0 active
+2026-10-16T17:55:45.9614182Z recovery  epoch 1, 0 attempts, 0 commits, 0 failures
+2026-10-16T17:55:45.9614673Z integrity 0 invariant violations
+2026-10-16T17:55:45.9761171Z BAFT doctor: HEALTHY
+2026-10-16T17:55:45.9761416Z 
+2026-10-16T17:55:45.9761512Z Layers
+2026-10-16T17:55:45.9761795Z   L0  process alive                            PASS
+2026-10-16T17:55:45.9762174Z   L1  carrier path (TCP reachability only)     PASS
+2026-10-16T17:55:45.9763619Z   L2  peer authenticated                       NOT_ASSESSED  (doctor does not open an authenticated session; see BCC health and telemetry)
+2026-10-16T17:55:45.9765472Z   L3  session correctness                      PASS
+2026-10-16T17:55:45.9766570Z   L4  route available                          NOT_ASSESSED  (this node has no outbound route)
+2026-10-16T17:55:45.9767347Z   L5  target reachable                         PASS
+2026-10-16T17:55:45.9767929Z   L6  application traffic                      NOT_ASSESSED  (needs an end-to-end probe, which doctor does not send)
+2026-10-16T17:55:45.9768330Z 
+2026-10-16T17:55:45.9768415Z Findings
+2026-10-16T17:55:45.9768751Z OK    config                 /etc/baft-ex/baft.yaml is valid
+2026-10-16T17:55:45.9769290Z OK    private key            /etc/baft-ex/noise-key.json is owner-only
+2026-10-16T17:55:45.9769730Z OK    private key            /etc/baft-ex/pki/server.key is owner-only
+2026-10-16T17:55:45.9770297Z OK    service                baft-ex is active
+2026-10-16T17:55:45.9771039Z OK    release                verified signed release v0.0.1-ci (commit f0c63d757fc7)
+2026-10-16T17:55:45.9772103Z OK    metrics                0 active flows
+2026-10-16T17:55:45.9772803Z OK    integrity              0 conservation invariant violations
+2026-10-16T17:55:45.9773431Z OK    listener               0.0.0.0:8443 accepts TCP
+2026-10-16T17:55:45.9773867Z OK    route service-main     target 127.0.0.1:2443 accepts TCP
+2026-10-16T17:55:45.9774985Z INFO  tcp congestion         cubic (bbr usually does better on long, lossy paths)
+2026-10-16T17:55:45.9775607Z       problem:  TCP settings are not tuned for long or lossy paths
+2026-10-16T17:55:45.9776296Z       evidence: cubic (bbr usually does better on long, lossy paths)
+2026-10-16T17:55:45.9776847Z       impact:   lower throughput on such paths; no effect on correctness
+2026-10-16T17:55:45.9777531Z       fix:      sysctl -w net.ipv4.tcp_congestion_control=bbr
+2026-10-16T17:55:45.9777933Z INFO  qdisc                  fq_codel (fq pairs with bbr pacing)
+2026-10-16T17:55:45.9778584Z       problem:  TCP settings are not tuned for long or lossy paths
+2026-10-16T17:55:45.9779399Z       evidence: fq_codel (fq pairs with bbr pacing)
+2026-10-16T17:55:45.9780023Z       impact:   lower throughput on such paths; no effect on correctness
+2026-10-16T17:55:45.9780495Z       fix:      sysctl -w net.core.default_qdisc=fq
+2026-10-16T17:55:45.9781111Z INFO  net.core.rmem_max      1048576 bytes (high-latency paths need larger socket buffers)
+2026-10-16T17:55:45.9781801Z       problem:  TCP settings are not tuned for long or lossy paths
+2026-10-16T17:55:45.9782506Z       evidence: 1048576 bytes (high-latency paths need larger socket buffers)
+2026-10-16T17:55:45.9783246Z       impact:   lower throughput on such paths; no effect on correctness
+2026-10-16T17:55:45.9783719Z       fix:      sysctl -w net.core.rmem_max=4194304
+2026-10-16T17:55:45.9784235Z INFO  net.core.wmem_max      212992 bytes (high-latency paths need larger socket buffers)
+2026-10-16T17:55:45.9785119Z       problem:  TCP settings are not tuned for long or lossy paths
+2026-10-16T17:55:45.9786012Z       evidence: 212992 bytes (high-latency paths need larger socket buffers)
+2026-10-16T17:55:45.9786598Z       impact:   lower throughput on such paths; no effect on correctness
+2026-10-16T17:55:45.9787231Z       fix:      sysctl -w net.core.wmem_max=4194304
+2026-10-16T17:55:45.9913208Z baft      0.0.1-ci (release v0.0.1-ci, commit f0c63d757fc7)
+2026-10-16T17:55:45.9914628Z node      ir-eb8b4918b851 (dialer), peer 127.0.0.1:8443
+2026-10-16T17:55:45.9917813Z route     service-main: 127.0.0.1:1443 -> peer route service-main
+2026-10-16T17:55:45.9918231Z service   baft-ir: active, restarts 1
+2026-10-16T17:55:45.9918501Z flows     0 active
+2026-10-16T17:55:45.9918764Z recovery  epoch 1, 0 attempts, 0 commits, 0 failures
+2026-10-16T17:55:45.9919086Z integrity 0 invariant violations
+2026-10-16T17:55:46.0051623Z BAFT doctor: DEGRADED
+2026-10-16T17:55:46.0052313Z   likely failure domain: service process (confidence: high)
+2026-10-16T17:55:46.0053104Z   next action:           baft logs --service baft-ir
+2026-10-16T17:55:46.0053508Z 
+2026-10-16T17:55:46.0053648Z Layers
+2026-10-16T17:55:46.0054131Z   L0  process alive                            WARN
+2026-10-16T17:55:46.0055149Z   L1  carrier path (TCP reachability only)     PASS
+2026-10-16T17:55:46.0056766Z   L2  peer authenticated                       NOT_ASSESSED  (doctor does not open an authenticated session; see BCC health and telemetry)
+2026-10-16T17:55:46.0057984Z   L3  session correctness                      PASS
+2026-10-16T17:55:46.0058445Z   L4  route available                          PASS
+2026-10-16T17:55:46.0059155Z   L5  target reachable                         NOT_ASSESSED  (this node has no inbound route target)
+2026-10-16T17:55:46.0060618Z   L6  application traffic                      NOT_ASSESSED  (needs an end-to-end probe, which doctor does not send)
+2026-10-16T17:55:46.0061113Z 
+2026-10-16T17:55:46.0061207Z Findings
+2026-10-16T17:55:46.0061489Z OK    config                 /etc/baft-ir/baft.yaml is valid
+2026-10-16T17:55:46.0061923Z OK    private key            /etc/baft-ir/noise-key.json is owner-only
+2026-10-16T17:55:46.0071787Z WARN  service                baft-ir is active, restarted 1 times
+2026-10-16T17:55:46.0072423Z       problem:  the service is not running or keeps restarting
+2026-10-16T17:55:46.0072878Z       evidence: baft-ir is active, restarted 1 times
+2026-10-16T17:55:46.0073322Z       impact:   no carrier and no traffic while it is down
+2026-10-16T17:55:46.0073720Z       fix:      baft logs --service baft-ir
+2026-10-16T17:55:46.0074122Z OK    release                verified signed release v0.0.1-ci (commit f0c63d757fc7)
+2026-10-16T17:55:46.0075252Z OK    metrics                0 active flows
+2026-10-16T17:55:46.0075923Z OK    integrity              0 conservation invariant violations
+2026-10-16T17:55:46.0076629Z OK    peer                   127.0.0.1:8443 accepts TCP
+2026-10-16T17:55:46.0077179Z OK    route service-main     127.0.0.1:1443 accepts local clients
+2026-10-16T17:55:46.0077656Z INFO  tcp congestion         cubic (bbr usually does better on long, lossy paths)
+2026-10-16T17:55:46.0078239Z       problem:  TCP settings are not tuned for long or lossy paths
+2026-10-16T17:55:46.0079293Z       evidence: cubic (bbr usually does better on long, lossy paths)
+2026-10-16T17:55:46.0080354Z       impact:   lower throughput on such paths; no effect on correctness
+2026-10-16T17:55:46.0080914Z       fix:      sysctl -w net.ipv4.tcp_congestion_control=bbr
+2026-10-16T17:55:46.0081422Z INFO  qdisc                  fq_codel (fq pairs with bbr pacing)
+2026-10-16T17:55:46.0081984Z       problem:  TCP settings are not tuned for long or lossy paths
+2026-10-16T17:55:46.0082431Z       evidence: fq_codel (fq pairs with bbr pacing)
+2026-10-16T17:55:46.0082939Z       impact:   lower throughput on such paths; no effect on correctness
+2026-10-16T17:55:46.0083403Z       fix:      sysctl -w net.core.default_qdisc=fq
+2026-10-16T17:55:46.0083883Z INFO  net.core.rmem_max      1048576 bytes (high-latency paths need larger socket buffers)
+2026-10-16T17:55:46.0084791Z       problem:  TCP settings are not tuned for long or lossy paths
+2026-10-16T17:55:46.0085364Z       evidence: 1048576 bytes (high-latency paths need larger socket buffers)
+2026-10-16T17:55:46.0086081Z       impact:   lower throughput on such paths; no effect on correctness
+2026-10-16T17:55:46.0086539Z       fix:      sysctl -w net.core.rmem_max=4194304
+2026-10-16T17:55:46.0086985Z INFO  net.core.wmem_max      212992 bytes (high-latency paths need larger socket buffers)
+2026-10-16T17:55:46.0087573Z       problem:  TCP settings are not tuned for long or lossy paths
+2026-10-16T17:55:46.0088124Z       evidence: 212992 bytes (high-latency paths need larger socket buffers)
+2026-10-16T17:55:46.0088699Z       impact:   lower throughput on such paths; no effect on correctness
+2026-10-16T17:55:46.0089156Z       fix:      sysctl -w net.core.wmem_max=4194304
+2026-10-16T17:55:46.3067191Z [install-e2e] rerun 1/5 on the healthy install
+2026-10-16T17:55:48.2039757Z [install-e2e] rerun 2/5 on the healthy install
+2026-10-16T17:55:50.1218324Z [install-e2e] rerun 3/5 on the healthy install
+2026-10-16T17:55:52.0428992Z [install-e2e] rerun 4/5 on the healthy install
+2026-10-16T17:55:53.9765063Z [install-e2e] rerun 5/5 on the healthy install
+2026-10-16T17:55:55.9028298Z active
+2026-10-16T17:55:55.9028819Z active
+2026-10-16T17:55:55.9977021Z conn 0: 2097152 bytes round-tripped, sha256=1c9db37e39d067bbab7c55c326e393dab920c6f9d4c12c2fb90fa2d4356fda1d
+2026-10-16T17:55:55.9978483Z conn 1: 2097152 bytes round-tripped, sha256=f71f928154ea2f3f6905461284ac4939dc1367fadaec98ac5a3fe628c734146c
+2026-10-16T17:55:56.0481708Z [install-e2e] a service stopped by hand is repaired by a rerun, and nothing else changes
+2026-10-16T17:56:00.0296372Z active
+2026-10-16T17:56:00.1251069Z conn 0: 2097152 bytes round-tripped, sha256=009778691a5a9b321919b0d0abe14dfa6fd84534088c6aa967a7e1b4e8e644df
+2026-10-16T17:56:00.1251906Z conn 1: 2097152 bytes round-tripped, sha256=4f5db820d2e8f09b68b01c6bbff7af296d7c349930e30b739755f6a743248865
+2026-10-16T17:56:00.1309533Z [install-e2e] a plan that changes things is refused without --yes
+2026-10-16T17:56:01.0368946Z inactive
+2026-10-16T17:56:05.0095492Z active
+2026-10-16T17:56:05.1097349Z conn 0: 2097152 bytes round-tripped, sha256=949ad70f080262ef48dd53054d618ba7b89cdb60205d20b47d11250011c4b59a
+2026-10-16T17:56:05.1098857Z conn 1: 2097152 bytes round-tripped, sha256=e065344b715c4e99a06f2df41db0c28cc03d1824c890b596b2369477e4e9cb36
+2026-10-16T17:56:05.1248594Z [install-e2e] upgrade: a plan that changes the install is refused without --yes
+2026-10-16T17:56:06.0326837Z [install-e2e] upgrade: --yes upgrades the binary, keeps every secret and config
+2026-10-16T17:56:15.1340657Z active
+2026-10-16T17:56:15.1341099Z active
+2026-10-16T17:56:15.2346037Z conn 1: 2097152 bytes round-tripped, sha256=b747e03737755b78f73d59e4c98728b1c17faa8783c37e1f2e8e5a110079afaa
+2026-10-16T17:56:15.2347487Z conn 0: 2097152 bytes round-tripped, sha256=3353ada660462684cc7f14fafa33f3f523d7f681578863d0af2b1472cf81582a
+2026-10-16T17:56:15.2500588Z [install-e2e] upgrade: the old release (the installer's own URL) is refused (downgrade) and nothing changes
+2026-10-16T17:56:15.4417994Z [install-e2e] upgrade to a release whose binary is broken (brokenv): rolled back
+2026-10-16T17:56:21.6433403Z active
+2026-10-16T17:56:21.6433827Z active
+2026-10-16T17:56:21.7385534Z conn 1: 2097152 bytes round-tripped, sha256=8ef9c353694fe4ef2af86ea98226da507b397a55666d372e0d7f69e69259ded6
+2026-10-16T17:56:21.7386929Z conn 0: 2097152 bytes round-tripped, sha256=7b25e5c7fa1b9792d4cd7ed3fe15d77c08ecffcc7714d4b7c6c8ec9599115ccf
+2026-10-16T17:56:21.7508096Z [install-e2e] upgrade to a release whose binary is broken (brokenr): rolled back
+2026-10-16T17:57:02.2199103Z active
+2026-10-16T17:57:02.2199558Z active
+2026-10-16T17:57:02.3153586Z conn 0: 2097152 bytes round-tripped, sha256=767f9ab624947731ac1a43d7649deeced698ae0ca849d7b2265deab58e2d1ced
+2026-10-16T17:57:02.3154764Z conn 1: 2097152 bytes round-tripped, sha256=28c12cd72522215f026fc21067beeb0611ad290910aa8ee93a1c944da9c55932
+2026-10-16T17:57:02.3210185Z [install-e2e] PASS
+2026-10-16T17:57:02.3373795Z Post job cleanup.
+2026-10-16T17:57:02.4693831Z Post job cleanup.
+2026-10-16T17:57:02.5596011Z [command]/usr/bin/git version
+2026-10-16T17:57:02.5640165Z git version 2.55.0
+2026-10-16T17:57:02.5693155Z Temporarily overriding HOME='/home/runner/work/_temp/dee483c3-df3d-4dec-b7a7-7a3044585e33' before making global git config changes
+2026-10-16T17:57:02.5694803Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-16T17:57:02.5716496Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/BAFT/BAFT
+2026-10-16T17:57:02.5756188Z Removing SSH command configuration
+2026-10-16T17:57:02.5763126Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-16T17:57:02.5817015Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-16T17:57:02.6062276Z Removing HTTP extra header
+2026-10-16T17:57:02.6069334Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-16T17:57:02.6108844Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-16T17:57:02.6366935Z Removing includeIf entries pointing to credentials config files
+2026-10-16T17:57:02.6376689Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-16T17:57:02.6438967Z includeif.gitdir:/home/runner/work/BAFT/BAFT/.git.path
+2026-10-16T17:57:02.6439907Z includeif.gitdir:/home/runner/work/BAFT/BAFT/.git/worktrees/*.path
+2026-10-16T17:57:02.6440924Z includeif.gitdir:/github/workspace/.git.path
+2026-10-16T17:57:02.6441864Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-16T17:57:02.6449863Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/BAFT/BAFT/.git.path
+2026-10-16T17:57:02.6478055Z /home/runner/work/_temp/git-credentials-6ab4a956-0801-41eb-950b-f8ec727bbb4f.config
+2026-10-16T17:57:02.6490951Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/BAFT/BAFT/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-6ab4a956\-0801\-41eb\-950b\-f8ec727bbb4f\.config
+2026-10-16T17:57:02.6536688Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/BAFT/BAFT/.git/worktrees/*.path
+2026-10-16T17:57:02.6571889Z /home/runner/work/_temp/git-credentials-6ab4a956-0801-41eb-950b-f8ec727bbb4f.config
+2026-10-16T17:57:02.6582896Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/BAFT/BAFT/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-6ab4a956\-0801\-41eb\-950b\-f8ec727bbb4f\.config
+2026-10-16T17:57:02.6622060Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-10-16T17:57:02.6649929Z /github/runner_temp/git-credentials-6ab4a956-0801-41eb-950b-f8ec727bbb4f.config
+2026-10-16T17:57:02.6657648Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-6ab4a956\-0801\-41eb\-950b\-f8ec727bbb4f\.config
+2026-10-16T17:57:02.6692964Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-16T17:57:02.6719606Z /github/runner_temp/git-credentials-6ab4a956-0801-41eb-950b-f8ec727bbb4f.config
+2026-10-16T17:57:02.6727667Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-6ab4a956\-0801\-41eb\-950b\-f8ec727bbb4f\.config
+2026-10-16T17:57:02.6766658Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-16T17:57:02.6993271Z Removing credentials config '/home/runner/work/_temp/git-credentials-6ab4a956-0801-41eb-950b-f8ec727bbb4f.config'
+2026-10-16T17:57:02.7156846Z Cleaning up orphan processes

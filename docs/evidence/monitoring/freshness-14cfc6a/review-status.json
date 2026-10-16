@@ -1,6 +1,6 @@
 {
   "reviews": [],
   "threads": [],
-  "observed": "Before final CI qualification; exact read timestamp not captured",
+  "observed": "2026-10-16 18:47:44 UTC (fresh final review read; initial read timestamp not captured)",
   "status": "No submitted review or review threads observed; not independent human approval."
 }

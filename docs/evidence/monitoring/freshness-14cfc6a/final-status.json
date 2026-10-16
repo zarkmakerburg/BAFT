@@ -1,0 +1,76 @@
+{
+  "observed": "2026-10-16 18:49:11 UTC",
+  "status": "SOURCE CONTENT QUALIFIED IN LINUX CI; DRAFT, NOT RELEASE ACCEPTANCE",
+  "source": "14cfc6a42186ece49393f5401b69ffa8046771c3",
+  "parent": "ae27cae89e7d88b7e6f75396105fe3c3b904b97f",
+  "tree": "86b8f2cc9a07e3ee3df6ddc628e7c5b7135ca2dd",
+  "tested_checkout": "5bc5a4ac79c13f878425f8042be634c41fa6a72b",
+  "tested_checkout_kind": "GitHub synthetic PR test merge; tree identical to source, not main merge",
+  "runs": [
+    {
+      "id": 38948263357,
+      "url": "https://github.com/zarkmakerburg/BAFT/actions/runs/38948263357",
+      "status": "completed",
+      "conclusion": "success",
+      "attempt": 1,
+      "head_sha": "14cfc6a42186ece49393f5401b69ffa8046771c3"
+    },
+    {
+      "id": 38948263379,
+      "url": "https://github.com/zarkmakerburg/BAFT/actions/runs/38948263379",
+      "status": "completed",
+      "conclusion": "success",
+      "attempt": 1,
+      "head_sha": "14cfc6a42186ece49393f5401b69ffa8046771c3"
+    },
+    {
+      "id": 38948263416,
+      "url": "https://github.com/zarkmakerburg/BAFT/actions/runs/38948263416",
+      "status": "completed",
+      "conclusion": "success",
+      "attempt": 1,
+      "head_sha": "14cfc6a42186ece49393f5401b69ffa8046771c3"
+    }
+  ],
+  "main_jobs": 15,
+  "main_jobs_success": 15,
+  "mandatory_test_steps": [
+    {
+      "name": "Race detector",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 26
+    },
+    {
+      "name": "Vet",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 27
+    },
+    {
+      "name": "Protocol fuzz smoke",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 28
+    }
+  ],
+  "bcc_package_seconds": {
+    "r3_correctness": 75.891,
+    "r3_race": 426.884,
+    "main_race": 431.488
+  },
+  "worker_reruns": 0,
+  "worker_cancels": 0,
+  "full_log_count": 17,
+  "full_log_characters": 3775868,
+  "mac_full_bcc": "UNKNOWN, final staged f39 result could not be retrieved",
+  "mac_raw_baseline_focused_intermediate": "NOT RECOVERED; actual earlier observations retained in ledger, no fabricated transcript",
+  "human_review": "none submitted at final read",
+  "browser_rendered_accessibility_performance": "NOT RUN",
+  "native_two_nodes": "OWNER-DEFERRED/OPEN",
+  "layered_health_sampler_alerts_history": "OUT OF SCOPE; no all-health-views claim",
+  "claim_id": 6221933471,
+  "release_promotion": false,
+  "main_merge": false,
+  "tag_release_deploy": false
+}

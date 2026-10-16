@@ -33,6 +33,11 @@ subsequent diagnostics use comm, not command. No production secret was read.
 An evidence-only apply_patch attempted delete/add on the same JSON path and was
 rejected before editing; an ordinary update patch corrected it. No product test
 or source file was changed by that failed evidence edit.
+Later optional inspection guessed alerts.go, assets/bcc-app.js and auth*.go
+paths that were absent; no source was changed. A raw /actions/jobs/ID metadata
+request was rejected400 by the connector's endpoint allowlist; an attempted
+JSON parse of that error also failed. Supported fetch_workflow_run_jobs was
+used afterwards. These are inspection/helper errors, not failed product tests.
 
 Read projections only: old/future telemetry without current independent
 evidence is UNKNOWN. A fresh TCP probe or authenticated agent poll can still

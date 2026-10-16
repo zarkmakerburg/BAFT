@@ -88,5 +88,17 @@
     "sha": "3a651468d1696a2e29f02d4e802a70aaab9ecbbb",
     "characters": 57880,
     "job": 117132809323
+  },
+  {
+    "key": "r3",
+    "sha": "6da3e666203f73960774cada1c650cc2babd54a6",
+    "characters": 41564,
+    "job": 117132807969
+  },
+  {
+    "key": "main",
+    "sha": "93465088f9ae8e3688e38cfda20ced81a246666f",
+    "characters": 3159096,
+    "job": 117132808822
   }
 ]

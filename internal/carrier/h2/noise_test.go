@@ -142,7 +142,7 @@ func TestNoiseSlowProbeBounded(t *testing.T) {
 	rk, _ := securityinternal.GenerateKeyPair()
 	phaseCh := make(chan string, 1)
 	h, err := HandlerWithNoise(nil, NoiseOptions{
-		Handshake: securityinternal.HandshakeConfig{Static: rk, PeerStatic: ik.Public},
+		Handshake:    securityinternal.HandshakeConfig{Static: rk, PeerStatic: ik.Public},
 		PeerIdentity: "test", HandshakeTimeout: 20 * time.Millisecond, MaxPending: 1,
 		OnHandshakeFailure: func(phase string) { phaseCh <- phase },
 	})
@@ -227,6 +227,31 @@ func TestOpenNoiseReportsTLSPhase(t *testing.T) {
 	case <-accepted:
 	case <-time.After(time.Second):
 		t.Fatal("server did not accept test connection")
+	}
+}
+
+func TestNoisePhaseTraceTLSFailureNotOverwrittenByIKWriteError(t *testing.T) {
+	trace := newNoisePhaseTrace()
+	trace.note("tls_handshake_start", "")
+	trace.note("tls_handshake_error", "")
+	trace.note("noise_ik_msg1_write", "")
+	trace.note("noise_ik_msg1_write_error", "")
+	got := trace.wrap(io.ErrClosedPipe, false, true)
+	if !strings.Contains(got.Error(), "phase=tls_handshake_error") {
+		t.Fatalf("consequential Noise failure overwrote TLS failure: %v", got)
+	}
+	for _, event := range []string{"tls_handshake_error@", "noise_ik_msg1_write_error@"} {
+		if !strings.Contains(got.Error(), event) {
+			t.Fatalf("timeline missing %s: %v", event, got)
+		}
+	}
+	if !errors.Is(got, io.ErrClosedPipe) {
+		t.Fatalf("transport cause not preserved: %v", got)
+	}
+	plain := newNoisePhaseTrace()
+	plain.note("noise_ik_msg1_write_error", "")
+	if got := plain.wrap(io.ErrClosedPipe, false, true).Error(); !strings.Contains(got, "phase=noise_ik_msg1_write_error") {
+		t.Fatalf("Noise-only failure mislabeled: %s", got)
 	}
 }
 

@@ -139,6 +139,8 @@ jobs:
           cache: false
       - name: Release dry run
         run: scripts/release/dry_run.sh
+      - name: Independent candidate provenance and tamper rejection
+        run: bash tests/release/provenance_check.sh
 
   third-party-licenses:
     # THIRD_PARTY_LICENSES.md must match the modules linked into the release

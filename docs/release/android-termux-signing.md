@@ -38,9 +38,9 @@ bash scripts/release/mobile_sign_termux.sh \
   "$HOME/baft-signing/keys/release-key.cert.json"
 ```
 
-The script refuses mismatched tag/commit, already signed or unexpected candidate contents, missing files, mismatched installer copies, untrusted root, and signing key/certificate mismatches (checked by `baft-release sign`). It signs using the existing BAFT signer, verifies the output using the pinned root and revocations, and produces `SHA256SUMS`, `manifest.json`, and `release-key.cert.json` under `candidate/dist/`.
+The script refuses mismatched tag/commit, already signed or unexpected candidate contents, missing files, mismatched installer copies, untrusted root, local tracked/untracked changes, and signing key/certificate mismatches (checked by `baft-release sign`). Before it reads the signing key, it runs `scripts/release/verify_candidate_provenance.sh`: this exports the approved Git commit into a fresh temporary source tree, rebuilds all Linux assets using the Go patch version declared in `go.mod`, and requires byte-for-byte agreement for all ten unsigned assets and the installer/trust files. The signer itself is compiled from another clean Git archive. It then signs and verifies the output using the pinned root and revocations, producing `SHA256SUMS`, `manifest.json`, and `release-key.cert.json` under `candidate/dist/`. Prepare/cache the pinned Go toolchain and dependencies before disconnecting the signing device.
 
-**Important:** This does not prove a GitHub artifact was built from the approved source. Confirm the approved tag, workflow run SHA, CI and artifact provenance independently before signing. Do not run arbitrary scripts bundled in the downloaded artifact. The local signer is built from the independently reviewed repository source.
+**Important:** A matching independent rebuild establishes source-to-binary reproducibility but does not prove GitHub workflow identity or that the user selected an authorized tag/run. Confirm the approved tag, workflow run SHA, CI and artifact origin separately before signing. Do not run arbitrary scripts bundled in the downloaded artifact. Source checkout must be clean; keep the candidate outside the checkout.
 
 ## After signing
 

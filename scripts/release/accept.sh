@@ -153,9 +153,13 @@ if [[ -n "$bundle" ]]; then
     for f in LICENSE COPYRIGHT THIRD_PARTY_LICENSES.md; do git show "$sha:$f" > "$work/notices/$f"; done
     notices=("$work/notices")
   fi
+  # Compare the tar stream inside the gzip wrapper: the archive is
+  # deterministic, but gzip implementations (GNU vs macOS) compress the same
+  # bytes differently. The bundle's own .sha256 still pins the published file.
   if scripts/release/offline_bundle.sh "$work/dist" "$work/revocations.json" "$work/install.sh" "$work/rebuilt" "${notices[@]}" >/dev/null 2>&1 &&
-     cmp -s "$bundle" "$work/rebuilt/$(basename "$bundle")"; then
-    row PASS "offline bundle" "byte-identical to a rebuild from the assets"
+     cmp -s <(gzip -dc "$bundle") <(gzip -dc "$work/rebuilt/$(basename "$bundle")") &&
+     (cd "$(dirname "$bundle")" && sha256sum --quiet -c "$(basename "$bundle").sha256"); then
+    row PASS "offline bundle" "contents byte-identical to a rebuild from the assets"
   else
     row FAIL "offline bundle" "differs from a rebuild (or revocations.json in the release repo changed since)"
   fi

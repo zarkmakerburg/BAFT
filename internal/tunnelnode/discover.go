@@ -155,8 +155,9 @@ func (m *Manager) Discover(ctx context.Context) DiscoveryReport {
 	}
 	for _, e := range entries {
 		n := e.Name()
-		// The agent's own unit and anything not named like a BAFT unit are not tunnels.
-		if discoverUnitRe.MatchString(n) && !strings.HasPrefix(n, "baft-agent") {
+		// The agent's and panel's own units and anything not named like a
+		// BAFT unit are not tunnels.
+		if discoverUnitRe.MatchString(n) && !strings.HasPrefix(n, "baft-agent") && !strings.HasPrefix(n, "baft-bcc") {
 			names[n] = true
 		}
 	}
@@ -164,7 +165,14 @@ func (m *Manager) Discover(ctx context.Context) DiscoveryReport {
 	for n := range names {
 		sorted = append(sorted, n)
 	}
-	sort.Strings(sorted)
+	// The primary goes first, so a node with many tunnels never loses it to
+	// the count or size limit ("baft-10.service" sorts before "baft.service").
+	sort.Slice(sorted, func(i, j int) bool {
+		if (sorted[i] == primary) != (sorted[j] == primary) {
+			return sorted[i] == primary
+		}
+		return sorted[i] < sorted[j]
+	})
 	for _, n := range sorted {
 		if len(rep.Instances) >= maxDiscoveredUnits {
 			rep.Truncated = true

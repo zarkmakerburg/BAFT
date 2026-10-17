@@ -1,6 +1,7 @@
 package installer_test
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"os"
 	"os/exec"
@@ -282,5 +283,201 @@ func TestPlanAgentOnly(t *testing.T) {
 	p = r.plan("--agent-only")
 	if p.action("agent token") != "replace" {
 		t.Fatalf("different token: %+v", p.Steps)
+	}
+}
+
+// --instance plans a separate tunnel next to an installed one: its own unit,
+// config and key, while the installed tunnel's files are left alone.
+func TestPlanSecondInstance(t *testing.T) {
+	r := newPlanRig(t)
+	r.installed(true)
+	r.mark("active.baft.service")
+	r.mark("enabled.baft.service")
+	var env []string
+	for _, e := range r.env {
+		if !strings.HasPrefix(e, "BAFT_CONFIG_DIR=") && !strings.HasPrefix(e, "BAFT_STATE_DIR=") {
+			env = append(env, e)
+		}
+	}
+	r.env = env
+	p := r.plan("--role", "ir", "--instance", "2")
+	if p.State != "FRESH_INSTALL" {
+		t.Fatalf("second instance state = %s, want FRESH_INSTALL: %+v", p.State, p.Steps)
+	}
+	var unit string
+	for _, s := range p.Steps {
+		if s.Item == "systemd unit" {
+			unit = s.Detail
+		}
+	}
+	if !strings.HasSuffix(unit, "/baft-2.service") {
+		t.Fatalf("second instance unit = %q, want .../baft-2.service", unit)
+	}
+	if a := p.action("baft binary"); a == "create" {
+		t.Fatalf("the shared baft binary is planned as %q", a)
+	}
+}
+
+// TestTwentyInstances adds twenty extra tunnels to one server, one after the
+// other, with the installer's own helpers: each gets its own name, config
+// directory, unit and local ports, and none repeats.
+func TestTwentyInstances(t *testing.T) {
+	d := t.TempDir()
+	script := `set -euo pipefail
+die() { echo "DIE $*"; exit 1; }; ok() { :; }; bcc_port_busy() { return 1; }
+eval "$(sed -n '/^next_instance_name()/,/^}/p;/^live_reservations_raw()/,/^}/p;/^live_reservations()/p;/^free_local_port()/,/^}/p;/^apply_instance()/,/^}/p;/^keep_local_listens()/,/^}/p;/^config_fact()/,/^}/p;/^reserved_instance()/p' "$1")"
+BASE="$2/etc/baft"; BAFT_SYSTEMD_DIR="$2/sysd"; BAFT_RESERVE_FILE="$2/instances"; mkdir -p "$BASE" "$BAFT_SYSTEMD_DIR"
+printf 'routes:\n  - listen: 127.0.0.1:1443\nmetrics_listen: 127.0.0.1:9191\n' >"$BASE/baft.yaml"
+for i in $(seq 20); do
+  BAFT_CONFIG_DIR=$BASE BAFT_SERVICE=baft BAFT_STATE_DIR="$2/state/baft" BAFT_BASE_CONFIG_DIR=
+  EXPL_INSTANCE_VARS= EXPL_ROUTE= EXPL_METRICS=
+  BAFT_INSTANCE=$(next_instance_name); apply_instance
+  mkdir -p "$BAFT_CONFIG_DIR"
+  printf 'routes:\n  - listen: "%s"\nmetrics_listen: %s\n' "$BAFT_ROUTE_LISTEN" "$BAFT_METRICS_LISTEN" >"$CONFIG"
+  touch "$UNIT_FILE"
+  echo "$BAFT_SERVICE $BAFT_CONFIG_DIR $BAFT_ROUTE_LISTEN $BAFT_METRICS_LISTEN"
+done`
+	out, err := exec.Command("bash", "-c", script, "x", filepath.Join("..", "..", "install.sh"), d).CombinedOutput()
+	if err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	if len(lines) != 20 {
+		t.Fatalf("got %d tunnels, want 20:\n%s", len(lines), out)
+	}
+	seen := map[string]bool{"127.0.0.1:1443": true, "127.0.0.1:9191": true}
+	for _, l := range lines {
+		f := strings.Fields(l)
+		if len(f) != 4 || !strings.HasPrefix(f[1], d) {
+			t.Fatalf("bad tunnel line %q", l)
+		}
+		for _, v := range f {
+			if seen[v] {
+				t.Fatalf("%q is used twice:\n%s", v, out)
+			}
+			seen[v] = true
+		}
+	}
+}
+
+// installerHelpers runs a bash snippet with the installer's small pure helpers
+// loaded and returns its output.
+func installerHelpers(t *testing.T, snippet string, args ...string) string {
+	t.Helper()
+	script := `set -euo pipefail
+die() { echo "DIE $*"; exit 1; }; warn() { :; }; bcc_port_busy() { return 1; }
+eval "$(sed -n '/^clean_code()/p;/^to_ascii_digits()/p;/^normalize_ports()/,/^}/p;/^ports_problem()/,/^}/p;/^pairing_code_field()/,/^}/p;/^pairing_code_problem()/,/^}/p;/^config_fact()/,/^}/p;/^ex_config_defaults()/,/^}/p;/^pending_psk()/,/^}/p;/^reserved_instance()/p' "$1")"
+shift
+` + snippet
+	out, err := exec.Command("bash", append([]string{"-c", script, "x", filepath.Join("..", "..", "install.sh")}, args...)...).CombinedOutput()
+	if err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func TestInstallerCodeAndPortHelpers(t *testing.T) {
+	body := `{"v":1,"address":"203.0.113.9:443","one_time_psk":"cHNr","expires_unix":4102444800,"ports":[443,2053]}`
+	code := "BAFTPAIR1:" + strings.TrimRight(base64.URLEncoding.EncodeToString([]byte(body)), "=")
+	// A code pasted from a phone: spaces, a line break and invisible marks.
+	pasted := " " + code[:20] + "\u200f\n" + code[20:] + " \u200b"
+	if got := installerHelpers(t, `clean_code "$1"`, pasted); got != code {
+		t.Fatalf("clean_code = %q, want %q", got, code)
+	}
+	if got := installerHelpers(t, `pairing_code_field "$1" address; pairing_code_field "$1" ports; pairing_code_problem "$1"`, code); got != "203.0.113.9:443\n443,2053" {
+		t.Fatalf("code fields = %q", got)
+	}
+	expired := "BAFTPAIR1:" + strings.TrimRight(base64.URLEncoding.EncodeToString([]byte(`{"v":1,"address":"a:1","expires_unix":1}`)), "=")
+	for c, want := range map[string]string{expired: "expired", "BAFTREPLY1:abc": "not a pairing code", code[:40]: "incomplete"} {
+		if got := installerHelpers(t, `pairing_code_problem "$1"`, c); !strings.Contains(got, want) {
+			t.Fatalf("pairing_code_problem(%q) = %q, want %q", c, got, want)
+		}
+	}
+	for in, want := range map[string]string{
+		"443, 2053": "", "none": "", "۴۴۳،۲۰۵۳": "", "443,443": "listed twice", "70000": "not a port",
+		"22": "port 22", "443;2053": "comma-separated", "8443": "tunnel port",
+	} {
+		got := installerHelpers(t, `ROLE=ex BAFT_PORT=8443; ports_problem "$1"`, in)
+		if (want == "") != (got == "") || !strings.Contains(got, want) {
+			t.Fatalf("ports_problem(%q) = %q, want %q", in, got, want)
+		}
+	}
+	if got := installerHelpers(t, `normalize_ports "$1"`, "۴۴۳، 2053"); got != "443,2053" {
+		t.Fatalf("normalize_ports = %q", got)
+	}
+	for _, n := range []string{"bcc", "agent", "net", "panel", "uninstall", "agent-2"} {
+		if got := installerHelpers(t, `reserved_instance "$1" && echo reserved`, n); got != "reserved" {
+			t.Fatalf("instance name %q is not refused", n)
+		}
+	}
+	if got := installerHelpers(t, `reserved_instance "$1" || echo ok`, "2"); got != "ok" {
+		t.Fatal("instance name 2 is refused")
+	}
+	d := t.TempDir()
+	cfg := filepath.Join(d, "baft.yaml")
+	os.WriteFile(cfg, []byte(`{"peer":{"address":"203.0.113.9:443"},"server":{"listen":"0.0.0.0:2083","server_name":"203.0.113.9"},
+"routes":[{"id":"main","listen":"127.0.0.1:1450"},{"id":"port-443","listen":"0.0.0.0:443","public":true}],"management":{"metrics_listen":"127.0.0.1:9200"}}`), 0o644)
+	if got := installerHelpers(t, `config_fact "$1" peer; config_fact "$1" route; config_fact "$1" metrics; config_fact "$1" public; ex_config_defaults "$1"`, cfg); got != "203.0.113.9:443\n127.0.0.1:1450\n127.0.0.1:9200\n443\n2083\n203.0.113.9\n443" {
+		t.Fatalf("config facts = %q", got)
+	}
+}
+
+// TestConcurrentInstances runs twelve installer allocations at the same time
+// on one server: the lock and the reservations keep every name and local port
+// distinct, even before any of them has created its folders.
+func TestConcurrentInstances(t *testing.T) {
+	if _, err := exec.LookPath("flock"); err != nil {
+		t.Skip("flock is not installed")
+	}
+	d := t.TempDir()
+	script := `set -euo pipefail
+die() { echo "DIE $*"; exit 1; }; ok() { :; }; bcc_port_busy() { return 1; }
+eval "$(sed -n '/^next_instance_name()/,/^}/p;/^live_reservations_raw()/,/^}/p;/^live_reservations()/p;/^free_local_port()/,/^}/p;/^apply_instance()/,/^}/p;/^allocate_instance()/,/^}/p;/^keep_local_listens()/,/^}/p;/^config_fact()/,/^}/p;/^reserved_instance()/p' "$1")"
+BASE="$2/etc/baft"; BAFT_SYSTEMD_DIR="$2/sysd"; BAFT_RESERVE_FILE="$2/lock/instances"
+mkdir -p "$BASE" "$BAFT_SYSTEMD_DIR"
+printf '{"routes":[{"listen":"127.0.0.1:1443"}],"management":{"metrics_listen":"127.0.0.1:9191"}}' >"$BASE/baft.yaml"
+for i in $(seq 12); do
+  (
+    BAFT_CONFIG_DIR=$BASE BAFT_SERVICE=baft BAFT_STATE_DIR="$2/state/baft" BAFT_BASE_CONFIG_DIR=
+    EXPL_INSTANCE_VARS= EXPL_ROUTE= EXPL_METRICS= PLAN_ONLY=0 NEW_INSTANCE=1 BAFT_INSTANCE=
+    allocate_instance "$BASHPID"
+    sleep 0.$((RANDOM % 5))   # the folders come later, as in a real run
+    mkdir -p "$BAFT_CONFIG_DIR"
+    printf '{"routes":[{"listen":"%s"}],"management":{"metrics_listen":"%s"}}' "$BAFT_ROUTE_LISTEN" "$BAFT_METRICS_LISTEN" >"$CONFIG"
+    echo "$BAFT_SERVICE $BAFT_CONFIG_DIR $BAFT_ROUTE_LISTEN $BAFT_METRICS_LISTEN"
+  ) &
+done
+wait`
+	out, err := exec.Command("bash", "-c", script, "x", filepath.Join("..", "..", "install.sh"), d).CombinedOutput()
+	if err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	if len(lines) != 12 {
+		t.Fatalf("got %d tunnels, want 12:\n%s", len(lines), out)
+	}
+	seen := map[string]bool{"127.0.0.1:1443": true, "127.0.0.1:9191": true}
+	for _, l := range lines {
+		for _, v := range strings.Fields(l) {
+			if seen[v] {
+				t.Fatalf("%q was given to two tunnels at once:\n%s", v, out)
+			}
+			seen[v] = true
+		}
+	}
+}
+
+func TestFreeTunnelPortFailsClosed(t *testing.T) {
+	script := `eval "$(sed -n '/^free_tunnel_port()/,/^}/p' "$1")"
+bcc_port_busy() { return 0; }
+if p="$(free_tunnel_port)"; then echo "got $p"; else echo "none:$p"; fi
+bcc_port_busy() { [[ "$1" == 443 ]]; }
+free_tunnel_port`
+	out, err := exec.Command("bash", "-c", script, "x", filepath.Join("..", "..", "install.sh")).CombinedOutput()
+	if err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	if got := strings.TrimSpace(string(out)); got != "none:\n8443" {
+		t.Fatalf("free_tunnel_port = %q, want no port when all are busy, then 8443", got)
 	}
 }

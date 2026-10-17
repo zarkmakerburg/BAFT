@@ -82,6 +82,19 @@ sudo bash install.sh --offline . --role ir --pairing-code 'BAFTPAIR1:...'
 
 `--offline` uses no network and no `apt`; `python3`, `openssl` and `sha256sum` must already be installed. The release inside is verified exactly as an online install. See [Signed releases](../23-p1a-signed-releases.md).
 
+## Adding a second outside server to an Iran server that already has BAFT
+
+One Iran server can connect to several outside servers. Each tunnel has its own service, folders and local ports, and the tunnel already running is not touched.
+
+- **Over SSH from the new outside server:** run the installer on the new outside server and choose "Over SSH". The Iran server sees that it is already paired and builds the new tunnel separately.
+- **By hand:** run the same line on the Iran server. It asks "BAFT already runs a tunnel on this server"; choose 1 (Add another tunnel) and give the pairing code. With the code on the command line it builds the separate tunnel without asking:
+
+```bash
+curl -Ls https://raw.githubusercontent.com/zarkmakerburg/baft/main/install.sh | sudo bash -s -- --role ir --pairing-code 'BAFTPAIR1:...'
+```
+
+The second tunnel is the service `baft-2` with `/etc/baft-2` and `/var/lib/baft-2` (then `baft-3`, `baft-4` and so on, with no limit). `--instance NAME` picks the name yourself. The ports the Iran server serves publicly must not repeat between tunnels; the installer warns if they do. To remove an extra tunnel: `sudo systemctl disable --now baft-2`, then delete its folders and `/etc/systemd/system/baft-2.service`.
+
 ## Running the installer again
 
 Running the same line again is safe: it inspects the server, shows a plan, changes only what is listed and rolls back on failure. It never rotates keys or re-pairs on its own. See [Update, backup, uninstall](05-update-backup-uninstall.md) and [The rerunnable installer](../33-rerunnable-installer.md).

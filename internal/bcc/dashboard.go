@@ -281,9 +281,11 @@ async function loadTunnelEngines(){
  const requestSeq=++tlCatalogRequestSeq;
  const requestToken=token();
  const grid=q('#tlCatalog'),summary=q('#tlSummary');if(!grid||!summary)return;
- if(!token()){grid.replaceChildren();summary.textContent=tnWizardText('Sign in to list trusted tunnel capabilities.','برای دیدن قابلیت‌های معتبر تونل وارد شوید.');return}
+ grid.replaceChildren(); // Fail closed while current capabilities are being refreshed.
+ summary.textContent=tnWizardText('Checking supported drivers…','در حال بررسی موتورهای پشتیبانی‌شده…');
+ if(!requestToken){grid.replaceChildren();summary.textContent=tnWizardText('Sign in to list trusted tunnel capabilities.','برای دیدن قابلیت‌های معتبر تونل وارد شوید.');return}
  try {
-  const r=await fetch('/api/tunnel-engines',{method:'GET',headers:ah()});
+  const r=await fetch('/api/tunnel-engines',{method:'GET',headers:{Authorization:'Bearer '+requestToken,'Content-Type':'application/json'}});
   if(!r.ok)throw new Error('HTTP '+r.status);
   const caps=await r.json();
   // Only the newest request may mutate catalog UI, including after logout.

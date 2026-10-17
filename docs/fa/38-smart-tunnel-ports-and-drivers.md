@@ -1,3 +1,5 @@
+<div dir="rtl" align="right" lang="fa">
+
 # ساخت تونل BAFT → ساخت کانفیگ سنایی (نیازمندی HQ، مهر ۱۴۰۵)
 
 ## جریان عملیاتی تأییدشده
@@ -25,3 +27,5 @@
 | 4 | Reverse TCP/UDP، Backhaul/Reality/GRE/Hashem براساس امکان واقعی و تست میدانی | هر مورد engine واقعی یا composite recipe با برچسب درست، نه یک گزینهٔ ساختگی در select |
 
 **گیت انتشار:** هر موتور تا زمان اتمام مسیر نصب/حذف، host/service restart persistence، error classification، conflict check، rollback، test-on-two-nodes، licensing و signed-package verification در رابط غیرفعال می‌ماند. هیچ موتور جدیدی نباید با نام BAFT Secure پنهان شده یا TCP را «شبیه مرورگر» معرفی کند مگر شواهد تأیید کند. مسیر فعلی v0.3.3 و تونل‌های زنده بدون تغییر می‌مانند تا نسخهٔ جدید امضا و rollout کنترل‌شده انجام شود.
+
+</div>

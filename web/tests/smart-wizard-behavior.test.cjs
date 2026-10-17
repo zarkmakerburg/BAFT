@@ -8,7 +8,7 @@ const src=fs.readFileSync(path.resolve(__dirname,'../../internal/bcc/dashboard.g
 const js=src.slice(src.indexOf('<script>')+8,src.indexOf('</script>'));
 function fn(from,to){const start=js.indexOf(from),end=js.indexOf(to,start);assert.ok(start>=0&&end>start);return js.slice(start,end)}
 function context(fields,prelude){
- const c={q:selector=>({get value(){return fields[selector.slice(1)]},set value(v){fields[selector.slice(1)]=v},get checked(){return fields[selector.slice(1)]},set checked(v){fields[selector.slice(1)]=v}}),document:{documentElement:{lang:'fa'}},alert(){},tnClearPlan(){},console};
+ const c={q:selector=>({get value(){return fields[selector.slice(1)]},set value(v){fields[selector.slice(1)]=v},get checked(){return fields[selector.slice(1)]},set checked(v){fields[selector.slice(1)]=v},get textContent(){return fields[selector.slice(1)]},set textContent(v){fields[selector.slice(1)]=v}}),document:{documentElement:{lang:'fa'}},alert(){},tnClearPlan(){},console};
  vm.createContext(c);vm.runInContext(prelude,c);return c;
 }
 const req=fn('function tnReq()','function tnModeChanged()');
@@ -43,4 +43,31 @@ test('public IR ingress acknowledgement is required before review',()=>{
  assert.equal(vm.runInContext('tnWizardValidateStep(2)',c),false);
  fields.tnIngressConfirm=true;
  assert.equal(vm.runInContext('tnWizardValidateStep(2)',c),true);
+});
+test('random Xray port avoids active EX inventory and maps only EX service target',()=>{
+ const fields={...defaults,tnXrayPort:'2443',tnPort:'20001'};
+ const c=context(fields,
+  'let tnClearPlan=()=>{};const tnWizardText=(en,fa)=>fa;'+
+  'const tnWizardActive=t=>t.phase==="active";'+
+  'let tnWizardTunnels='+JSON.stringify([
+    {ex_node:'ex-de-1',phase:'active',port:2053,target:'127.0.0.1:20002',ex_metrics_listen:'127.0.0.1:9202'},
+    {ex_node:'ex-other',phase:'active',target:'127.0.0.1:20003'}
+  ])+';'+
+  fn('function tnWizardTargetSync()','function tnWizardIngressChanged()'));
+ let index=0;
+ const samples=[1,2,4]; // 20001 used as BAFT port, 20002 used Xray port, 20004 accepted.
+ c.crypto={getRandomValues(bytes){bytes[0]=samples[index++];return bytes}};
+ vm.runInContext('tnWizardGenerateXrayPort()',c);
+ assert.equal(fields.tnXrayPort,'20004');
+ assert.equal(fields.tnTarget,'127.0.0.1:20004');
+ assert.equal(fields.tnPort,'20001');
+ assert.match(fields.tnXrayPortHint,/پیشنهادی/);
+ assert.equal(index,3);
+});
+test('manual Xray port entry stays authoritative and generator does not configure Xray',()=>{
+ const fields={...defaults,tnXrayPort:'53001'};
+ const c=context(fields,'let tnClearPlan=()=>{};'+fn('function tnWizardTargetSync()','function tnWizardGenerateXrayPort()'));
+ vm.runInContext('tnWizardTargetSync()',c);
+ assert.equal(fields.tnTarget,'127.0.0.1:53001');
+ assert.equal(fields.tnPort,'8444');
 });

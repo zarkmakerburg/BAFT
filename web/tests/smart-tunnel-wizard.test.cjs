@@ -51,3 +51,25 @@ test('wizard js compiles and does not introduce inline secrets or unmanaged engi
  new vm.Script(js);
  assert.doesNotMatch(js.slice(js.indexOf('function tnWizardText('),js.indexOf("let tnPlanHash=''")),/fetch\(|localStorage|private_key/);
 });
+test('manual-or-random Xray port follows explicit external Sanaei/3x-ui setup',()=>{
+ assert.match(html,/id="tnGenerateXrayPort"/);
+ assert.match(html,/onclick="tnWizardGenerateXrayPort\(\)"/);
+ assert.match(html,/Generate random/);
+ assert.match(html,/تولید تصادفی/);
+ assert.match(html,/3x-ui/);
+ assert.match(html,/دقیقاً با همان پورت/);
+ assert.match(js,/crypto\.getRandomValues\(bytes\)/);
+ assert.match(js,/function tnWizardGenerateXrayPort\(/);
+ assert.match(js,/let n=Number\(q\('#tnXrayPort'\)\.value\)/);
+ assert.match(js,/q\('#tnTarget'\)\.value='127\.0\.0\.1:'\+n/);
+ assert.match(js,/Xray or IR public listener is created by BAFT/);
+ const request=js.slice(js.indexOf('function tnReq()'),js.indexOf('function tnModeChanged()'));
+ assert.doesNotMatch(request,/tnGenerateXrayPort|tnUserProtocol|tnClientPort/);
+});
+
+test('new tunnel starts with an explicit user-chosen Xray port, never silently uses a default',()=>{
+ assert.match(html,/id="tnXrayPort"[^>]+placeholder="e.g. 2443"/);
+ assert.doesNotMatch(html,/id="tnXrayPort"[^>]+value="2443"/);
+ assert.match(js,/q\('#tnTarget'\)\.value='';q\('#tnXrayPort'\)\.value=''/);
+ assert.match(js,/const raw=String\(q\('#'\+id\)\.value\)\.trim\(\),n=Number\(raw\)/);
+});

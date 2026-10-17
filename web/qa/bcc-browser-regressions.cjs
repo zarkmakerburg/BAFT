@@ -57,6 +57,9 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
       const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1);
       await page.screenshot({path:path.join(dir,label+'.png'),fullPage:true,animations:'disabled'});
+      if(overflow){
+        result.layout??={};result.layout[label]=await page.evaluate(()=>({viewport:innerWidth,width:document.documentElement.scrollWidth,offenders:[...document.querySelectorAll('#main *')].map(n=>({tag:n.tagName,id:n.id,classes:n.className,rect:n.getBoundingClientRect().toJSON()})).filter(n=>n.rect.width>0&&(n.rect.right>innerWidth+1||n.rect.left< -1)).slice(0,25)}));
+      }
       assert.equal(overflow,false,'document has horizontal overflow');
     };
     const openNav=async()=>{
@@ -96,6 +99,7 @@ async function runProfile(browser,[name,viewport,lang,theme]){
         const card=detail.locator('.ops-card');await card.waitFor({state:'visible'});
         assert.equal(await card.evaluate(c=>c.hidden),false);cards.add(await detail.getAttribute('data-tool'));
       }
+      assert.equal((await page.locator('#main').textContent()).includes('0001-01-01'),false,'unset timestamps must not appear as real observations');
       await shot(route);result.pages.push(route);
     });
     result.cards=[...cards].sort();
@@ -110,6 +114,7 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       assert.equal(await studio.evaluate(d=>d.open),true);
       assert.equal(apiRequests.filter(x=>x.method!=='GET').length,before);
       assert.equal(await page.locator('#ops_tnEngine').inputValue(),'baft');
+      assert.equal(await page.locator('.tnWizardSteps .selected').evaluate(n=>getComputedStyle(n).color),await page.locator('body').evaluate(n=>getComputedStyle(n).color),'active step must use the current theme text color');
       assert.equal(await page.locator('#ops_tnEngine option[value="frp"]').isDisabled(),true);
       assert.equal(await page.locator('#ops_tnDirection option[value="ex-to-ir"]').isDisabled(),true);
     });
@@ -173,12 +178,14 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       await nav('tunnels');await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await page.locator('.tlTile').first().evaluate(n=>getComputedStyle(n).transitionDuration),'0s');await shot('reduced-motion');
     });
     await check('real logout and unauthenticated catalog',async()=>{
-      await openNav();
+      await page.locator('#avatar').click();
+      await page.locator('#userPop').waitFor({state:'visible'});
       await Promise.all([page.waitForURL(f.base),page.locator('#logout').click()]);
       assert.equal(await page.locator('#app').isHidden(),true);assert.equal(await page.locator('.ops-card').count(),0);
       assert.equal((await ctx.request.get(f.base+'api/tunnel-engines')).status(),401);
     });
     await check('expired session removes operational UI',async()=>{
+      await ctx.clearCookies(); // This case must also run when the logout check failed.
       await page.goto(f.base+'login');await page.locator('#loginUsername').fill(f.username);await page.locator('#loginPassword').fill(f.password);
       await Promise.all([page.waitForURL(f.base),page.locator('#loginForm [type="submit"]').click()]);await page.locator('#app').waitFor({state:'visible'});
       await ctx.clearCookies();

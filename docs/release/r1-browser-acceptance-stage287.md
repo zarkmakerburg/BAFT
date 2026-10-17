@@ -77,6 +77,43 @@ regressions from Stage284 retain the separate signed-job/ACK/lifecycle proof.
 
 ## Evidence and acceptance
 
+The first complete diagnostic run, UI workflow `39025580527`, browser job
+`117375819876`, used Chromium `156.0.8078.4` on source
+`18b094bce9b0c305389fc0e5070f32bdc0e83f50`. It executed all eight profiles and
+mounted all 17 cards in each. Desktop checked 10/10 pages; mobile checked 9/10
+because Tunnels overflowed. Artifact `12098746696` contains 116 PNGs and the
+summary; ZIP SHA-256 is
+`56be02a6763c641b5e66fc43fe5c2159cf259ef8a3476e53788bf84bca3a1f5f`.
+This was a failing diagnostic, not acceptance: 36 failure records include
+shared causes and cascading checks rather than 36 independent product defects.
+
+The diagnostic reproduced horizontal overflow on all four mobile profiles:
+the 390px viewport expanded to 513/515px on Tunnels, and the reviewed plan
+expanded to 923px. Grid items retained intrinsic minimum widths and the gates
+table lacked its own scrolling wrapper. The bounded correction gives the
+operation/tool grids shrinkable columns/items, constrains native selects and
+wraps the plan table with the existing horizontal table scroller. It preserves
+all columns and does not hide document overflow to make the check pass.
+
+Visual inspection also found the selected wizard step almost white on the
+light theme. Native wizard color variables now resolve to Aurora's active
+theme tokens. The browser checks the selected-step text against the current
+theme text color. Direction chips and the destination port picker receive
+the body-only embed styles they were missing.
+
+The discovery table also displayed Go's unset timestamp `0001-01-01…` as if it
+were an observation. It now uses the existing not-run state for an absent,
+invalid or year-one timestamp. Page assertions reject that sentinel in rendered
+observations.
+
+Two harness corrections are separate from product changes: mobile navigation
+opens the drawer using its expanded state, and logout first opens the account
+popover. The expiry case starts independently of logout success. The late
+catalog test awaits the old response's completion before checking the UI;
+diagnostic overflow geometry and per-profile notices improve failure evidence.
+Fresh browser execution on the corrected source is still required. Its outcome
+is recorded on #67 rather than assumed from this diagnostic.
+
 The artifact contains PNG screenshots and `summary.json` with browser version,
 source SHA, executed profiles/pages/cards/checks, plan gate outcomes and scrubbed
 failures. Logs do not substitute for visual inspection of the screenshots.

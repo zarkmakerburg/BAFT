@@ -823,7 +823,11 @@ func (s *Store) ApplyTelemetry(token,signature string,body []byte,report telemet
 		NodeHealth:nodeState.Health,LatencyMS:nodeState.LatencyMS,Routes:routes,
 	}
 	h:=s.st.History[report.NodeID]
-	cutoff:=ts.Add(-7*24*time.Hour)
+	// Retain a delayed report's preceding event-time window, but never let
+	// a node clock ahead of BCC erase otherwise recent persisted history.
+	retentionAt:=ts
+	if now:=time.Now().UTC();retentionAt.After(now){retentionAt=now}
+	cutoff:=retentionAt.Add(-7*24*time.Hour)
 	keep:=h[:0]
 	for _,p:=range h { if !p.Timestamp.Before(cutoff) { keep=append(keep,p) } }
 	keep=append(keep,point)

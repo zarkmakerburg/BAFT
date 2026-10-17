@@ -37,10 +37,10 @@ tag=${1:?usage: accept.sh <tag> [owner/repo]}
 repo=${2:-zarkmakerburg/baft}
 GH=${ACCEPT_GH:-gh}
 remote=${ACCEPT_REMOTE:-origin}
-# workflow file : required jobs ('?' = only when that workflow ran at all,
-# because it is path-filtered)
-ci_jobs="test release-dry-run e2e-binaries e2e-install e2e-install-release e2e-agent-enroll e2e-ssh-bootstrap e2e-launch1"
-ci_optional="r3"   # in .github/workflows/r2-noise.yml, path-filtered
+# All current CI jobs are release gates, including installer/schema/license
+# checks. Independent security and R3 are mandatory; dispatch R3 at the exact
+# candidate SHA when the PR path/base filter did not run it automatically.
+ci_jobs="test release-dry-run e2e-binaries e2e-install e2e-install-release e2e-agent-enroll e2e-ssh-bootstrap e2e-launch1 third-party-licenses e2e-bcc-install e2e-bcc-schema-upgrade e2e-install-ssh e2e-install-offline e2e-uninstall installer-faults"
 
 fails=0
 row() { printf '%-6s %-28s %s\n' "$1" "$2" "$3"; [[ "$1" == FAIL ]] && fails=$((fails + 1)); }
@@ -65,9 +65,9 @@ row INFO "tag" "$tag -> $sha"
 if git merge-base --is-ancestor "$sha" refs/accept/main; then row PASS "on main" "commit is on $remote/main"; else row FAIL "on main" "commit is NOT on $remote/main"; fi
 
 # 2. CI evidence from workflow runs of the intended workflow files.
-python3 - "$GH" "$repo" "$sha" "$ci_jobs" "$ci_optional" >"$work/ci.out" 2>"$work/ci.err" <<'PY'
+python3 - "$GH" "$repo" "$sha" "$ci_jobs" >"$work/ci.out" 2>"$work/ci.err" <<'PY'
 import json, subprocess, sys
-gh, repo, sha, jobs, optional = sys.argv[1:6]
+gh, repo, sha, jobs = sys.argv[1:5]
 def api(path):
     r = subprocess.run([gh, "api", path], capture_output=True, text=True)
     if r.returncode != 0:
@@ -80,6 +80,10 @@ def runs_for(path):
 def job_row(run, name, workflow):
     if run.get("status") != "completed":
         return ("FAIL", name, f"{workflow} run #{run['run_number']} is {run.get('status')}")
+    if run.get("conclusion") != "success":
+        return ("FAIL", name, f"{workflow} run #{run['run_number']} concluded {run.get('conclusion')}")
+    if name == "workflow":
+        return ("PASS", name, f"{workflow} run #{run['run_number']} completed successfully on {sha}")
     js = api(f"repos/{repo}/actions/runs/{run['id']}/jobs?filter=latest&per_page=100").get("jobs", [])
     cand = [j for j in js if j.get("name") == name]
     if not cand:
@@ -90,18 +94,18 @@ def job_row(run, name, workflow):
     return ("FAIL", name, f"{j.get('status')}/{j.get('conclusion')} in {workflow} run #{run['run_number']}")
 try:
     run = runs_for(".github/workflows/ci.yml")
-    for name in jobs.split():
+    for name in ["workflow", *jobs.split()]:
         if run is None:
             print("FAIL", f"ci: {name}", "no ci.yml workflow run for this commit", sep="\t")
         else:
             s, n, d = job_row(run, name, "ci.yml")
             print(s, f"ci: {n}", d, sep="\t")
-    orun = runs_for(".github/workflows/r2-noise.yml")
-    for name in optional.split():
-        if orun is None:
-            print("INFO", f"ci: {name}", "r2-noise.yml did not run on this commit (path-filtered)", sep="\t")
+    for path, name in [(".github/workflows/static-analysis.yml", "gosec"), (".github/workflows/r2-noise.yml", "r3")]:
+        independent = runs_for(path)
+        if independent is None:
+            print("FAIL", f"ci: {name}", f"no {path} workflow run for this commit", sep="\t")
         else:
-            s, n, d = job_row(orun, name, "r2-noise.yml")
+            s, n, d = job_row(independent, name, path)
             print(s, f"ci: {n}", d, sep="\t")
 except Exception as e:
     print("FAIL", "ci", f"cannot read workflow runs: {e}", sep="\t")
@@ -120,22 +124,6 @@ while IFS=$'\t' read -r id name; do
   "$GH" api -H 'Accept: application/octet-stream' "repos/$repo/releases/assets/$id" > "$work/rel/$name" 2>/dev/null || row FAIL "asset $name" "download failed"
 done <<<"$assets"
 bundle=$(ls "$work"/rel/baft-offline-*.tar.gz 2>/dev/null | head -n1)
-if [[ -n "$bundle" ]]; then
-  python3 - "$GH" "$repo" "$sha" >"$work/off.out" <<'PY'
-import json, subprocess, sys
-gh, repo, sha = sys.argv[1:4]
-r = subprocess.run([gh, "api", f"repos/{repo}/actions/runs?head_sha={sha}&per_page=100"], capture_output=True, text=True)
-rs = [x for x in json.loads(r.stdout or "{}").get("workflow_runs", []) if x.get("path") == ".github/workflows/ci.yml"]
-run = max(rs, key=lambda x: (x["run_number"], x.get("run_attempt", 0)), default=None)
-if not run:
-    print("FAIL\tci: e2e-install-offline\tno ci.yml run"); sys.exit()
-js = json.loads(subprocess.run([gh, "api", f"repos/{repo}/actions/runs/{run['id']}/jobs?filter=latest&per_page=100"], capture_output=True, text=True).stdout or "{}").get("jobs", [])
-c = [j for j in js if j.get("name") == "e2e-install-offline"]
-ok = c and c[-1].get("status") == "completed" and c[-1].get("conclusion") == "success"
-print(("PASS" if ok else "FAIL") + "\tci: e2e-install-offline\t" + (f"success in ci.yml run #{run['run_number']}" if ok else "missing or not successful"))
-PY
-  while IFS=$'\t' read -r st name detail; do row "$st" "$name" "$detail"; done <"$work/off.out"
-fi
 
 mkdir -p "$work/dist"
 # License and third-party notices are published next to the signed files but

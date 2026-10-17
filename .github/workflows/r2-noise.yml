@@ -13,7 +13,9 @@ permissions:
 jobs:
   r3:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Includes complete correctness and race suites; keep BCC's durable
+    # restart tests within the same package budget as the main workflow.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -32,9 +34,16 @@ jobs:
           go test ./internal/recordshape -run 'Statistics1000|StatisticalGate' -count=1 -v
           go test ./internal/recovery -run 'TestStage1DifferentialGenerated|TestEngine' -count=1 -v
       - name: Race and static analysis
+        id: full_suite_race
         run: |
-          go test -race ./... -count=1
+          set -o pipefail
+          go test -race -count=1 -timeout=15m ./... 2>&1 | tee "$RUNNER_TEMP/go-race.log"
           go vet ./...
+      - name: Report race failures
+        if: failure() && steps.full_suite_race.outcome == 'failure'
+        run: |
+          grep -E -- '^(WARNING: DATA RACE|--- FAIL|FAIL|panic:)|_test\.go:[0-9]+:' "$RUNNER_TEMP/go-race.log" | head -40 |
+            sed 's/%/%25/g; s/^/::error title=go test -race::/' || true
       - name: Bounded record parser fuzz smoke
         run: go test ./internal/recordshape -run '^$' -fuzz FuzzMorphingReadFrame -fuzztime=5s
       - name: Installer and builds

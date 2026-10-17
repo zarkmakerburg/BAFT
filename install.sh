@@ -31,6 +31,7 @@ EXPL_ROUTE="${BAFT_ROUTE_LISTEN+1}"; EXPL_METRICS="${BAFT_METRICS_LISTEN+1}"
 # Another tunnel on a server that already has one: NAME selects the service
 # baft-NAME with /etc/baft-NAME and /var/lib/baft-NAME (see apply_instance).
 BAFT_INSTANCE="${BAFT_INSTANCE:-}"
+NEW_INSTANCE=0
 BAFT_CONFIG_DIR="${BAFT_CONFIG_DIR:-/etc/baft}"
 BAFT_STATE_DIR="${BAFT_STATE_DIR:-/var/lib/baft}"
 BAFT_BIN="${BAFT_BIN:-/usr/local/bin/baft}"
@@ -1104,6 +1105,8 @@ rollback_apply() {
     rm -f -- "$f" || { rollback_failed=1; warn "could not remove newly created $f"; }
   done
   for f in "${CREATED_DIRS[@]}"; do
+    # Only a real folder of the new tunnel this run created; never a link.
+    [[ -n "$BAFT_INSTANCE" && "$f" == *"-$BAFT_INSTANCE" && -d "$f" && ! -L "$f" ]] || continue
     rm -rf -- "$f" || { rollback_failed=1; warn "could not remove newly created $f"; }
   done
   systemctl daemon-reload || { rollback_failed=1; warn "could not reload systemd during rollback"; }
@@ -1510,8 +1513,8 @@ ports_problem() {
 free_tunnel_port() {
   local p
   for p in 443 8443; do bcc_port_busy "$p" || { printf '%s' "$p"; return; }; done
-  for ((p = 8444; p < 8600; p++)); do bcc_port_busy "$p" || { printf '%s' "$p"; return; }; done
-  printf 8443
+  for ((p = 8444; p < 8600; p++)); do bcc_port_busy "$p" || { printf '%s' "$p"; return 0; }; done
+  return 1
 }
 # ex_config_defaults FILE: an EX config's tunnel port, server name and carried
 # ports (comma list), one per line.
@@ -1773,20 +1776,38 @@ fi
 
 # next_instance_name: the first free N (2, 3, ...) with no /etc/baft-N yet.
 next_instance_name() {
-  local n=2
-  while [[ -e "${BAFT_CONFIG_DIR%/}-$n" || -e "$BAFT_SYSTEMD_DIR/${BAFT_SERVICE}-$n.service" ]]; do n=$((n + 1)); done
+  local n=2 res
+  res=$'\n'"$(live_reservations)"
+  while [[ -e "${BAFT_CONFIG_DIR%/}-$n" || -e "${BAFT_STATE_DIR%/}-$n" || -e "$BAFT_SYSTEMD_DIR/${BAFT_SERVICE}-$n.service" ||
+           "$res" == *$'\n'"$n "* ]]; do n=$((n + 1)); done
   printf '%s' "$n"
 }
+# Tunnels other installer runs on this server are adding right now: one
+# "name route-listen metrics-listen pid" line each, kept while that run lives,
+# so two runs at once never take the same name or local port.
+BAFT_RESERVE_FILE="${BAFT_RESERVE_FILE:-/run/lock/baft-instances}"
+live_reservations_raw() {
+  local n r m pid
+  [[ -r "$BAFT_RESERVE_FILE" ]] || return 0
+  while IFS=' ' read -r n r m pid; do
+    [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null && printf '%s %s %s %s\n' "$n" "$r" "$m" "$pid"
+  done <"$BAFT_RESERVE_FILE"
+  return 0
+}
+live_reservations() { live_reservations_raw | cut -d' ' -f1-3; }
 # free_local_port START: the first port from START that nothing listens on and
 # no other BAFT config on this server already uses.
 free_local_port() {
   local p=$1 cfgs
-  cfgs="$(cat "${BAFT_BASE_CONFIG_DIR%/}"*/baft.yaml 2>/dev/null || true)"
+  # Reservations first: a run that ends between the two reads has written its
+  # config before it ended, so its ports are seen either way.
+  cfgs="$(live_reservations)"
+  cfgs+=$'\n'"$(cat "${BAFT_BASE_CONFIG_DIR%/}"*/baft.yaml 2>/dev/null || true)"
   while (( p < 65535 )); do
-    if ! bcc_port_busy "$p" && ! [[ "$cfgs" =~ :$p([^0-9]|$) ]]; then printf '%s' "$p"; return; fi
+    if ! bcc_port_busy "$p" && ! [[ "$cfgs" =~ :$p([^0-9]|$) ]]; then printf '%s' "$p"; return 0; fi
     p=$((p + 1))
   done
-  die "no free local port from $1"
+  return 1
 }
 # keep_local_listens: a tunnel paired again keeps the local route and metrics
 # addresses its config already has, so its clients need no change.
@@ -1831,6 +1852,8 @@ c = json.load(open(sys.argv[1]))
 k = sys.argv[2]
 if k == "peer":
     print((c.get("peer") or {}).get("address", ""))
+elif k == "peerkey":
+    print((c.get("noise") or {}).get("peer_public_key", "").rstrip("="))
 elif k == "metrics":
     print((c.get("management") or {}).get("metrics_listen", ""))
 else:
@@ -1860,12 +1883,32 @@ apply_instance() {
   # The local route and metrics addresses only matter for a new pairing; an
   # instance that is already paired keeps what its config says.
   if [[ ! -f "$CONFIG" ]]; then
-    [[ -n "$EXPL_ROUTE" ]] || BAFT_ROUTE_LISTEN="127.0.0.1:$(free_local_port 1444)"
-    [[ -n "$EXPL_METRICS" ]] || BAFT_METRICS_LISTEN="127.0.0.1:$(free_local_port 9192)"
+    local _lp
+    if [[ -z "$EXPL_ROUTE" ]]; then _lp="$(free_local_port 1444)" || die "no free local port for the route"; BAFT_ROUTE_LISTEN="127.0.0.1:$_lp"; fi
+    if [[ -z "$EXPL_METRICS" ]]; then _lp="$(free_local_port 9192)" || die "no free local port for metrics"; BAFT_METRICS_LISTEN="127.0.0.1:$_lp"; fi
   else
     keep_local_listens
   fi
   ok "this run works on the separate tunnel $BAFT_SERVICE ($BAFT_CONFIG_DIR); other tunnels are not touched"
+}
+
+# allocate_instance: pick (when NEW_INSTANCE=1) and apply BAFT_INSTANCE, and
+# reserve its name and local ports for as long as this run lives (pid $1 when
+# given, else this shell).
+allocate_instance() {
+  local locked=0 owner="${1:-$$}"
+  if [[ "$PLAN_ONLY" != 1 ]] && command -v flock >/dev/null 2>&1 && mkdir -p "$(dirname "$BAFT_RESERVE_FILE")" 2>/dev/null &&
+     exec 8>>"$BAFT_RESERVE_FILE.lock"; then
+    flock -w 60 8 || die "another BAFT installer holds $BAFT_RESERVE_FILE.lock; try again when it has finished"
+    locked=1
+  fi
+  [[ "$NEW_INSTANCE" != 1 ]] || BAFT_INSTANCE="$(next_instance_name)"
+  apply_instance
+  if [[ "$locked" == 1 ]]; then
+    { live_reservations_raw; printf '%s %s %s %s\n' "$BAFT_INSTANCE" "$BAFT_ROUTE_LISTEN" "$BAFT_METRICS_LISTEN" "$owner"; } >"$BAFT_RESERVE_FILE.new" &&
+      mv -f -- "$BAFT_RESERVE_FILE.new" "$BAFT_RESERVE_FILE"
+    flock -u 8; exec 8>&-
+  fi
 }
 
 # One install command for everything: without --role, --bcc-only or
@@ -1926,9 +1969,16 @@ if [[ -z "$BAFT_INSTANCE" && "$BCC_ONLY" == 0 && "$AGENT_ONLY" == 0 && "$RE_PAIR
         RE_PAIR=1
         [[ -n "$BAFT_INSTANCE" ]] || keep_local_listens
         log "this code is from $_ex_addr, which this server is already paired with: pairing that tunnel again"
+        # The same address with another key is a reinstalled or different
+        # outside server at that address: the old tunnel can no longer reach
+        # its peer there, so it is still the one to replace, but say so.
+        _newkey="$(pairing_code_field "$PAIRING_CODE" noise_responder_key)"; _oldkey="$(config_fact "$_match/baft.yaml" peerkey)"
+        if [[ -n "$_newkey" && -n "$_oldkey" && "${_newkey%%=*}" != "$_oldkey" ]]; then
+          warn "the outside server at $_ex_addr has a new key (reinstalled, or another server now has that address); the tunnel in $_match is paired to it"
+        fi
       fi
     else
-      BAFT_INSTANCE="$(next_instance_name)"
+      NEW_INSTANCE=1
       log "BAFT is already paired here: the new outside server gets its own tunnel and the current one keeps running"
     fi
   elif [[ "$PLAN_ONLY" != 1 && -n "$ASK_FD" ]]; then
@@ -1942,10 +1992,12 @@ if [[ -z "$BAFT_INSTANCE" && "$BCC_ONLY" == 0 && "$AGENT_ONLY" == 0 && "$RE_PAIR
     fi
     _choice=""
     ask _choice "$(ui_ask_prompt "Choose 1 or 2" "[1]:")" || true
-    if [[ "${_choice:-1}" == 2 ]]; then BAFT_INSTANCE="$(next_instance_name)"; fi
+    if [[ "${_choice:-1}" == 2 ]]; then NEW_INSTANCE=1; fi
   fi
 fi
-[[ -z "$BAFT_INSTANCE" ]] || apply_instance
+# The new tunnel's name and local ports are chosen and reserved under a short
+# lock, so installer runs at the same time on this server never collide.
+if [[ "$NEW_INSTANCE" == 1 || -n "$BAFT_INSTANCE" ]]; then allocate_instance; fi
 # A code that will be used is checked now, before anything is downloaded.
 if [[ "$ROLE" == ir && -n "$PAIRING_CODE" && ( ! -f "$CONFIG" || "$RE_PAIR" == 1 ) ]]; then
   _why="$(pairing_code_problem "$PAIRING_CODE")"
@@ -1993,7 +2045,9 @@ else
     [[ -n "$PUBLIC_ADDR" || -z "$_old_name" ]] || PUBLIC_ADDR="$_old_name"
     [[ -n "$BAFT_PORTS" ]] || BAFT_PORTS="$_old_ports"
   fi
-  if [[ "$ROLE" == "ex" && ! -f "$CONFIG" && -z "${BAFT_PORT_EXPLICIT:-}" ]]; then BAFT_PORT="$(free_tunnel_port)"; fi
+  if [[ "$ROLE" == "ex" && ! -f "$CONFIG" && -z "${BAFT_PORT_EXPLICIT:-}" ]]; then
+    BAFT_PORT="$(free_tunnel_port)" || die "no free tunnel port: 443, 8443 and 8444-8599 are all in use; pick one with --port N"
+  fi
   if [[ "$ROLE_ASKED" == 1 && "$ROLE" == "ex" && "$PLAN_ONLY" != "1" && ! -f "$CONFIG" ]]; then
     if [[ -z "$PUBLIC_ADDR" ]]; then
       _detected="$(bcc_public_ip)"

@@ -291,4 +291,34 @@ case "$(uname -m)" in x86_64) bcc_arch=amd64 ;; aarch64) bcc_arch=arm64 ;; *) fa
 cmp -s "$candidate" "$W/rel2/dist/baft-bcc-linux-$bcc_arch" ||
   fail "retained BCC binary differs from verified release candidate"
 
+# Failures at each BCC apply point of an upgrade put back the binary, the
+# bootstrap script, the unit, the recorded release, the keys/access files and
+# the service state, and never touch the live state database.
+bcc_hash() { sha256sum "$W/bin/baft-bcc" "$W/opt-bcc/bcc-bootstrap/install.sh" "$W/sysd/baft-bcc-fault.service" \
+  "$W/opt-bcc/release-state.json" "$BCC_STATE" "$W"/etc-bcc/*; }
+run $(rel "$W/rel1") "${bcc_env[@]}" bash install.sh --bcc-only --yes >"$W/o" 2>"$W/e" ||
+  { cat "$W/e"; fail "BCC reinstall of v1 after the failed restart"; }
+active baft-bcc-fault && enabled baft-bcc-fault || fail "BCC v1 not active + enabled"
+for point in post-binaries post-bcc-bootstrap pre-commit; do
+  log "6. BCC upgrade failure at $point: v1 files, release and service state restored; state DB untouched"
+  # Same installer bytes in v1 and v2 keep the bootstrap script, so make the
+  # installed copy differ to send the upgrade through the bootstrap step.
+  [[ "$point" == post-bcc-bootstrap ]] && printf '\n' >>"$W/opt-bcc/bcc-bootstrap/install.sh"
+  B0="$(bcc_hash)"
+  rc=0
+  run $(rel "$W/rel2") "${bcc_env[@]}" BAFT_TEST_FAIL_AT="$point" bash install.sh --bcc-only --yes >"$W/o" 2>"$W/e" || rc=$?
+  [[ "$rc" != 0 ]] || fail "injected BCC failure at $point reported success"
+  grep -q "injected failure at $point" "$W/e" || { cat "$W/e"; fail "BCC upgrade never reached $point"; }
+  grep -q 'rolling back' "$W/e" || { cat "$W/e"; fail "no BCC rollback after $point"; }
+  grep -q 'rollback incomplete' "$W/e" && { cat "$W/e"; fail "BCC rollback after $point reported incomplete"; }
+  [[ "$(bcc_hash)" == "$B0" ]] || { diff <(echo "$B0") <(bcc_hash) || true; fail "BCC files changed by a rolled-back upgrade ($point)"; }
+  active baft-bcc-fault && enabled baft-bcc-fault || fail "BCC service state not restored after $point"
+done
+log "6'. the same BCC upgrade without a failure records v2"
+run $(rel "$W/rel2") "${bcc_env[@]}" bash install.sh --bcc-only --yes >"$W/o" 2>"$W/e" ||
+  { cat "$W/e"; fail "BCC upgrade to v2 failed"; }
+grep -q 'v0.0.2-f' "$W/opt-bcc/release-state.json" || fail "BCC release state does not record v2"
+[[ "$(sha256sum "$BCC_STATE" | cut -d ' ' -f1)" == "$old_state" ]] || fail "BCC state DB changed by the upgrade"
+active baft-bcc-fault && enabled baft-bcc-fault || fail "BCC v2 not active + enabled"
+
 log "PASS"

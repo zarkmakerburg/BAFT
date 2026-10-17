@@ -12,8 +12,8 @@ function context(fields,prelude){
  vm.createContext(c);vm.runInContext(prelude,c);return c;
 }
 const req=fn('function tnReq()','function tnModeChanged()');
-const defaults={tnEx:'ex-de-1',tnIr:'ir-arno-1',tnPort:'8444',tnXrayPort:'2443',tnTarget:'127.0.0.1:2443',tnMode:'independent',tnInstance:'baft-arno-de-2',tnRouteListen:'127.0.0.1:1444',tnExMetric:'127.0.0.1:9202',tnIrMetric:'127.0.0.1:9302',tnLegacyCoexist:true,tnUserProtocol:'VLESS',tnClientPort:'443'};
-test('wizard really submits isolated BAFT backend fields, never unprovisioned Xray/IR ingress',()=>{
+const defaults={tnEx:'ex-de-1',tnIr:'ir-arno-1',tnPort:'8444',tnServicePort:'2443',tnTarget:'127.0.0.1:2443',tnMode:'independent',tnInstance:'baft-arno-de-2',tnRouteListen:'127.0.0.1:1444',tnExMetric:'127.0.0.1:9202',tnIrMetric:'127.0.0.1:9302',tnLegacyCoexist:true,tnClientPort:'443'};
+test('wizard really submits isolated BAFT backend fields, never unprovisioned endpoint applications or external IR ingress',()=>{
  const f={...defaults};
  const c=context(f,'let tnEditBase=null;'+req);
  const result=JSON.parse(JSON.stringify(vm.runInContext('tnReq()',c)));
@@ -30,8 +30,8 @@ test('editing a selected managed instance preserves its backend identity',()=>{
  assert.equal(result.route_id,old.route_id);
  assert.equal(result.record_shaping,true);
 });
-test('actual Xray destination port edits the BAFT EX target, not BAFT outer port',()=>{
- const fields={...defaults,tnXrayPort:'30000'};
+test('generic destination service port edits the BAFT EX target, not BAFT outer port',()=>{
+ const fields={...defaults,tnServicePort:'30000'};
  const c=context(fields,'let tnClearPlan=()=>{};'+fn('function tnWizardTargetSync()','function tnWizardIngressChanged()'));
  vm.runInContext('tnWizardTargetSync()',c);
  assert.equal(fields.tnTarget,'127.0.0.1:30000');
@@ -44,8 +44,8 @@ test('public IR ingress acknowledgement is required before review',()=>{
  fields.tnIngressConfirm=true;
  assert.equal(vm.runInContext('tnWizardValidateStep(2)',c),true);
 });
-test('random Xray port avoids active EX inventory and maps only EX service target',()=>{
- const fields={...defaults,tnXrayPort:'2443',tnPort:'20001'};
+test('random destination port avoids active EX inventory and maps only EX service target',()=>{
+ const fields={...defaults,tnServicePort:'2443',tnPort:'20001'};
  const c=context(fields,
   'let tnClearPlan=()=>{};const tnWizardText=(en,fa)=>fa;'+
   'const tnWizardActive=t=>t.phase==="active";'+
@@ -55,18 +55,18 @@ test('random Xray port avoids active EX inventory and maps only EX service targe
   ])+';'+
   fn('function tnWizardTargetSync()','function tnWizardIngressChanged()'));
  let index=0;
- const samples=[1,2,4]; // 20001 used as BAFT port, 20002 used Xray port, 20004 accepted.
+ const samples=[1,2,4]; // 20001 used as BAFT port, 20002 used service port, 20004 accepted.
  c.crypto={getRandomValues(bytes){bytes[0]=samples[index++];return bytes}};
- vm.runInContext('tnWizardGenerateXrayPort()',c);
- assert.equal(fields.tnXrayPort,'20004');
+ vm.runInContext('tnWizardGenerateServicePort()',c);
+ assert.equal(fields.tnServicePort,'20004');
  assert.equal(fields.tnTarget,'127.0.0.1:20004');
  assert.equal(fields.tnPort,'20001');
- assert.match(fields.tnXrayPortHint,/پیشنهادی/);
+ assert.match(fields.tnServicePortHint,/پیشنهادی/);
  assert.equal(index,3);
 });
-test('manual Xray port entry stays authoritative and generator does not configure Xray',()=>{
- const fields={...defaults,tnXrayPort:'53001'};
- const c=context(fields,'let tnClearPlan=()=>{};'+fn('function tnWizardTargetSync()','function tnWizardGenerateXrayPort()'));
+test('manual destination port entry stays authoritative and generator does not configure services',()=>{
+ const fields={...defaults,tnServicePort:'53001'};
+ const c=context(fields,'let tnClearPlan=()=>{};'+fn('function tnWizardTargetSync()','function tnWizardGenerateServicePort()'));
  vm.runInContext('tnWizardTargetSync()',c);
  assert.equal(fields.tnTarget,'127.0.0.1:53001');
  assert.equal(fields.tnPort,'8444');

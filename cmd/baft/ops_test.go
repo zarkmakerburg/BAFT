@@ -68,6 +68,11 @@ func newFakeHost(t *testing.T) *fakeHost {
 		procRoot:   t.TempDir(),
 		ownerUID:   func(string) (uint32, error) { return 1000, nil },
 		serviceUID: func(string) (uint32, error) { return 1000, nil },
+		// Nor may it read the real host's units and binaries.
+		inventory: &inventoryHost{
+			readFile: func(string) ([]byte, error) { return nil, os.ErrNotExist },
+			hashFile: func(string) (string, error) { return "", os.ErrNotExist },
+		},
 		// A test that did not ask for an update check must never reach the network.
 		checkUpdate: func(context.Context, string, string, string) selfupdate.Report {
 			t.Error("unexpected update check (it would use the network)")

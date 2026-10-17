@@ -71,8 +71,11 @@ type Report struct {
 	SigningKeyID       string    `json:"signing_key_id,omitempty"`
 	ReleasedAt         time.Time `json:"released_at,omitzero"`
 	RevocationSequence uint64    `json:"revocation_sequence,omitempty"`
-	CheckedAt          time.Time `json:"checked_at"`
-	Reason             string    `json:"reason,omitempty"`
+	// Artifacts maps each artifact of the verified release to its signed
+	// sha256, so callers can tell whether an installed binary is that release.
+	Artifacts map[string]string `json:"artifacts,omitempty"`
+	CheckedAt time.Time         `json:"checked_at"`
+	Reason    string            `json:"reason,omitempty"`
 	// Installer is the verified installer inside the scratch directory; it is
 	// set only when verification passed.
 	Installer string `json:"-"`
@@ -182,6 +185,10 @@ func Check(ctx context.Context, cfg Config, version, dir string) Report {
 	rep.Latest, rep.Commit, rep.SigningKeyID = v.Version, v.Commit, v.SigningKeyID
 	rep.ReleasedAt, rep.RevocationSequence = v.CreatedAt.UTC(), v.Revocations.Sequence
 	rep.Installer = filepath.Join(relDir, installer)
+	rep.Artifacts = make(map[string]string, len(v.Artifacts))
+	for _, a := range v.Artifacts {
+		rep.Artifacts[a.Name] = a.SHA256
+	}
 
 	if state.Version == "" {
 		rep.Installer = ""

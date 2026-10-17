@@ -48,6 +48,9 @@ type opsEnv struct {
 	// checkUpdate is the signed-release check behind `baft update check`;
 	// nil means the real one (hostUpdateCheck).
 	checkUpdate func(ctx context.Context, statePath, version, dir string) selfupdate.Report
+	// inventory reads installed units and binaries for `baft update check`;
+	// nil means the real files (hostInventory).
+	inventory *inventoryHost
 }
 
 var hostOps = opsEnv{

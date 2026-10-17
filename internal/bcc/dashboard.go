@@ -34,6 +34,28 @@ table{width:100%}th{color:var(--bcc-muted);font-weight:650}th,td{border-color:va
 @media(max-width:820px){.top{flex-wrap:wrap}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.actions{flex-wrap:wrap}}
 @media(max-width:520px){.grid,.kpis{grid-template-columns:minmax(0,1fr)}.card{padding:14px}.wrap{padding:12px}button{max-width:100%}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+/* Native BAFT Smart Tunnel Wizard: bilingual, mobile-first, classic + Aurora. */
+html[lang="fa"] .tn-en,html:not([lang="fa"]) .tn-fa{display:none!important}
+.tnWizardSteps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;margin:18px 0}
+.tnWizardSteps span[data-tn-nav]{border:1px solid var(--bcc-line,#34343b);border-radius:12px;padding:10px 5px;font-size:12px;text-align:center;color:var(--bcc-muted,#9aa5b7)}
+.tnWizardSteps span[data-tn-nav].selected{color:var(--bcc-text,#fff);border-color:var(--bcc-gold,#d5b578);background:rgba(213,181,120,.12)}
+.tnWizardStage[hidden],.tnWizardControls [hidden]{display:none!important}
+.tnWizardStage{padding:14px 0;min-height:190px}
+.tnWizardStage h3{font-size:17px;font-weight:700;margin:0 0 12px}
+.tnWizardStage select{width:100%;max-width:550px}
+.tnLabel{display:flex;flex-direction:column;gap:7px;margin:10px 0;font-size:13px;font-weight:650}
+.tnLabel input,.tnLabel select{box-sizing:border-box;min-width:0;width:100%;font-weight:400}
+.tnFields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 20px}
+.tnConfirm{display:flex;align-items:flex-start;gap:10px;margin:15px 0;line-height:1.6;font-size:13px}
+.tnConfirm input{width:19px;height:19px;flex:none;accent-color:var(--bcc-gold,#d5b578)}
+.tnNotice{border-inline-start:3px solid var(--bcc-gold,#d5b578);background:rgba(213,181,120,.09);padding:13px;border-radius:8px;margin:12px 0;font-size:13px;line-height:1.8}
+.tnNotice p{margin:6px 0 0}
+.tnAdvanced{margin-top:14px;border:1px solid var(--bcc-line,#34343b);padding:12px;border-radius:10px}
+.tnReview{display:grid;gap:9px;padding:14px;border:1px solid var(--bcc-line,#34343b);border-radius:12px;margin-bottom:12px;overflow-wrap:anywhere}
+.tnWizardControls{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0}
+@media(max-width:620px){.tnWizardSteps{display:flex;overflow:auto;gap:7px;padding:0 0 8px}.tnWizardSteps span[data-tn-nav]{min-width:92px;flex:none}.tnFields{grid-template-columns:1fr}.tnWizardControls button{flex:1}}
+
 </style></head>
 <body><div class="wrap">
 <div class="top"><div><h1>BAFT Command Center</h1><div class="muted">Operational monitoring, finance & hardening · Step 5.4</div></div><button class="alt" onclick="setToken()">Admin Token</button></div>
@@ -73,24 +95,76 @@ table{width:100%}th{color:var(--bcc-muted);font-weight:650}th,td{border-color:va
 <div class="card"><div class="top"><b>Layered health</b><button class="alt" onclick="loadHealth()">Refresh</button></div>
 <div class="muted">A state changes only after several consistent samples. NOT_ASSESSED means BCC has no signal for that layer; UNKNOWN means no evidence yet or for a while. Neither is DOWN.</div>
 <div class="tablewrap"><table><thead><tr><th>Node</th><th>Overall</th><th>Layers</th><th>Recent transitions</th></tr></thead><tbody id="hlRows"></tbody></table></div></div>
-<div class="card aurora-tunnel-studio"><div class="top"><div><b>Aurora · Tunnel Control Studio</b><div class="muted">Independent instances · safe edit · reviewed removal / تونل‌های مستقل، ویرایش و حذف امن</div></div><button class="alt" onclick="loadTunnels()">Refresh</button></div>
-<div class="aurora-mode-bar"><label for="tnMode">Operation / عملیات</label><select id="tnMode" onchange="tnModeChanged()"><option value="independent">New independent tunnel / تونل مستقل جدید</option><option value="replace">Edit active tunnel / ویرایش تونل فعال</option></select><button class="alt" onclick="tnNew()">New / Reset</button></div>
-<div class="grid" style="margin-top:12px">
-<select id="tnEx"></select><select id="tnIr"></select><input id="tnPort" placeholder="EX port" value="8443"><input id="tnTarget" placeholder="EX target (default 127.0.0.1:2443)">
+<div class="card aurora-tunnel-studio"><div class="top"><div><b>Aurora · Tunnel Control Studio</b><div class="muted">Smart Tunnel Wizard / ساخت ساده تونل — Native BAFT, real reviewed deployment</div></div><button class="alt" onclick="loadTunnels()">Refresh / تازه‌سازی</button></div>
+<div class="tnWizardSteps" id="tnWizardSteps" aria-label="Tunnel creation steps">
+ <span data-tn-nav="0" class="selected">1 · <span class="tn-en">Type</span><span class="tn-fa">نوع</span></span>
+ <span data-tn-nav="1">2 · <span class="tn-en">Servers</span><span class="tn-fa">سرورها</span></span>
+ <span data-tn-nav="2">3 · <span class="tn-en">Ports &amp; Xray</span><span class="tn-fa">پورت و Xray</span></span>
+ <span data-tn-nav="3">4 · <span class="tn-en">Safety</span><span class="tn-fa">ایمنی</span></span>
+ <span data-tn-nav="4">5 · <span class="tn-en">Review &amp; deploy</span><span class="tn-fa">بررسی و ساخت</span></span>
 </div>
-<div id="tnScopedFields" class="aurora-scope">
- <div class="grid" style="margin-top:12px">
-  <input id="tnInstance" placeholder="Instance ID (e.g. arno-bg1)" maxlength="40" autocomplete="off">
-  <input id="tnRouteListen" placeholder="IR local listener (127.0.0.1:1444)" value="127.0.0.1:1444">
-  <input id="tnExMetric" placeholder="EX metrics (127.0.0.1:9202)" value="127.0.0.1:9202">
-  <input id="tnIrMetric" placeholder="IR metrics (127.0.0.1:9302)" value="127.0.0.1:9302">
+<div class="tnWizardStage" data-tn-step="0">
+ <h3><span class="tn-en">What do you want to connect?</span><span class="tn-fa">چه اتصالی می‌خواهید بسازید؟</span></h3>
+ <label class="tnLabel" for="tnEngine"><span class="tn-en">Tunnel engine / driver</span><span class="tn-fa">نوع موتور تونل</span></label>
+ <select id="tnEngine" onchange="tnClearPlan()" aria-describedby="tnEngineInfo">
+  <option value="baft">BAFT Secure — TLS + Noise (supported / فعال)</option>
+  <option value="frp" disabled>FRP — Planned / در برنامه</option>
+  <option value="rathole" disabled>Rathole — Planned / در برنامه</option>
+  <option value="wss" disabled>WSS / QUIC — Planned / در برنامه</option>
+ </select>
+ <div class="muted" id="tnEngineInfo"><span class="tn-fa">موتور BAFT ارتباط بین دو سرور را برقرار می‌کند؛ VLESS، VMess و Trojan پروتکل کاربران در Xray هستند، نه نوع تونل BAFT. از انتخاب نوع پشتیبانی‌نشده جلوگیری می‌شود.</span><span class="tn-en">BAFT links servers; VLESS, VMess and Trojan are user protocols configured in Xray, not BAFT tunnel drivers. Unsupported engines cannot be selected.</span></div>
+ <label class="tnLabel" for="tnMode"><span class="tn-en">Action</span><span class="tn-fa">عملیات</span></label>
+ <select id="tnMode" onchange="tnModeChanged()"><option value="independent">New independent tunnel / تونل مستقل جدید</option><option value="replace">Edit selected active tunnel / ویرایش تونل انتخاب‌شده</option></select>
+ <p class="muted"><span class="tn-fa">برای ویرایش، از فهرست تونل‌های فعال دکمه «ویرایش» را انتخاب کنید. ساخت مستقل نباید تونل قبلی را جایگزین کند.</span><span class="tn-en">To edit, choose Edit on an active tunnel below. A new independent tunnel must not replace an existing tunnel.</span></p>
+</div>
+<div class="tnWizardStage" data-tn-step="1" hidden>
+ <h3><span class="tn-en">Choose the two servers</span><span class="tn-fa">دو سرور را انتخاب کنید</span></h3>
+ <div class="tnFields"><label class="tnLabel"><span class="tn-en">Iran / IR node</span><span class="tn-fa">سرور ایران (IR)</span><select id="tnIr" onchange="tnWizardChanged()"></select></label>
+ <label class="tnLabel"><span class="tn-en">Abroad / EX node</span><span class="tn-fa">سرور خارج (EX)</span><select id="tnEx" onchange="tnWizardChanged()"></select></label></div>
+ <div class="muted"><span class="tn-fa">مسیر BAFT: سرور ایران ← ارتباط امن BAFT ← سرور خارج ← سرویس Xray. جهت نهایی دریافت ترافیک کاربران به تنظیم ورودی ایران وابسته است.</span><span class="tn-en">BAFT path: Iran node → secure BAFT link → foreign node → Xray service. User ingress in Iran must be configured separately.</span></div>
+</div>
+<div class="tnWizardStage" data-tn-step="2" hidden>
+ <h3><span class="tn-en">Ports and Xray destination</span><span class="tn-fa">پورت‌ها و مقصد Xray</span></h3>
+ <div class="tnFields">
+  <label class="tnLabel"><span class="tn-en">BAFT inter-server port (EX)</span><span class="tn-fa">پورت ارتباط دو سرور BAFT (خارج)</span><input id="tnPort" type="number" inputmode="numeric" min="1" max="65535" value="8443" oninput="tnClearPlan()"></label>
+  <label class="tnLabel"><span class="tn-en">EX Xray / service destination port</span><span class="tn-fa">پورت مقصد Xray در سرور خارج</span><input id="tnXrayPort" type="number" inputmode="numeric" min="1" max="65535" value="2443" oninput="tnWizardTargetSync()"></label>
+  <label class="tnLabel"><span class="tn-en">Xray user protocol (informational only)</span><span class="tn-fa">پروتکل کاربران در Xray (فقط جهت اطلاع)</span><select id="tnUserProtocol" onchange="tnClearPlan()"><option value="unknown">Unknown / در Xray تنظیم شده</option><option value="VLESS">VLESS (external)</option><option value="VMess">VMess (external)</option><option value="Trojan">Trojan (external)</option><option value="Shadowsocks">Shadowsocks (external)</option></select></label>
+  <label class="tnLabel"><span class="tn-en">Public client port on IR (externally managed)</span><span class="tn-fa">پورت کاربران روی سرور ایران (مدیریت خارجی)</span><input id="tnClientPort" type="number" inputmode="numeric" min="1" max="65535" placeholder="443" oninput="tnWizardIngressChanged()"></label>
  </div>
- <label class="aurora-legacy-consent"><input type="checkbox" id="tnLegacyCoexist"> Keep existing legacy tunnel running on this server / حفظ تونل قدیمی فعال در کنار تونل مستقل</label>
- <p class="muted">Each independent tunnel needs a unique instance ID and free EX port, IR listener and metrics ports. Never reuse 8443 on the same EX or 1443 on the same IR. / هر تونل باید پورت‌ها و شناسه مستقل داشته باشد.</p>
+ <div class="tnNotice" role="note"><strong><span class="tn-en">Critical port distinction</span><span class="tn-fa">تفاوت مهم پورت‌ها</span></strong><p><span class="tn-fa">BAFT در این نسخه فقط پورت تونل، شنونده داخلی ایران و مقصد سرویس خارج را تنظیم می‌کند. این فرم پورت عمومی کاربران در ایران یا تنظیمات Xray/3x-ui را ایجاد نمی‌کند. اگر پورت عمومی را وارد می‌کنید، اتصال آن به مسیر داخلی BAFT باید جداگانه برقرار و آزمایش شود.</span><span class="tn-en">This version configures the BAFT link, local IR route and foreign service target. It does NOT create the public IR client listener or edit Xray/3x-ui. Entering a public port documents an externally configured ingress; it still requires independent wiring and end-to-end verification.</span></p></div>
+ <label class="tnConfirm"><input type="checkbox" id="tnIngressConfirm" onchange="tnClearPlan()"> <span class="tn-en">I understand public IR ingress is not provisioned by this wizard.</span><span class="tn-fa">می‌دانم ورودی عمومی ایران توسط این راه‌انداز ساخته نمی‌شود.</span></label>
+ <button type="button" class="alt" onclick="tnWizardSuggest()"><span class="tn-en">Suggest free managed ports</span><span class="tn-fa">پیشنهاد پورت‌های بدون تداخل در BCC</span></button>
 </div>
-<div class="actions"><button onclick="tnPlan()">Preview plan / پیش‌نمایش امن</button></div>
-<div id="tnEditNote" class="muted" style="margin-top:8px"></div>
-<div class="muted" style="margin-top:8px">Preview shows exactly what will change, the checks that must pass and how it rolls back. Deploying uses the reviewed plan by its hash: if anything changed meanwhile, nothing is deployed and you review the new plan.</div><div id="tnPlan" style="margin-top:12px"></div>
+<div class="tnWizardStage" data-tn-step="3" hidden>
+ <h3><span class="tn-en">Transport and safety</span><span class="tn-fa">نوع ارتباط و ایمنی</span></h3>
+ <p class="muted"><span class="tn-fa">پروتکل ارتباط سرورها: BAFT Secure با TLS و Noise. پروتکل واقعی کاربران (مثل VLESS) در Xray تنظیم می‌شود؛ این راه‌انداز آن را تغییر نمی‌دهد. روش‌های دیگر تا پیاده‌سازی واقعی غیرفعال‌اند.</span><span class="tn-en">Server-to-server transport: BAFT Secure with TLS and Noise. The actual user protocol (e.g. VLESS) is owned by Xray and is not modified here. Other drivers remain unavailable until implemented.</span></p>
+ <div id="tnScopedFields" class="aurora-scope">
+  <div class="tnNotice"><span class="tn-fa">هر تونل مستقل پیکربندی جداگانه دارد. مقادیر زیر پیشنهاد هستند؛ بررسی نهایی پورت‌ها هنگام Preview و استقرار انجام می‌شود.</span><span class="tn-en">Each independent tunnel has isolated config. Values below are suggestions; final conflicts are checked by the reviewed plan and deployment.</span></div>
+  <label class="tnConfirm"><input type="checkbox" id="tnLegacyCoexist" onchange="tnClearPlan()"> <span class="tn-en">Keep active legacy tunnel on shared server (explicit consent)</span><span class="tn-fa">تونل قدیمی فعال روی سرور مشترک حفظ شود (تأیید صریح)</span></label>
+  <details class="tnAdvanced"><summary><span class="tn-en">Advanced: instance and internal listeners</span><span class="tn-fa">پیشرفته: شناسه و پورت‌های داخلی</span></summary>
+    <div class="tnFields">
+      <label class="tnLabel">Instance ID<input id="tnInstance" maxlength="40" autocomplete="off" placeholder="auto-created"></label>
+      <label class="tnLabel">IR loopback route<input id="tnRouteListen" value="127.0.0.1:1444"></label>
+      <label class="tnLabel">EX metrics loopback<input id="tnExMetric" value="127.0.0.1:9202"></label>
+      <label class="tnLabel">IR metrics loopback<input id="tnIrMetric" value="127.0.0.1:9302"></label>
+      <label class="tnLabel">EX target address (advanced)<input id="tnTarget" value="127.0.0.1:2443" oninput="tnClearPlan()"></label>
+    </div>
+  </details>
+ </div>
+ <div id="tnEditNote" class="muted" style="margin-top:9px"></div>
+</div>
+<div class="tnWizardStage" data-tn-step="4" hidden>
+ <h3><span class="tn-en">Review the real route before deployment</span><span class="tn-fa">قبل از ساخت، مسیر واقعی را بررسی کنید</span></h3>
+ <div id="tnWizardSummary" class="tnReview" aria-live="polite"></div>
+ <div class="tnNotice"><span class="tn-fa">تأیید طرح BAFT به معنای آزمایش ترافیک واقعی کاربران یا راه‌اندازی خودکار Xray/پورت عمومی ایران نیست. در صورت وجود خطای پورت یا نبود ارتباط Agent، ساخت متوقف می‌شود.</span><span class="tn-en">A successful BAFT plan does not verify user traffic or configure public IR ingress/Xray. Port conflicts or stale Agent health block deployment.</span></div>
+ <div class="actions"><button type="button" onclick="tnPlan()"><span class="tn-en">Review real BAFT deployment plan</span><span class="tn-fa">بررسی طرح واقعی استقرار BAFT</span></button></div>
+ <div id="tnPlan" style="margin-top:12px"></div>
+</div>
+<div class="tnWizardControls">
+ <button type="button" class="alt" id="tnWizardBack" onclick="tnWizardStep(tnWizardIndex-1)" hidden><span class="tn-en">Previous</span><span class="tn-fa">قبلی</span></button>
+ <button type="button" id="tnWizardNext" onclick="tnWizardStep(tnWizardIndex+1)"><span class="tn-en">Next step</span><span class="tn-fa">مرحله بعد</span></button>
+ <button type="button" class="alt" onclick="tnNew()"><span class="tn-en">New tunnel / Reset</span><span class="tn-fa">تونل جدید / شروع دوباره</span></button>
+</div>
 <div class="tablewrap"><table><thead><tr><th>ID</th><th>EX</th><th>IR</th><th>Phase</th><th>Detail</th><th></th></tr></thead><tbody id="tnRows"></tbody></table></div></div>
 
 <div class="card"><div class="top"><b>Change History / تاریخچه تغییرات</b><button class="alt" onclick="chLoad()">Refresh / بروزرسانی</button></div><div class="muted">Append-only, secret-free snapshots of confirmed BAFT-managed changes. / تاریخچه فقط‌افزودنی تغییرات تأییدشده بدون ذخیره اطلاعات محرمانه.</div><div class="grid" style="margin-top:8px"><input id="chNode" placeholder="node ID"><input id="chTunnel" placeholder="tunnel ID"></div><div id="chRows" style="margin-top:8px"></div></div>
@@ -166,16 +240,85 @@ function bsAutoID(role,host){let s=host.toLowerCase().replace(/[^a-z0-9]+/g,'-')
 async function bsRun(){let host=q('#bsHost').value.trim(),port=Number(q('#bsPort').value)||22,role=q('#bsRole').value;if(!host){q('#bsOut').textContent=bsT('Enter the server host or IP.','میزبان یا IP سرور را وارد کنید.');return}if(!q('#bsPass').value&&!q('#bsKey').value){q('#bsOut').textContent=bsT('Enter the SSH password, or paste an SSH key.','رمز SSH را وارد کنید یا کلید SSH را بچسبانید.');return}let id=q('#bsId').value.trim()||bsAutoID(role,host);q('#bsGo').disabled=true;q('#bsNext').hidden=true;bsLast=null;q('#bsFp').textContent='';q('#bsOut').textContent=bsT('Connecting to ','در حال اتصال به ')+host+'…';let r=await fetch('/api/bootstrap/hostkey',{method:'POST',headers:ah(),body:JSON.stringify({host,port})});let t=await r.text();if(!r.ok){q('#bsGo').disabled=false;q('#bsOut').textContent=bsT('FAILED','ناموفق')+'\n'+bsT('Cannot reach SSH on ','اتصال SSH برقرار نشد: ')+host+':'+port+'\n'+t;return}let d=JSON.parse(t);q('#bsFp').textContent=bsT('SSH key remembered: ','کلید SSH سرور ثبت شد: ')+d.key_type+'  '+d.fingerprint;q('#bsOut').textContent=bsT('Installing… this can take a few minutes.','در حال نصب… ممکن است چند دقیقه طول بکشد.');let body={node_id:id,alias:q('#bsAlias').value.trim()||host,role,host,port,user:q('#bsUser').value.trim(),host_key_fingerprint:d.fingerprint,password:q('#bsPass').value,private_key:q('#bsKey').value,passphrase:q('#bsPhrase').value};if(body.private_key)body.password='';r=await fetch('/api/bootstrap',{method:'POST',headers:ah(),body:JSON.stringify(body)});t=await r.text();body.password=body.private_key=body.passphrase='';q('#bsPass').value=q('#bsKey').value=q('#bsPhrase').value='';q('#bsGo').disabled=false;if(r.ok){bsLast={id,role};q('#bsNext').hidden=false;try{t=JSON.parse(t).output||bsT('Installed.','نصب شد.')}catch(e){}}q('#bsOut').textContent=(r.ok?bsT('OK','انجام شد'):bsT('FAILED','ناموفق'))+'\n'+t;loadAll()}
 function bsTunnel(){if(!bsLast)return;tnFill();q(bsLast.role==='foreign'?'#tnEx':'#tnIr').value=bsLast.id;if(window.BAFT_UI)location.hash='#tunnels';else q('#tnEx').scrollIntoView({behavior:'smooth'})}
 function tnFill(){let opt=(role)=>nodes.filter(n=>role.includes(n.role)&&!n.revoked).map(n=>'<option value="'+esc(n.id)+'">'+esc(n.alias||n.id)+' ('+esc(n.id)+')</option>').join('');let ex=q('#tnEx'),ir=q('#tnIr'),a=ex.value,b=ir.value;ex.innerHTML='<option value="">EX node…</option>'+opt(['foreign']);ir.innerHTML='<option value="">IR node…</option>'+opt(['worker','master']);ex.value=a;ir.value=b}
+
+// Native BAFT Smart Tunnel Wizard. It only submits fields supported by BCC's
+// existing reviewed tunnel API; public client ingress is never silently made.
+let tnWizardIndex=0,tnWizardTunnels=[];
+function tnWizardText(en,fa){return document.documentElement.lang==='fa'?fa:en}
+function tnWizardChanged(){tnClearPlan()}
+function tnWizardTargetSync(){let n=Number(q('#tnXrayPort').value);if(Number.isInteger(n)&&n>=1&&n<=65535){q('#tnTarget').value='127.0.0.1:'+n}tnClearPlan()}
+function tnWizardIngressChanged(){if(!q('#tnClientPort').value)q('#tnIngressConfirm').checked=false;tnClearPlan()}
+function tnWizardActive(t){return !['superseded','decommissioned','rolled_back'].includes(t.phase)}
+function tnWizardSharesLegacy(){const ex=q('#tnEx').value,ir=q('#tnIr').value;return tnWizardTunnels.some(t=>t.phase==='active'&&!t.instance_id&&(t.ex_node===ex||t.ir_node===ir))}
+function tnWizardEnsureID(){if(q('#tnInstance').value.trim())return;const a=new Uint32Array(2);crypto.getRandomValues(a);q('#tnInstance').value='baft-'+[...a].map(v=>v.toString(36)).join('-').slice(0,29)}
+function tnWizardSuggest(){
+ if(tnEditBase){alert(tnWizardText('Editing keeps the existing instance and ports until you explicitly change them.','در حالت ویرایش، پورت‌ها و شناسه موجود تا زمان تغییر صریح حفظ می‌شوند.'));return}
+ const ex=q('#tnEx').value,ir=q('#tnIr').value,used=tnWizardTunnels.filter(t=>tnWizardActive(t));
+ const next=(from,forbidden)=>{for(let p=from;p<65536;p++)if(!forbidden(p))return p;return null};
+ if(ex){let p=next(8443,p=>used.some(t=>t.ex_node===ex&&Number(t.port)===p));if(p)q('#tnPort').value=p}
+ if(ir){let p=next(1444,p=>used.some(t=>t.ir_node===ir&&t.route_listen==='127.0.0.1:'+p));if(p)q('#tnRouteListen').value='127.0.0.1:'+p}
+ if(ex){let p=next(9202,p=>used.some(t=>t.ex_node===ex&&(t.ex_metrics_listen||'127.0.0.1:9191')==='127.0.0.1:'+p));if(p)q('#tnExMetric').value='127.0.0.1:'+p}
+ if(ir){let p=next(9302,p=>used.some(t=>t.ir_node===ir&&(t.ir_metrics_listen||'127.0.0.1:9191')==='127.0.0.1:'+p));if(p)q('#tnIrMetric').value='127.0.0.1:'+p}
+ tnWizardEnsureID();tnClearPlan();
+}
+function tnWizardValidateStep(i){
+ if(i===0){
+  if(q('#tnEngine').value!=='baft'){alert(tnWizardText('This tunnel engine is not implemented.','این موتور تونل هنوز پیاده‌سازی نشده است.'));return false}
+  if(q('#tnMode').value==='replace'&&!tnEditBase){alert(tnWizardText('Choose Edit on an active tunnel in the list below.','برای ویرایش، ابتدا از فهرست پایین روی ویرایش تونل فعال بزنید.'));return false}
+ }
+ if(i===1){
+  if(!q('#tnEx').value||!q('#tnIr').value||q('#tnEx').value===q('#tnIr').value){alert(tnWizardText('Select different Iran and foreign servers.','سرور ایران و خارج را به‌درستی و جداگانه انتخاب کنید.'));return false}
+ }
+ if(i===2){
+  for(const id of ['tnPort','tnXrayPort']){const n=Number(q('#'+id).value);if(!Number.isInteger(n)||n<1||n>65535){alert(tnWizardText('Enter valid BAFT and EX service ports (1–65535).','پورت معتبر BAFT و مقصد سرویس خارج را وارد کنید (۱ تا ۶۵۵۳۵).'));return false}}
+  if(q('#tnClientPort').value){const n=Number(q('#tnClientPort').value);if(!Number.isInteger(n)||n<1||n>65535){alert(tnWizardText('Enter a valid public IR port.','پورت عمومی ایران معتبر نیست.'));return false}}
+  if(!q('#tnIngressConfirm').checked){alert(tnWizardText('Confirm that BAFT does not create the public IR client ingress.','تأیید کنید که BAFT در این نسخه پورت عمومی کاربران ایران را ایجاد نمی‌کند.'));return false}
+ }
+ if(i===3){
+  if(q('#tnMode').value==='independent'){
+    tnWizardEnsureID();
+    if(!/^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$/.test(q('#tnInstance').value.trim())){alert(tnWizardText('Enter a valid Instance ID in Advanced.','شناسه Instance در بخش پیشرفته معتبر نیست.'));return false}
+    if(tnWizardSharesLegacy()&&!q('#tnLegacyCoexist').checked){alert(tnWizardText('Explicitly consent to keep the active legacy sibling tunnel.','حفظ تونل قدیمی فعال را صریحاً تأیید کنید.'));return false}
+  }
+ }
+ return true
+}
+function tnWizardStep(i){
+ if(i<0||i>4)return;
+ if(i>tnWizardIndex){
+  for(let j=tnWizardIndex;j<i;j++)if(!tnWizardValidateStep(j))return;
+ }
+ tnWizardIndex=i;
+ for(const stage of document.querySelectorAll('.tnWizardStage'))stage.hidden=Number(stage.dataset.tnStep)!==i;
+ for(const chip of q('#tnWizardSteps').children){chip.classList.toggle('selected',Number(chip.dataset.tnNav)===i)}
+ q('#tnWizardBack').hidden=i===0;q('#tnWizardNext').hidden=i===4;
+ if(i===4)tnWizardSummary();
+}
+function tnWizardSummary(){
+ const r=tnReq(),c=q('#tnClientPort').value.trim(),legacy=tnWizardSharesLegacy(),active=!!tnEditBase;
+ const entry=c?tnWizardText('IR public client port '+esc(c)+' — EXTERNALLY MANAGED; not deployed by BAFT','پورت عمومی کاربران ایران '+esc(c)+' — مدیریت خارجی؛ BAFT آن را نمی‌سازد'):tnWizardText('IR public client port: not configured in BAFT','پورت عمومی کاربران ایران: در BAFT تنظیم نمی‌شود');
+ q('#tnWizardSummary').innerHTML='<div><b>'+esc(tnWizardText('Driver','موتور'))+':</b> BAFT Secure (TLS + Noise) — '+esc(active?tnWizardText('Edit selected instance','ویرایش نمونه انتخاب‌شده'):tnWizardText('New independent instance','نمونه مستقل جدید'))+'</div>'
+  +'<div><b>'+esc(tnWizardText('Nodes','سرورها'))+':</b> '+esc(r.ir_node)+' → '+esc(r.ex_node)+'</div>'
+  +'<div><b>'+esc(tnWizardText('BAFT outer EX listener','پورت ارتباط BAFT روی خارج'))+':</b> '+esc(r.port)+'</div>'
+  +'<div><b>'+esc(tnWizardText('IR internal route','مسیر داخلی ایران'))+':</b> '+esc(r.route_listen||'(legacy default)')+'</div>'
+  +'<div><b>'+esc(tnWizardText('EX service / Xray destination','مقصد Xray روی خارج'))+':</b> '+esc(r.target||'127.0.0.1:2443')+'</div>'
+  +'<div><b>'+esc(tnWizardText('User-facing IR entry','ورودی کاربران در ایران'))+':</b> '+entry+'</div>'
+  +'<div><b>'+esc(tnWizardText('User protocol (external Xray)','پروتکل کاربران در Xray خارجی'))+':</b> '+esc(q('#tnUserProtocol').value)+' — '+esc(tnWizardText('not configured by BAFT','توسط BAFT تغییر نمی‌کند'))+'</div>'
+  +'<div><b>'+esc(tnWizardText('Legacy sibling','تونل قدیمی هم‌سرور'))+':</b> '+(legacy?esc(tnWizardText('Present — explicit keep consent required','موجود — تأیید حفظ الزامی است')):esc(tnWizardText('No active shared legacy detected in BCC','در BCC تونل قدیمی مشترک فعال شناسایی نشد')))+'</div>'
+  +'<div class="muted">'+esc(tnWizardText('Xray VLESS/VMess/Trojan settings are external and unchanged by this plan.','پروتکل کاربران در Xray مانند VLESS/VMess/Trojan در این طرح تغییر نمی‌کند.'))+'</div>';
+}
+document.addEventListener('input',e=>{if(e.target.closest('.aurora-tunnel-studio')&&e.target.id!=='tnPlan')tnClearPlan()});
+
 let tnPlanHash='',tnPlanReq=null,tnPlanReplaces='';
 let tnEditBase=null;
 function tnReq(){const ex=q('#tnEx').value,ir=q('#tnIr').value,port=Number(q('#tnPort').value)||8443,target=q('#tnTarget').value.trim(),mode=q('#tnMode').value;if(tnEditBase&&tnEditBase.ex_node===ex&&tnEditBase.ir_node===ir&&mode===(tnEditBase.instance_id?'independent':'replace')){let r=Object.assign({},tnEditBase,{port,target:target||tnEditBase.target});if(r.instance_id){r.route_listen=q('#tnRouteListen').value.trim()||r.route_listen;r.ex_metrics_listen=q('#tnExMetric').value.trim()||r.ex_metrics_listen;r.ir_metrics_listen=q('#tnIrMetric').value.trim()||r.ir_metrics_listen;r.allow_legacy_coexistence=q('#tnLegacyCoexist').checked;}return r;}let r={ex_node:ex,ir_node:ir,port};if(target)r.target=target;if(mode==='independent'){r.instance_id=q('#tnInstance').value.trim();r.route_listen=q('#tnRouteListen').value.trim();r.ex_metrics_listen=q('#tnExMetric').value.trim();r.ir_metrics_listen=q('#tnIrMetric').value.trim();r.allow_legacy_coexistence=q('#tnLegacyCoexist').checked;}return r}
 function tnModeChanged(){const independent=q('#tnMode').value==='independent';if(tnEditBase&&independent!==!!tnEditBase.instance_id)tnEditBase=null;q('#tnScopedFields').hidden=!independent;q('#tnEditNote').textContent=tnEditBase?'Editing an existing managed instance; always preview before deploy.':(independent?'Independent instance: existing tunnels stay online if resource checks pass.':'Use Edit on an active tunnel. Replacement will interrupt that instance.');tnClearPlan();}
-function tnNew(){tnEditBase=null;q('#tnMode').value='independent';q('#tnInstance').value='';q('#tnTarget').value='';q('#tnPort').value='8443';q('#tnRouteListen').value='127.0.0.1:1444';q('#tnExMetric').value='127.0.0.1:9202';q('#tnIrMetric').value='127.0.0.1:9302';q('#tnLegacyCoexist').checked=false;tnModeChanged()}
-async function tnEdit(id){let r=await fetch('/api/tunnels?id='+encodeURIComponent(id),{headers:ah()});if(!r.ok){alert(await r.text());return}let t=await r.json();tnEditBase={instance_id:t.instance_id||'',ex_node:t.ex_node,ir_node:t.ir_node,public_address:t.public_address,port:t.port,target:t.target,route_listen:t.route_listen,route_id:t.route_id,ex_metrics_listen:t.ex_metrics_listen||'',ir_metrics_listen:t.ir_metrics_listen||'',record_shaping:!!t.record_shaping};tnClearPlan();q('#tnEx').value=t.ex_node;q('#tnIr').value=t.ir_node;q('#tnPort').value=t.port;q('#tnTarget').value=t.target;q('#tnMode').value=t.instance_id?'independent':'replace';q('#tnInstance').value=t.instance_id||'';q('#tnRouteListen').value=t.route_listen||'127.0.0.1:1444';q('#tnExMetric').value=t.ex_metrics_listen||'127.0.0.1:9202';q('#tnIrMetric').value=t.ir_metrics_listen||'127.0.0.1:9302';q('#tnLegacyCoexist').checked=false;tnModeChanged();q('#tnEditNote').innerHTML='Editing <b>'+esc(id)+'</b>: change the port or target, then preview the plan. '+esc(id)+' keeps running until the replacement is verified; if the replacement fails it rolls back and '+esc(id)+' stays active. <button class="alt" onclick="tnEditEnd()">Stop editing</button>';q('#tnEx').scrollIntoView({block:'center'})}
+function tnNew(){tnEditBase=null;q('#tnMode').value='independent';q('#tnInstance').value='';q('#tnTarget').value='127.0.0.1:2443';q('#tnXrayPort').value='2443';q('#tnClientPort').value='';q('#tnUserProtocol').value='unknown';q('#tnIngressConfirm').checked=false;q('#tnPort').value='8443';q('#tnRouteListen').value='127.0.0.1:1444';q('#tnExMetric').value='127.0.0.1:9202';q('#tnIrMetric').value='127.0.0.1:9302';q('#tnLegacyCoexist').checked=false;tnModeChanged();tnWizardStep(0)}
+async function tnEdit(id){let r=await fetch('/api/tunnels?id='+encodeURIComponent(id),{headers:ah()});if(!r.ok){alert(await r.text());return}let t=await r.json();tnEditBase={instance_id:t.instance_id||'',ex_node:t.ex_node,ir_node:t.ir_node,public_address:t.public_address,port:t.port,target:t.target,route_listen:t.route_listen,route_id:t.route_id,ex_metrics_listen:t.ex_metrics_listen||'',ir_metrics_listen:t.ir_metrics_listen||'',record_shaping:!!t.record_shaping};tnClearPlan();q('#tnEx').value=t.ex_node;q('#tnIr').value=t.ir_node;q('#tnPort').value=t.port;q('#tnTarget').value=t.target;q('#tnXrayPort').value=(t.target||'').startsWith('127.0.0.1:')?t.target.split(':')[1]:'';q('#tnClientPort').value='';q('#tnUserProtocol').value='unknown';q('#tnIngressConfirm').checked=false;q('#tnMode').value=t.instance_id?'independent':'replace';q('#tnInstance').value=t.instance_id||'';q('#tnRouteListen').value=t.route_listen||'127.0.0.1:1444';q('#tnExMetric').value=t.ex_metrics_listen||'127.0.0.1:9202';q('#tnIrMetric').value=t.ir_metrics_listen||'127.0.0.1:9302';q('#tnLegacyCoexist').checked=false;tnModeChanged();q('#tnEditNote').innerHTML='Editing <b>'+esc(id)+'</b>: change the port or target, then preview the plan. '+esc(id)+' keeps running until the replacement is verified; if the replacement fails it rolls back and '+esc(id)+' stays active. <button class="alt" onclick="tnEditEnd()">Stop editing</button>';tnWizardStep(1);q('#tnIr').scrollIntoView({block:'center'})}
 function tnEditEnd(){tnEditBase=null;q('#tnEditNote').innerHTML='';q('#tnTarget').value=''}
 function tnShowPlan(p){tnPlanHash=p.hash;tnPlanReq=p.request;tnPlanReplaces=p.replaces||'';let h='<div class="card" style="margin:0"><b>Deployment plan</b> <span class="badge '+(p.ok?'up':'down')+'">'+(p.ok?'ready':'blocked')+'</span><div class="muted" style="font-family:monospace;word-break:break-all;margin:6px 0">plan '+esc(p.hash)+'</div>';h+='<table><thead><tr><th>Gate</th><th>Status</th><th>Detail</th></tr></thead><tbody>'+p.gates.map(g=>'<tr><td>'+esc(g.name)+'</td><td><span class="badge '+(g.status==='PASS'?'up':g.status==='WARN'?'unknown':'down')+'">'+esc(g.status)+'</span></td><td>'+esc(g.detail)+'</td></tr>').join('')+'</tbody></table>';h+=(p.replaces?'<div style="margin-top:8px"><b>Replaces</b> '+esc(p.replaces)+' <span class="muted">(stays active until this plan is verified, then becomes superseded)</span></div>':'');h+=p.nodes.map(n=>'<div style="margin-top:10px"><b>'+esc(n.role.toUpperCase())+' '+esc(n.node_id)+'</b> <span class="muted">generation '+esc(n.generation_from)+' → '+esc(n.generation_to)+(n.generation_note?' ('+esc(n.generation_note)+')':'')+'</span><ul>'+n.changes.map(c=>'<li>'+esc(c)+'</li>').join('')+'</ul></div>').join('');h+='<div><b>Steps</b><ol>'+p.steps.map(c=>'<li>'+esc(c)+'</li>').join('')+'</ol></div><div><b>Verified before it counts as deployed</b><ul>'+p.verify.map(c=>'<li>'+esc(c)+'</li>').join('')+'</ul></div><div><b>Rollback</b><ul>'+p.rollback.map(c=>'<li>'+esc(c)+'</li>').join('')+'</ul></div>';h+='<div class="actions"><button '+(p.ok?'':'disabled ')+'onclick="tnDeploy()">Deploy this plan</button><button class="alt" onclick="tnClearPlan()">Discard</button></div></div>';q('#tnPlan').innerHTML=h}
 function tnClearPlan(){tnPlanHash='';tnPlanReq=null;tnPlanReplaces='';q('#tnPlan').innerHTML=''}
-async function tnPlan(){let body=tnReq();if(!body.ex_node||!body.ir_node){alert('Choose the EX and IR nodes');return}if(!tnEditBase&&q('#tnMode').value==='replace'){alert('To edit or replace an active tunnel, first click Edit on its row. / برای ویرایش، ابتدا روی ویرایش تونل فعال کلیک کنید.');return}if(q('#tnMode').value==='independent'&&!/^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$/.test(body.instance_id||'')){alert('Enter a unique valid Instance ID (letters, numbers, dot, underscore or hyphen). / شناسه نمونه مستقل الزامی است.');return}let r=await fetch('/api/tunnels/plan',{method:'POST',headers:ah(),body:JSON.stringify(body)});let t=await r.text();if(!r.ok){alert(t);return}tnShowPlan(JSON.parse(t));loadAudit()}
+async function tnPlan(){for(let i=0;i<4;i++)if(!tnWizardValidateStep(i))return;let body=tnReq();if(!body.ex_node||!body.ir_node){alert('Choose the EX and IR nodes');return}if(!tnEditBase&&q('#tnMode').value==='replace'){alert('To edit or replace an active tunnel, first click Edit on its row. / برای ویرایش، ابتدا روی ویرایش تونل فعال کلیک کنید.');return}if(q('#tnMode').value==='independent'&&!/^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$/.test(body.instance_id||'')){alert('Enter a unique valid Instance ID (letters, numbers, dot, underscore or hyphen). / شناسه نمونه مستقل الزامی است.');return}let r=await fetch('/api/tunnels/plan',{method:'POST',headers:ah(),body:JSON.stringify(body)});let t=await r.text();if(!r.ok){alert(t);return}tnShowPlan(JSON.parse(t));loadAudit()}
 async function tnDeploy(){if(!tnPlanHash||!tnPlanReq)return;if(tnPlanReplaces&&!confirm('This plan replaces existing active tunnel '+tnPlanReplaces+'. Users may disconnect. Continue? / تونل فعال جایگزین می‌شود و ممکن است اتصال کاربران قطع شود. ادامه؟'))return;if(tnPlanReq.allow_legacy_coexistence&&!confirm('Deploy independent BAFT instance alongside current legacy tunnel? Existing tunnel will not be replaced. Ensure ports are free. / تونل مستقل در کنار تونل فعلی ساخته شود؟'))return;let body=Object.assign({},tnPlanReq,{plan_hash:tnPlanHash});let r=await fetch('/api/tunnels',{method:'POST',headers:ah(),body:JSON.stringify(body)});let t=await r.text();if(r.status===409){try{let d=JSON.parse(t);alert(d.error);tnShowPlan(d.plan)}catch(e){alert(t)}return}if(!r.ok){alert(t);return}tnClearPlan();tnEditEnd();loadTunnels();loadAudit()}
 async function tnRotate(id){if(!confirm('Rotate the TLS certificate of tunnel '+id+'? The IR trusts old + new until the new certificate is confirmed; any failure before that rolls back.'))return;let r=await fetch('/api/tunnels/rotate-cert',{method:'POST',headers:ah(),body:JSON.stringify({tunnel_id:id})});let t=await r.text();if(!r.ok){alert(t);return}try{alert('rotation '+JSON.parse(t).id+' started')}catch(e){}loadAudit()}
 async function tnCancel(id){let reason=prompt('Cancel and roll back tunnel '+id+'. Reason (optional)','');if(reason===null)return;let r=await fetch('/api/tunnels/cancel',{method:'POST',headers:ah(),body:JSON.stringify({id,reason})});if(!r.ok)alert(await r.text());loadTunnels();loadAudit()}
@@ -205,7 +348,7 @@ async function dcStart(){let r=await fetch('/api/discovery?all=1',{method:'POST'
 async function loadDiscovery(){if(!token())return;let r=await fetch('/api/discovery',{headers:ah()});if(!r.ok)return;let d=await r.json();q('#dcRows').innerHTML=(d.nodes||[]).map(n=>{let head=n.pending?'<span class=muted>running…</span>':(n.problem?'<span class=muted>'+esc(n.problem)+'</span>':(n.at?'<span class=muted>'+esc(n.at)+'</span>':'<span class=muted>not run</span>'));let ins=n.instances||[];if(!ins.length)return '<tr><td>'+esc(n.node_id)+'</td><td colspan=3>'+head+'</td></tr>';return ins.map((v,i)=>'<tr><td>'+(i===0?esc(n.node_id)+'<div>'+head+'</div>':'')+'</td><td>'+esc(v.unit)+(v.primary?' <span class=muted>(primary)</span>':'')+'</td><td><span class="badge '+dcCls(v.state)+'">'+esc(v.state)+'</span></td><td>'+esc((v.reasons||[]).join('; '))+'</td></tr>').join('')}).join('')}
 function hlCls(st){return st==='UP'?'up':(st==='DOWN'?'down':'unknown')}
 async function loadHealth(){if(!token())return;let r=await fetch('/api/health',{headers:ah()});if(!r.ok)return;let d=await r.json();q('#hlRows').innerHTML=(d.nodes||[]).map(n=>'<tr><td>'+esc(n.alias||n.node_id)+(n.conformity?'<div class=muted>config: '+esc(n.conformity)+'</div>':'')+'</td><td><span class="badge '+hlCls(n.overall)+'">'+esc(n.overall)+'</span>'+((n.why||[]).length?'<div class=muted>'+esc(n.why.join('; '))+'</div>':'')+'</td><td>'+(n.layers||[]).map(l=>'<div title="'+esc(l.evidence||l.note||'')+'"><span class="badge '+hlCls(l.state)+'">'+esc(l.layer)+' '+esc(l.state)+'</span> <span class=muted>'+esc(l.name)+(l.evidence?' · '+esc(l.evidence):'')+(l.note?' · '+esc(l.note):'')+'</span></div>').join('')+'</td><td>'+((n.transitions||[]).slice().reverse().map(t=>'<div class=muted>'+esc(t.at)+' · '+esc(t.layer)+' '+esc(t.from)+' → '+esc(t.to)+' · '+esc(t.reason)+' · '+esc(t.evidence)+'</div>').join('')||'<span class=muted>none</span>')+'</td></tr>').join('')}
-async function loadTunnels(){if(!token())return;let r=await fetch('/api/tunnels',{headers:ah()});if(!r.ok)return;let ts=await r.json();tnFill();rdFill(ts);q('#tnRows').innerHTML=ts.map(t=>{let final=['active','superseded','rolled_back','rollback_failed','decommissioned','decommission_failed'].includes(t.phase);let cls=t.phase==='active'?'up':(t.phase==='rolled_back'||t.phase==='rollback_failed'||t.phase==='decommission_failed'?'down':'unknown');let actions='';if(t.phase==='active')actions='<button class="alt" data-id="'+esc(t.id)+'" onclick="tnEdit(this.dataset.id)">Edit</button> <button class="alt" data-id="'+esc(t.id)+'" onclick="tnDrift(this.dataset.id)">Check drift</button> <button class="alt" data-id="'+esc(t.id)+'" onclick="tnRotate(this.dataset.id)">Rotate cert</button> <button class="alt" data-id="'+esc(t.id)+'" onclick="tnDecommission(this.dataset.id)">Remove safely / حذف امن</button>'+(t.cert_epoch?'<div class=muted>cert epoch '+esc(t.cert_epoch)+'</div>':'');else if(t.phase==='decommission_failed')actions='<button class="alt" data-id="'+esc(t.id)+'" onclick="tnDecommission(this.dataset.id)">Retry decommission</button>';else if(!final)actions='<button class="alt" data-id="'+esc(t.id)+'" onclick="tnCancel(this.dataset.id)">Cancel</button>';return '<tr><td>'+esc(t.id)+'</td><td>'+esc(t.ex_node)+'</td><td>'+esc(t.ir_node)+'</td><td><span class="badge '+cls+'">'+esc(t.phase)+'</span></td><td>'+esc(t.error||'')+(t.drift?'<div class=muted>drift: <b>'+esc(t.drift.state)+'</b> · '+esc(Object.entries(t.drift.nodes||{}).filter(e=>e[1].state!=='IN_SYNC').map(e=>e[0]+': '+e[1].state+' ('+(e[1].problems||[]).join('; ')+')').join(' | '))+'</div>':'')+((t.evidence||[]).length?'<details><summary class=muted>evidence ('+t.evidence.length+')</summary>'+t.evidence.map(e=>'<div class=muted>'+esc(e.step)+' · '+esc(e.node)+' · '+(e.ok?'OK':'FAILED')+(e.problems?' · '+esc(e.problems.join('; ')):'')+'</div>').join('')+'</details>':'')+'</td><td>'+actions+'</td></tr>'}).join('')}
+async function loadTunnels(){if(!token())return;let r=await fetch('/api/tunnels',{headers:ah()});if(!r.ok)return;let ts=await r.json();tnWizardTunnels=Array.isArray(ts)?ts:[];tnFill();rdFill(ts);q('#tnRows').innerHTML=ts.map(t=>{let final=['active','superseded','rolled_back','rollback_failed','decommissioned','decommission_failed'].includes(t.phase);let cls=t.phase==='active'?'up':(t.phase==='rolled_back'||t.phase==='rollback_failed'||t.phase==='decommission_failed'?'down':'unknown');let actions='';if(t.phase==='active')actions='<button class="alt" data-id="'+esc(t.id)+'" onclick="tnEdit(this.dataset.id)">Edit</button> <button class="alt" data-id="'+esc(t.id)+'" onclick="tnDrift(this.dataset.id)">Check drift</button> <button class="alt" data-id="'+esc(t.id)+'" onclick="tnRotate(this.dataset.id)">Rotate cert</button> <button class="alt" data-id="'+esc(t.id)+'" onclick="tnDecommission(this.dataset.id)">Remove safely / حذف امن</button>'+(t.cert_epoch?'<div class=muted>cert epoch '+esc(t.cert_epoch)+'</div>':'');else if(t.phase==='decommission_failed')actions='<button class="alt" data-id="'+esc(t.id)+'" onclick="tnDecommission(this.dataset.id)">Retry decommission</button>';else if(!final)actions='<button class="alt" data-id="'+esc(t.id)+'" onclick="tnCancel(this.dataset.id)">Cancel</button>';return '<tr><td>'+esc(t.id)+'</td><td>'+esc(t.ex_node)+'</td><td>'+esc(t.ir_node)+'</td><td><span class="badge '+cls+'">'+esc(t.phase)+'</span></td><td>'+esc(t.error||'')+(t.drift?'<div class=muted>drift: <b>'+esc(t.drift.state)+'</b> · '+esc(Object.entries(t.drift.nodes||{}).filter(e=>e[1].state!=='IN_SYNC').map(e=>e[0]+': '+e[1].state+' ('+(e[1].problems||[]).join('; ')+')').join(' | '))+'</div>':'')+((t.evidence||[]).length?'<details><summary class=muted>evidence ('+t.evidence.length+')</summary>'+t.evidence.map(e=>'<div class=muted>'+esc(e.step)+' · '+esc(e.node)+' · '+(e.ok?'OK':'FAILED')+(e.problems?' · '+esc(e.problems.join('; ')):'')+'</div>').join('')+'</details>':'')+'</td><td>'+actions+'</td></tr>'}).join('')}
 async function loadAll(){await loadNodes();await Promise.all([loadMonitoring(),loadJobs(),loadFinance(),loadAudit(),loadTunnels(),loadHealth(),loadDiscovery(),loadPathProbes(),loadPathGraph(),loadPathMatrix()])}
 const fastPollMS=10000,slowPollMS=30000;let fastPollTimer=null,slowPollTimer=null;
 async function loadFast(){if(document.hidden)return;await Promise.all([loadMonitoring(),loadTunnels(),loadHealth()])}

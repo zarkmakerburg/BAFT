@@ -73,3 +73,19 @@ test('new tunnel starts with an explicit user-chosen destination port, never sil
  assert.match(js,/q\('#tnTarget'\)\.value='';q\('#tnServicePort'\)\.value=''/);
  assert.match(js,/const raw=String\(q\('#'\+id\)\.value\)\.trim\(\),n=Number\(raw\)/);
 });
+
+test('Arange-inspired chooser explains topology before a driver without pretending reverse exists',()=>{
+ assert.match(html,/id="tnDirection"/);
+ assert.match(html,/<option value="ir-to-ex">Direct/);
+ assert.match(html,/<option value="ex-to-ir" disabled>Reverse/);
+ assert.match(html,/id="tnDirectionInfo"/);
+ assert.match(html,/🇮🇷 IR \(dialer\)/);
+ assert.match(html,/🌍 EX \(listener\)/);
+ assert.match(html,/<optgroup label="Direct/);
+ assert.match(html,/Reverse — Abroad initiates/);
+ assert.match(js,/q\('#tnDirection'\)\.value!=='ir-to-ex'/);
+ assert.match(js,/q\('#tnDirection'\)\.value='ir-to-ex'/);
+ assert.match(js,/separate from user ingress/);
+ const req=js.slice(js.indexOf('function tnReq()'),js.indexOf('function tnModeChanged()'));
+ assert.doesNotMatch(req,/tnDirection|reverse_engine|reverse_server/);
+});

@@ -71,3 +71,16 @@ test('manual destination port entry stays authoritative and generator does not c
  assert.equal(fields.tnTarget,'127.0.0.1:53001');
  assert.equal(fields.tnPort,'8444');
 });
+
+test('future reverse topology is rejected before creating a native BAFT plan',()=>{
+ const fields={...defaults,tnDirection:'ex-to-ir',tnEngine:'baft'};
+ let warnings=[];
+ const c=context(fields,'let tnEditBase=null;const tnWizardText=(en,fa)=>fa;const tnWizardSharesLegacy=()=>false;const tnWizardEnsureID=()=>{};'+fn('function tnWizardValidateStep(i)','function tnWizardStep(i)'));
+ c.alert=x=>warnings.push(x);
+ assert.equal(vm.runInContext('tnWizardValidateStep(0)',c),false);
+ assert.match(warnings.join(''),/معکوس/);
+ fields.tnDirection='ir-to-ex';
+ assert.equal(vm.runInContext('tnWizardValidateStep(0)',c),true);
+ fields.tnEngine='frp';
+ assert.equal(vm.runInContext('tnWizardValidateStep(0)',c),false);
+});

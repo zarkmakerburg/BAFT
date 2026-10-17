@@ -293,8 +293,8 @@ async function loadTunnelEngines(){
   if(!Array.isArray(caps)||!caps.some(c=>c.name==='baft'&&c.deployable))throw new Error('Invalid capability catalog');
   const engines=caps.filter(c=>c.family!=='carrier');
   const deployable=engines.filter(c=>c.deployable&&c.name==='baft').length;
-  summary.textContent=tnWizardText(deployable+' trusted engine ready for reviewed build • '+(engines.length-deployable)+' planned • '+(caps.length-engines.length)+' carriers not yet installed',deployable+' موتور معتبر برای ساخت واقعی • '+(engines.length-deployable)+' موتور در توسعه • '+(caps.length-engines.length)+' حامل هنوز نصب نشده');
-  grid.innerHTML=caps.map(c=>{
+  const nextSummary=tnWizardText(deployable+' trusted engine ready for reviewed build • '+(engines.length-deployable)+' planned • '+(caps.length-engines.length)+' carriers not yet installed',deployable+' موتور معتبر برای ساخت واقعی • '+(engines.length-deployable)+' موتور در توسعه • '+(caps.length-engines.length)+' حامل هنوز نصب نشده');
+  const nextCards=caps.map(c=>{
    const ready=c.deployable&&c.name==='baft',direction=c.direction==='ir_to_ex'?'IR → EX':c.direction==='ex_to_ir'?'EX → IR':tnWizardText('Variable','متغیر');
    const group=c.family==='carrier'?tnWizardText('Transport / carrier','حامل / ترنسپورت'):c.family==='reverse'?tnWizardText('Reverse engine','موتور معکوس'):tnWizardText('Direct engine','موتور مستقیم');
    const status=ready?tnWizardText('Plan available','قابل ساخت'):tnWizardText('Not installed / planned','در برنامه / نصب‌نشده');
@@ -302,6 +302,9 @@ async function loadTunnelEngines(){
    const req=Array.isArray(c.requirements)?c.requirements.map(x=>'<li>'+esc(x)+'</li>').join(''):'';
    return '<article class="tlTile"><div class="tlTileTop"><h3>'+esc(c.label||c.name)+'</h3><span class="tlState '+(ready?'on':'off')+'">'+esc(status)+'</span></div><div class="tlMeta">'+esc(group)+' · <span dir="ltr">'+esc(direction)+'</span></div><p>'+esc(document.documentElement.lang==='fa'?(tlPersian[c.name]||c.description):c.description)+'</p>'+(ready?'':'<details><summary class="tlMeta">'+esc(tnWizardText('Required before activation','پیش‌نیاز فعال‌سازی'))+'</summary><p>'+esc(c.reason||'')+'</p><ul>'+req+'</ul></details>')+'<button type="button" class="alt" '+(ready?'data-engine="'+esc(c.name)+'" onclick="tlPickEngine(this.dataset.engine)"':'disabled aria-disabled="true"')+'>'+esc(action)+'</button></article>';
   }).join('');
+  if(requestSeq!==tlCatalogRequestSeq||token()!==requestToken)return;
+  summary.textContent=nextSummary;
+  grid.innerHTML=nextCards;
  }catch(e){if(requestSeq!==tlCatalogRequestSeq||token()!==requestToken)return;grid.replaceChildren();summary.textContent=tnWizardText('Engine status unavailable — no deployment is allowed from Toolbox.','وضعیت موتورهای تونل در دسترس نیست؛ ساخت از جعبه‌ابزار غیرفعال است.')}
 }
 

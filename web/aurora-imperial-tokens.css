@@ -49,3 +49,44 @@
 @media (prefers-reduced-motion:reduce) {
   :root[data-design="imperial"] .imperial-motion {animation:none!important;transition:none!important}
 }
+
+/* Stage316: premium surface treatment of EXISTING Command Center;
+ * opt-in preview only, no changes to map canvas behavior or data bindings.
+ */
+:root[data-design="imperial"] .shell {background:var(--imperial-bg);color:var(--imperial-ink)}
+:root[data-design="imperial"] .side {
+  background:var(--imperial-surface);
+  border-inline-end:1px solid var(--imperial-line);
+}
+:root[data-design="imperial"] .workspace {background:var(--imperial-bg)}
+:root[data-design="imperial"] .top {
+  background:color-mix(in srgb,var(--imperial-surface) 93%,transparent);
+  border-bottom:1px solid var(--imperial-line);
+}
+:root[data-design="imperial"] .card:not(.map-card),
+:root[data-design="imperial"] .ops-card {
+  border-color:var(--imperial-line);
+  border-radius:var(--imperial-radius-card);
+  background:var(--imperial-surface);
+  box-shadow:var(--imperial-shadow);
+}
+:root[data-design="imperial"] .map-card {
+  border:1px solid var(--imperial-line);
+  border-radius:var(--imperial-radius-card);
+  box-shadow:var(--imperial-shadow);
+}
+:root[data-design="imperial"] .kpi {
+  border:1px solid var(--imperial-line);
+  border-radius:14px;
+  box-shadow:0 6px 22px rgba(0,0,0,.08);
+}
+:root[data-design="imperial"] .card-head h2,
+:root[data-design="imperial"] .card-head h3 {letter-spacing:-.018em}
+:root[data-design="imperial"] .icon-btn:focus-visible,
+:root[data-design="imperial"] .btn:focus-visible {
+  outline:2px solid var(--imperial-cyan);
+  outline-offset:3px;
+}
+@media(max-width:620px) {
+  :root[data-design="imperial"] .card:not(.map-card){box-shadow:none}
+}

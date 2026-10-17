@@ -8,11 +8,11 @@ const src=fs.readFileSync(path.resolve(__dirname,'../../internal/bcc/dashboard.g
 const js=src.slice(src.indexOf('<script>')+8,src.indexOf('</script>'));
 function fn(from,to){const start=js.indexOf(from),end=js.indexOf(to,start);assert.ok(start>=0&&end>start);return js.slice(start,end)}
 function context(fields,prelude){
- const c={q:selector=>({get value(){return fields[selector.slice(1)]},set value(v){fields[selector.slice(1)]=v},get checked(){return fields[selector.slice(1)]},set checked(v){fields[selector.slice(1)]=v},scrollIntoView(){}}),document:{documentElement:{lang:'fa'}},alert(){},tnClearPlan(){},console};
- vm.createContext(c);vm.runInContext(prelude,c);return c;
+ const c={q:selector=>({get value(){return fields[selector.slice(1)]},set value(v){fields[selector.slice(1)]=v},get checked(){return fields[selector.slice(1)]},set checked(v){fields[selector.slice(1)]=v},get textContent(){return fields[selector.slice(1)]},set textContent(v){fields[selector.slice(1)]=v},scrollIntoView(){}}),document:{documentElement:{lang:'fa'}},alert(){},tnClearPlan(){},console};
+ vm.createContext(c);vm.runInContext(fn('function tnWizardTargetChanged()','function tnWizardGenerateServicePort()')+prelude,c);return c;
 }
 const req=fn('function tnReq()','function tnModeChanged()');
-const defaults={tnEx:'ex-de-1',tnIr:'ir-arno-1',tnPort:'8444',tnTarget:'127.0.0.1:2443',tnMode:'independent',tnInstance:'baft-arno-de-2',tnRouteListen:'127.0.0.1:1444',tnExMetric:'127.0.0.1:9202',tnIrMetric:'127.0.0.1:9302',tnLegacyCoexist:true,tnClientPort:'443'};
+const defaults={tnDirection:'ir-to-ex',tnEngine:'baft',tnEx:'ex-de-1',tnIr:'ir-arno-1',tnPort:'8444',tnTarget:'127.0.0.1:2443',tnMode:'independent',tnInstance:'baft-arno-de-2',tnRouteListen:'127.0.0.1:1444',tnExMetric:'127.0.0.1:9202',tnIrMetric:'127.0.0.1:9302',tnLegacyCoexist:true,tnClientPort:'443'};
 test('wizard really submits isolated BAFT backend fields without application or public ingress settings',()=>{
  const f={...defaults};
  const c=context(f,'let tnEditBase=null;'+req);
@@ -68,4 +68,78 @@ test('public IR ingress acknowledgement is required before review',()=>{
  assert.equal(vm.runInContext('tnWizardValidateStep(2)',c),false);
  fields.tnIngressConfirm=true;
  assert.equal(vm.runInContext('tnWizardValidateStep(2)',c),true);
+});
+
+function portHarness(fields={},inventory=[],samples=[0]){
+ const values={...defaults,...fields};let calls=0,clears=0;
+ const c=context(values,'const tnWizardText=en=>en;let tnWizardTunnels='+JSON.stringify(inventory)+';'+fn('function tnWizardGenerateServicePort()','function tnWizardIngressChanged()')+fn('function tnWizardActive(t)','function tnWizardSharesLegacy()'));
+ c.crypto={getRandomValues(bytes){const next=samples[calls++%samples.length];if(next instanceof Error)throw next;bytes[0]=next;return bytes}};
+ c.tnClearPlan=()=>{clears++};
+ return {c,values,generate:()=>vm.runInContext('tnWizardGenerateServicePort()',c),get calls(){return calls},get clears(){return clears}};
+}
+test('port suggestion avoids current and node inventory conflicts while preserving IPv6 host',()=>{
+ const h=portHarness({tnPort:'20001',tnExMetric:'127.0.0.1:20003',tnTarget:'[2001:db8::15]:20004'},[
+  {ex_node:'ex-de-1',phase:'active',port:2053,target:'192.0.2.8:20002',ex_metrics_listen:'127.0.0.1:20005'},
+  {ex_node:'ex-other',phase:'active',target:'127.0.0.1:20006'},
+  {ir_node:'ex-de-1',phase:'active',route_listen:'127.0.0.1:20007',ir_metrics_listen:'[::1]:20008'}
+ ],[1,2,3,4,5,7,8,6]);
+ const before={...h.values};h.generate();
+ assert.equal(h.values.tnTarget,'[2001:db8::15]:20006');
+ assert.equal(h.calls,8);assert.equal(h.clears,1);
+ for(const id of ['tnPort','tnRouteListen','tnExMetric','tnIrMetric','tnInstance','tnClientPort'])assert.equal(h.values[id],before[id],id);
+ assert.match(h.values.tnServicePortHint,/Suggested 20006/);
+});
+for(const phase of ['superseded','decommissioned','rolled_back'])test('released '+phase+' inventory does not reserve a suggestion',()=>{
+ const h=portHarness({},[{ex_node:'ex-de-1',phase,port:20001,target:'127.0.0.1:20001'}],[1]);h.generate();
+ assert.equal(h.values.tnTarget,'127.0.0.1:20001');assert.equal(h.calls,1);
+});
+test('failed decommission still reserves resources until they are proven released',()=>{
+ const h=portHarness({},[{ex_node:'ex-de-1',phase:'decommission_failed',target:'127.0.0.1:20001'}],[1,2]);h.generate();
+ assert.equal(h.values.tnTarget,'127.0.0.1:20002');assert.equal(h.calls,2);
+});
+test('explicit suggestion can fill an empty destination without a silent default',()=>{
+ const h=portHarness({tnTarget:''},[],[39999]);assert.equal(h.values.tnTarget,'');h.generate();
+ assert.equal(h.values.tnTarget,'127.0.0.1:59999');assert.equal(h.clears,1);
+});
+test('invalid destination text is preserved without consuming randomness',()=>{
+ const h=portHarness({tnTarget:'https://example.invalid:443'});h.generate();
+ assert.equal(h.values.tnTarget,'https://example.invalid:443');assert.equal(h.calls,0);assert.equal(h.clears,0);
+ assert.match(h.values.tnServicePortHint,/fixed destination IP:port/);
+});
+test('suggestion requires a selected foreign node',()=>{
+ const h=portHarness({tnEx:''});h.generate();assert.equal(h.calls,0);assert.equal(h.clears,0);
+ assert.match(h.values.tnServicePortHint,/Choose the foreign server/);
+});
+test('secure randomness failure leaves the chosen destination and reviewed plan intact',()=>{
+ const h=portHarness({},[],[new Error('unavailable')]),target=h.values.tnTarget;h.generate();
+ assert.equal(h.values.tnTarget,target);assert.equal(h.clears,0);
+ assert.match(h.values.tnServicePortHint,/Secure port suggestion unavailable/);
+});
+test('random sampling rejects the biased tail before choosing a port',()=>{
+ const h=portHarness({},[],[0xffffffff,0]);h.generate();
+ assert.equal(h.values.tnTarget,'127.0.0.1:20000');assert.equal(h.calls,2);
+});
+test('port suggestion has a bounded retry budget and preserves input on exhaustion',()=>{
+ const h=portHarness({tnPort:'20001'},[],[1]),target=h.values.tnTarget;h.generate();
+ assert.equal(h.calls,64);assert.equal(h.values.tnTarget,target);assert.equal(h.clears,0);
+ assert.match(h.values.tnServicePortHint,/Could not suggest a port/);
+});
+test('manual target edit clears an obsolete suggestion hint and invalidates the plan',()=>{
+ const h=portHarness({tnTarget:'192.0.2.8:53001',tnServicePortHint:'Old suggestion'});
+ vm.runInContext('tnWizardTargetChanged()',h.c);
+ assert.equal(h.values.tnTarget,'192.0.2.8:53001');assert.equal(h.values.tnServicePortHint,'');assert.equal(h.clears,1);
+});
+test('future reverse topology and unimplemented engines fail before plan creation',()=>{
+ const fields={...defaults,tnDirection:'ex-to-ir'};
+ const c=context(fields,'let tnEditBase=null;const tnWizardText=en=>en;'+fn('function tnWizardValidateStep(i)','function tnWizardStep(i)'));
+ assert.equal(vm.runInContext('tnWizardValidateStep(0)',c),false);
+ fields.tnDirection='ir-to-ex';assert.equal(vm.runInContext('tnWizardValidateStep(0)',c),true);
+ fields.tnEngine='frp';assert.equal(vm.runInContext('tnWizardValidateStep(0)',c),false);
+});
+test('new tunnel resets direction and engine and requires an explicit destination',()=>{
+ const fields={...defaults,tnDirection:'ex-to-ir',tnEngine:'frp',tnServicePortHint:'Old suggestion'};
+ const c=context(fields,'let tnEditBase={};'+fn('function tnNew()','async function tnEdit(id)'));
+ c.tnModeChanged=()=>{};c.tnWizardStep=()=>{};vm.runInContext('tnNew()',c);
+ assert.equal(fields.tnDirection,'ir-to-ex');assert.equal(fields.tnEngine,'baft');
+ assert.equal(fields.tnTarget,'');assert.equal(fields.tnServicePortHint,'');
 });

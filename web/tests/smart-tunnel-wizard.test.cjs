@@ -9,7 +9,7 @@ const styles=fs.readFileSync(path.join(root,'web/bcc-app.css'),'utf8');
 test('guided five-step UI remains mounted on real operational BCC card',()=>{
  assert.match(html,/Aurora · Tunnel Control Studio/);
  assert.equal((html.match(/data-tn-step="[0-4]"/g)||[]).length,5);
- for(const id of ['tnEngine','tnMode','tnEx','tnIr','tnPort','tnClientPort','tnIngressConfirm','tnLegacyCoexist','tnInstance','tnRouteListen','tnExMetric','tnIrMetric','tnTarget','tnWizardSummary','tnPlan']){
+ for(const id of ['tnDirection','tnEngine','tnMode','tnEx','tnIr','tnPort','tnClientPort','tnIngressConfirm','tnLegacyCoexist','tnInstance','tnRouteListen','tnExMetric','tnIrMetric','tnTarget','tnServicePortHint','tnWizardSummary','tnPlan']){
   assert.match(html,new RegExp('id="'+id+'"'),'missing '+id);
  }
  assert.match(js,/function tnWizardStep\(/);
@@ -28,6 +28,20 @@ test('Tunnel Studio exposes a single generic service destination in the ports st
  assert.match(ports,/\[::1\]:2443/);
  assert.match(ports,/نشانی و پورت مقصد سرویس/);
  assert.doesNotMatch(js,/tnUserProtocol|tnXrayPort|tnWizardTargetSync/);
+});
+test('unified Studio retains explicit port suggestions and truthful direction selection',()=>{
+ assert.match(html,/<option value="ir-to-ex">Direct/);
+ assert.match(html,/<option value="ex-to-ir" disabled>Reverse/);
+ assert.match(html,/id="tnDirectionInfo"/);
+ assert.match(html,/<optgroup label="Direct/);
+ assert.match(html,/<optgroup label="Reverse/);
+ assert.match(html,/onclick="tnWizardGenerateServicePort\(\)"/);
+ assert.match(html,/label for="tnTarget"/);
+ assert.match(html,/do not scan or reserve OS sockets/);
+ const target=html.match(/<input id="tnTarget"[^>]*>/)[0];
+ assert.doesNotMatch(target,/\svalue=/,'destination must be explicitly chosen');
+ const request=js.slice(js.indexOf('function tnReq()'),js.indexOf('function tnModeChanged()'));
+ assert.doesNotMatch(request,/tnDirection|reverse_engine|reverse_server|tnServicePort/);
 });
 test('only Native BAFT is selectable: future drivers cannot silently become live',()=>{
  assert.match(html,/<option value="baft">BAFT Secure/);

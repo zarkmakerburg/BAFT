@@ -54,7 +54,18 @@ html[lang="fa"] .tn-en,html:not([lang="fa"]) .tn-fa{display:none!important}
 .tnAdvanced{margin-top:14px;border:1px solid var(--bcc-line,#34343b);padding:12px;border-radius:10px}
 .tnReview{display:grid;gap:9px;padding:14px;border:1px solid var(--bcc-line,#34343b);border-radius:12px;margin-bottom:12px;overflow-wrap:anywhere}
 .tnWizardControls{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0}
-@media(max-width:620px){.tnWizardSteps{display:flex;overflow:auto;gap:7px;padding:0 0 8px}.tnWizardSteps span[data-tn-nav]{min-width:92px;flex:none}.tnFields{grid-template-columns:1fr}.tnWizardControls button{flex:1}}
+/* BAFT Toolbox — original Aurora-compatible cards; backend is the source of capability truth. */
+.tlIntro{font-size:13px;color:var(--bcc-muted);line-height:1.7;margin-top:6px}
+.tlCatalog{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:15px}
+.tlTile{position:relative;display:flex;flex-direction:column;gap:9px;min-width:0;padding:15px;border-radius:14px;border:1px solid var(--bcc-line);background:linear-gradient(150deg,rgba(213,181,120,.075),var(--bcc-field) 42%);box-shadow:0 5px 20px #0001;transition:border-color .18s ease,transform .18s ease}
+.tlTile:hover{border-color:var(--bcc-gold);transform:translateY(-2px)}
+.tlTile h3{margin:0;font-size:16px}.tlTile p{color:var(--bcc-muted);font-size:12px;line-height:1.6;margin:0;flex:1}
+.tlTileTop{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap}
+.tlMeta{font-size:11px;color:var(--bcc-muted);overflow-wrap:anywhere}.tlTile button{align-self:flex-start;max-width:100%}
+.tlTile button:disabled{opacity:.65}.tlState{font-size:10px;border-radius:999px;padding:3px 7px;border:1px solid var(--bcc-line);font-weight:700}
+.tlState.on{color:#9debc9;border-color:#316d57}.tlState.off{color:var(--bcc-muted)}
+@media(max-width:620px){.tnWizardSteps{display:flex;overflow:auto;gap:7px;padding:0 0 8px}.tnWizardSteps span[data-tn-nav]{min-width:92px;flex:none}.tnFields{grid-template-columns:1fr}.tnWizardControls button{flex:1}.tlCatalog{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}}
+@media(prefers-reduced-motion:reduce){.tlTile{transition:none}.tlTile:hover{transform:none}}
 
 </style></head>
 <body><div class="wrap">
@@ -95,6 +106,12 @@ html[lang="fa"] .tn-en,html:not([lang="fa"]) .tn-fa{display:none!important}
 <div class="card"><div class="top"><b>Layered health</b><button class="alt" onclick="loadHealth()">Refresh</button></div>
 <div class="muted">A state changes only after several consistent samples. NOT_ASSESSED means BCC has no signal for that layer; UNKNOWN means no evidence yet or for a while. Neither is DOWN.</div>
 <div class="tablewrap"><table><thead><tr><th>Node</th><th>Overall</th><th>Layers</th><th>Recent transitions</th></tr></thead><tbody id="hlRows"></tbody></table></div></div>
+<div class="card aurora-tunnel-toolbox" id="tunnel-toolbox" aria-labelledby="tlTitle">
+ <div class="top"><div><b id="tlTitle"><span class="tn-en">Universal Tunnel Toolbox</span><span class="tn-fa">جعبه‌ابزار همه‌کارهٔ تونل</span></b><div class="tlIntro"><span class="tn-en">One control center, engine-aware workflows. Only verified backend drivers can start a real build; planned drivers stay locked until signed agents and two-node tests are ready.</span><span class="tn-fa">یک مرکز مدیریت برای موتورهای مختلف. فقط موتورهای تأییدشده می‌توانند ساخت واقعی را شروع کنند؛ موتورهای آینده تا آماده‌شدن عامل‌های امضاشده و آزمون دو سرور غیرفعال‌اند.</span></div></div><button class="alt" type="button" onclick="loadTunnelEngines()"><span class="tn-en">Refresh engines</span><span class="tn-fa">تازه‌سازی موتورها</span></button></div>
+ <div id="tlSummary" class="muted" style="margin-top:10px" aria-live="polite"><span class="tn-en">Checking supported drivers…</span><span class="tn-fa">در حال بررسی موتورهای پشتیبانی‌شده…</span></div>
+ <div class="tlCatalog" id="tlCatalog" aria-live="polite"></div>
+</div>
+
 <div class="card aurora-tunnel-studio"><div class="top"><div><b>Aurora · Tunnel Control Studio</b><div class="muted">Smart Tunnel Wizard / ساخت ساده تونل — Native BAFT, real reviewed deployment</div></div><button class="alt" onclick="loadTunnels()">Refresh / تازه‌سازی</button></div>
 <div class="tnWizardSteps" id="tnWizardSteps" aria-label="Tunnel creation steps">
  <span data-tn-nav="0" class="selected">1 · <span class="tn-en">Type</span><span class="tn-fa">نوع</span></span>
@@ -241,6 +258,46 @@ async function bsRun(){let host=q('#bsHost').value.trim(),port=Number(q('#bsPort
 function bsTunnel(){if(!bsLast)return;tnFill();q(bsLast.role==='foreign'?'#tnEx':'#tnIr').value=bsLast.id;if(window.BAFT_UI)location.hash='#tunnels';else q('#tnEx').scrollIntoView({behavior:'smooth'})}
 function tnFill(){let opt=(role)=>nodes.filter(n=>role.includes(n.role)&&!n.revoked).map(n=>'<option value="'+esc(n.id)+'">'+esc(n.alias||n.id)+' ('+esc(n.id)+')</option>').join('');let ex=q('#tnEx'),ir=q('#tnIr'),a=ex.value,b=ir.value;ex.innerHTML='<option value="">EX node…</option>'+opt(['foreign']);ir.innerHTML='<option value="">IR node…</option>'+opt(['worker','master']);ex.value=a;ir.value=b}
 
+// Universal Toolbox is backend-driven. This screen never installs unverified
+// binaries, bypasses plan gates, or declares unsupported drivers operational.
+const tlPersian={
+ baft:'تونل امن بومی BAFT با طرح بررسی‌شده و مدیریت نمونه‌های مستقل',
+ frp:'موتور ریورس‌پراکسی FRP؛ پس از پیاده‌سازی واقعی فعال می‌شود',
+ rathole:'موتور معکوس Rathole؛ نیازمند بستهٔ امضاشده و آزمون دو سرور',
+ backhaul:'موتور معکوس Backhaul؛ اتصال و بازیابی مستقل در برنامه است',
+ wireguard:'تونل لایهٔ سه WireGuard؛ کنترل مسیر و فایروال هنوز آماده نیست',
+ 'ssh-socks':'خروجی SOCKS روی SSH؛ هنوز نصب و مدیریت خودکار ندارد',
+ wss:'حامل WebSocket امن، نه موتور مستقل تونل',
+ quic:'حامل QUIC بر بستر UDP، نه موتور مستقل تونل'
+};
+function tlPickEngine(id){
+ const select=q('#tnEngine');
+ if(id!=='baft'||!select||![...select.options].some(o=>o.value===id&&!o.disabled))return;
+ select.value=id;tnClearPlan();tnWizardStep(0);
+ document.querySelector('.aurora-tunnel-studio').scrollIntoView({behavior:'smooth',block:'start'});
+}
+async function loadTunnelEngines(){
+ const grid=q('#tlCatalog'),summary=q('#tlSummary');if(!grid||!summary)return;
+ if(!token()){grid.replaceChildren();summary.textContent=tnWizardText('Sign in to list trusted tunnel capabilities.','برای دیدن قابلیت‌های معتبر تونل وارد شوید.');return}
+ try {
+  const r=await fetch('/api/tunnel-engines',{method:'GET',headers:ah()});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  const caps=await r.json();
+  if(!Array.isArray(caps)||!caps.some(c=>c.name==='baft'&&c.deployable))throw new Error('Invalid capability catalog');
+  const engines=caps.filter(c=>c.family!=='carrier');
+  const deployable=engines.filter(c=>c.deployable&&c.name==='baft').length;
+  summary.textContent=tnWizardText(deployable+' trusted engine ready for reviewed build • '+(engines.length-deployable)+' planned • '+(caps.length-engines.length)+' carriers not yet installed',deployable+' موتور معتبر برای ساخت واقعی • '+(engines.length-deployable)+' موتور در توسعه • '+(caps.length-engines.length)+' حامل هنوز نصب نشده');
+  grid.innerHTML=caps.map(c=>{
+   const ready=c.deployable&&c.name==='baft',direction=c.direction==='ir_to_ex'?'IR → EX':c.direction==='ex_to_ir'?'EX → IR':tnWizardText('Variable','متغیر');
+   const group=c.family==='carrier'?tnWizardText('Transport / carrier','حامل / ترنسپورت'):c.family==='reverse'?tnWizardText('Reverse engine','موتور معکوس'):tnWizardText('Direct engine','موتور مستقیم');
+   const status=ready?tnWizardText('Plan available','قابل ساخت'):tnWizardText('Not installed / planned','در برنامه / نصب‌نشده');
+   const action=ready?tnWizardText('Configure in Studio','ساخت در استودیو'):tnWizardText('Requires verified driver','نیازمند موتور واقعی');
+   const req=Array.isArray(c.requirements)?c.requirements.map(x=>'<li>'+esc(x)+'</li>').join(''):'';
+   return '<article class="tlTile"><div class="tlTileTop"><h3>'+esc(c.label||c.name)+'</h3><span class="tlState '+(ready?'on':'off')+'">'+esc(status)+'</span></div><div class="tlMeta">'+esc(group)+' · <span dir="ltr">'+esc(direction)+'</span></div><p>'+esc(document.documentElement.lang==='fa'?(tlPersian[c.name]||c.description):c.description)+'</p>'+(ready?'':'<details><summary class="tlMeta">'+esc(tnWizardText('Required before activation','پیش‌نیاز فعال‌سازی'))+'</summary><p>'+esc(c.reason||'')+'</p><ul>'+req+'</ul></details>')+'<button type="button" class="alt" '+(ready?'data-engine="'+esc(c.name)+'" onclick="tlPickEngine(this.dataset.engine)"':'disabled aria-disabled="true"')+'>'+esc(action)+'</button></article>';
+  }).join('');
+ }catch(e){grid.replaceChildren();summary.textContent=tnWizardText('Engine status unavailable — no deployment is allowed from Toolbox.','وضعیت موتورهای تونل در دسترس نیست؛ ساخت از جعبه‌ابزار غیرفعال است.')}
+}
+
 // Native BAFT Smart Tunnel Wizard. It only submits fields supported by BCC's
 // existing reviewed tunnel API; public client ingress is never silently made.
 let tnWizardIndex=0,tnWizardTunnels=[];
@@ -349,7 +406,7 @@ async function loadDiscovery(){if(!token())return;let r=await fetch('/api/discov
 function hlCls(st){return st==='UP'?'up':(st==='DOWN'?'down':'unknown')}
 async function loadHealth(){if(!token())return;let r=await fetch('/api/health',{headers:ah()});if(!r.ok)return;let d=await r.json();q('#hlRows').innerHTML=(d.nodes||[]).map(n=>'<tr><td>'+esc(n.alias||n.node_id)+(n.conformity?'<div class=muted>config: '+esc(n.conformity)+'</div>':'')+'</td><td><span class="badge '+hlCls(n.overall)+'">'+esc(n.overall)+'</span>'+((n.why||[]).length?'<div class=muted>'+esc(n.why.join('; '))+'</div>':'')+'</td><td>'+(n.layers||[]).map(l=>'<div title="'+esc(l.evidence||l.note||'')+'"><span class="badge '+hlCls(l.state)+'">'+esc(l.layer)+' '+esc(l.state)+'</span> <span class=muted>'+esc(l.name)+(l.evidence?' · '+esc(l.evidence):'')+(l.note?' · '+esc(l.note):'')+'</span></div>').join('')+'</td><td>'+((n.transitions||[]).slice().reverse().map(t=>'<div class=muted>'+esc(t.at)+' · '+esc(t.layer)+' '+esc(t.from)+' → '+esc(t.to)+' · '+esc(t.reason)+' · '+esc(t.evidence)+'</div>').join('')||'<span class=muted>none</span>')+'</td></tr>').join('')}
 async function loadTunnels(){if(!token())return;let r=await fetch('/api/tunnels',{headers:ah()});if(!r.ok)return;let ts=await r.json();tnWizardTunnels=Array.isArray(ts)?ts:[];tnFill();rdFill(ts);q('#tnRows').innerHTML=ts.map(t=>{let final=['active','superseded','rolled_back','rollback_failed','decommissioned','decommission_failed'].includes(t.phase);let cls=t.phase==='active'?'up':(t.phase==='rolled_back'||t.phase==='rollback_failed'||t.phase==='decommission_failed'?'down':'unknown');let actions='';if(t.phase==='active')actions='<button class="alt" data-id="'+esc(t.id)+'" onclick="tnEdit(this.dataset.id)">Edit</button> <button class="alt" data-id="'+esc(t.id)+'" onclick="tnDrift(this.dataset.id)">Check drift</button> <button class="alt" data-id="'+esc(t.id)+'" onclick="tnRotate(this.dataset.id)">Rotate cert</button> <button class="alt" data-id="'+esc(t.id)+'" onclick="tnDecommission(this.dataset.id)">Remove safely / حذف امن</button>'+(t.cert_epoch?'<div class=muted>cert epoch '+esc(t.cert_epoch)+'</div>':'');else if(t.phase==='decommission_failed')actions='<button class="alt" data-id="'+esc(t.id)+'" onclick="tnDecommission(this.dataset.id)">Retry decommission</button>';else if(!final)actions='<button class="alt" data-id="'+esc(t.id)+'" onclick="tnCancel(this.dataset.id)">Cancel</button>';return '<tr><td>'+esc(t.id)+'</td><td>'+esc(t.ex_node)+'</td><td>'+esc(t.ir_node)+'</td><td><span class="badge '+cls+'">'+esc(t.phase)+'</span></td><td>'+esc(t.error||'')+(t.drift?'<div class=muted>drift: <b>'+esc(t.drift.state)+'</b> · '+esc(Object.entries(t.drift.nodes||{}).filter(e=>e[1].state!=='IN_SYNC').map(e=>e[0]+': '+e[1].state+' ('+(e[1].problems||[]).join('; ')+')').join(' | '))+'</div>':'')+((t.evidence||[]).length?'<details><summary class=muted>evidence ('+t.evidence.length+')</summary>'+t.evidence.map(e=>'<div class=muted>'+esc(e.step)+' · '+esc(e.node)+' · '+(e.ok?'OK':'FAILED')+(e.problems?' · '+esc(e.problems.join('; ')):'')+'</div>').join('')+'</details>':'')+'</td><td>'+actions+'</td></tr>'}).join('')}
-async function loadAll(){await loadNodes();await Promise.all([loadMonitoring(),loadJobs(),loadFinance(),loadAudit(),loadTunnels(),loadHealth(),loadDiscovery(),loadPathProbes(),loadPathGraph(),loadPathMatrix()])}
+async function loadAll(){await loadNodes();await Promise.all([loadMonitoring(),loadJobs(),loadFinance(),loadAudit(),loadTunnels(),loadTunnelEngines(),loadHealth(),loadDiscovery(),loadPathProbes(),loadPathGraph(),loadPathMatrix()])}
 const fastPollMS=10000,slowPollMS=30000;let fastPollTimer=null,slowPollTimer=null;
 async function loadFast(){if(document.hidden)return;await Promise.all([loadMonitoring(),loadTunnels(),loadHealth()])}
 async function loadSlow(){if(document.hidden)return;await Promise.all([loadFinance(),loadDiscovery()])}

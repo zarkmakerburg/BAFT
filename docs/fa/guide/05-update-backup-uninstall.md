@@ -6,6 +6,19 @@
 
 ## به‌روزرسانی
 
+اول بررسی کنید که release امضاشدهٔ تازه‌تری هست یا نه. این فقط می‌خواند و چیزی روی سرور تغییر نمی‌دهد:
+
+<div dir="ltr" align="left">
+
+```bash
+baft update check                                     # exit 0: current, 3: update available, 1: unknown
+baft update check --save-installer ./baft-install.sh  # also keep the verified, signed installer
+```
+
+</div>
+
+بررسی، release را در برابر کلید ریشهٔ پین‌شده، فهرست ابطال و release state همین سرور تأیید می‌کند (بدون downgrade و بدون re-tag). اگر نتواند دریافت یا تأیید کند `UNKNOWN` می‌گوید، هرگز «به‌روز است» نه. به‌روزرسانی را **اعمال نمی‌کند**؛ با نصب‌کننده اعمال کنید، مثلاً `sudo BAFT_VERSION=vX.Y.Z bash ./baft-install.sh --plan` برای پیش‌نمایش و همان دستور بدون `--plan` برای اعمال. در منوی `baft` هم هست (گزینهٔ ۱۱).
+
 همان خط نصب را روی هر سرور دوباره اجرا کنید (سرور خارج و ایران را با هم به‌روز کنید تا هر دو طرف یک نسخه داشته باشند):
 
 <div dir="ltr" align="left">

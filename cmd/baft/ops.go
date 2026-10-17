@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -20,6 +21,7 @@ import (
 	"time"
 
 	"github.com/zarkmakerburg/baft/internal/config"
+	"github.com/zarkmakerburg/baft/internal/selfupdate"
 )
 
 // Operator commands: status, doctor and logs. They only read: the config,
@@ -43,6 +45,9 @@ type opsEnv struct {
 	// service runs as. Doctor uses them to decide whether a chmod is safe.
 	ownerUID   func(path string) (uint32, error)
 	serviceUID func(service string) (uint32, error)
+	// checkUpdate is the signed-release check behind `baft update check`;
+	// nil means the real one (hostUpdateCheck).
+	checkUpdate func(ctx context.Context, statePath, version, dir string) selfupdate.Report
 }
 
 var hostOps = opsEnv{

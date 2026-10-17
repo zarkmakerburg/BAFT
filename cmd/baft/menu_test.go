@@ -199,10 +199,11 @@ func TestMenuShowsTheHeaderAndTheListInTheHQOrder(t *testing.T) {
 	if strings.Contains(o, "Uninstall (planned)") {
 		t.Error("Uninstall is built now; it must not be marked planned")
 	}
-	for _, planned := range []string{"Update (unavailable)", "Repair (unavailable)"} {
-		if !strings.Contains(o, planned) {
-			t.Errorf("%s is not marked as planned", planned)
-		}
+	if !strings.Contains(o, "Repair (unavailable)") {
+		t.Error("Repair is not marked as unavailable")
+	}
+	if strings.Contains(o, "Update (unavailable)") {
+		t.Error("Update has a read-only check now; it must not be marked unavailable")
 	}
 	if !strings.Contains(o, "B  A  F  T") || !strings.Contains(o, "ir-01") || !strings.Contains(o, "IR (dialer)") || !strings.Contains(o, "HEALTHY") {
 		t.Fatalf("header context missing:\n%s", o)
@@ -224,12 +225,10 @@ func TestMenuRunsTheRealCommands(t *testing.T) {
 func TestPlannedItemsDoNothing(t *testing.T) {
 	r := newMenuRig(t)
 	before := len(r.commands)
-	r.run(t, monoCaps, "11\n\n12\n\n0\n")
+	r.run(t, monoCaps, "12\n0\n")
 	o := r.out.String()
-	for _, name := range []string{"Update", "Repair"} {
-		if !strings.Contains(o, "That option is unavailable in this release; choose an enabled number.") {
-			t.Errorf("%s: no honest message", name)
-		}
+	if !strings.Contains(o, "That option is unavailable in this release; choose an enabled number.") {
+		t.Error("Repair: no honest message")
 	}
 	if strings.Contains(o, "Nothing was changed.") {
 		t.Error("disabled items must not open the action workflow")

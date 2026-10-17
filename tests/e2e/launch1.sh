@@ -195,7 +195,9 @@ def run_menu(env, cols):
                 if not d: return
                 out += d
     drain(1.5)
-    for line in (b"11\n", b"\n", b"0\n"):
+    # 11 opens the Update submenu, 0 goes back and Enter answers its "press Enter",
+    # 12 is Repair (unavailable, no number), 0 exits. Nothing here uses the network.
+    for line in (b"11\n", b"0\n", b"\n", b"12\n", b"0\n"):
         os.write(fd, line); drain(0.7)
     _, status = os.waitpid(pid, 0)
     return out.decode(errors="replace"), os.WEXITSTATUS(status)
@@ -203,7 +205,8 @@ colored, rc = run_menu({"TERM": "xterm-256color", "COLORTERM": "truecolor", "LAN
 assert rc == 0, rc
 assert "\x1b[" in colored and "B  A  F  T" in re.sub(r"\x1b\[[0-9;]*m", "", colored), "no gold header on a color terminal"
 seen = re.sub(r"\x1b\[[0-9;]*m", "", colored)
-assert "Update (unavailable)" in seen and "That option is unavailable in this release" in seen, seen[:500]
+assert "Repair (unavailable)" in seen and "That option is unavailable in this release" in seen, seen[:500]
+assert "Update (unavailable)" not in seen and "Check for a newer signed release" in seen and "Apply an update (unavailable)" in seen, seen[:800]
 plain, rc = run_menu({"TERM": "xterm", "NO_COLOR": "1", "LANG": "C"}, 60)
 assert rc == 0 and "\x1b[" not in plain, "NO_COLOR was not respected"
 assert "BAFT | v" in plain, plain[:300]

@@ -44,21 +44,27 @@ func runUpdate(ctx context.Context, args []string, stdout, stderr io.Writer, env
 		return 2
 	}
 	var version, saveTo string
+	var l menuCfg
 	f, ok := parseOpsFlags("update check", args[1:], stderr, func(fs *flag.FlagSet) {
 		fs.StringVar(&version, "version", "", "release to check (default: the newest)")
 		fs.StringVar(&saveTo, "save-installer", "", "write the verified installer to this new file")
+		fs.StringVar(&l.unitDir, "unit-dir", "/etc/systemd/system", "systemd unit directory")
+		fs.StringVar(&l.agentUnit, "agent-unit", "baft-agent", "agent service name")
+		fs.StringVar(&l.bccService, "bcc-service", "baft-bcc", "BCC service name")
 	})
 	if !ok {
 		updateUsage(stderr)
 		return 2
 	}
-	rep, saved, saveErr := checkForUpdate(ctx, env, f.releaseState, version, saveTo)
+	l.file, l.service, l.releaseState = f.file, f.service, f.releaseState
+	rep, comps, saved, saveErr := checkForUpdate(ctx, env, l, version, saveTo)
 	if f.json {
 		out := struct {
 			selfupdate.Report
-			SavedInstaller string `json:"saved_installer,omitempty"`
-			SaveError      string `json:"save_error,omitempty"`
-		}{Report: rep, SavedInstaller: saved}
+			Components     []componentInfo `json:"components,omitempty"`
+			SavedInstaller string          `json:"saved_installer,omitempty"`
+			SaveError      string          `json:"save_error,omitempty"`
+		}{Report: rep, Components: comps, SavedInstaller: saved}
 		if saveErr != nil {
 			out.SaveError = saveErr.Error()
 		}
@@ -67,7 +73,7 @@ func runUpdate(ctx context.Context, args []string, stdout, stderr io.Writer, env
 			return 1
 		}
 	} else {
-		printUpdateReport(stdout, rep, saved, saveErr)
+		printUpdateReport(stdout, rep, comps, saved, saveErr)
 	}
 	switch {
 	case saveErr != nil || rep.Status == selfupdate.Unknown:
@@ -79,36 +85,42 @@ func runUpdate(ctx context.Context, args []string, stdout, stderr io.Writer, env
 }
 
 // checkForUpdate runs one check in a private scratch directory that is removed
-// before it returns. When save is set and the release verified, the signed
-// installer is written there (a new file, mode 0700; an existing path is
-// never overwritten).
-func checkForUpdate(ctx context.Context, env opsEnv, statePath, version, save string) (rep selfupdate.Report, saved string, saveErr error) {
+// before it returns, then judges each installed component by its own binaries.
+// When save is set and the release verified, the signed installer is written
+// there (a new file, mode 0700; an existing path is never overwritten).
+func checkForUpdate(ctx context.Context, env opsEnv, l menuCfg, version, save string) (rep selfupdate.Report, comps []componentInfo, saved string, saveErr error) {
 	ctx, cancel := context.WithTimeout(ctx, updateCheckTimeout)
 	defer cancel()
 	dir, err := os.MkdirTemp("", "baft-update-")
 	if err != nil {
-		return selfupdate.Report{Status: selfupdate.Unknown, CheckedAt: time.Now().UTC(), Reason: "cannot create a scratch directory: " + err.Error()}, "", nil
+		return selfupdate.Report{Status: selfupdate.Unknown, CheckedAt: time.Now().UTC(), Reason: "cannot create a scratch directory: " + err.Error()}, nil, "", nil
 	}
 	defer os.RemoveAll(dir)
 	check := env.checkUpdate
 	if check == nil {
 		check = hostUpdateCheck
 	}
-	rep = check(ctx, statePath, version, dir)
+	rep = check(ctx, l.releaseState, version, dir)
+	inv := hostInventory
+	if env.inventory != nil {
+		inv = *env.inventory
+	}
+	comps = inspectComponents(l, runtime.GOARCH, rep.Artifacts, inv)
+	foldInventory(&rep, comps)
 	if save == "" {
-		return rep, "", nil
+		return rep, comps, "", nil
 	}
 	if rep.Installer == "" {
-		return rep, "", fmt.Errorf("there is no verified installer to save")
+		return rep, comps, "", fmt.Errorf("there is no verified installer to save")
 	}
 	body, err := os.ReadFile(rep.Installer)
 	if err != nil {
-		return rep, "", fmt.Errorf("cannot read the verified installer: %w", err)
+		return rep, comps, "", fmt.Errorf("cannot read the verified installer: %w", err)
 	}
 	if err := writeNewFile(save, body, 0o700); err != nil {
-		return rep, "", fmt.Errorf("cannot save the installer: %w", err)
+		return rep, comps, "", fmt.Errorf("cannot save the installer: %w", err)
 	}
-	return rep, save, nil
+	return rep, comps, save, nil
 }
 
 // hostUpdateCheck is the real check: the pinned root key, this machine's
@@ -150,7 +162,7 @@ func writeNewFile(path string, body []byte, mode os.FileMode) error {
 	return err
 }
 
-func printUpdateReport(w io.Writer, rep selfupdate.Report, saved string, saveErr error) {
+func printUpdateReport(w io.Writer, rep selfupdate.Report, comps []componentInfo, saved string, saveErr error) {
 	fmt.Fprintln(w, "BAFT update check")
 	installed := "unknown"
 	if rep.Installed != "" {
@@ -167,7 +179,14 @@ func printUpdateReport(w io.Writer, rep selfupdate.Report, saved string, saveErr
 	if rep.Reason != "" {
 		fmt.Fprintf(w, "  reason        %s\n", clean(rep.Reason))
 	}
-	fmt.Fprintf(w, "  checked       %s\n\n", rep.CheckedAt.Format(time.RFC3339))
+	fmt.Fprintf(w, "  checked       %s\n", rep.CheckedAt.Format(time.RFC3339))
+	if len(comps) > 0 {
+		fmt.Fprintln(w, "  components    judged by their own binaries against the signed release")
+		for _, c := range comps {
+			fmt.Fprintf(w, "    %-10s %-14s %-9s %s\n", c.Name, clean(c.Unit), strings.ToUpper(c.Status), componentDetail(c))
+		}
+	}
+	fmt.Fprintln(w)
 
 	switch rep.Status {
 	case selfupdate.Current:
@@ -190,6 +209,22 @@ func printUpdateReport(w io.Writer, rep selfupdate.Report, saved string, saveErr
 	if saveErr != nil {
 		fmt.Fprintf(w, "The installer was NOT saved: %s\n", clean(saveErr.Error()))
 	}
+}
+
+func componentDetail(c componentInfo) string {
+	var differs []string
+	for _, b := range c.Binaries {
+		if b.State == "differs" {
+			differs = append(differs, b.Name)
+		}
+	}
+	switch {
+	case len(differs) > 0:
+		return strings.Join(differs, ", ") + " differs from the signed release"
+	case c.Status == statCurrent:
+		return "all binaries identical to the signed release"
+	}
+	return clean(c.Reason)
 }
 
 func shortCommit(c string) string {

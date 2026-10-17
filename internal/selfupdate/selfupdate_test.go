@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
+	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -152,6 +154,10 @@ func TestNewerSignedReleaseIsAvailableAndTheInstallerIsTheSignedOne(t *testing.T
 	got, err := os.ReadFile(rep.Installer)
 	if err != nil || !bytes.Equal(got, installerBody) {
 		t.Fatalf("installer = %q, %v", got, err)
+	}
+	sum := sha256.Sum256(installerBody)
+	if rep.Artifacts[InstallerArtifact("amd64")] != hex.EncodeToString(sum[:]) || len(rep.Artifacts) != 1 {
+		t.Fatalf("artifact digests = %v", rep.Artifacts)
 	}
 }
 

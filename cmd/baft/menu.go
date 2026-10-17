@@ -300,8 +300,8 @@ func (m *menu) updateMenu() {
 
 func (m *menu) updateCheck() {
 	m.printf("Checking the newest signed release (up to %d s)...\n\n", int(updateCheckTimeout/time.Second))
-	rep, _, _ := checkForUpdate(context.Background(), m.env, m.cfg.releaseState, "", "")
-	printUpdateReport(m.out, rep, "", nil)
+	rep, comps, _, _ := checkForUpdate(context.Background(), m.env, m.cfg, "", "")
+	printUpdateReport(m.out, rep, comps, "", nil)
 }
 
 func (m *menu) logsMenu() {

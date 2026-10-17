@@ -8,12 +8,12 @@ const src=fs.readFileSync(path.resolve(__dirname,'../../internal/bcc/dashboard.g
 const js=src.slice(src.indexOf('<script>')+8,src.indexOf('</script>'));
 function fn(from,to){const start=js.indexOf(from),end=js.indexOf(to,start);assert.ok(start>=0&&end>start);return js.slice(start,end)}
 function context(fields,prelude){
- const c={q:selector=>({get value(){return fields[selector.slice(1)]},set value(v){fields[selector.slice(1)]=v},get checked(){return fields[selector.slice(1)]},set checked(v){fields[selector.slice(1)]=v}}),document:{documentElement:{lang:'fa'}},alert(){},tnClearPlan(){},console};
+ const c={q:selector=>({get value(){return fields[selector.slice(1)]},set value(v){fields[selector.slice(1)]=v},get checked(){return fields[selector.slice(1)]},set checked(v){fields[selector.slice(1)]=v},scrollIntoView(){}}),document:{documentElement:{lang:'fa'}},alert(){},tnClearPlan(){},console};
  vm.createContext(c);vm.runInContext(prelude,c);return c;
 }
 const req=fn('function tnReq()','function tnModeChanged()');
-const defaults={tnEx:'ex-de-1',tnIr:'ir-arno-1',tnPort:'8444',tnXrayPort:'2443',tnTarget:'127.0.0.1:2443',tnMode:'independent',tnInstance:'baft-arno-de-2',tnRouteListen:'127.0.0.1:1444',tnExMetric:'127.0.0.1:9202',tnIrMetric:'127.0.0.1:9302',tnLegacyCoexist:true,tnUserProtocol:'VLESS',tnClientPort:'443'};
-test('wizard really submits isolated BAFT backend fields, never unprovisioned Xray/IR ingress',()=>{
+const defaults={tnEx:'ex-de-1',tnIr:'ir-arno-1',tnPort:'8444',tnTarget:'127.0.0.1:2443',tnMode:'independent',tnInstance:'baft-arno-de-2',tnRouteListen:'127.0.0.1:1444',tnExMetric:'127.0.0.1:9202',tnIrMetric:'127.0.0.1:9302',tnLegacyCoexist:true,tnClientPort:'443'};
+test('wizard really submits isolated BAFT backend fields without application or public ingress settings',()=>{
  const f={...defaults};
  const c=context(f,'let tnEditBase=null;'+req);
  const result=JSON.parse(JSON.stringify(vm.runInContext('tnReq()',c)));
@@ -30,12 +30,37 @@ test('editing a selected managed instance preserves its backend identity',()=>{
  assert.equal(result.route_id,old.route_id);
  assert.equal(result.record_shaping,true);
 });
-test('actual Xray destination port edits the BAFT EX target, not BAFT outer port',()=>{
- const fields={...defaults,tnXrayPort:'30000'};
- const c=context(fields,'let tnClearPlan=()=>{};'+fn('function tnWizardTargetSync()','function tnWizardIngressChanged()'));
- vm.runInContext('tnWizardTargetSync()',c);
- assert.equal(fields.tnTarget,'127.0.0.1:30000');
- assert.equal(fields.tnPort,'8444');
+for(const target of ['127.0.0.1:30000','192.0.2.15:5432','[2001:db8::15]:8443'])test('generic destination survives request creation: '+target,()=>{
+ const fields={...defaults,tnTarget:target};
+ const c=context(fields,'let tnEditBase=null;'+req);
+ const result=vm.runInContext('tnReq()',c);
+ assert.equal(result.target,target);
+ assert.equal(result.port,8444);
+});
+for(const instance of ['', 'existing-managed'])test('editing '+(instance?'managed':'legacy')+' tunnel keeps non-loopback IPv6 target reviewable',async()=>{
+ const fields={...defaults};
+ const old={instance_id:instance,ex_node:'ex-de-1',ir_node:'ir-arno-1',public_address:'203.0.113.5',port:2053,target:'[2001:db8::15]:5432',route_id:'service-main',route_listen:'127.0.0.1:1443'};
+ const c=context(fields,'let tnEditBase=null;const tnWizardText=(en,fa)=>fa;'+req+fn('async function tnEdit(id)','function tnEditEnd()')+fn('function tnWizardValidateStep(i)','function tnWizardStep(i)'));
+ c.fetch=async()=>({ok:true,json:async()=>old});c.ah=()=>({});c.esc=String;c.tnModeChanged=()=>{};c.tnWizardStep=()=>{};
+ await vm.runInContext('tnEdit("tun-existing")',c);
+ assert.equal(fields.tnTarget,old.target);
+ assert.equal(fields.tnPort,old.port);
+ fields.tnIngressConfirm=true;
+ assert.equal(vm.runInContext('tnWizardValidateStep(2)',c),true);
+ const result=vm.runInContext('tnReq()',c);
+ assert.equal(result.target,old.target);
+ assert.equal(result.instance_id,instance);
+ assert.equal(result.route_id,old.route_id);
+});
+test('review requires an explicit service destination and valid BAFT port',()=>{
+ const fields={...defaults,tnIngressConfirm:true};
+ const c=context(fields,'const tnWizardText=(en,fa)=>fa;'+fn('function tnWizardValidateStep(i)','function tnWizardStep(i)'));
+ for(const port of ['', '0', '65536', '8.5']){
+  fields.tnPort=port;assert.equal(vm.runInContext('tnWizardValidateStep(2)',c),false);
+ }
+ fields.tnPort='8444';
+ fields.tnTarget='  ';assert.equal(vm.runInContext('tnWizardValidateStep(2)',c),false);
+ fields.tnTarget='[::1]:5432';assert.equal(vm.runInContext('tnWizardValidateStep(2)',c),true);
 });
 test('public IR ingress acknowledgement is required before review',()=>{
  const fields={...defaults,tnIngressConfirm:false};

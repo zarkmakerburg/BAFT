@@ -71,6 +71,9 @@ type Report struct {
 	SigningKeyID       string    `json:"signing_key_id,omitempty"`
 	ReleasedAt         time.Time `json:"released_at,omitzero"`
 	RevocationSequence uint64    `json:"revocation_sequence,omitempty"`
+	// RootOverridden is set by callers when the root key was not the pinned
+	// one (BAFT_ROOT_PUB, lab and test releases only); it must be shown.
+	RootOverridden bool `json:"root_overridden,omitempty"`
 	// Artifacts maps each artifact of the verified release to its signed
 	// sha256, so callers can tell whether an installed binary is that release.
 	Artifacts map[string]string `json:"artifacts,omitempty"`

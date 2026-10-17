@@ -81,6 +81,8 @@ func (r *invRig) agent() {
 	}))
 	r.bin("baft", "baft-v1")
 	r.bin("baft-pair", "pair-v1")
+	r.write(filepath.Join(r.dir, "agent", "bcc-job.pub"), "jobkey-public\n")
+	r.write(filepath.Join(r.dir, "agent", "token"), "agent-token\n")
 }
 
 // bcc writes a BCC unit shaped like install.sh's render_bcc_unit.
@@ -90,7 +92,9 @@ func (r *invRig) bcc(labelled bool) {
 	if labelled {
 		head = "# baft-managed: true\n# baft-component: bcc\n# baft-bootstrap-script: /opt/baft/bcc-bootstrap/install.sh\n# baft-bootstrap-sha256: absent\n"
 	}
-	r.unit(r.layout.bccService, head+"[Unit]\nDescription=BAFT Command Center\n\n[Service]\nType=simple\nExecStart="+bin+" --listen 127.0.0.1:8080 --state-file /var/lib/baft-bcc/state.db\nRestart=on-failure\n")
+	r.unit(r.layout.bccService, head+"[Unit]\nDescription=BAFT Command Center\n\n[Service]\nType=simple\nExecStart="+bin+" --listen 127.0.0.1:8080 --state-file "+filepath.Join(r.dir, "bccvar", "state.db")+
+		" --admin-token-file "+filepath.Join(r.dir, "bccetc", "admin-token")+" --access-file "+filepath.Join(r.dir, "bccetc", "access.json")+
+		" --job-key-file "+filepath.Join(r.dir, "bccetc", "job-key")+" --backup-dir "+filepath.Join(r.dir, "bccbak")+"\nRestart=on-failure\n")
 }
 
 // digests are the signed sha256s of a release whose binaries are `bodies`.

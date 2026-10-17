@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/zarkmakerburg/baft/internal/selfupdate"
 	"github.com/zarkmakerburg/baft/internal/uninstall"
@@ -51,9 +52,11 @@ type componentInfo struct {
 type inventoryHost struct {
 	readFile func(path string) ([]byte, error)
 	hashFile func(path string) (string, error)
+	// newestBackup is the modification time of the newest BCC backup in a directory.
+	newestBackup func(dir string) (time.Time, error)
 }
 
-var hostInventory = inventoryHost{readFile: os.ReadFile, hashFile: sha256File}
+var hostInventory = inventoryHost{readFile: os.ReadFile, hashFile: sha256File, newestBackup: newestBackup}
 
 func sha256File(path string) (string, error) {
 	f, err := os.Open(path)
@@ -102,8 +105,8 @@ func inspectComponents(l menuCfg, arch string, digests map[string]string, h inve
 	}
 	if raw, err := h.readFile(unitPath(l.bccService)); err == nil {
 		c := componentInfo{Name: compBCC, Unit: l.bccService}
-		if bin, ok := bccBinary(string(raw)); ok {
-			c.Binaries = []binaryCheck{{Name: "baft-bcc", Path: bin}}
+		if u, ok := parseBCCUnit(string(raw)); ok {
+			c.Binaries = []binaryCheck{{Name: "baft-bcc", Path: u.Bin}}
 		} else {
 			c.Reason = "the unit is not the BCC unit install.sh writes"
 		}
@@ -112,23 +115,49 @@ func inspectComponents(l menuCfg, arch string, digests map[string]string, h inve
 	return out
 }
 
-// bccBinary returns the BCC binary an installer-labelled BCC unit runs.
-func bccBinary(unit string) (string, bool) {
+// bccUnit is what an installer-labelled BCC unit says about the panel.
+type bccUnit struct {
+	Bin       string
+	BackupDir string
+	// The paths the panel was installed with; the installer takes them from its
+	// environment, so an update must pass the installed ones back.
+	StateFile, AdminTokenFile, AccessFile, JobKeyFile string
+}
+
+// parseBCCUnit reads a BCC unit install.sh wrote: labelled as BAFT's BCC unit
+// and running a baft-bcc binary. ok is false for any other unit.
+func parseBCCUnit(unit string) (bccUnit, bool) {
 	var managed, bcc bool
-	bin := ""
+	var u bccUnit
 	for _, l := range strings.Split(unit, "\n") {
 		switch {
 		case l == "# baft-managed: true":
 			managed = true
 		case l == "# baft-component: bcc":
 			bcc = true
-		case bin == "" && strings.HasPrefix(l, "ExecStart="):
-			if f := strings.Fields(strings.TrimPrefix(l, "ExecStart=")); len(f) > 0 && filepath.Base(f[0]) == "baft-bcc" {
-				bin = f[0]
+		case u.Bin == "" && strings.HasPrefix(l, "ExecStart="):
+			f := strings.Fields(strings.TrimPrefix(l, "ExecStart="))
+			if len(f) == 0 || filepath.Base(f[0]) != "baft-bcc" {
+				continue
+			}
+			u.Bin = f[0]
+			for i := 1; i+1 < len(f); i++ {
+				switch f[i] {
+				case "--backup-dir":
+					u.BackupDir = f[i+1]
+				case "--state-file":
+					u.StateFile = f[i+1]
+				case "--admin-token-file":
+					u.AdminTokenFile = f[i+1]
+				case "--access-file":
+					u.AccessFile = f[i+1]
+				case "--job-key-file":
+					u.JobKeyFile = f[i+1]
+				}
 			}
 		}
 	}
-	return bin, managed && bcc && bin != ""
+	return u, managed && bcc && u.Bin != ""
 }
 
 func judge(c componentInfo, arch string, digests map[string]string, h inventoryHost) componentInfo {

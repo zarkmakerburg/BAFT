@@ -6,6 +6,7 @@ const path=require('node:path');
 const root=path.resolve(__dirname,'../..');
 const css=fs.readFileSync(path.join(root,'web/aurora-imperial-tokens.css'),'utf8');
 const assets=fs.readFileSync(path.join(root,'web/assets.go'),'utf8');
+const html=fs.readFileSync(path.join(root,'web/bcc-app.html'),'utf8');
 const map=fs.readFileSync(path.join(root,'web/bcc-map.js'),'utf8');
 const earth=fs.readFileSync(path.join(root,'web/bcc-earth-v3.js'),'utf8');
 const welcome=fs.readFileSync(path.join(root,'web/bcc-welcome-globe-v3.js'),'utf8');
@@ -16,7 +17,7 @@ test('Imperial tokens are opt-in and do not overwrite BCC global tokens',()=>{
   assert.doesNotMatch(css,/(^|\n)\s*:root\s*\{/);
   assert.doesNotMatch(css,/\b--(?:bg|panel|gold|text|line):/);
 });
-test('Imperial foundation has no accidental production asset import',()=>{
+test('Imperial style is embedded but only enabled for explicit preview opt-in',()=>{
   assert.doesNotMatch(assets,/aurora-imperial-tokens\.css/);
   assert.match(assets,/bcc-map\.js/);
   assert.match(assets,/bcc-earth-v3\.js/);

@@ -389,3 +389,37 @@ td select{min-height:34px;padding:5px 10px;width:auto;min-width:150px}
  .table-wrap td{white-space:nowrap}
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* Aurora Tunnel Studio — fused into the existing Command Center, not a separate dashboard. */
+.ops-card.aurora-tunnel-studio{border:1px solid var(--gold-line);background:linear-gradient(135deg,var(--gold-soft),transparent 42%),var(--panel);box-shadow:0 14px 34px rgba(0,0,0,.09)}
+.aurora-tunnel-studio>.top b{font-size:1.04rem;letter-spacing:.02em}
+.aurora-mode-bar{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:14px;padding:12px;border-radius:14px;background:var(--panel2);border:1px solid var(--line)}
+.aurora-mode-bar label{font-size:13px;font-weight:700;color:var(--text)}
+.aurora-mode-bar select{min-width:220px;flex:1}
+.aurora-legacy-consent{display:flex;gap:10px;align-items:flex-start;padding:12px;margin-top:12px;border:1px solid var(--gold-line);border-radius:12px;background:var(--gold-soft);font-size:13px;line-height:1.65}
+.aurora-legacy-consent input{width:17px;height:17px;flex-shrink:0;accent-color:var(--gold)}
+.aurora-scope[hidden]{display:none!important}
+.aurora-scope .muted{margin:10px 0 2px;line-height:1.75}
+@media(max-width:620px){.aurora-mode-bar{align-items:stretch}.aurora-mode-bar select{min-width:0;width:100%}}
+
+
+/* Native BAFT Smart Tunnel Wizard: bilingual, mobile-first, classic + Aurora. */
+html[lang="fa"] .tn-en,html:not([lang="fa"]) .tn-fa{display:none!important}
+.tnWizardSteps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;margin:18px 0}
+.tnWizardSteps span[data-tn-nav]{border:1px solid var(--bcc-line,#34343b);border-radius:12px;padding:10px 5px;font-size:12px;text-align:center;color:var(--bcc-muted,#9aa5b7)}
+.tnWizardSteps span[data-tn-nav].selected{color:var(--bcc-text,#fff);border-color:var(--bcc-gold,#d5b578);background:rgba(213,181,120,.12)}
+.tnWizardStage[hidden],.tnWizardControls [hidden]{display:none!important}
+.tnWizardStage{padding:14px 0;min-height:190px}
+.tnWizardStage h3{font-size:17px;font-weight:700;margin:0 0 12px}
+.tnWizardStage select{width:100%;max-width:550px}
+.tnLabel{display:flex;flex-direction:column;gap:7px;margin:10px 0;font-size:13px;font-weight:650}
+.tnLabel input,.tnLabel select{box-sizing:border-box;min-width:0;width:100%;font-weight:400}
+.tnFields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 20px}
+.tnConfirm{display:flex;align-items:flex-start;gap:10px;margin:15px 0;line-height:1.6;font-size:13px}
+.tnConfirm input{width:19px;height:19px;flex:none;accent-color:var(--bcc-gold,#d5b578)}
+.tnNotice{border-inline-start:3px solid var(--bcc-gold,#d5b578);background:rgba(213,181,120,.09);padding:13px;border-radius:8px;margin:12px 0;font-size:13px;line-height:1.8}
+.tnNotice p{margin:6px 0 0}
+.tnAdvanced{margin-top:14px;border:1px solid var(--bcc-line,#34343b);padding:12px;border-radius:10px}
+.tnReview{display:grid;gap:9px;padding:14px;border:1px solid var(--bcc-line,#34343b);border-radius:12px;margin-bottom:12px;overflow-wrap:anywhere}
+.tnWizardControls{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0}
+@media(max-width:620px){.tnWizardSteps{display:flex;overflow:auto;gap:7px;padding:0 0 8px}.tnWizardSteps span[data-tn-nav]{min-width:92px;flex:none}.tnFields{grid-template-columns:1fr}.tnWizardControls button{flex:1}}

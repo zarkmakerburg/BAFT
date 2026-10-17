@@ -198,8 +198,8 @@ func (s *Server) Overview(now time.Time, window time.Duration) Overview {
 			t := n.AgentSeen
 			on.LastSeen = &t
 		}
-		if on.Status == "up" && n.LatencyMS >= 0 && !n.LastChecked.IsZero() {
-			l := n.LatencyMS
+		if on.Status == "up" && m.HealthCheckStatus == "up" && m.LatencyMS >= 0 {
+			l := m.LatencyMS
 			on.LatencyMS = &l
 			latencySum += l
 			latencyN++
@@ -211,7 +211,7 @@ func (s *Server) Overview(now time.Time, window time.Duration) Overview {
 			}
 		}
 		rates[n.ID] = nodeRates(hist)
-		if rs := rates[n.ID]; len(rs) > 0 && on.Status == "up" && now.Sub(rs[len(rs)-1].at) < stale {
+		if rs := rates[n.ID]; len(rs) > 0 && on.Status == "up" && monitoringFresh(rs[len(rs)-1].at, now, stale) {
 			in, out := rs[len(rs)-1].in, rs[len(rs)-1].out
 			on.InBps, on.OutBps = &in, &out
 		}
@@ -220,7 +220,7 @@ func (s *Server) Overview(now time.Time, window time.Duration) Overview {
 			t := n.AgentSeen
 			on.AgentSeen = &t
 		}
-		if !n.Revoked && (n.AgentSeen.IsZero() || now.Sub(n.AgentSeen) > stale) {
+		if !n.Revoked && !monitoringFresh(n.AgentSeen, now, stale) {
 			o.Health.AgentsStale++
 		}
 		if !n.Revoked {
@@ -279,7 +279,7 @@ func (s *Server) Overview(now time.Time, window time.Duration) Overview {
 			continue
 		}
 		last := rs[len(rs)-1]
-		if now.Sub(last.at) < stale && monitor[id].Status == "up" {
+		if monitoringFresh(last.at, now, stale) && monitor[id].Status == "up" {
 			curIn += last.in
 			curOut += last.out
 			current = true

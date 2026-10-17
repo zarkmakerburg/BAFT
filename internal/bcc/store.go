@@ -823,7 +823,7 @@ func (s *Store) ApplyTelemetry(token,signature string,body []byte,report telemet
 		NodeHealth:nodeState.Health,LatencyMS:nodeState.LatencyMS,Routes:routes,
 	}
 	h:=s.st.History[report.NodeID]
-	cutoff:=time.Now().UTC().Add(-7*24*time.Hour)
+	cutoff:=ts.Add(-7*24*time.Hour)
 	keep:=h[:0]
 	for _,p:=range h { if !p.Timestamp.Before(cutoff) { keep=append(keep,p) } }
 	keep=append(keep,point)
@@ -840,28 +840,39 @@ func (s *Store) TelemetrySnapshot(nodeID string) (TelemetryCursor,bool) {
 }
 
 
+// monitoringFresh accepts only dated observations in the current window.
+// A future timestamp is clock uncertainty, not proof of current health.
+func monitoringFresh(at, now time.Time, maxAge time.Duration) bool {
+	return !at.IsZero() && !at.After(now) && now.Sub(at) < maxAge
+}
+
 func (s *Store) MonitoringSnapshot(now time.Time,staleAfter time.Duration) []MonitoringNode {
 	if staleAfter<=0{staleAfter=3*time.Minute}
 	s.mu.Lock();defer s.mu.Unlock()
 	out:=make([]MonitoringNode,0,len(s.st.Nodes))
 	for id,n:=range s.st.Nodes{
 		cur,hasTelemetry:=s.st.Telemetry[id]
-		// Without telemetry, the TCP health probe or a recent agent poll is
-		// enough evidence: a node BCC cannot dial (an IR dialer) is still
-		// online while its agent keeps polling.
-		status:="unknown"
-		if n.Health=="down"{status="down"}
-		if n.Health=="up"||(!n.AgentSeen.IsZero()&&now.Sub(n.AgentSeen)<staleAfter){status="up"}
-		if hasTelemetry {
-			if now.Sub(cur.LastTelemetry)>=staleAfter { status="down" } else if n.Health!="down" { status="up" }
+		probeStatus, latency := "unknown", int64(-1)
+		if monitoringFresh(n.LastChecked, now, staleAfter) && (n.Health == "up" || n.Health == "down") {
+			probeStatus, latency = n.Health, n.LatencyMS
+		}
+		// This is node-online evidence, not tunnel or application health.
+		// Silence cannot prove failure or erase a current independent poll.
+		status := probeStatus
+		if monitoringFresh(n.AgentSeen, now, staleAfter) {
+			status = "up"
+		}
+		telemetryFresh := hasTelemetry && monitoringFresh(cur.LastTelemetry, now, staleAfter)
+		if telemetryFresh && status != "down" {
+			status = "up"
 		}
 		routes:=append([]telemetry.RouteSnapshot(nil),cur.Routes...)
-		if hasTelemetry&&now.Sub(cur.LastTelemetry)>=staleAfter {
+		if hasTelemetry && !telemetryFresh {
 			for i:=range routes { routes[i].Status="unknown" }
 		}
 		out=append(out,MonitoringNode{
 			NodeID:id,Alias:n.Alias,Address:n.Address,Role:n.Role,Status:status,
-			HealthCheckStatus:n.Health,LatencyMS:n.LatencyMS,LastSeen:cur.LastTelemetry,
+			HealthCheckStatus:probeStatus,LatencyMS:latency,LastSeen:cur.LastTelemetry,
 			ActiveSessions:cur.ActiveSessions,HandshakeErrors:cur.HandshakeErrors,NoiseLatencyMS:cur.NoiseLatencyMS,
 			HandshakeErrorRateMilliMin:cur.HandshakeErrorRateMilliMin,Routes:routes,
 		})

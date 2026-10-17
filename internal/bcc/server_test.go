@@ -256,7 +256,9 @@ func TestMonitoringAlertsAndSevenDayHistory(t *testing.T){
 		t.Fatalf("monitoring view=%+v",view)
 	}
 	if len(view[0].Routes)!=1||view[0].Routes[0].Status!="down"{t.Fatalf("route view=%+v",view[0].Routes)}
-	if view[1].NodeID!="n-stale"||view[1].Status!="down"||len(view[1].Routes)!=1||view[1].Routes[0].Status!="unknown"{t.Fatalf("stale view=%+v",view[1])}
+	// The fresh successful TCP probe still proves node reachability; stale
+	// telemetry cannot turn it DOWN or make the old route look current.
+	if view[1].NodeID!="n-stale"||view[1].Status!="up"||len(view[1].Routes)!=1||view[1].Routes[0].Status!="unknown"{t.Fatalf("stale view=%+v",view[1])}
 
 	// A sample older than seven days must not survive retention.
 	old:=second

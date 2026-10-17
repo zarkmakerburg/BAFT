@@ -28,7 +28,7 @@ type NoiseOptions struct {
 	HandshakeTimeout time.Duration
 	MaxPending       int
 	Revocations      RevocationWatcher
-	OnHandshakeError   func()
+	OnHandshakeError func()
 	// OnHandshakeFailure receives a bounded phase label only; no peer address,
 	// key material, payload, or endpoint is included.
 	OnHandshakeFailure func(phase string)
@@ -217,7 +217,11 @@ func newNoisePhaseTrace() *noisePhaseTrace {
 func (t *noisePhaseTrace) note(name, info string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	t.phase = name
+	// Preserve the causal TLS failure when a concurrent IK writer reports
+	// a downstream write error. Keep all events in chronological order.
+	if t.phase != "tls_handshake_error" || !strings.HasPrefix(name, "noise_") {
+		t.phase = name
+	}
 	if len(t.events) < 24 {
 		t.events = append(t.events, noisePhaseEvent{name: name, at: time.Since(t.start), info: info})
 	}

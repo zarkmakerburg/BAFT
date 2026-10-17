@@ -4,6 +4,15 @@
 
 ## Update
 
+First check whether a newer signed release exists. This only reads; it changes nothing on the server:
+
+```bash
+baft update check                                     # exit 0: current, 3: update available, 1: unknown
+baft update check --save-installer ./baft-install.sh  # also keep the verified, signed installer
+```
+
+The check verifies the release against the pinned root key, the revocation list and this server's release state (no downgrade, no re-tag). If it cannot fetch or verify, it says `UNKNOWN`, never "up to date". It does **not** apply the update; apply it with the installer, for example `sudo BAFT_VERSION=vX.Y.Z bash ./baft-install.sh --plan` to preview and the same command without `--plan` to apply. It is also in the `baft` menu (item 11).
+
 Run the same install line again on each server (outside and Iran together, so both sides run the same version):
 
 ```bash

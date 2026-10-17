@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +13,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/zarkmakerburg/baft/internal/selfupdate"
 )
 
 const fakeMetrics = `# HELP baft_active_flows Number of active BAFT application flows.
@@ -65,6 +68,11 @@ func newFakeHost(t *testing.T) *fakeHost {
 		procRoot:   t.TempDir(),
 		ownerUID:   func(string) (uint32, error) { return 1000, nil },
 		serviceUID: func(string) (uint32, error) { return 1000, nil },
+		// A test that did not ask for an update check must never reach the network.
+		checkUpdate: func(context.Context, string, string, string) selfupdate.Report {
+			t.Error("unexpected update check (it would use the network)")
+			return selfupdate.Report{Status: selfupdate.Unknown, Reason: "test"}
+		},
 	}
 	return h
 }

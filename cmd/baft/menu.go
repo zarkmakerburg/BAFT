@@ -29,9 +29,10 @@ import (
 // writes one archive after an explicit yes, and Uninstall (13), which runs the
 // same flow as `baft uninstall`: an exact preview, separate confirmations
 // (each data class defaults to NO, active tunnels, then typing "uninstall"),
-// and a journaled, verified removal. Anything that is not built yet is marked
-// "(planned)" and says so when chosen; nothing here installs, repairs or
-// updates anything.
+// and a journaled, verified removal. Update only CHECKS for a newer signed
+// release (it reads the network, verifies, and changes nothing here). Anything
+// that is not built yet is shown as "(unavailable)" without a number; nothing
+// here installs, repairs or applies an update.
 
 type menuCfg struct {
 	file, service, releaseState string
@@ -263,7 +264,7 @@ func (m *menu) mainItems() []menuItem {
 		{label: "Backup / Restore", run: (*menu).backup},
 		{label: "Logs", run: func(m *menu) { m.logsMenu() }},
 		{label: "Support bundle", run: (*menu).supportBundle},
-		{label: "Update", planned: true},
+		{label: "Update", run: (*menu).updateMenu},
 		{label: "Repair", planned: true},
 		{label: "Uninstall", run: (*menu).uninstallMenu},
 		{label: "Advanced", run: func(m *menu) { m.advancedMenu() }},
@@ -288,6 +289,19 @@ func (m *menu) doctorMenu() {
 		{label: "Run doctor", run: func(m *menu) { m.runCmd("doctor") }},
 		{label: "Preview fixes (shows commands, never runs them)", run: func(m *menu) { m.runCmd("doctor", "--preview-fixes") }},
 	})
+}
+
+func (m *menu) updateMenu() {
+	m.submenu("Update", []menuItem{
+		{label: "Check for a newer signed release (read-only)", run: (*menu).updateCheck},
+		{label: "Apply an update", planned: true},
+	})
+}
+
+func (m *menu) updateCheck() {
+	m.printf("Checking the newest signed release (up to %d s)...\n\n", int(updateCheckTimeout/time.Second))
+	rep, _, _ := checkForUpdate(context.Background(), m.env, m.cfg.releaseState, "", "")
+	printUpdateReport(m.out, rep, "", nil)
 }
 
 func (m *menu) logsMenu() {

@@ -609,7 +609,11 @@ func (s *Store) startRollbackLocked(t *Tunnel, now time.Time) {
 	}
 	t.Phase = TunnelRollingBack
 	for _, node := range order {
-		j := s.newJobLocked(Job{Type: JobTunnelRollback, NodeID: node, Params: map[string]string{"tunnel_id": t.ID}})
+		params := map[string]string{"tunnel_id": t.ID}
+		if t.InstanceID != "" {
+			params["instance_id"] = t.InstanceID
+		}
+		j := s.newJobLocked(Job{Type: JobTunnelRollback, NodeID: node, Params: params})
 		t.Jobs = append(t.Jobs, j.ID)
 		t.RollbackJobs = append(t.RollbackJobs, j.ID)
 	}

@@ -36,3 +36,13 @@ test('Existing geographic map and globe integration still present',()=>{
 test('Motion respects reduced-motion preference',()=>{
   assert.match(css,/prefers-reduced-motion:reduce/);
 });
+test('every Imperial rule is scoped to the opt-in design attribute',()=>{
+  const body=css.replace(/\/\*[\s\S]*?\*\//g,'');
+  const selectors=[...body.matchAll(/(^|\})\s*([^@{}][^{}]*)\{/g)].map(m=>m[2].trim()).filter(s=>!/^(@|from|to|\d)/.test(s));
+  assert.ok(selectors.length>10);
+  for(const group of selectors)for(const s of group.split(','))assert.match(s.trim(),/^:root\[data-design="imperial"\]/,s);
+});
+test('Imperial keeps nav focus visible and does not restyle map or globe canvases',()=>{
+  assert.match(css,/#nav a:focus-visible/);
+  assert.doesNotMatch(css.replace(/\/\*[\s\S]*?\*\//g,''),/canvas|#mapCanvas|#welcomeGlobe/);
+});

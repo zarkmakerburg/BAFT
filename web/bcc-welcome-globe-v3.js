@@ -1,10 +1,10 @@
 /* Landing globe: the bundled NASA Earth turning slowly, with illustrative
    routes from Tehran lifted above the surface. Drag to turn it by hand. */
 (()=>{'use strict';const c=document.getElementById('welcomeGlobe');if(!c)return;const ctx=c.getContext('2d');if(!ctx)return;
-const land=window.BAFT_LAND||[],reduce=matchMedia('(prefers-reduced-motion: reduce)').matches,rad=Math.PI/180,TILT=.32;
+const land=window.BAFT_LAND||[],motion=matchMedia('(prefers-reduced-motion: reduce)'),rad=Math.PI/180,TILT=.32;let reduce=motion.matches;
 const HUB=[51.39,35.69],NODES=[[8.68,50.11],[4.9,52.37],[-.12,51.51],[28.97,41.01],[-79.38,43.65],[103.82,1.35],[-74,40.7],[139.69,35.69],[55.27,25.2]];
-let w=1,h=1,dpr=1,last=0,angle=-.95,spin=reduce?0:2*Math.PI/110000,drag=null,vel=0,prev=0;
-function resize(){const b=c.getBoundingClientRect();dpr=Math.min(devicePixelRatio||1,1.75);w=c.width=Math.max(1,Math.round(b.width*dpr));h=c.height=Math.max(1,Math.round(b.height*dpr));draw()}
+let w=1,h=1,dpr=1,last=0,angle=-.95,spin=reduce?0:2*Math.PI/110000,drag=null,vel=0,prev=0,running=false,onScreen=true,dirty=true;
+function resize(){const b=c.getBoundingClientRect();dpr=Math.min(devicePixelRatio||1,1.75);w=c.width=Math.max(1,Math.round(b.width*dpr));h=c.height=Math.max(1,Math.round(b.height*dpr));draw();last=performance.now()}
 new ResizeObserver(resize).observe(c);
 const light=()=>document.documentElement.dataset.theme==='light';
 function geom(){const r=Math.min(w*.41,h*.42),cx=w*.54,cy=h*.51;return{r,cx,cy}}
@@ -27,12 +27,20 @@ function draw(time=performance.now()){const g=geom(),L=light();ctx.setTransform(
     if(!any)return;if(!reduce){const t=((time*.00016)+i*.137)%1,q=pts[Math.round(t*steps)];if(visible(q,g)){ctx.beginPath();ctx.arc(q.x,q.y,2.3*dpr,0,Math.PI*2);ctx.fillStyle=core;ctx.shadowColor=gold;ctx.shadowBlur=12*dpr;ctx.fill();ctx.shadowBlur=0}}
     const e=pts[steps];if(e.z>0){ctx.beginPath();ctx.arc(e.x,e.y,3.4*dpr,0,Math.PI*2);ctx.fillStyle=core;ctx.shadowColor=gold;ctx.shadowBlur=16*dpr;ctx.fill();ctx.shadowBlur=0;ctx.beginPath();ctx.arc(e.x,e.y,8*dpr,0,Math.PI*2);ctx.strokeStyle=gold;ctx.globalAlpha=.6;ctx.lineWidth=1*dpr;ctx.stroke();ctx.globalAlpha=1}});
   const hq=view(hub,g);if(hq.z>0){ctx.beginPath();ctx.arc(hq.x,hq.y,5*dpr,0,Math.PI*2);ctx.fillStyle=core;ctx.shadowColor=gold;ctx.shadowBlur=22*dpr;ctx.fill();ctx.shadowBlur=0;ctx.beginPath();ctx.arc(hq.x,hq.y,12*dpr,0,Math.PI*2);ctx.strokeStyle=gold;ctx.globalAlpha=.55;ctx.stroke();ctx.globalAlpha=1}}
-function frame(now){const dt=Math.min(64,now-(prev||now));prev=now;
-  if(!drag){if(Math.abs(vel)>1e-6){angle+=vel*dt;vel*=Math.pow(.94,dt/16)}else angle+=spin*dt}
-  if(now-last>30&&!c.closest('[hidden]')&&!document.hidden){draw(now);last=now}requestAnimationFrame(frame)}
+/* Frames run only while something moves: the slow spin, a drag or its glide.
+   With reduced motion, or off screen, the globe stays still and costs nothing. */
+const moving=()=>!!drag||Math.abs(vel)>1e-6||spin>0;
+function kick(){dirty=true;if(!running&&onScreen&&!document.hidden){running=true;prev=0;requestAnimationFrame(frame)}}
+function frame(now){running=false;const dt=Math.min(64,now-(prev||now));prev=now;
+  if(!drag){if(Math.abs(vel)>1e-6){angle+=vel*dt;vel*=Math.pow(.94,dt/16);if(Math.abs(vel)<1e-6)dirty=true}else angle+=spin*dt}
+  const shown=onScreen&&!c.closest('[hidden]')&&!document.hidden;if(shown&&(dirty||now-last>30)){draw(now);last=now;dirty=false}
+  if(shown&&moving()){running=true;requestAnimationFrame(frame)}}
 c.style.touchAction='pan-y';c.style.cursor='grab';
-c.addEventListener('pointerdown',e=>{drag={x:e.clientX,a:angle,t:performance.now(),lx:e.clientX};vel=0;c.style.cursor='grabbing';c.setPointerCapture(e.pointerId)});
-c.addEventListener('pointermove',e=>{if(!drag)return;const g=geom(),now=performance.now(),dx=(e.clientX-drag.x)*dpr;angle=drag.a+dx/g.r;vel=((e.clientX-drag.lx)*dpr/g.r)/Math.max(8,now-drag.t);drag.lx=e.clientX;drag.t=now});
-const end=()=>{drag=null;c.style.cursor='grab'};c.addEventListener('pointerup',end);c.addEventListener('pointercancel',end);
-window.addEventListener('baft:earth-ready',()=>draw());resize();requestAnimationFrame(frame);
+c.addEventListener('pointerdown',e=>{drag={x:e.clientX,a:angle,t:performance.now(),lx:e.clientX};vel=0;c.style.cursor='grabbing';c.setPointerCapture(e.pointerId);kick()});
+c.addEventListener('pointermove',e=>{if(!drag)return;const g=geom(),now=performance.now(),dx=(e.clientX-drag.x)*dpr;angle=drag.a+dx/g.r;vel=((e.clientX-drag.lx)*dpr/g.r)/Math.max(8,now-drag.t);drag.lx=e.clientX;drag.t=now;dirty=true});
+const end=()=>{drag=null;if(reduce)vel=0;c.style.cursor='grab';kick()};c.addEventListener('pointerup',end);c.addEventListener('pointercancel',end);
+motion.addEventListener?.('change',()=>{reduce=motion.matches;spin=reduce?0:2*Math.PI/110000;if(reduce)vel=0;kick()});
+new MutationObserver(kick).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+if(window.IntersectionObserver)new IntersectionObserver(es=>{onScreen=es[es.length-1].isIntersecting;kick()}).observe(c);
+document.addEventListener('visibilitychange',kick);window.addEventListener('baft:earth-ready',kick);resize();kick();
 })();

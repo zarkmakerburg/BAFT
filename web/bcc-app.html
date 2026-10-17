@@ -14,7 +14,7 @@
 (()=>{let t=null,l=null;try{t=localStorage.getItem('baft.theme');l=localStorage.getItem('baft.lang')}catch{}
 const r=document.documentElement;if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';if(l!=='fa'&&l!=='en')l='fa';
 r.dataset.theme=t;r.lang=l;r.dir=l==='fa'?'rtl':'ltr';
-/* Opt-in only via explicit query in preview mode; persisted choice supported only for preview. */
+/* Imperial preview: opt-in per page load with ?imperial=1, static DEMO page only. */
 const opt=new URLSearchParams(location.search).get('imperial');if(opt==='1'&&(!window.BAFT_UI||window.BAFT_UI.mode==='preview'))r.dataset.design='imperial'})();
 </script>
 </head>

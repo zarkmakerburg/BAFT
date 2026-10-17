@@ -23,14 +23,21 @@ type tlsService struct {
 	cert *tls.Certificate
 }
 
-func serveTLS(t *testing.T, port int) *tlsService {
+// reserveRotationListener binds before exposing the selected port to any
+// setup code. Unlike freePort() there is no release/rebind TOCTOU window.
+func reserveRotationListener(t *testing.T) net.Listener {
 	t.Helper()
-	s := &tlsService{}
-	l, err := net.Listen("tcp", "127.0.0.1:"+strconv.Itoa(port))
+	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { l.Close() })
+	t.Cleanup(func() { _ = l.Close() })
+	return l
+}
+
+func serveTLS(t *testing.T, l net.Listener) *tlsService {
+	t.Helper()
+	s := &tlsService{}
 	cfg := &tls.Config{MinVersion: tls.VersionTLS13, NextProtos: []string{"h2"}, GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
@@ -68,8 +75,25 @@ type rotRig struct {
 func newRotRig(t *testing.T) *rotRig {
 	t.Helper()
 	r := &rotRig{pair: newPair(t), epoch: 1}
-	r.svc = serveTLS(t, r.exPort)
-	listen(t, mustPort(r.irListen))
+	// Hold both listeners open from OS allocation until test cleanup.
+	// R3's whole-repo tests may run independent packages concurrently;
+	// picking then releasing a "free port" caused intermittent EADDRINUSE.
+	exListener := reserveRotationListener(t)
+	irListener := reserveRotationListener(t)
+	r.exPort = exListener.Addr().(*net.TCPAddr).Port
+	r.exp.Port = r.exPort
+	r.irListen = irListener.Addr().String()
+	r.irp.RouteListen = r.irListen
+	r.svc = serveTLS(t, exListener)
+	go func() {
+		for {
+			c, err := irListener.Accept()
+			if err != nil {
+				return
+			}
+			_ = c.Close()
+		}
+	}()
 	r.ex.host.onRestart = func() error {
 		if r.failEX > 0 {
 			r.failEX--

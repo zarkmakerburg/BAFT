@@ -298,7 +298,8 @@ function tlPickEngine(id){
  const select=q('#tnEngine');
  if(id!=='baft'||!select||![...select.options].some(o=>o.value===id&&!o.disabled))return;
  select.value=id;const direction=q('#tnDirection');if(direction)direction.value='ir-to-ex';tnClearPlan();tnWizardStep(0);
- document.querySelector('.aurora-tunnel-studio').scrollIntoView({behavior:'smooth',block:'start'});
+ const studio=document.querySelector('.aurora-tunnel-studio'),holder=studio?.closest?.('details');if(holder)holder.open=true;
+ studio?.scrollIntoView({behavior:'smooth',block:'start'});
 }
 let tlCatalogRequestSeq=0;
 async function loadTunnelEngines(){

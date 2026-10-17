@@ -403,6 +403,22 @@ td select{min-height:34px;padding:5px 10px;width:auto;min-width:150px}
 @media(max-width:620px){.aurora-mode-bar{align-items:stretch}.aurora-mode-bar select{min-width:0;width:100%}}
 
 
+/* Engine catalog is embedded from Classic body markup, so style it here too. */
+.aurora-tunnel-toolbox .tlIntro{font-size:13px;color:var(--muted);line-height:1.7;margin-top:6px}
+.aurora-tunnel-toolbox .tlCatalog{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px;margin-top:15px}
+.aurora-tunnel-toolbox .tlTile{display:flex;flex-direction:column;gap:9px;min-width:0;padding:15px;border-radius:14px;border:1px solid var(--line);background:linear-gradient(150deg,var(--gold-soft),var(--panel2) 42%);transition:border-color .18s ease,transform .18s ease}
+.aurora-tunnel-toolbox .tlTile:hover{border-color:var(--gold-line);transform:translateY(-2px)}
+.aurora-tunnel-toolbox .tlTile h3{margin:0;font-size:16px}
+.aurora-tunnel-toolbox .tlTile p{color:var(--muted);font-size:12px;line-height:1.6;margin:0;flex:1}
+.aurora-tunnel-toolbox .tlTileTop{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap}
+.aurora-tunnel-toolbox .tlMeta{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
+.aurora-tunnel-toolbox .tlTile button{align-self:flex-start;max-width:100%}
+.aurora-tunnel-toolbox .tlTile button:disabled{opacity:.65}
+.aurora-tunnel-toolbox .tlState{font-size:10px;border-radius:999px;padding:3px 7px;border:1px solid var(--line);font-weight:700}
+.aurora-tunnel-toolbox .tlState.on{color:var(--green);background:var(--green-soft)}
+.aurora-tunnel-toolbox .tlState.off{color:var(--muted);background:var(--gray-soft)}
+@media(prefers-reduced-motion:reduce){.aurora-tunnel-toolbox .tlTile{transition:none}.aurora-tunnel-toolbox .tlTile:hover{transform:none}}
+
 /* Native BAFT Smart Tunnel Wizard: bilingual, mobile-first, classic + Aurora. */
 html[lang="fa"] .tn-en,html:not([lang="fa"]) .tn-fa{display:none!important}
 .tnWizardSteps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;margin:18px 0}

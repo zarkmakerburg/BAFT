@@ -9,12 +9,13 @@ function section(from,to){const a=js.indexOf(from),b=js.indexOf(to,a);assert.ok(
 const controllers=section('function token(){','function ago(')+section('// Universal Toolbox is backend-driven.','// Native BAFT Smart Tunnel Wizard.')+section('// Native BAFT Smart Tunnel Wizard.','async function tnCancel(');
 function harness(lang='en'){
  const defaults={tnDirection:'ir-to-ex',tnEngine:'baft',tnEx:'ex-test',tnIr:'ir-test',tnMode:'independent',tnInstance:'test-instance',tnTarget:'[2001:db8::15]:5432',tnPort:'8443',tnRouteListen:'127.0.0.1:1444',tnExMetric:'127.0.0.1:9202',tnIrMetric:'127.0.0.1:9302',tnClientPort:''};
- const elements=new Map(),requests=[],warnings=[];
+ const elements=new Map(),requests=[],warnings=[],studioTool={open:false};
  const element=id=>{
   if(!elements.has(id))elements.set(id,{value:defaults[id]||'',textContent:'',innerHTML:'',checked:id==='tnIngressConfirm',hidden:false,options:[],children:[],replaceChildren(){this.innerHTML=''},scrollIntoView(){}});
   return elements.get(id);
  };
  element('tnEngine').options=[{value:'baft',disabled:false},{value:'frp',disabled:true}];
+ element('studio').closest=selector=>selector==='details'?studioTool:null;
  const stages=Array.from({length:5},(_,i)=>({dataset:{tnStep:String(i)},hidden:i!==0}));
  element('tnWizardSteps').children=stages.map(s=>({dataset:{tnNav:s.dataset.tnStep},classList:{toggle(){}}}));
  let credential='integration-credential',plans=0;
@@ -35,8 +36,18 @@ function harness(lang='en'){
   }
  };
  vm.createContext(context);vm.runInContext(controllers,context);
- return {context,element,requests,warnings};
+ return {context,element,requests,warnings,studioTool};
 }
+test('choosing the admitted engine opens a collapsed Studio without a plan or deployment request',async()=>{
+ const h=harness();
+ await h.context.loadTunnelEngines();
+ h.context.tlPickEngine('frp');
+ assert.equal(h.studioTool.open,false);
+ h.context.tlPickEngine('baft');
+ assert.equal(h.studioTool.open,true);
+ assert.equal(h.element('tnEngine').value,'baft');
+ assert.deepEqual(h.requests.map(r=>r.method+' '+r.url),['GET /api/tunnel-engines']);
+});
 test('catalog to Studio to generated IPv6 destination to reviewed deployment uses one request contract',async()=>{
  const h=harness(),c=h.context;
  await c.loadTunnelEngines();

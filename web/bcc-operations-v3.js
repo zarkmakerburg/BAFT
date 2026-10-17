@@ -22,7 +22,35 @@ for(const [id,max] of [['nid',128],['addr',255]]){const input=document.querySele
 document.addEventListener('click',ev=>{const button=ev.target.closest('[onclick="saveNode()"]');if(!button)return;for(const id of ['nid','addr']){const input=document.querySelector('#ops_'+id);if(input.value.trim())continue;ev.preventDefault();ev.stopImmediatePropagation();input.setCustomValidity(document.documentElement.lang==='fa'?'این فیلد الزامی است.':'This field is required.');input.setAttribute('aria-invalid','true');input.reportValidity();input.focus();return}},true);
 const phaseTr={active:'فعال',superseded:'جایگزین‌شده',rolled_back:'برگشت‌خورده',rollback_failed:'برگشت ناموفق',decommissioned:'برچیده‌شده',decommission_failed:'برچیدن ناموفق',decommissioning_ir:'در حال برچیدن IR',decommissioning_ex:'در حال برچیدن EX',rolling_back:'در حال برگشت',preparing_ex:'آماده‌سازی EX',preparing_ir:'آماده‌سازی IR',committing_ex:'اعمال روی EX',committing_ir:'اعمال روی IR',health_ir:'بررسی سلامت IR',health_ex:'بررسی سلامت EX',observing_ir:'مشاهدهٔ IR',observing_ex:'مشاهدهٔ EX',finalizing_ir:'نهایی‌سازی IR',finalizing_ex:'نهایی‌سازی EX',up:'آنلاین',down:'آفلاین',unknown:'نامشخص',UP:'آنلاین',DOWN:'آفلاین',UNKNOWN:'نامشخص'};
 const all=sel=>Object.values(cards).flatMap(c=>[...c.querySelectorAll(sel)]);
-function localize(){const fa=document.documentElement.lang==='fa';for(const n of all('option')){if(!n.dataset.originalText)n.dataset.originalText=n.textContent.trim();const original=n.dataset.originalText,translated=fa?(optionTr[original]||original):original;if(n.textContent!==translated)n.textContent=translated}for(const n of all('label')){const original=n.dataset.originalLabel||n.textContent.trim();if(!labelTr[original])continue;n.dataset.originalLabel=original;const node=[...n.childNodes].find(x=>x.nodeType===3&&x.textContent.trim());const translated=fa?labelTr[original]:original;if(node&&node.textContent.trim()!==translated)node.textContent=' '+translated}for(const n of all('b,button,th,summary')){if(!n.dataset.originalText)n.dataset.originalText=n.textContent.trim();const original=n.dataset.originalText;const translated=fa?(tr[original]||original):(en[original]||original);if(n.textContent!==translated)n.textContent=translated}for(const n of all('span.badge')){if(!n.dataset.originalText)n.dataset.originalText=n.textContent.trim();const o=n.dataset.originalText,v=document.documentElement.lang==='fa'?(phaseTr[o]||o):o;if(n.textContent!==v)n.textContent=v}for(const n of all('div.muted,span.muted')){if(!n.dataset.originalInfo&&infoTr[n.textContent.trim()])n.dataset.originalInfo=n.textContent.trim();if(n.dataset.originalInfo)n.textContent=fa?infoTr[n.dataset.originalInfo]:n.dataset.originalInfo}for(const n of all('input[placeholder],textarea[placeholder]')){if(n.dataset.fieldLabel){const label=n.previousElementSibling;if(label?.tagName==='LABEL')label.textContent=fa?(fieldTr[n.placeholder]||n.placeholder):n.placeholder;n.setAttribute('aria-label',fa?(fieldTr[n.placeholder]||n.placeholder):n.placeholder);continue}const label=document.createElement('label');label.htmlFor=n.id;label.textContent=fa?(fieldTr[n.placeholder]||n.placeholder):n.placeholder;if(n.parentElement.classList.contains('grid')){const field=document.createElement('div');n.before(field);field.append(label,n)}else n.before(label);n.dataset.fieldLabel='true';n.setAttribute('aria-label',fa?(fieldTr[n.placeholder]||n.placeholder):n.placeholder)}}
+// Translate registered labels only. Never bind API values or restore a stale
+// placeholder after a loader has replaced its text.
+const liveTextRoots='#ops_rows,#ops_monitorRows,#ops_tnRows,#ops_auditRows,#ops_financeRows,#ops_reportRows,#ops_dcRows,#ops_hlRows,#ops_ppRows,#ops_pgRows,#ops_pmMatrix,#ops_chRows,#ops_rdResult,#ops_tnPlan,#ops_tnWizardSummary,#ops_jobs';
+function staticLabel(n,slot,maps){
+ const value=n.textContent.trim(),old=n.dataset[slot];
+ if(old&&value!==old&&!maps.some(m=>m[old]===value))delete n.dataset[slot];
+ const original=n.dataset[slot]||value;
+ if(!maps.some(m=>Object.hasOwn(m,original)))return null;
+ n.dataset[slot]=original;return original;
+}
+function localize(){
+ const fa=document.documentElement.lang==='fa';
+ const jobs=document.getElementById('ops_jobs');
+ if(jobs&&!jobs.childElementCount&&['No jobs','کاری ثبت نشده'].includes(jobs.textContent.trim())){const value=fa?'کاری ثبت نشده':'No jobs';if(jobs.textContent!==value)jobs.textContent=value}
+ for(const n of all('option')){const original=staticLabel(n,'originalText',[optionTr]);if(original===null)continue;const translated=fa?optionTr[original]:original;if(n.textContent!==translated)n.textContent=translated}
+ for(const n of all('label')){const original=n.dataset.originalLabel||n.textContent.trim();if(!labelTr[original])continue;n.dataset.originalLabel=original;const node=[...n.childNodes].find(x=>x.nodeType===3&&x.textContent.trim());const translated=fa?labelTr[original]:original;if(node&&node.textContent.trim()!==translated)node.textContent=' '+translated}
+ for(const n of all('b,button,th,summary')){
+  if(n.tagName==='B'&&n.closest(liveTextRoots))continue;
+  const original=staticLabel(n,'originalText',[tr,en]);if(original===null)continue;
+  const translated=fa?(tr[original]||original):(en[original]||original);if(n.textContent!==translated)n.textContent=translated;
+ }
+ for(const n of all('span.badge')){const original=staticLabel(n,'originalText',[phaseTr]);if(original===null)continue;const translated=fa?phaseTr[original]:original;if(n.textContent!==translated)n.textContent=translated}
+ for(const n of all('div.muted,span.muted')){
+  if(n.closest(liveTextRoots))continue;
+  const original=staticLabel(n,'originalInfo',[infoTr]);if(original===null)continue;
+  const translated=fa?infoTr[original]:original;if(n.textContent!==translated)n.textContent=translated;
+ }
+ for(const n of all('input[placeholder],textarea[placeholder]')){if(n.dataset.fieldLabel){const label=n.previousElementSibling;if(label?.tagName==='LABEL')label.textContent=fa?(fieldTr[n.placeholder]||n.placeholder):n.placeholder;n.setAttribute('aria-label',fa?(fieldTr[n.placeholder]||n.placeholder):n.placeholder);continue}const label=document.createElement('label');label.htmlFor=n.id;label.textContent=fa?(fieldTr[n.placeholder]||n.placeholder):n.placeholder;if(n.parentElement.classList.contains('grid')){const field=document.createElement('div');n.before(field);field.append(label,n)}else n.before(label);n.dataset.fieldLabel='true';n.setAttribute('aria-label',fa?(fieldTr[n.placeholder]||n.placeholder):n.placeholder)}
+}
 new MutationObserver(localize).observe(document.documentElement,{attributes:true,attributeFilter:['lang']});// Rows the BCC loaders render later are localized as they arrive.
-let pending=0;const later=()=>{if(!pending)pending=requestAnimationFrame(()=>{pending=0;localize()})};for(const card of Object.values(cards))new MutationObserver(ms=>{if(ms.some(m=>[...m.addedNodes].some(n=>n.nodeType===1)))later()}).observe(card,{childList:true,subtree:true});localize();window.BAFT_OPS={cards};window.dispatchEvent(new Event('baft:ops-ready'));
+let pending=0;const later=()=>{if(!pending)pending=requestAnimationFrame(()=>{pending=0;localize()})};for(const card of Object.values(cards))new MutationObserver(ms=>{if(ms.some(m=>m.addedNodes.length))later()}).observe(card,{childList:true,subtree:true});localize();window.BAFT_OPS={cards};window.dispatchEvent(new Event('baft:ops-ready'));
 })();

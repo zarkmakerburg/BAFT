@@ -51,8 +51,12 @@ func run() error {
 			return err
 		}
 		agents = append(agents, struct{ id, token string }{spec.id, base64.StdEncoding.EncodeToString(agentToken)})
+		alias := "Browser QA " + spec.id
+		if spec.id == "qa-ex" {
+			alias = "Status" // A real alias must survive collision with a translation key.
+		}
 		_, err = store.UpsertNode(bcc.Node{
-			ID: spec.id, Alias: "Browser QA " + spec.id, Role: spec.role,
+			ID: spec.id, Alias: alias, Role: spec.role,
 			Address: fmt.Sprintf("127.0.0.1:%d", 23001+i), PathIPv4: fmt.Sprintf("192.0.2.%d", i+10),
 			PublicKey: base64.StdEncoding.EncodeToString(key.PublicKey().Bytes()), Country: spec.country, CountryManual: true,
 		}, base64.StdEncoding.EncodeToString(agentToken))

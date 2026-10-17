@@ -68,7 +68,9 @@ For each profile, automated browser assertions cover:
 - Language/theme switches, keyboard navigation/focus and reduced-motion rules
   are exercised using actual DOM interaction.
 - Actual logout invalidates catalog access. Clearing the test cookie and then
-  receiving a real 401 sends the browser to sign-in and removes operational UI.
+  using the catalog refresh and, in an independent session, Servers navigation
+  receives real 401 responses through both application fetch paths, sends the
+  browser to sign-in and removes operational UI.
 
 Only failed plan preview and catalog error/out-of-order responses are stubbed
 in Playwright. Those cases prove browser error/race behavior, not backend or
@@ -105,6 +107,30 @@ The discovery table also displayed Go's unset timestamp `0001-01-01…` as if it
 were an observation. It now uses the existing not-run state for an absent,
 invalid or year-one timestamp. Page assertions reject that sentinel in rendered
 observations.
+
+The same sentinel appeared in Cluster Nodes' last-check column and is masked
+there too. Visual review additionally found that the operation localizer reset
+live monitoring counters to their initial dash and restored the jobs sign-in
+placeholder after loaders had populated data. Translation now binds only
+registered static labels, drops a stale binding when content changes and
+preserves API-rendered values/aliases. Text-only updates also trigger a guarded
+localization pass. Empty jobs use a bilingual empty state. Browser assertions
+compare every monitoring counter and node alias with the real API and verify
+the real empty jobs state; a fixture alias intentionally matches a translation
+key to guard against accidental data translation.
+
+The next diagnostic, UI workflow `39026420067`, browser job `117378206320`,
+ran source `53ed9f3f3c5d18d69a00ff74fdfcd70fcfb2b92f`. All eight profiles
+passed Tunnels/plan document-width checks, active-step colors and real logout.
+Each completed 17 checks and recorded three failures: the remaining Cluster
+Nodes year-one date, the consequent page-coverage failure, and the expiry
+harness's arbitrary absolute-URL fetch, which bypassed application session
+handling. Artifact `12098623366` has ZIP SHA-256
+`f11e0975581eedac2c1f4d1f3d09fd1e081517af3713bcd23d5005139ad3a03b`.
+This remains a failed diagnostic. The expiry case now waits for operational
+initialization and uses actual UI controls in two independent sessions to
+exercise both fetch paths; it still requires a real 401, sign-in navigation
+and removal of the operational UI.
 
 Two harness corrections are separate from product changes: mobile navigation
 opens the drawer using its expanded state, and logout first opens the account

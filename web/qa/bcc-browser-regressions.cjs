@@ -53,6 +53,7 @@ async function runProfile(browser,[name,viewport,lang,theme]){
     page.on('dialog',d=>d.dismiss());
     page.on('request',r=>{const u=new URL(r.url());if(u.pathname.includes('/api/'))apiRequests.push({path:u.pathname.slice(new URL(f.base).pathname.length),method:r.method(),headers:r.headers()})});
     const shot=async label=>{
+      await page.evaluate(()=>scrollTo(0,0));
       await page.evaluate(()=>document.fonts.ready);
       await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
       const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1);
@@ -100,6 +101,17 @@ async function runProfile(browser,[name,viewport,lang,theme]){
         assert.equal(await card.evaluate(c=>c.hidden),false);cards.add(await detail.getAttribute('data-tool'));
       }
       assert.equal((await page.locator('#main').textContent()).includes('0001-01-01'),false,'unset timestamps must not appear as real observations');
+      if(route==='monitoring'){
+        const observations=await (await ctx.request.get(f.base+'api/monitoring')).json();
+        const expected={kNodes:observations.length,kUp:observations.filter(n=>n.status==='up').length,kDown:observations.filter(n=>n.status==='down').length,kUnknown:observations.filter(n=>n.status==='unknown').length};
+        for(const [id,n] of Object.entries(expected))assert.equal((await page.locator('#ops_'+id).textContent()).trim(),String(n),'localized KPI must preserve observed value');
+        const nodes=await (await ctx.request.get(f.base+'api/nodes')).json();
+        for(const n of nodes)assert.ok((await page.locator('#ops_monitorRows').textContent()).includes(n.alias),'API alias must survive localization');
+      }
+      if(route==='updates'){
+        const jobs=await (await ctx.request.get(f.base+'api/jobs')).json();assert.equal(jobs.length,0);
+        await page.waitForFunction(()=>/No jobs|کاری ثبت نشده/.test(document.querySelector('#ops_jobs')?.textContent||''));
+      }
       await shot(route);result.pages.push(route);
     });
     result.cards=[...cards].sort();
@@ -185,12 +197,25 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       assert.equal((await ctx.request.get(f.base+'api/tunnel-engines')).status(),401);
     });
     await check('expired session removes operational UI',async()=>{
-      await ctx.clearCookies(); // This case must also run when the logout check failed.
-      await page.goto(f.base+'login');await page.locator('#loginUsername').fill(f.username);await page.locator('#loginPassword').fill(f.password);
-      await Promise.all([page.waitForURL(f.base),page.locator('#loginForm [type="submit"]').click()]);await page.locator('#app').waitFor({state:'visible'});
-      await ctx.clearCookies();
-      await Promise.all([page.waitForURL(f.base+'login'),page.evaluate(async base=>{await fetch(base+'api/overview?window=24h')},f.base).catch(e=>{if(!/navigation|destroyed/.test(e.message))throw e})]);
-      await page.locator('#loginForm').waitFor({state:'visible'});assert.equal(await page.locator('#app').isHidden(),true);assert.equal(await page.locator('.ops-card').count(),0);await shot('session-expired');
+      // Exercise both application fetch paths through their actual UI controls.
+      // An arbitrary absolute-URL fetch bypasses their session handling.
+      for(const trigger of ['catalog','servers']){
+        await ctx.clearCookies(); // Independent of the preceding logout result.
+        await page.goto(f.base+'login');await page.locator('#loginUsername').fill(f.username);await page.locator('#loginPassword').fill(f.password);
+        await Promise.all([page.waitForURL(f.base),page.locator('#loginForm [type="submit"]').click()]);await page.locator('#app').waitFor({state:'visible'});
+        await page.waitForFunction(()=>Boolean(window.BAFT_OPS?.cards&&document.querySelector('#ops_tlCatalog [data-engine="baft"]')));
+        await nav(trigger==='catalog'?'tunnels':'settings');
+        if(trigger==='servers')await openNav();
+        await ctx.clearCookies();
+        const endpoint=f.base+'api/'+(trigger==='catalog'?'tunnel-engines':'nodes');
+        const [response]=await Promise.all([
+          page.waitForResponse(r=>r.url()===endpoint&&r.status()===401),
+          page.waitForURL(f.base+'login'),
+          (trigger==='catalog'?page.locator('[onclick="loadTunnelEngines()"]'):page.locator('#nav a[href="#servers"]')).click()
+        ]);
+        assert.equal(response.request().method(),'GET');
+        await page.locator('#loginForm').waitFor({state:'visible'});assert.equal(await page.locator('#app').isHidden(),true);assert.equal(await page.locator('.ops-card').count(),0);await shot('session-expired-'+trigger);
+      }
     });
     assert.equal(apiRequests.filter(r=>r.path==='api/tunnels'&&r.method==='POST').length,0);
   }catch(e){fail('profile setup or completion',e);if(page)await page.screenshot({path:path.join(dir,'failure.png'),fullPage:true}).catch(()=>{})}

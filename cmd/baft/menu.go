@@ -29,10 +29,10 @@ import (
 // writes one archive after an explicit yes, and Uninstall (13), which runs the
 // same flow as `baft uninstall`: an exact preview, separate confirmations
 // (each data class defaults to NO, active tunnels, then typing "uninstall"),
-// and a journaled, verified removal. Update only CHECKS for a newer signed
-// release (it reads the network, verifies, and changes nothing here). Anything
-// that is not built yet is shown as "(unavailable)" without a number; nothing
-// here installs, repairs or applies an update.
+// and a journaled, verified removal. Update checks for a newer signed
+// release and applies it only after showing the plan and a typed confirmation
+// (the same flow as `baft update apply`). Anything that is not built yet is
+// shown as "(unavailable)" without a number; nothing here installs or repairs.
 
 type menuCfg struct {
 	file, service, releaseState string
@@ -294,7 +294,18 @@ func (m *menu) doctorMenu() {
 func (m *menu) updateMenu() {
 	m.submenu("Update", []menuItem{
 		{label: "Check for a newer signed release (read-only)", run: (*menu).updateCheck},
-		{label: "Apply an update", planned: true},
+		{label: "Apply an update (shows the plan first, asks before changing anything)", run: (*menu).updateApply},
+	})
+}
+
+func (m *menu) updateApply() {
+	m.printf("Planning the update (up to %d s)...\n\n", int(updateCheckTimeout/time.Second))
+	applyUpdate(context.Background(), applyParams{
+		layout: m.cfg, degradeToPlan: true, env: m.env, out: m.out, errw: m.errw,
+		confirm: func(q string) bool {
+			a, ok := m.ask(q)
+			return ok && strings.EqualFold(a, "update")
+		},
 	})
 }
 

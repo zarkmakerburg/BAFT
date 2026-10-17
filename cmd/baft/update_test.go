@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/zarkmakerburg/baft/internal/release"
 	"github.com/zarkmakerburg/baft/internal/selfupdate"
 )
 
@@ -21,6 +23,7 @@ var (
 		Status: selfupdate.UpdateAvailable, Installed: "v0.3.3", Latest: "v0.3.4",
 		Commit: "4545a784cb6c043ac1f97f88c810c422144d7823", SigningKeyID: "702c62788d60920da8ea80aab93ca3e1",
 		ReleasedAt: time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC), RevocationSequence: 1, CheckedAt: checkedAt,
+		Artifacts: map[string]string{selfupdate.InstallerArtifact(runtime.GOARCH): hexSum(stubInstaller)},
 	}
 	reportCurrent = func() selfupdate.Report {
 		r := reportAvailable
@@ -60,20 +63,23 @@ func (s *updateStub) install(h *fakeHost) {
 func runUpdateArgs(t *testing.T, h *fakeHost, args ...string) (code int, out, errOut string) {
 	t.Helper()
 	var o, e bytes.Buffer
-	code = runUpdate(context.Background(), args, &o, &e, h.env)
+	code = runUpdate(context.Background(), args, strings.NewReader(""), &o, &e, h.env)
 	return code, o.String(), e.String()
 }
 
-func TestUpdateWithoutCheckRunsNothingAndSaysSo(t *testing.T) {
+func TestUpdateWithoutASubcommandRunsNothingAndSaysSo(t *testing.T) {
 	h := newFakeHost(t)
-	for _, args := range [][]string{nil, {"apply"}, {"--check"}, {"check", "extra"}, {"check", "--nope"}} {
+	for _, args := range [][]string{nil, {"banana"}, {"--check"}, {"check", "extra"}, {"check", "--nope"}, {"apply", "--nope"}, {"apply", "--json"}} {
 		code, out, errOut := runUpdateArgs(t, h, args...)
 		if code != 2 || out != "" || !strings.Contains(errOut, "usage: baft update check") {
 			t.Errorf("%v: code=%d out=%q err=%q", args, code, out, errOut)
 		}
 	}
-	if !strings.Contains(func() string { _, _, e := runUpdateArgs(t, h); return e }(), "not built into this command yet") {
-		t.Error("the usage does not say that applying is not built yet")
+	if _, _, e := runUpdateArgs(t, h); !strings.Contains(e, "baft update apply [--plan] [--yes]") {
+		t.Error("the usage does not mention apply")
+	}
+	if code, out, e := runUpdateArgs(t, h, "apply", "--only", "database"); code != 2 || out != "" || !strings.Contains(e, `"database" is not transport, agent or bcc`) {
+		t.Errorf("--only database: code=%d out=%q err=%q", code, out, e)
 	}
 }
 
@@ -84,7 +90,7 @@ func TestUpdateCheckExitCodesFollowTheStatus(t *testing.T) {
 		code int
 		want []string
 	}{
-		{"update available", reportAvailable, exitUpdateAvailable, []string{"UPDATE AVAILABLE", "installed     v0.3.3", "newest        v0.3.4 (signed; commit 4545a784cb6c;", "signing key   702c62788d60920da8ea80aab93ca3e1, revocation list #1", "does not apply updates", "BAFT_VERSION=v0.3.4 bash FILE --plan", "Nothing on this host was changed"}},
+		{"update available", reportAvailable, exitUpdateAvailable, []string{"UPDATE AVAILABLE", "installed     v0.3.3", "newest        v0.3.4 (signed; commit 4545a784cb6c;", "signing key   702c62788d60920da8ea80aab93ca3e1, revocation list #1", "baft update apply --plan", "BAFT_VERSION=v0.3.4 bash FILE --plan", "Nothing on this host was changed"}},
 		{"current", reportCurrent, 0, []string{"status        CURRENT", "newest verified signed release. Nothing was changed."}},
 		{"unknown", reportUnknown, 1, []string{"status        UNKNOWN", "reason        cannot download the release: manifest.json: HTTP 404", "No claim is made about whether an update exists"}},
 	} {
@@ -171,7 +177,7 @@ func TestSaveInstallerWritesAPrivateNewFileOnlyFromAVerifiedRelease(t *testing.T
 	if st, _ := os.Stat(dest); st.Mode().Perm() != 0o700 {
 		t.Errorf("mode = %v, want 0700", st.Mode().Perm())
 	}
-	if !strings.Contains(out, "verified installer saved to "+dest) || !strings.Contains(out, "BAFT_VERSION=v0.3.4 bash "+dest+" --plan") {
+	if !strings.Contains(out, "the verified installer is saved to "+dest) || !strings.Contains(out, "BAFT_VERSION=v0.3.4 bash "+dest+" --plan") {
 		t.Errorf("output does not point at the saved installer:\n%s", out)
 	}
 
@@ -216,7 +222,7 @@ func TestRealCheckRefusesPlainHTTPSourcesBeforeAnyRequest(t *testing.T) {
 	t.Setenv("BAFT_REVOCATIONS_URL", "")
 	t.Setenv("BAFT_GITHUB_REPO", "")
 	var o, e bytes.Buffer
-	code := runUpdate(context.Background(), []string{"check", "--release-state", filepath.Join(t.TempDir(), "none.json")}, &o, &e, opsEnv{})
+	code := runUpdate(context.Background(), []string{"check", "--release-state", filepath.Join(t.TempDir(), "none.json")}, strings.NewReader(""), &o, &e, opsEnv{})
 	if code != 1 || !strings.Contains(o.String(), "only https is accepted") {
 		t.Fatalf("code=%d\n%s%s", code, o.String(), e.String())
 	}
@@ -224,25 +230,27 @@ func TestRealCheckRefusesPlainHTTPSourcesBeforeAnyRequest(t *testing.T) {
 
 // ---- the menu ----
 
-func TestMenuUpdateChecksAndNeverApplies(t *testing.T) {
+func TestMenuUpdateOffersACheckAndAnApplyThatPlansFirst(t *testing.T) {
 	r := newMenuRig(t)
 	stub := &updateStub{rep: reportAvailable}
 	stub.install(r.h)
 	before := len(r.commands)
-	// Update > check, Enter, Update > "Apply an update" (has no number), back, exit.
-	r.run(t, monoCaps, "11\n1\n\n2\n0\n0\n")
+	// Update > check, Enter, Update > apply (not root here, so a plan only), Enter, back, exit.
+	r.run(t, monoCaps, "11\n1\n\n2\n\n0\n0\n")
 	o := r.out.String()
-	for _, w := range []string{"Check for a newer signed release (read-only)", "Apply an update (unavailable)", "UPDATE AVAILABLE", "v0.3.4", "does not apply updates",
-		"That option is unavailable in this release; choose an enabled number."} {
+	for _, w := range []string{"Check for a newer signed release (read-only)", "Apply an update (shows the plan first", "UPDATE AVAILABLE", "v0.3.4",
+		"Not running as root, so this shows the plan only", "Nothing to apply"} {
 		if !strings.Contains(o, w) {
 			t.Errorf("menu output lacks %q:\n%s", w, o)
 		}
 	}
-	if len(stub.calls) != 1 || !strings.HasSuffix(stub.calls[0], "|") {
+	if len(stub.calls) != 2 || !strings.HasSuffix(stub.calls[0], "|") {
 		t.Errorf("calls = %v", stub.calls)
 	}
-	if _, err := os.Stat(stub.dirs[0]); !os.IsNotExist(err) {
-		t.Errorf("the scratch directory survived: %v", err)
+	for _, d := range stub.dirs {
+		if _, err := os.Stat(d); !os.IsNotExist(err) {
+			t.Errorf("the scratch directory survived: %v", err)
+		}
 	}
 	for _, c := range r.commands[before:] {
 		if !strings.HasPrefix(c, "systemctl is-active") && !strings.HasPrefix(c, "systemctl show") {
@@ -263,5 +271,36 @@ func TestMenuUpdateOnAFailedCheckClaimsNothing(t *testing.T) {
 		if strings.Contains(o, bad) {
 			t.Errorf("a failed check printed %q:\n%s", bad, o)
 		}
+	}
+}
+
+func TestAnOverriddenReleaseRootIsShownInTheReport(t *testing.T) {
+	pub, _, err := release.GenerateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("BAFT_ROOT_PUB", release.EncodePublic(pub))
+	t.Setenv("BAFT_RELEASE_URL", "http://127.0.0.1:1/dl") // refused before any request
+	t.Setenv("BAFT_REVOCATIONS_URL", "")
+	t.Setenv("BAFT_GITHUB_REPO", "")
+	var o, e bytes.Buffer
+	args := []string{"check", "--json", "--release-state", filepath.Join(t.TempDir(), "none.json")}
+	runUpdate(context.Background(), args, strings.NewReader(""), &o, &e, opsEnv{inventory: &inventoryHost{
+		readFile: func(string) ([]byte, error) { return nil, os.ErrNotExist }, hashFile: sha256File, newestBackup: newestBackup}})
+	if !strings.Contains(o.String(), `"root_overridden":true`) {
+		t.Fatalf("json lacks the override:\n%s", o.String())
+	}
+	o.Reset()
+	runUpdate(context.Background(), args[:1], strings.NewReader(""), &o, &e, opsEnv{inventory: &inventoryHost{
+		readFile: func(string) ([]byte, error) { return nil, os.ErrNotExist }, hashFile: sha256File, newestBackup: newestBackup}})
+	if !strings.Contains(o.String(), "trust root    OVERRIDDEN by BAFT_ROOT_PUB") {
+		t.Fatalf("text lacks the override:\n%s", o.String())
+	}
+
+	t.Setenv("BAFT_ROOT_PUB", "not-a-key")
+	o.Reset()
+	if code := runUpdate(context.Background(), []string{"check"}, strings.NewReader(""), &o, &e, opsEnv{inventory: &inventoryHost{
+		readFile: func(string) ([]byte, error) { return nil, os.ErrNotExist }, hashFile: sha256File, newestBackup: newestBackup}}); code != 1 || !strings.Contains(o.String(), "release root key is unusable") {
+		t.Fatalf("a bad override: code=%d\n%s", code, o.String())
 	}
 }

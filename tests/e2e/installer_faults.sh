@@ -11,7 +11,7 @@ cd "$(dirname "$0")/../.."
 ROOT="$PWD"
 [[ "$EUID" -eq 0 ]] || { echo "run as root"; exit 1; }
 W="$(mktemp -d)"
-trap 'rm -rf "$W"' EXIT
+trap '[[ -z "${SRV_PID:-}" ]] || kill "$SRV_PID" 2>/dev/null || true; rm -rf "$W"' EXIT
 log() { printf '[faults] %s\n' "$*"; }
 # Diagnostics for CI (job logs are not always retrievable; annotations are).
 on_err() { local rc=$? line=$1 cmd=$2
@@ -320,5 +320,148 @@ run $(rel "$W/rel2") "${bcc_env[@]}" bash install.sh --bcc-only --yes >"$W/o" 2>
 grep -q 'v0.0.2-f' "$W/opt-bcc/release-state.json" || fail "BCC release state does not record v2"
 [[ "$(sha256sum "$BCC_STATE" | cut -d ' ' -f1)" == "$old_state" ]] || fail "BCC state DB changed by the upgrade"
 active baft-bcc-fault && enabled baft-bcc-fault || fail "BCC v2 not active + enabled"
+
+# ---------------------------------------------------------------------------
+# 7. `baft update apply`: the real CLI runs the real signed installer. The CLI
+#    is built from this tree; the release comes from a local https server and
+#    is signed by the throwaway root (BAFT_ROOT_PUB overrides the pinned root
+#    exactly as it does for install.sh). systemctl is the stateful stub with
+#    its state directory baked in, because the CLI builds the installer's
+#    environment from scratch (STUB_DIR is deliberately not passed on).
+log "7. baft update apply: a transport service one release behind is updated by the signed installer"
+mkdir -p "$W/cli" "$W/stubs2"
+go build -o "$W/cli/baft" ./cmd/baft
+for f in systemctl apt-get; do sed "s#\$STUB_DIR#$W#g" "$W/stubs/$f" >"$W/stubs2/$f"; chmod +x "$W/stubs2/$f"; done
+openssl req -x509 -newkey rsa:2048 -nodes -keyout "$W/srv.key" -out "$W/srv.crt" -subj "/CN=127.0.0.1" \
+  -addext "subjectAltName=IP:127.0.0.1" -days 1 >/dev/null 2>&1
+SRV_PORT="$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1])')"
+cat >"$W/serve.py" <<PY
+import http.server, ssl, functools, sys
+h = functools.partial(http.server.SimpleHTTPRequestHandler, directory="$W")
+s = http.server.ThreadingHTTPServer(("127.0.0.1", $SRV_PORT), h)
+c = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER); c.load_cert_chain("$W/srv.crt", "$W/srv.key")
+s.socket = c.wrap_socket(s.socket, server_side=True); s.serve_forever()
+PY
+python3 "$W/serve.py" >/dev/null 2>&1 & SRV_PID=$!
+for _ in $(seq 50); do curl -fsS --cacert "$W/srv.crt" "https://127.0.0.1:$SRV_PORT/rel2/revocations.json" >/dev/null 2>&1 && break; sleep 0.2; done
+curl -fsS --cacert "$W/srv.crt" "https://127.0.0.1:$SRV_PORT/rel2/revocations.json" >/dev/null || fail "the local https release server did not start"
+
+# A paired EX + IR from release v1 on their own instance names.
+mkfifo "$W/ff2"; exec 4<>"$W/ff2"
+RUN_STDIN="$W/ff2" run $(rel "$W/rel1") $(role_env ux) BAFT_NONINTERACTIVE=0 BAFT_PORT=8453 BAFT_TARGET=127.0.0.1:2443 BAFT_METRICS_LISTEN=127.0.0.1:9291 \
+  bash install.sh --role ex --public-address 127.0.0.1 >"$W/ux.out" 2>"$W/ux.err" &
+UXPID=$!
+for _ in $(seq 100); do grep -q '^BAFTPAIR1:' "$W/ux.out" 2>/dev/null && break; sleep 0.2; done
+UXCODE="$(grep -m1 '^BAFTPAIR1:' "$W/ux.out")"
+run $(rel "$W/rel1") $(role_env ui) BAFT_NONINTERACTIVE=1 BAFT_PAIRING_CODE="$UXCODE" BAFT_METRICS_LISTEN=127.0.0.1:9292 \
+  BAFT_ROUTE_LISTEN=127.0.0.1:1543 bash install.sh --role ir >"$W/ui.out" 2>"$W/ui.err"
+grep -m1 '^BAFTREPLY1:' "$W/ui.out" >&4
+wait "$UXPID"; exec 4>&-
+active baft-ui && enabled baft-ui || { tail -20 "$W/ui.err" "$W/ux.err"; fail "the IR to update was not installed"; }
+grep -q 'v0.0.1-f' "$W/opt-ui/release-state.json" || fail "the IR does not record v1"
+
+UPENV() { # all flags explicit -> the CLI, the lab root and the https release
+  env PATH="$W/stubs2:$PATH" BAFT_ROOT_PUB="$(cat "$W/rel1/root.pub")" SSL_CERT_FILE="$W/srv.crt" CURL_CA_BUNDLE="$W/srv.crt" \
+    BAFT_RELEASE_URL="https://127.0.0.1:$SRV_PORT/rel2/dist" BAFT_REVOCATIONS_URL="https://127.0.0.1:$SRV_PORT/rel2/revocations.json" \
+    "$W/cli/baft" update "$@" </dev/null; }
+UP() { # args... -> the IR instance
+  UPENV "$@" --unit-dir "$W/sysd" --service baft-ui --release-state "$W/opt-ui/release-state.json"; }
+ui_creds() { { sha256sum "$W/etc-ui/baft.yaml" "$W/etc-ui/noise-key.json" "$W/sysd/baft-ui.service" 2>/dev/null || true; } | sha256sum; }
+
+log "7a. check: the IR's baft binary differs from the signed release"
+rc=0; UP check >"$W/o" 2>"$W/e" || rc=$?
+[[ "$rc" == 3 ]] || { cat "$W/o" "$W/e"; fail "check exited $rc, want 3 (update available)"; }
+grep -q 'transport .*OUTDATED' "$W/o" || { cat "$W/o"; fail "the IR is not reported OUTDATED"; }
+grep -q 'trust root    OVERRIDDEN by BAFT_ROOT_PUB' "$W/o" || { cat "$W/o"; fail "a lab root is not announced in the report"; }
+
+log "7b. apply --plan changes nothing"
+U0="$(snapshot)"
+UP apply --plan --only transport >"$W/o" 2>"$W/e" || { cat "$W/o" "$W/e"; fail "apply --plan failed"; }
+grep -q 'This was a preview. Nothing was changed.' "$W/o" || { cat "$W/o"; fail "no preview verdict"; }
+[[ "$(snapshot)" == "$U0" ]] || fail "apply --plan changed the host"
+
+log "7c. an agent that is not running is refused (real installer says REPAIR_REQUIRED), nothing changes"
+U1="$(snapshot)"
+rc=0
+UPENV apply --yes --only agent --unit-dir "$W/sysd" --service baft-ex --release-state "$W/opt-ag/release-state.json" \
+  >"$W/o" 2>"$W/e" || rc=$?
+[[ "$rc" == 1 ]] || { cat "$W/o" "$W/e"; fail "an agent that is not running was not refused (exit $rc)"; }
+grep -q 'REPAIR_REQUIRED' "$W/o" || { cat "$W/o"; fail "the refusal does not name the installer's state"; }
+[[ "$(snapshot)" == "$U1" ]] || fail "a refused apply changed the host"
+
+log "7d. apply --yes: binary and release state move to v2; keys, config, PKI and unit are byte-identical"
+C0="$(ui_creds)"
+rc=0; UP apply --yes --only transport >"$W/o" 2>"$W/e" || rc=$?
+[[ "$rc" == 0 ]] || { cat "$W/o" "$W/e"; tail -20 "$W/opt-ui"/update-logs/*.log 2>/dev/null; fail "apply exited $rc"; }
+grep -q 'Updated to v0.0.2-f: transport' "$W/o" || { cat "$W/o"; fail "no success line"; }
+[[ "$("$W/bin/baft" version)" == "baft 0.0.2-f" ]] || fail "the baft binary was not updated"
+grep -q 'v0.0.2-f' "$W/opt-ui/release-state.json" || fail "the release state was not advanced"
+[[ "$(ui_creds)" == "$C0" ]] || fail "credentials, config or unit changed by the update"
+active baft-ui && enabled baft-ui || fail "the IR is not running after the update"
+ls "$W/opt-ui/update-logs/"*-transport.log >/dev/null 2>&1 || fail "no installer log was kept"
+[[ "$(stat -c '%a' "$W"/opt-ui/update-logs/*-transport.log)" == 600 ]] || fail "the installer log is not private"
+
+log "7e. a second apply has nothing to do"
+UP apply --yes --only transport >"$W/o" 2>"$W/e" || { cat "$W/o" "$W/e"; fail "second apply failed"; }
+grep -q 'Nothing to apply' "$W/o" || { cat "$W/o"; fail "the second apply did not say there is nothing to do"; }
+# The IR is current now. The agent's binary is byte-identical in v1 and v2 (only
+# baft and baft-bcc carry the version), so it is current as well: the inventory
+# says what is true, not what is expected.
+rc=0; UP check >"$W/o" 2>"$W/e" || rc=$?
+[[ "$rc" == 0 ]] || { cat "$W/o"; fail "check after the update exited $rc, want 0"; }
+grep -q 'transport .*CURRENT' "$W/o" && grep -q 'agent .*CURRENT' "$W/o" || { cat "$W/o"; fail "the updated IR and the identical agent are not both CURRENT"; }
+# The production case: Core is current and the shared release state already
+# says v2, but the panel still runs the old binary.
+BCCF=(--unit-dir "$W/sysd" --bcc-service baft-bcc-fault --release-state "$W/opt-bcc/release-state.json")
+cp "$W/rel1/dist/baft-bcc-linux-$bcc_arch" "$W/bin/baft-bcc"
+rc=0; UPENV check "${BCCF[@]}" --service baft-ui >"$W/o" 2>"$W/e" || rc=$?
+[[ "$rc" == 3 ]] || { cat "$W/o"; fail "check with a panel left on v1 exited $rc, want 3"; }
+grep -q 'bcc .*OUTDATED' "$W/o" || { cat "$W/o"; fail "the panel left on v1 is not reported OUTDATED"; }
+grep -q 'status        UPDATE AVAILABLE' "$W/o" && grep -q 'but these components run binaries that differ from the signed release: bcc' "$W/o" ||
+  { cat "$W/o"; fail "a release state that already says v2 hid the panel that is behind"; }
+
+log "7f. BCC: refused without a recent backup, then updated to v2 with credentials, access files and the state DB untouched"
+bcc_files() { sha256sum "$W"/etc-bcc/* "$BCC_STATE" "$W/sysd/baft-bcc-fault.service" | sha256sum; }
+B0="$(bcc_files)"; U3="$(snapshot)"
+rc=0; UPENV apply --yes --only bcc "${BCCF[@]}" >"$W/o" 2>"$W/e" || rc=$?
+[[ "$rc" == 1 ]] || { cat "$W/o" "$W/e"; fail "BCC was updated without a backup (exit $rc)"; }
+grep -q 'no BCC backup found' "$W/o" || { cat "$W/o"; fail "the refusal does not name the missing backup"; }
+[[ "$(snapshot)" == "$U3" ]] || fail "a refused BCC update changed the host"
+mkdir -p "$W/var-bcc/backups"; : >"$W/var-bcc/backups/bcc-daily-test.baftbak"
+rc=0; UPENV apply --yes --only bcc "${BCCF[@]}" >"$W/o" 2>"$W/e" || rc=$?
+[[ "$rc" == 0 ]] || { cat "$W/o" "$W/e"; tail -20 "$W/opt-bcc"/update-logs/*.log 2>/dev/null; fail "the BCC update exited $rc"; }
+grep -q 'Updated to v0.0.2-f: bcc' "$W/o" || { cat "$W/o"; fail "no BCC success line"; }
+cmp -s "$W/rel2/dist/baft-bcc-linux-$bcc_arch" "$W/bin/baft-bcc" || fail "the BCC binary is not the signed v2 one"
+[[ "$(bcc_files)" == "$B0" ]] || fail "BCC credentials, access files, unit or state DB changed by the update"
+active baft-bcc-fault && enabled baft-bcc-fault || fail "BCC is not running after the update"
+rc=0; UPENV check "${BCCF[@]}" --service baft-ui >"$W/o" 2>"$W/e" || rc=$?
+[[ "$rc" == 0 ]] || { cat "$W/o"; fail "check after the BCC update exited $rc, want 0"; }
+
+log "7g. agent: a running agent whose binary differs is updated from the inputs recovered from its unit; token, job key and unit unchanged"
+touch "$W/state/active.baft-agent.service" "$W/state/enabled.baft-agent.service"
+printf 'local build\n' >>"$W/bin/baft-agent"   # no longer the signed release's bytes
+ag_files() { sha256sum "$W/ag"/* "$W/sysd/baft-agent.service" | sha256sum; }
+AGF=(--unit-dir "$W/sysd" --service baft-ex --release-state "$W/opt-ag/release-state.json")
+rc=0; UPENV check "${AGF[@]}" >"$W/o" 2>"$W/e" || rc=$?
+grep -q 'agent .*OUTDATED' "$W/o" || { cat "$W/o"; fail "the agent with a different binary is not reported OUTDATED"; }
+A1="$(ag_files)"
+rc=0; UPENV apply --yes --only agent "${AGF[@]}" >"$W/o" 2>"$W/e" || rc=$?
+[[ "$rc" == 0 ]] || { cat "$W/o" "$W/e"; tail -30 "$W/opt-ag"/update-logs/*-agent.log 2>/dev/null; fail "the agent update exited $rc"; }
+grep -q 'Updated to v0.0.2-f: agent' "$W/o" || { cat "$W/o"; fail "no agent success line"; }
+case "$(uname -m)" in x86_64) ag_arch=amd64 ;; aarch64) ag_arch=arm64 ;; esac
+cmp -s "$W/rel2/dist/baft-agent-linux-$ag_arch" "$W/bin/baft-agent" || fail "the agent binary is not the signed v2 one"
+grep -q 'v0.0.2-f' "$W/opt-ag/release-state.json" || fail "the agent's release state was not advanced"
+[[ "$(ag_files)" == "$A1" ]] || fail "the agent's token, job key, root pin or unit changed by the update"
+active baft-agent && enabled baft-agent || fail "the agent is not running after the update"
+
+log "7h. without the lab root the pinned production root rejects the throwaway release"
+U2="$(snapshot)"; rc=0
+env PATH="$W/stubs2:$PATH" SSL_CERT_FILE="$W/srv.crt" CURL_CA_BUNDLE="$W/srv.crt" \
+  BAFT_RELEASE_URL="https://127.0.0.1:$SRV_PORT/rel2/dist" BAFT_REVOCATIONS_URL="https://127.0.0.1:$SRV_PORT/rel2/revocations.json" \
+  "$W/cli/baft" update apply --yes --only transport --unit-dir "$W/sysd" --service baft-ui --release-state "$W/opt-ui/release-state.json" \
+  >"$W/o" 2>"$W/e" </dev/null || rc=$?
+[[ "$rc" == 1 ]] || { cat "$W/o"; fail "a release not signed by the pinned root was applied (exit $rc)"; }
+grep -q 'did not verify' "$W/o" || { cat "$W/o"; fail "the refusal does not say the release did not verify"; }
+[[ "$(snapshot)" == "$U2" ]] || fail "a refused release changed the host"
 
 log "PASS"

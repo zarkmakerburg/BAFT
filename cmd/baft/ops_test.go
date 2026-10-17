@@ -70,8 +70,15 @@ func newFakeHost(t *testing.T) *fakeHost {
 		serviceUID: func(string) (uint32, error) { return 1000, nil },
 		// Nor may it read the real host's units and binaries.
 		inventory: &inventoryHost{
-			readFile: func(string) ([]byte, error) { return nil, os.ErrNotExist },
-			hashFile: func(string) (string, error) { return "", os.ErrNotExist },
+			readFile:     func(string) ([]byte, error) { return nil, os.ErrNotExist },
+			hashFile:     func(string) (string, error) { return "", os.ErrNotExist },
+			newestBackup: func(string) (time.Time, error) { return time.Time{}, os.ErrNotExist },
+		},
+		// Tests run as root in CI; an update must never really apply from one.
+		geteuid: func() int { return 1000 },
+		runInstaller: func(context.Context, installerSpec) installerOutcome {
+			t.Error("unexpected installer run")
+			return installerOutcome{Err: errors.New("test")}
 		},
 		// A test that did not ask for an update check must never reach the network.
 		checkUpdate: func(context.Context, string, string, string) selfupdate.Report {

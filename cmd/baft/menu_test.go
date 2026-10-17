@@ -199,7 +199,7 @@ func TestMenuShowsTheHeaderAndTheListInTheHQOrder(t *testing.T) {
 	if strings.Contains(o, "Uninstall (planned)") {
 		t.Error("Uninstall is built now; it must not be marked planned")
 	}
-	for _, planned := range []string{"Update (planned)", "Repair (planned)"} {
+	for _, planned := range []string{"Update (unavailable)", "Repair (unavailable)"} {
 		if !strings.Contains(o, planned) {
 			t.Errorf("%s is not marked as planned", planned)
 		}
@@ -227,12 +227,12 @@ func TestPlannedItemsDoNothing(t *testing.T) {
 	r.run(t, monoCaps, "11\n\n12\n\n0\n")
 	o := r.out.String()
 	for _, name := range []string{"Update", "Repair"} {
-		if !strings.Contains(o, name+" is not available in this version yet.") {
+		if !strings.Contains(o, "That option is unavailable in this release; choose an enabled number.") {
 			t.Errorf("%s: no honest message", name)
 		}
 	}
-	if !strings.Contains(o, "Nothing was changed.") {
-		t.Error("planned items must say nothing was changed")
+	if strings.Contains(o, "Nothing was changed.") {
+		t.Error("disabled items must not open the action workflow")
 	}
 	// Only the header's own read-only service/metrics queries ran.
 	for _, c := range r.commands[before:] {

@@ -21,7 +21,11 @@ random credentials and ephemeral signing/backup keys. Two fixture nodes have
 independent X25519 public keys and agent tokens. Their contact is simulated by
 two real local HTTP agent polls; no agent process executes jobs. Health,
 tunnel, discovery and bootstrap loops do not run. A plan can therefore become
-ready for UI review without installing, deploying or changing a host.
+ready for UI review without installing, deploying or changing a host. Each of
+the two independent expiry paths also gets a fresh server and browser context.
+The production request guard is unchanged: intensive page/login automation
+must not consume the same 120-request/minute budget before testing expiry.
+Both the primary matrix and auth fixtures reject unexpected 429 responses.
 
 Credentials are passed from the fixture to its parent through a private pipe,
 kept in memory and excluded from evidence. Screenshots precede credential
@@ -134,6 +138,20 @@ This remains a failed diagnostic. The expiry case now waits for operational
 initialization and uses actual UI controls in two independent sessions to
 exercise both fetch paths; it still requires a real 401, sign-in navigation
 and removal of the operational UI.
+
+The third diagnostic, UI workflow `39027123824`, browser job `117380234125`,
+on `f242e9a76c55df3ad05fbaccf1c12b1d88e7849d`, passed all 80 page visits
+and all API counter/alias/empty-jobs assertions. It recorded 152 successful
+checks and nine failure records: expiry initialization timed out in all eight
+profiles, with one additional map-script initialization error. Repeated
+full-page sign-ins after the matrix can exhaust the default all-path request
+budget; local HTTP verification confirms assets consume that unchanged limit.
+This is the working diagnosis, rather than a recorded 429 from that browser
+run. Rather than changing production security, expiry paths now use fresh
+real fixtures and explicitly reject 429 responses. Artifact `12098697846`
+has ZIP SHA-256
+`26616692550eac06c54e9d948f658bd6e4294b77437bc25c7c69ad12b2840145`.
+This diagnostic does not qualify expiry or complete R1-05.
 
 Two harness corrections are separate from product changes: mobile navigation
 opens the drawer using its expanded state, and logout first opens the account

@@ -27,6 +27,40 @@ async function fixture(){
   assert.equal(new URL(data.base).hostname,'127.0.0.1');
   return {...data,async stop(){lines.close();child.kill('SIGTERM');await Promise.race([exited,sleep(3000).then(()=>child.kill('SIGKILL'))])}};
 }
+async function expiredSession(browser,viewport,lang,theme,trigger,dir){
+  // Repeated full-page logins share the production 120-request/minute budget.
+  // Isolate each auth path in a fresh real server; never raise/disable its guard.
+  const f=await fixture(),origin=new URL(f.base).origin,basePath=new URL(f.base).pathname;
+  const ctx=await browser.newContext({viewport}),errors=[],limited=[];
+  try{
+    await ctx.addInitScript(([l,t])=>{localStorage.setItem('baft.lang',l);localStorage.setItem('baft.theme',t)},[lang,theme]);
+    await ctx.route('**/*',r=>{const q=r.request(),u=new URL(q.url());if(u.origin!==origin||(u.pathname.includes('/api/')&&!['GET','HEAD'].includes(q.method()))){errors.push('unexpected network request: '+q.method()+' '+u.pathname.slice(basePath.length));return r.abort()}return r.continue()});
+    const page=await ctx.newPage();page.setDefaultTimeout(10000);
+    page.on('pageerror',e=>errors.push(e.message));
+    page.on('response',r=>{if(r.status()===429)limited.push(new URL(r.url()).pathname.slice(basePath.length))});
+    await page.goto(f.base+'login',{waitUntil:'networkidle'});
+    await page.locator('#loginUsername').fill(f.username);await page.locator('#loginPassword').fill(f.password);
+    await Promise.all([page.waitForURL(f.base),page.locator('#loginForm [type="submit"]').click()]);
+    await page.waitForFunction(()=>Boolean(window.BAFT_OPS?.cards&&document.querySelector('#ops_tlCatalog [data-engine="baft"]')));
+    const openNav=async()=>{const menu=page.locator('#menuToggle');if(await menu.isVisible()&&await menu.getAttribute('aria-expanded')!=='true')await menu.click()};
+    if(trigger==='catalog'){
+      await openNav();await page.locator('#nav a[href="#tunnels"]').click();
+      await page.locator('[onclick="loadTunnelEngines()"]:visible').waitFor();
+    }else await openNav();
+    await ctx.clearCookies();
+    const endpoint=f.base+'api/'+(trigger==='catalog'?'tunnel-engines':'nodes');
+    const [response]=await Promise.all([
+      page.waitForResponse(r=>r.url()===endpoint&&r.status()===401),page.waitForURL(f.base+'login'),
+      (trigger==='catalog'?page.locator('[onclick="loadTunnelEngines()"]'):page.locator('#nav a[href="#servers"]')).click()
+    ]);
+    assert.equal(response.request().method(),'GET');await page.locator('#loginForm').waitFor({state:'visible'});
+    assert.equal(await page.locator('#app').isHidden(),true);assert.equal(await page.locator('.ops-card').count(),0);
+    assert.deepEqual(limited,[],'auth fixture must stay within the unchanged rate limit');assert.deepEqual(errors,[]);
+    await page.screenshot({path:path.join(dir,'session-expired-'+trigger+'.png'),fullPage:true,animations:'disabled'});
+    return {trigger,status:response.status(),method:response.request().method(),operationalCards:0,rateLimited:limited.length};
+  }catch(e){throw Error(String(e.stack||e).replaceAll(f.base,'<auth-bcc>/').replaceAll(basePath,'/<auth-bcc>/').replaceAll(f.password,'<password>').replaceAll(f.username,'<user>'))}
+  finally{await ctx.close();await f.stop()}
+}
 async function runProfile(browser,[name,viewport,lang,theme]){
   const f=await fixture(),origin=new URL(f.base).origin;
   const result={name,viewport,lang,theme,pages:[],cards:[],checks:[],failures:[]};summary.profiles.push(result);
@@ -51,6 +85,7 @@ async function runProfile(browser,[name,viewport,lang,theme]){
     page=await ctx.newPage();page.setDefaultTimeout(10000);
     page.on('pageerror',e=>fail('uncaught JavaScript',e));
     page.on('dialog',d=>d.dismiss());
+    page.on('response',r=>{if(r.status()===429){result.rateLimited??=[];result.rateLimited.push({path:new URL(r.url()).pathname.slice(new URL(f.base).pathname.length),type:r.request().resourceType()})}});
     page.on('request',r=>{const u=new URL(r.url());if(u.pathname.includes('/api/'))apiRequests.push({path:u.pathname.slice(new URL(f.base).pathname.length),method:r.method(),headers:r.headers()})});
     const shot=async label=>{
       await page.evaluate(()=>scrollTo(0,0));
@@ -206,23 +241,11 @@ async function runProfile(browser,[name,viewport,lang,theme]){
     await check('expired session removes operational UI',async()=>{
       // Exercise both application fetch paths through their actual UI controls.
       // An arbitrary absolute-URL fetch bypasses their session handling.
+      result.auth=[];
       for(const trigger of ['catalog','servers']){
-        await ctx.clearCookies(); // Independent of the preceding logout result.
-        await page.goto(f.base+'login');await page.locator('#loginUsername').fill(f.username);await page.locator('#loginPassword').fill(f.password);
-        await Promise.all([page.waitForURL(f.base),page.locator('#loginForm [type="submit"]').click()]);await page.locator('#app').waitFor({state:'visible'});
-        await page.waitForFunction(()=>Boolean(window.BAFT_OPS?.cards&&document.querySelector('#ops_tlCatalog [data-engine="baft"]')));
-        await nav(trigger==='catalog'?'tunnels':'settings');
-        if(trigger==='servers')await openNav();
-        await ctx.clearCookies();
-        const endpoint=f.base+'api/'+(trigger==='catalog'?'tunnel-engines':'nodes');
-        const [response]=await Promise.all([
-          page.waitForResponse(r=>r.url()===endpoint&&r.status()===401),
-          page.waitForURL(f.base+'login'),
-          (trigger==='catalog'?page.locator('[onclick="loadTunnelEngines()"]'):page.locator('#nav a[href="#servers"]')).click()
-        ]);
-        assert.equal(response.request().method(),'GET');
-        await page.locator('#loginForm').waitFor({state:'visible'});assert.equal(await page.locator('#app').isHidden(),true);assert.equal(await page.locator('.ops-card').count(),0);await shot('session-expired-'+trigger);
+        result.auth.push(await expiredSession(browser,viewport,lang,theme,trigger,dir));
       }
+      assert.deepEqual(result.rateLimited||[],[],'main fixture must stay within the unchanged rate limit');
     });
     assert.equal(apiRequests.filter(r=>r.path==='api/tunnels'&&r.method==='POST').length,0);
   }catch(e){fail('profile setup or completion',e);if(page)await page.screenshot({path:path.join(dir,'failure.png'),fullPage:true}).catch(()=>{})}

@@ -1,0 +1,51 @@
+/* BAFT Aurora Hybrid — Imperial foundation / opt-in design tokens.
+ * Activate on documentElement.dataset.design="imperial" ONLY after QA.
+ * Does not replace BCC legacy token names or change map/globe behavior.
+ * All CSS is scoped; no external font or chart dependencies.
+ */
+:root[data-design="imperial"] {
+  --imperial-bg:#10151d;
+  --imperial-surface:#19222d;
+  --imperial-surface-raised:#212d3b;
+  --imperial-line:#334152;
+  --imperial-ink:#f4f5f5;
+  --imperial-muted:#acbac9;
+  --imperial-accent:#d5b477;
+  --imperial-action:#d5b477;
+  --imperial-cyan:#63bacb;
+  --imperial-radius-card:16px;
+  --imperial-radius-control:10px;
+  --imperial-ease:cubic-bezier(.2,.7,.2,1);
+  --imperial-shadow:0 16px 42px rgba(0,0,0,.22);
+  color-scheme:dark;
+}
+:root[data-design="imperial"][data-theme="light"] {
+  --imperial-bg:#f4f5f6;
+  --imperial-surface:#fff;
+  --imperial-surface-raised:#f9f9f8;
+  --imperial-line:#dce1e7;
+  --imperial-ink:#1e2937;
+  --imperial-muted:#596879;
+  --imperial-accent:#ab813e;
+  --imperial-action:#8b6429;
+  --imperial-cyan:#237f92;
+  --imperial-shadow:0 14px 36px rgba(25,40,55,.08);
+  color-scheme:light;
+}
+/* Optional component hooks only, not existing BCC generic classes. */
+:root[data-design="imperial"] .imperial-surface {
+  background:var(--imperial-surface);
+  color:var(--imperial-ink);
+  border:1px solid var(--imperial-line);
+  border-radius:var(--imperial-radius-card);
+  box-shadow:var(--imperial-shadow);
+}
+:root[data-design="imperial"] .imperial-muted {color:var(--imperial-muted)}
+:root[data-design="imperial"] .imperial-accent {color:var(--imperial-accent)}
+:root[data-design="imperial"] .imperial-focus:focus-visible {
+  outline:2px solid var(--imperial-cyan);
+  outline-offset:3px;
+}
+@media (prefers-reduced-motion:reduce) {
+  :root[data-design="imperial"] .imperial-motion {animation:none!important;transition:none!important}
+}

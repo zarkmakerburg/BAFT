@@ -9,7 +9,7 @@ const styles=fs.readFileSync(path.join(root,'web/bcc-app.css'),'utf8');
 test('guided five-step UI remains mounted on real operational BCC card',()=>{
  assert.match(html,/Aurora · Tunnel Control Studio/);
  assert.equal((html.match(/data-tn-step="[0-4]"/g)||[]).length,5);
- for(const id of ['tnEngine','tnMode','tnEx','tnIr','tnPort','tnXrayPort','tnClientPort','tnUserProtocol','tnIngressConfirm','tnLegacyCoexist','tnInstance','tnRouteListen','tnExMetric','tnIrMetric','tnTarget','tnWizardSummary','tnPlan']){
+ for(const id of ['tnDirection','tnEngine','tnMode','tnEx','tnIr','tnPort','tnClientPort','tnIngressConfirm','tnLegacyCoexist','tnInstance','tnRouteListen','tnExMetric','tnIrMetric','tnTarget','tnServicePortHint','tnWizardSummary','tnPlan']){
   assert.match(html,new RegExp('id="'+id+'"'),'missing '+id);
  }
  assert.match(js,/function tnWizardStep\(/);
@@ -18,6 +18,30 @@ test('guided five-step UI remains mounted on real operational BCC card',()=>{
  assert.match(js,/async function tnPlan\(/);
  assert.match(js,/async function tnDeploy\(/);
  assert.match(styles,/\.tnWizardSteps/);
+});
+test('Tunnel Studio exposes a single generic service destination in the ports step',()=>{
+ assert.doesNotMatch(html,/Xray|VLESS|VMess|Trojan|Shadowsocks|tnUserProtocol|tnXrayPort/i);
+ assert.equal((html.match(/id="tnTarget"/g)||[]).length,1);
+ const ports=html.slice(html.indexOf('data-tn-step="2"'),html.indexOf('data-tn-step="3"'));
+ assert.match(ports,/id="tnTarget" dir="ltr"/);
+ assert.match(ports,/IP:port/);
+ assert.match(ports,/\[::1\]:2443/);
+ assert.match(ports,/نشانی و پورت مقصد سرویس/);
+ assert.doesNotMatch(js,/tnUserProtocol|tnXrayPort|tnWizardTargetSync/);
+});
+test('unified Studio retains explicit port suggestions and truthful direction selection',()=>{
+ assert.match(html,/<option value="ir-to-ex">Direct/);
+ assert.match(html,/<option value="ex-to-ir" disabled>Reverse/);
+ assert.match(html,/id="tnDirectionInfo"/);
+ assert.match(html,/<optgroup label="Direct/);
+ assert.match(html,/<optgroup label="Reverse/);
+ assert.match(html,/onclick="tnWizardGenerateServicePort\(\)"/);
+ assert.match(html,/label for="tnTarget"/);
+ assert.match(html,/do not scan or reserve OS sockets/);
+ const target=html.match(/<input id="tnTarget"[^>]*>/)[0];
+ assert.doesNotMatch(target,/\svalue=/,'destination must be explicitly chosen');
+ const request=js.slice(js.indexOf('function tnReq()'),js.indexOf('function tnModeChanged()'));
+ assert.doesNotMatch(request,/tnDirection|reverse_engine|reverse_server|tnServicePort/);
 });
 test('only Native BAFT is selectable: future drivers cannot silently become live',()=>{
  assert.match(html,/<option value="baft">BAFT Secure/);
@@ -35,8 +59,6 @@ test('IR public client port is visibly unmanaged and never sent as BAFT tunnel A
  assert.match(request,/r\.ex_metrics_listen=/);
  assert.match(request,/r\.ir_metrics_listen=/);
  assert.match(request,/allow_legacy_coexistence/);
- assert.match(js,/function tnWizardTargetSync\(/);
- assert.match(js,/q\('#tnTarget'\)\.value='127\.0\.0\.1:'\+n/);
 });
 test('deployment preview is real, reviewed, authorized, and blocks superseding a legacy tunnel by default',()=>{
  assert.match(js,/fetch\('\/api\/tunnels\/plan'/);

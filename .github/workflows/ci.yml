@@ -12,7 +12,8 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Includes the recovery stress evidence and the full instrumented suite.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -123,7 +124,17 @@ jobs:
           go test -race ./internal/session -run '^TestFinalizeRecoveryCommitRunTeardownInterleavings$' -count=100 -timeout 5m -v
           go test ./tests/integration -run '^TestClassASecondCutCannotCancelLogicalSession$' -count=10 -timeout 10m -v
       - name: Race detector
-        run: go test -race ./...
+        id: full_suite_race
+        run: |
+          set -o pipefail
+          # BCC's durable SQLite/restart tests can exceed Go's default 10m
+          # package deadline under race instrumentation on shared runners.
+          go test -race -count=1 -timeout=15m ./... 2>&1 | tee "$RUNNER_TEMP/go-race.log"
+      - name: Report race failures
+        if: failure() && steps.full_suite_race.outcome == 'failure'
+        run: |
+          grep -E -- '^(WARNING: DATA RACE|--- FAIL|FAIL|panic:)|_test\.go:[0-9]+:' "$RUNNER_TEMP/go-race.log" | head -40 |
+            sed 's/%/%25/g; s/^/::error title=go test -race::/' || true
       - name: Vet
         run: go vet ./...
       - name: Protocol fuzz smoke

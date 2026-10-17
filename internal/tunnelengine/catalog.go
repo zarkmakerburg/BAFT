@@ -11,14 +11,15 @@ import (
 // Deployable is true only when BCC can plan and orchestrate that driver with
 // the current native agent. Final node/path safety gates are still required.
 type Capability struct {
-	Name         string   `json:"name"`
-	Label        string   `json:"label"`
-	Family       string   `json:"family"`    // direct, reverse, or carrier
-	Direction    string   `json:"direction"` // ir_to_ex, ex_to_ir, or configurable
-	Deployable   bool     `json:"deployable"`
-	Description  string   `json:"description"`
-	Reason       string   `json:"reason"`
-	Requirements []string `json:"requirements"`
+	ContractVersion int      `json:"contract_version,omitempty"`
+	Name            string   `json:"name"`
+	Label           string   `json:"label"`
+	Family          string   `json:"family"`    // direct, reverse, or carrier
+	Direction       string   `json:"direction"` // ir_to_ex, ex_to_ir, or configurable
+	Deployable      bool     `json:"deployable"`
+	Description     string   `json:"description"`
+	Reason          string   `json:"reason"`
+	Requirements    []string `json:"requirements"`
 }
 
 // Available is a server-owned, fail-closed capability declaration. Do not
@@ -27,7 +28,7 @@ type Capability struct {
 // first. Carriers such as WSS/QUIC are not standalone tunnel engines.
 func Available() []Capability {
 	return []Capability{
-		{Name: "baft", Label: "BAFT Secure", Family: "direct", Direction: "ir_to_ex", Deployable: true, Description: "Native BAFT Secure tunnel between Iran and foreign nodes, with reviewed plan, TLS/Noise and isolated instance lifecycle.", Reason: "native BAFT Secure agent lifecycle"},
+		{Name: "baft", ContractVersion: DriverContractVersion, Label: "BAFT Secure", Family: "direct", Direction: "ir_to_ex", Deployable: true, Description: "Native BAFT Secure tunnel between Iran and foreign nodes, with reviewed plan, TLS/Noise and isolated instance lifecycle.", Reason: "native BAFT Secure agent lifecycle"},
 		{Name: "frp", Label: "FRP", Family: "reverse", Direction: "ex_to_ir", Description: "Planned independent reverse TCP/UDP proxy driver.", Reason: "FRP adapter and two-node admission not implemented", Requirements: []string{"signed pinned binary", "agent lifecycle + rollback", "two-node ingress + data E2E"}},
 		{Name: "rathole", Label: "Rathole", Family: "reverse", Direction: "ex_to_ir", Description: "Planned authenticated reverse-proxy driver with independent control and data connections.", Reason: "Rathole adapter and two-node admission not implemented", Requirements: []string{"verified binary and license", "agent lifecycle + rollback", "two-node ingress + data E2E"}},
 		{Name: "backhaul", Label: "Backhaul", Family: "reverse", Direction: "ex_to_ir", Description: "Planned reverse tunnel driver with per-instance service and metrics.", Reason: "Backhaul adapter, artifact provenance and node admission not implemented", Requirements: []string{"signed pinned binary", "node compatibility", "two-node isolation E2E"}},

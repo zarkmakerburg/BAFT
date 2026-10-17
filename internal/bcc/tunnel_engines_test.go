@@ -51,10 +51,13 @@ func TestTunnelEnginesAPIReadOnlyFailClosed(t *testing.T) {
 		}
 		names[cap.Name] = true
 		if cap.Name == "baft" {
-			if !cap.Deployable || cap.Family != "direct" || cap.Direction != "ir_to_ex" {
+			if !cap.Deployable || cap.Family != "direct" || cap.Direction != "ir_to_ex" || cap.ContractVersion != tunnelengine.DriverContractVersion {
 				t.Fatalf("native capability incorrect: %+v", cap)
 			}
 		} else {
+			if cap.ContractVersion != 0 {
+				t.Fatalf("unimplemented engine advertises a driver contract: %+v", cap)
+			}
 			if cap.Deployable {
 				t.Fatalf("unimplemented engine claimed deployable: %+v", cap)
 			}

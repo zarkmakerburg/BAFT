@@ -21,11 +21,11 @@ func TestFailClosedCatalog(t *testing.T) {
 			t.Fatalf("error not actionable: %v", err)
 		}
 	}
-	if caps := Available(); len(caps) != 8 || !caps[0].Deployable {
+	if caps := Available(); len(caps) != 8 || !caps[0].Deployable || caps[0].ContractVersion != DriverContractVersion {
 		t.Fatalf("unexpected engine catalog: %+v", caps)
 	} else {
 		for _, cap := range caps[1:] {
-			if cap.Deployable {
+			if cap.Deployable || cap.ContractVersion != 0 {
 				t.Fatalf("planned driver incorrectly enabled: %+v", cap)
 			}
 		}

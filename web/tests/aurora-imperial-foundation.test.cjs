@@ -18,7 +18,10 @@ test('Imperial tokens are opt-in and do not overwrite BCC global tokens',()=>{
   assert.doesNotMatch(css,/\b--(?:bg|panel|gold|text|line):/);
 });
 test('Imperial style is embedded but only enabled for explicit preview opt-in',()=>{
-  assert.doesNotMatch(assets,/aurora-imperial-tokens\.css/);
+  assert.match(assets,/aurora-imperial-tokens\.css/);
+  assert.match(html,/href="\.\/aurora-imperial-tokens\.css"/);
+  assert.match(html,/opt==='1'/);
+  assert.match(html,/BAFT_UI\.mode==='preview'/);
   assert.match(assets,/bcc-map\.js/);
   assert.match(assets,/bcc-earth-v3\.js/);
   assert.match(assets,/bcc-welcome-globe-v3\.js/);

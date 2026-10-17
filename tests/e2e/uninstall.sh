@@ -144,6 +144,15 @@ units() { systemctl list-unit-files --no-legend 'baft*' | awk '{print $1}' | sor
 log "install EX and IR from release 1 and pass traffic"
 pair_fresh "$REL1"
 prov "fresh install"
+# The service home is BAFT state, not a login home. On hosted CI images,
+# /etc/skel can contain large operator-provided tool trees and symlinks;
+# copying any of them is a serious ownership/uninstall safety regression.
+for skel_entry in /etc/skel/* /etc/skel/.[!.]* /etc/skel/..?*; do
+  [[ -e "$skel_entry" || -L "$skel_entry" ]] || continue
+  state_entry="/var/lib/baft-ex/$(basename "$skel_entry")"
+  [[ ! -e "$state_entry" && ! -L "$state_entry" ]] || fail "service state unexpectedly copied host skeleton entry $(basename "$skel_entry")"
+done
+[[ "$(stat -c %a /var/lib/baft-ex)" == "700" ]] || fail "BAFT service state directory permissions must be 0700"
 traffic
 prov "services started, traffic"
 

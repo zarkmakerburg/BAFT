@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/zarkmakerburg/baft/internal/agentjob"
+	"github.com/zarkmakerburg/baft/internal/tunnelengine"
 	"github.com/zarkmakerburg/baft/internal/tunnelnode"
 )
 
@@ -144,6 +145,9 @@ type TunnelEvent struct {
 
 // TunnelRequest is what an operator asks for; zero fields take defaults.
 type TunnelRequest struct {
+	// Engine is explicit; omitted by legacy clients means native BAFT.
+	// Planned/unknown engines must fail closed in both plan and deploy.
+	Engine     string `json:"engine,omitempty"`
 	InstanceID string `json:"instance_id,omitempty"`
 	// Explicit opt-in to an independent scoped tunnel alongside an active legacy
 	// singleton. The old tunnel stays untouched, with no implicit migration.
@@ -304,6 +308,9 @@ func touch(t *Tunnel, node string) {
 // changes nothing: the plan and the real creation share it, so a plan can
 // never accept what creation would refuse.
 func (s *Store) resolveTunnelLocked(req TunnelRequest, now time.Time) (Tunnel, Node, Node, error) {
+	if _, err := tunnelengine.RequireDeployable(req.Engine); err != nil {
+		return Tunnel{}, Node{}, Node{}, err
+	}
 	ex, ok := s.st.Nodes[req.EXNode]
 	if !ok {
 		return Tunnel{}, Node{}, Node{}, fmt.Errorf("unknown EX node %q", req.EXNode)

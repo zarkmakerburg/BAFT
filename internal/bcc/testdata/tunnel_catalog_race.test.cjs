@@ -52,3 +52,25 @@ test('network error fails closed',async()=>{
  h.pending[0].reject(new Error('offline'));await a;
  assert.equal(h.grid.innerHTML,'');assert.match(h.summary.textContent,/unavailable/);
 });
+
+test('refresh immediately removes stale actionable cards',async()=>{
+ const h=harness();
+ const first=h.context.loadTunnelEngines();h.ok(h.pending[0]);await first;
+ assert.match(h.grid.innerHTML,/data-engine="baft"/);
+ const second=h.context.loadTunnelEngines();
+ assert.equal(h.grid.innerHTML,'');
+ assert.match(h.summary.textContent,/Checking supported drivers/);
+ h.ok(h.pending[1]);await second;
+ assert.match(h.grid.innerHTML,/data-engine="baft"/);
+});
+test('each request uses the token captured at dispatch',async()=>{
+ const h=harness();const auth=[];
+ h.context.fetch=(_url,options)=>{auth.push(options.headers.Authorization);const d=deferred();h.pending.push(d);return d.promise};
+ const a=h.context.loadTunnelEngines();
+ h.setCredential('b');
+ const b=h.context.loadTunnelEngines();
+ assert.deepEqual(auth,['Bearer a','Bearer b']);
+ h.ok(h.pending[1]);await b;
+ h.ok(h.pending[0]);await a;
+ assert.match(h.grid.innerHTML,/data-engine="baft"/);
+});

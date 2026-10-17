@@ -11,7 +11,6 @@ test('universal engine library is mounted in BCC Aurora, not a separate fake pre
  assert.match(card,/id="tlSummary"/);
  assert.match(card,/جعبه‌ابزار همه‌کارهٔ تونل/);
  assert.match(js,/async function loadTunnelEngines\(/);
- assert.match(js,/fetch\('\/api\/tunnel-engines',\{method:'GET',headers:ah\(\)\}\)/);
  assert.match(js,/loadTunnelEngines\(\),loadHealth\(\)/);
  assert.match(go,/\.tlCatalog\{display:grid/);
  assert.match(go,/@media\(max-width:620px\)/);
@@ -21,12 +20,24 @@ function harness(data,ok=true){
  const summary={textContent:''};
  const requests=[];
  const q=id=>({'#tlCatalog':grid,'#tlSummary':summary})[id];
- const ctx={q,token:()=>true,ah:()=>({Authorization:'Bearer redacted'}),fetch:async(u,opts)=>{requests.push([u,opts]);return {ok,status:503,json:async()=>data}},
+ const ctx={q,token:()=>'catalog-test-token',
   tnWizardText:(en,fa)=>en,tlPersian:{},document:{documentElement:{lang:'en'}},esc:x=>String(x).replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]))};
  ctx.fetch=async(u,opts)=>{requests.push([u,opts]);return {ok,status:ok?200:503,json:async()=>data}};
  vm.createContext(ctx);vm.runInContext(library,ctx);
  return {ctx,grid,summary,requests};
 }
+test('catalog requests use authenticated GET without a mutation body or token in the DOM',async()=>{
+ const h=harness([{name:'baft',label:'BAFT',family:'direct',deployable:true}]);
+ await vm.runInContext('loadTunnelEngines()',h.ctx);
+ assert.equal(h.requests.length,1);
+ const [url,options]=h.requests[0];
+ assert.equal(url,'/api/tunnel-engines');
+ assert.equal(options.method,'GET');
+ assert.equal(options.headers.Authorization,'Bearer catalog-test-token');
+ assert.equal(options.headers['Content-Type'],'application/json');
+ assert.equal(options.body,undefined);
+ assert.doesNotMatch(h.grid.innerHTML+h.summary.textContent,/catalog-test-token/);
+});
 test('catalog renders only backend-admitted BAFT actionable, with other engines locked',async()=>{
  const list=[
  {name:'baft',label:'BAFT Secure',family:'direct',direction:'ir_to_ex',deployable:true,description:'Native',requirements:[]},

@@ -225,7 +225,7 @@ html[lang="fa"] .tn-en,html:not([lang="fa"]) .tn-fa{display:none!important}
 <script>
 const q=s=>document.querySelector(s);let nodes=[],monitor=[];
 function token(){return localStorage.getItem('bccToken')||''}
-function setToken(){localStorage.setItem('bccToken',prompt('BCC admin token')||'');loadAll()}
+function setToken(){localStorage.setItem('bccToken',prompt('BCC admin token')||'');if(typeof tlCatalogRequestSeq!=='undefined')tlCatalogRequestSeq++;const catalog=q('#tlCatalog'),summary=q('#tlSummary');if(catalog)catalog.replaceChildren();if(summary)summary.textContent='';loadAll()}
 function ah(){return {'Authorization':'Bearer '+token(),'Content-Type':'application/json'}}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function ago(v){if(!v||new Date(v).getFullYear()<2000)return '—';let d=(Date.now()-new Date(v).getTime())/1000;if(d<60)return Math.max(0,Math.round(d))+'s ago';if(d<3600)return Math.round(d/60)+'m ago';return Math.round(d/3600)+'h ago'}
@@ -276,18 +276,25 @@ function tlPickEngine(id){
  select.value=id;tnClearPlan();tnWizardStep(0);
  document.querySelector('.aurora-tunnel-studio').scrollIntoView({behavior:'smooth',block:'start'});
 }
+let tlCatalogRequestSeq=0;
 async function loadTunnelEngines(){
+ const requestSeq=++tlCatalogRequestSeq;
+ const requestToken=token();
  const grid=q('#tlCatalog'),summary=q('#tlSummary');if(!grid||!summary)return;
- if(!token()){grid.replaceChildren();summary.textContent=tnWizardText('Sign in to list trusted tunnel capabilities.','برای دیدن قابلیت‌های معتبر تونل وارد شوید.');return}
+ grid.replaceChildren(); // Fail closed while current capabilities are being refreshed.
+ summary.textContent=tnWizardText('Checking supported drivers…','در حال بررسی موتورهای پشتیبانی‌شده…');
+ if(!requestToken){grid.replaceChildren();summary.textContent=tnWizardText('Sign in to list trusted tunnel capabilities.','برای دیدن قابلیت‌های معتبر تونل وارد شوید.');return}
  try {
-  const r=await fetch('/api/tunnel-engines',{method:'GET',headers:ah()});
+  const r=await fetch('/api/tunnel-engines',{method:'GET',headers:{Authorization:'Bearer '+requestToken,'Content-Type':'application/json'}});
   if(!r.ok)throw new Error('HTTP '+r.status);
   const caps=await r.json();
+  // Only the newest request may mutate catalog UI, including after logout.
+  if(requestSeq!==tlCatalogRequestSeq||token()!==requestToken)return;
   if(!Array.isArray(caps)||!caps.some(c=>c.name==='baft'&&c.deployable))throw new Error('Invalid capability catalog');
   const engines=caps.filter(c=>c.family!=='carrier');
   const deployable=engines.filter(c=>c.deployable&&c.name==='baft').length;
-  summary.textContent=tnWizardText(deployable+' trusted engine ready for reviewed build • '+(engines.length-deployable)+' planned • '+(caps.length-engines.length)+' carriers not yet installed',deployable+' موتور معتبر برای ساخت واقعی • '+(engines.length-deployable)+' موتور در توسعه • '+(caps.length-engines.length)+' حامل هنوز نصب نشده');
-  grid.innerHTML=caps.map(c=>{
+  const nextSummary=tnWizardText(deployable+' trusted engine ready for reviewed build • '+(engines.length-deployable)+' planned • '+(caps.length-engines.length)+' carriers not yet installed',deployable+' موتور معتبر برای ساخت واقعی • '+(engines.length-deployable)+' موتور در توسعه • '+(caps.length-engines.length)+' حامل هنوز نصب نشده');
+  const nextCards=caps.map(c=>{
    const ready=c.deployable&&c.name==='baft',direction=c.direction==='ir_to_ex'?'IR → EX':c.direction==='ex_to_ir'?'EX → IR':tnWizardText('Variable','متغیر');
    const group=c.family==='carrier'?tnWizardText('Transport / carrier','حامل / ترنسپورت'):c.family==='reverse'?tnWizardText('Reverse engine','موتور معکوس'):tnWizardText('Direct engine','موتور مستقیم');
    const status=ready?tnWizardText('Plan available','قابل ساخت'):tnWizardText('Not installed / planned','در برنامه / نصب‌نشده');
@@ -295,7 +302,10 @@ async function loadTunnelEngines(){
    const req=Array.isArray(c.requirements)?c.requirements.map(x=>'<li>'+esc(x)+'</li>').join(''):'';
    return '<article class="tlTile"><div class="tlTileTop"><h3>'+esc(c.label||c.name)+'</h3><span class="tlState '+(ready?'on':'off')+'">'+esc(status)+'</span></div><div class="tlMeta">'+esc(group)+' · <span dir="ltr">'+esc(direction)+'</span></div><p>'+esc(document.documentElement.lang==='fa'?(tlPersian[c.name]||c.description):c.description)+'</p>'+(ready?'':'<details><summary class="tlMeta">'+esc(tnWizardText('Required before activation','پیش‌نیاز فعال‌سازی'))+'</summary><p>'+esc(c.reason||'')+'</p><ul>'+req+'</ul></details>')+'<button type="button" class="alt" '+(ready?'data-engine="'+esc(c.name)+'" onclick="tlPickEngine(this.dataset.engine)"':'disabled aria-disabled="true"')+'>'+esc(action)+'</button></article>';
   }).join('');
- }catch(e){grid.replaceChildren();summary.textContent=tnWizardText('Engine status unavailable — no deployment is allowed from Toolbox.','وضعیت موتورهای تونل در دسترس نیست؛ ساخت از جعبه‌ابزار غیرفعال است.')}
+  if(requestSeq!==tlCatalogRequestSeq||token()!==requestToken)return;
+  summary.textContent=nextSummary;
+  grid.innerHTML=nextCards;
+ }catch(e){if(requestSeq!==tlCatalogRequestSeq||token()!==requestToken)return;grid.replaceChildren();summary.textContent=tnWizardText('Engine status unavailable — no deployment is allowed from Toolbox.','وضعیت موتورهای تونل در دسترس نیست؛ ساخت از جعبه‌ابزار غیرفعال است.')}
 }
 
 // Native BAFT Smart Tunnel Wizard. It only submits fields supported by BCC's

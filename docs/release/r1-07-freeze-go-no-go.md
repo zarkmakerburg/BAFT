@@ -95,17 +95,17 @@ candidate's user-visible changes. At tag time `[Unreleased]` becomes
 | Priority | Item | Owner |
 |---|---|---|
 | P0 | Written merge and release authorization from the owner | zark |
-| P0 | Choice of signing key for v0.3.4 (finding 1) | zark |
+| ~~P0~~ | Signing key for v0.3.4: **`702c62788d60920da8ea80aab93ca3e1`**, chosen by the owner 2026-10-17 15:26Z. `41f8a2dc…` is revoked only after every live host runs a release signed by `702c…` | decided |
 | P0 | Official offline signing of the tagged `main` commit; `scripts/release/accept.sh` on the published tag | zark (signing), HQ (verification) |
 | P1 | Decide whether a persisted old-BCC job → new agent drill under real systemd is required before release (R1-06 is conditional without it) | zark |
-| P1 | Rollback failure injection after commit and on crash; non-node record preservation | HQ |
+| ~~P1~~ | BCC upgrade rollback at `post-binaries`, `post-bcc-bootstrap` and `pre-commit`: binary, bootstrap, unit, release state, keys/access files and service state restored; state DB untouched (`tests/e2e/installer_faults.sh` section 6, PASS locally as root on the fake tree). After the commit point the installer has no rollback by design; a crash (SIGKILL) mid-apply skips the EXIT trap and is left to the next run's PARTIAL_INSTALL repair, which is not yet tested | HQ |
 | P2 | Five-node lab and live carrier validation | deferred |
 
 ## Decision
 
-**NO-GO until the P0 items are closed.** Engineering gates R1-01 … R1-05 and
+**NO-GO until the remaining P0 items are closed** (written authorization, official signing with `702c…`, `accept.sh`). Engineering gates R1-01 … R1-05 and
 CI pass on the exact head; R1-06 is conditional. When the owner writes the
-authorization and chooses the key, the order is: merge #242 (and this branch)
+authorization, the order is: merge #242 (and this branch)
 to `main` → re-run CI on the merge commit → tag → unsigned CI candidate →
 offline signing → `accept.sh` → publish → rollout, one host at a time, with
 the read-only runner checking each host.

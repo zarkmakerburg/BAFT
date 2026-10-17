@@ -59,10 +59,14 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       await page.screenshot({path:path.join(dir,label+'.png'),fullPage:true,animations:'disabled'});
       assert.equal(overflow,false,'document has horizontal overflow');
     };
+    const openNav=async()=>{
+      const menu=page.locator('#menuToggle');
+      if(await menu.isVisible()&&await menu.getAttribute('aria-expanded')!=='true')await menu.click();
+    };
     const nav=async route=>{
       if(await page.locator('#main').getAttribute('data-route')===route)return;
       const link=page.locator(`#nav a[href="#${route}"]`);
-      if(!await link.isVisible())await page.locator('#menuToggle').click();
+      await openNav();
       await link.click();
       await page.waitForFunction(r=>document.querySelector('#main')?.dataset.route===r,route);
       assert.equal(await page.evaluate(()=>document.activeElement.id),'main','route must focus main');
@@ -141,7 +145,9 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       await page.route(endpoint,async r=>{if(++count===1){seen();await gate;await r.fulfill({json:caps})}else await r.fulfill({status:503,body:'QA catalog failure'})});
       const refresh=page.locator('[onclick="loadTunnelEngines()"]');await refresh.click();await first;await refresh.click();
       await page.waitForFunction(()=>/unavailable|در دسترس نیست/.test(document.querySelector('#ops_tlSummary')?.textContent||''));
-      release();await sleep(100);
+      const late=page.waitForResponse(r=>r.url()===endpoint&&r.status()===200);
+      release();await (await late).finished();
+      await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
       assert.equal(await page.locator('#ops_tlCatalog button:not(:disabled)').count(),0);
       await shot('catalog-unavailable');await page.unroute(endpoint);await refresh.click();
       await page.locator('#ops_tlCatalog [data-engine="baft"]').waitFor({state:'visible'});
@@ -159,7 +165,7 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       await page.locator(`#main [data-lang-switch] [data-lang="${other}"]`).click();assert.equal(await page.locator('html').getAttribute('lang'),other);
       await page.locator(`#main [data-lang-switch] [data-lang="${lang}"]`).click();
       const alternate=theme==='dark'?'light':'dark';await page.locator(`#main [data-theme-set="${alternate}"]`).click();assert.equal(await page.locator('html').getAttribute('data-theme'),alternate);await page.locator(`#main [data-theme-set="${theme}"]`).click();
-      if(!await page.locator('#nav a[href="#servers"]').isVisible())await page.locator('#menuToggle').click();
+      await openNav();
       await page.locator('#nav a[href="#servers"]').focus();await page.keyboard.press('Enter');await page.waitForFunction(()=>document.querySelector('#main')?.dataset.route==='servers');
       assert.equal(await page.evaluate(()=>document.activeElement.id),'main');await page.keyboard.press('Tab');
       assert.equal(await page.evaluate(()=>Boolean(document.activeElement.closest('#main'))),true);
@@ -167,7 +173,7 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       await nav('tunnels');await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await page.locator('.tlTile').first().evaluate(n=>getComputedStyle(n).transitionDuration),'0s');await shot('reduced-motion');
     });
     await check('real logout and unauthenticated catalog',async()=>{
-      if(!await page.locator('#logout').isVisible())await page.locator('#menuToggle').click();
+      await openNav();
       await Promise.all([page.waitForURL(f.base),page.locator('#logout').click()]);
       assert.equal(await page.locator('#app').isHidden(),true);assert.equal(await page.locator('.ops-card').count(),0);
       assert.equal((await ctx.request.get(f.base+'api/tunnel-engines')).status(),401);
@@ -182,7 +188,8 @@ async function runProfile(browser,[name,viewport,lang,theme]){
     assert.equal(apiRequests.filter(r=>r.path==='api/tunnels'&&r.method==='POST').length,0);
   }catch(e){fail('profile setup or completion',e);if(page)await page.screenshot({path:path.join(dir,'failure.png'),fullPage:true}).catch(()=>{})}
   finally{await ctx.close();await f.stop();save()}
-  console.log(name,result.pages.length+' pages',result.cards.length+' cards',result.checks.length+' checks',result.failures.length+' failures');
+  const status=result.pages.length+' pages; '+result.cards.length+' cards; '+result.checks.length+' checks; '+result.failures.length+' failures';
+  console.log('::notice title=BCC browser '+name+'::'+status);
 }
 (async()=>{
   const browser=await chromium.launch(process.env.CHROME?{executablePath:process.env.CHROME}:{});

@@ -276,13 +276,17 @@ function tlPickEngine(id){
  select.value=id;tnClearPlan();tnWizardStep(0);
  document.querySelector('.aurora-tunnel-studio').scrollIntoView({behavior:'smooth',block:'start'});
 }
+let tlCatalogRequestSeq=0;
 async function loadTunnelEngines(){
+ const requestSeq=++tlCatalogRequestSeq;
  const grid=q('#tlCatalog'),summary=q('#tlSummary');if(!grid||!summary)return;
  if(!token()){grid.replaceChildren();summary.textContent=tnWizardText('Sign in to list trusted tunnel capabilities.','برای دیدن قابلیت‌های معتبر تونل وارد شوید.');return}
  try {
   const r=await fetch('/api/tunnel-engines',{method:'GET',headers:ah()});
   if(!r.ok)throw new Error('HTTP '+r.status);
   const caps=await r.json();
+  // Only the newest request may mutate catalog UI, including after logout.
+  if(requestSeq!==tlCatalogRequestSeq||!token())return;
   if(!Array.isArray(caps)||!caps.some(c=>c.name==='baft'&&c.deployable))throw new Error('Invalid capability catalog');
   const engines=caps.filter(c=>c.family!=='carrier');
   const deployable=engines.filter(c=>c.deployable&&c.name==='baft').length;
@@ -295,7 +299,7 @@ async function loadTunnelEngines(){
    const req=Array.isArray(c.requirements)?c.requirements.map(x=>'<li>'+esc(x)+'</li>').join(''):'';
    return '<article class="tlTile"><div class="tlTileTop"><h3>'+esc(c.label||c.name)+'</h3><span class="tlState '+(ready?'on':'off')+'">'+esc(status)+'</span></div><div class="tlMeta">'+esc(group)+' · <span dir="ltr">'+esc(direction)+'</span></div><p>'+esc(document.documentElement.lang==='fa'?(tlPersian[c.name]||c.description):c.description)+'</p>'+(ready?'':'<details><summary class="tlMeta">'+esc(tnWizardText('Required before activation','پیش‌نیاز فعال‌سازی'))+'</summary><p>'+esc(c.reason||'')+'</p><ul>'+req+'</ul></details>')+'<button type="button" class="alt" '+(ready?'data-engine="'+esc(c.name)+'" onclick="tlPickEngine(this.dataset.engine)"':'disabled aria-disabled="true"')+'>'+esc(action)+'</button></article>';
   }).join('');
- }catch(e){grid.replaceChildren();summary.textContent=tnWizardText('Engine status unavailable — no deployment is allowed from Toolbox.','وضعیت موتورهای تونل در دسترس نیست؛ ساخت از جعبه‌ابزار غیرفعال است.')}
+ }catch(e){if(requestSeq!==tlCatalogRequestSeq)return;grid.replaceChildren();summary.textContent=tnWizardText('Engine status unavailable — no deployment is allowed from Toolbox.','وضعیت موتورهای تونل در دسترس نیست؛ ساخت از جعبه‌ابزار غیرفعال است.')}
 }
 
 // Native BAFT Smart Tunnel Wizard. It only submits fields supported by BCC's

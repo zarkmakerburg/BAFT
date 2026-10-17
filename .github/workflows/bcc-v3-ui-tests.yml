@@ -4,6 +4,7 @@ on:
     paths:
       - 'web/**'
       - 'internal/bcc/dashboard.go'
+      - 'internal/bcc/testdata/*.test.cjs'
       - 'internal/bcc/countries.go'
       - '.github/workflows/bcc-v3-ui-tests.yml'
   workflow_dispatch:
@@ -20,6 +21,6 @@ jobs:
           node-version: '22'
       - name: Syntax check
         run: |
-          for f in web/bcc-*.js web/qa/*.cjs web/tests/*.test.cjs; do node --check "$f"; done
+          for f in web/bcc-*.js web/qa/*.cjs web/tests/*.test.cjs internal/bcc/testdata/*.test.cjs; do node --check "$f"; done
       - name: UI tests
-        run: node --test web/tests/*.test.cjs
+        run: node --test web/tests/*.test.cjs internal/bcc/testdata/*.test.cjs

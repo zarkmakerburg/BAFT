@@ -152,7 +152,7 @@ main:focus,main:focus-visible{outline:none}
 .page-head h1{margin:0;font-size:24px}
 .page-head p{margin:4px 0 0;color:var(--muted)}
 .page-actions{display:flex;gap:10px;flex-wrap:wrap}
-.stack{display:grid;gap:16px}
+.stack{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
 .empty{display:grid;place-items:center;gap:10px;text-align:center;color:var(--muted);padding:34px 18px;border:1px dashed var(--line2);border-radius:14px}
 .empty b{color:var(--text)}
 
@@ -231,7 +231,7 @@ td select{min-height:34px;padding:5px 10px;width:auto;min-width:150px}
 .mini-kpis .kpi{background:var(--panel)}
 
 /* Tool panels wrap the reviewed BCC operations. */
-.tool{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius)}
+.tool{min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius)}
 .tool>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:16px 18px;font-weight:700}
 .tool>summary::-webkit-details-marker{display:none}
 .tool>summary .ic{width:36px;height:36px;border-radius:11px;display:grid;place-items:center}
@@ -239,9 +239,10 @@ td select{min-height:34px;padding:5px 10px;width:auto;min-width:150px}
 .tool>summary small{display:block;font-weight:400;color:var(--muted);font-size:12.5px}
 .tool>summary .chev{margin-inline-start:auto;transition:transform .2s;color:var(--muted)}
 .tool[open]>summary .chev{transform:rotate(180deg)}
-.tool-body{padding:0 18px 18px}
+.tool-body{min-width:0;padding:0 18px 18px}
 .tool.flat{padding:18px}
-.ops-card{display:grid;gap:12px}
+.ops-card{min-width:0;display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+.ops-card>*{min-width:0}
 .ops-card>b:first-child{display:none}
 .ops-card .muted,.ops-card .note{color:var(--muted);font-size:12.5px}
 .ops-card .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;align-items:end}
@@ -391,7 +392,7 @@ td select{min-height:34px;padding:5px 10px;width:auto;min-width:150px}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 
 /* Aurora Tunnel Studio — fused into the existing Command Center, not a separate dashboard. */
-.ops-card.aurora-tunnel-studio{border:1px solid var(--gold-line);background:linear-gradient(135deg,var(--gold-soft),transparent 42%),var(--panel);box-shadow:0 14px 34px rgba(0,0,0,.09)}
+.ops-card.aurora-tunnel-studio{--bcc-line:var(--line2);--bcc-muted:var(--muted);--bcc-text:var(--text);--bcc-gold:var(--gold);overflow-wrap:anywhere;border:1px solid var(--gold-line);background:linear-gradient(135deg,var(--gold-soft),transparent 42%),var(--panel);box-shadow:0 14px 34px rgba(0,0,0,.09)}
 .aurora-tunnel-studio>.top b{font-size:1.04rem;letter-spacing:.02em}
 .aurora-mode-bar{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:14px;padding:12px;border-radius:14px;background:var(--panel2);border:1px solid var(--line)}
 .aurora-mode-bar label{font-size:13px;font-weight:700;color:var(--text)}
@@ -403,15 +404,37 @@ td select{min-height:34px;padding:5px 10px;width:auto;min-width:150px}
 @media(max-width:620px){.aurora-mode-bar{align-items:stretch}.aurora-mode-bar select{min-width:0;width:100%}}
 
 
+/* Engine catalog is embedded from Classic body markup, so style it here too. */
+.aurora-tunnel-toolbox .tlIntro{font-size:13px;color:var(--muted);line-height:1.7;margin-top:6px}
+.aurora-tunnel-toolbox .tlCatalog{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px;margin-top:15px}
+.aurora-tunnel-toolbox .tlTile{display:flex;flex-direction:column;gap:9px;min-width:0;padding:15px;border-radius:14px;border:1px solid var(--line);background:linear-gradient(150deg,var(--gold-soft),var(--panel2) 42%);transition:border-color .18s ease,transform .18s ease}
+.aurora-tunnel-toolbox .tlTile:hover{border-color:var(--gold-line);transform:translateY(-2px)}
+.aurora-tunnel-toolbox .tlTile h3{margin:0;font-size:16px}
+.aurora-tunnel-toolbox .tlTile p{color:var(--muted);font-size:12px;line-height:1.6;margin:0;flex:1}
+.aurora-tunnel-toolbox .tlTileTop{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap}
+.aurora-tunnel-toolbox .tlMeta{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
+.aurora-tunnel-toolbox .tlTile button{align-self:flex-start;max-width:100%}
+.aurora-tunnel-toolbox .tlTile button:disabled{opacity:.65}
+.aurora-tunnel-toolbox .tlState{font-size:10px;border-radius:999px;padding:3px 7px;border:1px solid var(--line);font-weight:700}
+.aurora-tunnel-toolbox .tlState.on{color:var(--green);background:var(--green-soft)}
+.aurora-tunnel-toolbox .tlState.off{color:var(--muted);background:var(--gray-soft)}
+@media(prefers-reduced-motion:reduce){.aurora-tunnel-toolbox .tlTile{transition:none}.aurora-tunnel-toolbox .tlTile:hover{transform:none}}
+
 /* Native BAFT Smart Tunnel Wizard: bilingual, mobile-first, classic + Aurora. */
 html[lang="fa"] .tn-en,html:not([lang="fa"]) .tn-fa{display:none!important}
 .tnWizardSteps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;margin:18px 0}
 .tnWizardSteps span[data-tn-nav]{border:1px solid var(--bcc-line,#34343b);border-radius:12px;padding:10px 5px;font-size:12px;text-align:center;color:var(--bcc-muted,#9aa5b7)}
 .tnWizardSteps span[data-tn-nav].selected{color:var(--bcc-text,#fff);border-color:var(--bcc-gold,#d5b578);background:rgba(213,181,120,.12)}
 .tnWizardStage[hidden],.tnWizardControls [hidden]{display:none!important}
-.tnWizardStage{padding:14px 0;min-height:190px}
+.tnWizardStage{min-width:0;padding:14px 0;min-height:190px}
 .tnWizardStage h3{font-size:17px;font-weight:700;margin:0 0 12px}
-.tnWizardStage select{width:100%;max-width:550px}
+.tnWizardStage select{min-width:0;width:100%;max-width:min(100%,550px)}
+.tnFlowPreview{min-width:0;margin-top:10px;padding:12px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;line-height:1.7}
+.tnFlowTrack{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:8px}
+.tnFlowTrack>span:not([aria-hidden]){padding:4px 7px;border:1px solid var(--line);border-radius:8px;background:var(--panel);font-size:12px}
+.tnPortPicker{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.tnPortPicker input{flex:1 1 160px;min-width:0}
+.tnPortPicker button{flex:0 1 auto}
 .tnLabel{display:flex;flex-direction:column;gap:7px;margin:10px 0;font-size:13px;font-weight:650}
 .tnLabel input,.tnLabel select{box-sizing:border-box;min-width:0;width:100%;font-weight:400}
 .tnFields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 20px}

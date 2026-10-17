@@ -16,8 +16,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"regexp"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/zarkmakerburg/baft/internal/release"
@@ -218,8 +220,48 @@ func (j Job) Validate() error {
 			return fmt.Errorf("action %s needs parameter %q", j.Action, k)
 		}
 	}
+	// Regular expressions constrain syntax, but can still match invalid IPs
+	// and ports such as 0 or 65536. Apply the same semantic checks before
+	// planning, signing and accepting native tunnel preparation jobs.
+	if j.Action == ActionTunnelPrepareEX {
+		if !validTCPPort(j.Params["port"]) {
+			return errors.New("parameter port must be between 1 and 65535")
+		}
+		if err := validateTunnelEndpoint(j.Params["target"], false); err != nil {
+			return fmt.Errorf("parameter target: %w", err)
+		}
+	}
+	if j.Action == ActionTunnelPrepareIR {
+		if err := validateTunnelEndpoint(j.Params["route_listen"], true); err != nil {
+			return fmt.Errorf("parameter route_listen: %w", err)
+		}
+	}
+	if j.Action == ActionTunnelPrepareEX || j.Action == ActionTunnelPrepareIR {
+		if endpoint, ok := j.Params["metrics_listen"]; ok {
+			if err := validateTunnelEndpoint(endpoint, true); err != nil {
+				return fmt.Errorf("parameter metrics_listen: %w", err)
+			}
+		}
+	}
 	if !j.ExpiresAt.After(j.IssuedAt) || j.ExpiresAt.Sub(j.IssuedAt) > MaxLifetime {
 		return errors.New("invalid job validity window")
+	}
+	return nil
+}
+
+func validTCPPort(raw string) bool {
+	port, err := strconv.Atoi(raw)
+	return err == nil && port >= 1 && port <= 65535
+}
+
+func validateTunnelEndpoint(endpoint string, loopback bool) error {
+	host, port, err := net.SplitHostPort(endpoint)
+	if err != nil || !validTCPPort(port) {
+		return errors.New("requires an explicit IP and port between 1 and 65535")
+	}
+	ip := net.ParseIP(host)
+	if ip == nil || (loopback && !ip.IsLoopback()) {
+		return errors.New("requires a valid IP in the permitted address scope")
 	}
 	return nil
 }

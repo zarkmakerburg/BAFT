@@ -4,6 +4,35 @@ All notable changes to BAFT are listed here. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+Candidate for v0.3.4 (draft PR #242). Not released.
+
+### Added
+
+- **Tunnel Toolbox in the panel**: the engines a server can run are listed from the panel's own catalog; only the native BAFT engine can be selected. Other engines are shown as not available and every action on them is refused before a plan is made.
+- **Smart Tunnel Wizard**: create a tunnel in five steps, with port suggestions checked against the catalog (a suggested port is not a reservation) and a truthful mapping for x-ui/Xray ports.
+- **Engine inventory evidence contract**: a versioned format for what an agent reports about installed engines. It is not yet connected to live probes.
+
+### Changed
+
+- Tunnel Studio no longer assumes a particular destination service; the destination is any IPv4 or IPv6 address and port.
+- Classic and Aurora panels reach the same cards and actions (parity documented in `docs/release/r1-classic-aurora-parity-stage286.md`).
+
+### Fixed
+
+- Creating a tunnel from the Aurora panel works again, and edit plans for one instance no longer touch its siblings.
+- Monitoring summaries require current, dated evidence; stale data shows as unknown instead of healthy.
+- The tunnel catalog ignores late responses after a newer refresh or after the admin token changes.
+- Native tunnel endpoints are validated, and a scoped rollback keeps the identity of the instance it restores.
+- Panel on phones: no horizontal overflow, readable stage colours in both themes, and unset discovery dates are shown as unset. Switching language no longer overwrites live values.
+
+## [0.3.3] - 2026-10-16
+
+### Fixed
+
+- **Adding a second outside server from the panel replaced the existing tunnel.** New tunnels are now separate instances next to the existing one, and the original tunnel keeps running.
+
+## [0.3.2] - 2026-10-16
+
 ### Added
 
 - **Installer in the x-ui style**: run one line, choose "Outside Iran", "Inside Iran" or "Panel", and answer a few questions.
@@ -21,6 +50,16 @@ All notable changes to BAFT are listed here. The format follows [Keep a Changelo
 
 - **License: BAFT is now free software under the GNU AGPL-3.0.** The BAFT name and logo remain trademarks and are not licensed under the AGPL (see `COPYRIGHT`).
 - The front pages (`README.md`, `README.fa.md`) are rewritten for users; the engineering material moved to `docs/*/40-engineering-notes.md`.
+
+### Security
+
+- A release tag must be an approved tag on a `main` commit, and the unsigned CI candidate is checked against a clean build of the same source before it is signed offline.
+- Release signing can be done on a phone (Android Termux) with trust checks; see `docs/release/android-termux-signing.md`.
+
+### Fixed
+
+- The HTTP/2 carrier reports the TLS phase of a failure correctly when a Noise write fails at the same time.
+- Panel telemetry history is pruned relative to the report time, so a server with a skewed clock does not lose its history.
 
 ## [0.3.1] - 2026-10-12
 

@@ -2466,7 +2466,10 @@ ensure_base() {
     return 0
   fi
   if [[ "$F_USER" == 0 ]]; then
-    useradd --system --home-dir "$BAFT_STATE_DIR" --create-home --shell /usr/sbin/nologin "$BAFT_USER"
+    # An OS image may ship an enormous, operator-owned /etc/skel. Copying it into
+    # BAFT_STATE_DIR makes a fresh install look unmanaged to the safe uninstaller.
+    # The explicit install -d below creates the data directory with BAFT ownership.
+    useradd --system --home-dir "$BAFT_STATE_DIR" --no-create-home --shell /usr/sbin/nologin "$BAFT_USER"
   fi
   [[ -d "$BAFT_CONFIG_DIR" ]] || install -d -m 0750 -o root -g "$BAFT_USER" "$BAFT_CONFIG_DIR"
   [[ -d "$BAFT_STATE_DIR" ]] || install -d -m 0700 -o "$BAFT_USER" -g "$BAFT_USER" "$BAFT_STATE_DIR"

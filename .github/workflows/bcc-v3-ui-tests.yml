@@ -3,8 +3,10 @@ on:
   pull_request:
     paths:
       - 'web/**'
-      - 'internal/bcc/dashboard.go'
-      - 'internal/bcc/countries.go'
+      - 'internal/bcc/**'
+      - 'cmd/baft-bcc/**'
+      - 'go.mod'
+      - 'go.sum'
       - '.github/workflows/bcc-v3-ui-tests.yml'
   workflow_dispatch:
 permissions:
@@ -20,6 +22,45 @@ jobs:
           node-version: '22'
       - name: Syntax check
         run: |
-          for f in web/bcc-*.js web/qa/*.cjs web/tests/*.test.cjs; do node --check "$f"; done
+          for f in web/bcc-*.js web/qa/*.cjs web/tests/*.test.cjs internal/bcc/testdata/*.test.cjs; do node --check "$f"; done
       - name: UI tests
-        run: node --test web/tests/*.test.cjs
+        run: node --test web/tests/*.test.cjs internal/bcc/testdata/*.test.cjs
+  browser:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          check-latest: false
+          cache: false
+      - name: Build disposable loopback BCC fixture
+        run: go build -o "$RUNNER_TEMP/bcc-browser-fixture" ./web/qa/fixture
+      - name: Install pinned browser tooling
+        run: |
+          npm install --prefix "$RUNNER_TEMP/bcc-playwright" --ignore-scripts --no-audit --no-fund --package-lock=false playwright@1.64.1
+          node "$RUNNER_TEMP/bcc-playwright/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Eight-mode real-browser regressions
+        env:
+          NODE_PATH: ${{ runner.temp }}/bcc-playwright/node_modules
+          BCC_FIXTURE_BINARY: ${{ runner.temp }}/bcc-browser-fixture
+          BCC_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          OUT: ${{ runner.temp }}/bcc-browser-evidence
+        run: |
+          test "$(git rev-parse HEAD)" = "$BCC_SOURCE_SHA"
+          node web/qa/bcc-browser-regressions.cjs
+      - name: Browser evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: bcc-browser-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/bcc-browser-evidence/
+          retention-days: 7
+          if-no-files-found: error

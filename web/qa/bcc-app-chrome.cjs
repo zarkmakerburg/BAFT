@@ -12,15 +12,7 @@ const {chromium}=require('playwright-core');
 const fs=require('node:fs'),path=require('node:path');
 const base=process.env.BCC_URL,user=process.env.BCC_USER,pass=process.env.BCC_PASS,out=process.env.OUT||'bcc-shots',only=process.argv[2]||'';
 if(!base||!user||!pass){console.error('set BCC_URL, BCC_USER and BCC_PASS');process.exit(2)}
-const pages=['dashboard','servers','tunnels','monitoring','security','ssl','backups','updates','finance','settings'];
-const runs=[
-  ['desk-fa-dark',{width:1440,height:960},'fa','dark',pages],
-  ['desk-fa-light',{width:1440,height:960},'fa','light',pages],
-  ['desk-en-dark',{width:1440,height:960},'en','dark',pages],
-  ['desk-en-light',{width:1440,height:960},'en','light',pages],
-  ['mob-fa-dark',{width:390,height:844},'fa','dark',['dashboard','servers','tunnels']],
-  ['mob-en-light',{width:390,height:844},'en','light',['dashboard','servers','tunnels']],
-].filter(r=>!only||r[0].includes(only));
+const runs=require('./bcc-browser-matrix.cjs').runs.filter(r=>!only||r[0].includes(only));
 (async()=>{
   fs.mkdirSync(out,{recursive:true});
   const browser=await chromium.launch(process.env.CHROME?{executablePath:process.env.CHROME}:{});

@@ -187,7 +187,14 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       assert.equal(await page.evaluate(()=>document.activeElement.id),'main');await page.keyboard.press('Tab');
       assert.equal(await page.evaluate(()=>Boolean(document.activeElement.closest('#main'))),true);
       assert.notEqual(await page.evaluate(()=>getComputedStyle(document.activeElement).outlineStyle),'none');
-      await nav('tunnels');await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await page.locator('.tlTile').first().evaluate(n=>getComputedStyle(n).transitionDuration),'0s');await shot('reduced-motion');
+      await nav('tunnels');
+      const labelChanges=await page.locator('#ops_tnTarget').evaluate(async n=>{
+        const frame=()=>new Promise(r=>requestAnimationFrame(r));await frame();await frame();
+        let changes=0;const observer=new MutationObserver(ms=>{changes+=ms.length});observer.observe(n.previousElementSibling,{childList:true,subtree:true});
+        for(let i=0;i<5;i++)await frame();observer.disconnect();return changes;
+      });
+      assert.equal(labelChanges,0,'idle localization must settle without rewriting field labels');
+      await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await page.locator('.tlTile').first().evaluate(n=>getComputedStyle(n).transitionDuration),'0s');await shot('reduced-motion');
     });
     await check('real logout and unauthenticated catalog',async()=>{
       await page.locator('#avatar').click();

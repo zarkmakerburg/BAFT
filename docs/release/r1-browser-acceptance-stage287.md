@@ -117,7 +117,10 @@ preserves API-rendered values/aliases. Text-only updates also trigger a guarded
 localization pass. Empty jobs use a bilingual empty state. Browser assertions
 compare every monitoring counter and node alias with the real API and verify
 the real empty jobs state; a fixture alias intentionally matches a translation
-key to guard against accidental data translation.
+key to guard against accidental data translation. Field-label writes are also
+guarded so text-node observation settles instead of scheduling an endless
+localization loop; the browser watches an idle field label across five frames
+and rejects repeated writes.
 
 The next diagnostic, UI workflow `39026420067`, browser job `117378206320`,
 ran source `53ed9f3f3c5d18d69a00ff74fdfcd70fcfb2b92f`. All eight profiles

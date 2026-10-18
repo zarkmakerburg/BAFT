@@ -16,7 +16,9 @@ func TestAgentComponentReportHTTPAuthAndReplay(t *testing.T) {
  store.st.Nodes["node-1"] = Node{ID:"node-1", AgentTokenHash:tokenHash("test-token")}
  if err := store.saveLocked(); err != nil { t.Fatal(err) }
  now := time.Date(2026,10,18,12,0,0,0,time.UTC)
- srv := &Server{store:store, now:func()time.Time{return now}}
+ srv, err := NewServer(store, "admin-test-secret")
+ if err != nil { t.Fatal(err) }
+ srv.now = func()time.Time{return now}
  report := map[string]any{"node_id":"node-1", "observed_at":now, "components":[]map[string]string{
   {"component":"transport", "state":"unknown"},
   {"component":"agent", "state":"unknown"},

@@ -101,3 +101,32 @@ func TestVerifiedReleaseCatalogRequiresValidPinnedRoot(t *testing.T) {
  if err:=os.WriteFile(rootPath,[]byte("not-a-key"),0600);err!=nil{t.Fatal(err)}
  if _,err:=NewVerifiedReleaseCatalog(filepath.Join(base,"signed"),rootPath,filepath.Join(base,"rev.json"),filepath.Join(base,"trust.json"));err==nil{t.Fatal("invalid pinned root accepted")}
 }
+
+func TestVerifiedReleaseCatalogSeesRotatedRevocationSymlink(t *testing.T) {
+ base:=t.TempDir()
+ dir:=filepath.Join(base,"signed")
+ if err:=os.Mkdir(dir,0700);err!=nil{t.Fatal(err)}
+ now:=time.Date(2026,10,18,16,0,0,0,time.UTC)
+ rootPub,rootPriv,err:=release.GenerateKey();if err!=nil{t.Fatal(err)}
+ signPub,signPriv,err:=release.GenerateKey();if err!=nil{t.Fatal(err)}
+ cert,err:=release.Certify(rootPriv,signPub,now.Add(-time.Hour),now.Add(time.Hour));if err!=nil{t.Fatal(err)}
+ if err:=os.WriteFile(filepath.Join(dir,"baft-linux-amd64"),[]byte("binary"),0700);err!=nil{t.Fatal(err)}
+ if _,err:=release.SignDir(release.SignInput{Dir:dir,Version:"v1.0.0",Commit:strings.Repeat("a",40),CreatedAt:now,Provenance:release.Provenance{Builder:"test",GoVersion:"go1.27"},Key:signPriv,Cert:cert,Root:rootPub});err!=nil{t.Fatal(err)}
+ rootPath:=filepath.Join(base,"root.pub")
+ if err:=os.WriteFile(rootPath,[]byte(release.EncodePublic(rootPub)),0600);err!=nil{t.Fatal(err)}
+ first,err:=release.SignRevocations(rootPriv,1,nil,now.Add(-time.Hour),now.Add(time.Hour));if err!=nil{t.Fatal(err)}
+ second,err:=release.SignRevocations(rootPriv,2,[]string{release.KeyID(signPub)},now.Add(-time.Hour),now.Add(time.Hour));if err!=nil{t.Fatal(err)}
+ rev1:=filepath.Join(base,"rev-1.json")
+ rev2:=filepath.Join(base,"rev-2.json")
+ if err:=release.WriteEnvelope(rev1,first);err!=nil{t.Fatal(err)}
+ if err:=release.WriteEnvelope(rev2,second);err!=nil{t.Fatal(err)}
+ link:=filepath.Join(base,"current-revocations.json")
+ if err:=os.Symlink(rev1,link);err!=nil{t.Fatal(err)}
+ cat,err:=NewVerifiedReleaseCatalog(dir,rootPath,link,filepath.Join(base,"trust.json"))
+ if err!=nil{t.Fatal(err)}
+ if _,err:=cat.Verify(now);err!=nil{t.Fatalf("initial valid catalog: %v",err)}
+ replacement:=filepath.Join(base,"new-link")
+ if err:=os.Symlink(rev2,replacement);err!=nil{t.Fatal(err)}
+ if err:=os.Rename(replacement,link);err!=nil{t.Fatal(err)}
+ if _,err:=cat.Verify(now);err==nil{t.Fatal("rotated revocations still accepted revoked signing key")}
+}

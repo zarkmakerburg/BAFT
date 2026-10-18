@@ -8,6 +8,11 @@ import (
 func TestDashboardNodeVersionSecurityContract(t *testing.T) {
  checks:=[]string{
   "BAFT / Agent / BCC",
+  "id=\"nodeCards\"",
+  "function renderNodeCards(versionMap)",
+  "t.ex_node===n.id||t.ir_node===n.id",
+  "renderNodeCards(window.nodeVersionMap||Object.create(null))",
+  "No tunnels / بدون تونل",
   "id=\"catalogHealth\"",
   "catalogStatus",
   "Release catalog: ",

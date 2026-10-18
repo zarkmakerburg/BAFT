@@ -37,7 +37,7 @@ func TestVerifiedReleaseCatalogPinsRootAndPersistsState(t *testing.T) {
  got,err:=cat.Verify(now)
  if err!=nil||got.Version!="v1.2.3"{t.Fatalf("signed catalog rejected: %v %+v",err,got)}
  state,err:=release.ReadState(trustPath);if err!=nil{t.Fatal(err)}
- if state.Version!="v1.2.3"||state.RevocationSequence!=2{t.Fatalf("state not persisted %+v",state)}
+ if state.Version!=""||state.RevocationSequence!=2{t.Fatalf("state not persisted %+v",state)}
  digest:=sha256.Sum256(binary)
  store,err:=OpenStore(filepath.Join(base,"bcc.sqlite"))
  if err!=nil{t.Fatal(err)}
@@ -162,4 +162,6 @@ func TestVerifiedReleaseCatalogSeesRotatedDirectorySymlink(t *testing.T) {
  if err:=os.Symlink(second,next);err!=nil{t.Fatal(err)}
  if err:=os.Rename(next,current);err!=nil{t.Fatal(err)}
  v,err=cat.Verify(now);if err!=nil||v.Version!="v1.1.0"{t.Fatalf("rotated catalog not observed: %v %+v",err,v)}
+ state,err:=release.ReadState(filepath.Join(base,"trust.json"));if err!=nil{t.Fatal(err)}
+ if state.Version!=""||state.RevocationSequence!=1{t.Fatalf("read-only observation ratcheted accepted version: %+v",state)}
 }

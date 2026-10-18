@@ -72,6 +72,12 @@ func TestVerifiedReleaseCatalogPinsRootAndPersistsState(t *testing.T) {
  if _,err:=cat.Verify(now);err==nil{t.Fatal("older revocation sequence accepted")}
  if _,err:=NewVerifiedReleaseCatalog(dir,rootPath,filepath.Join(dir,"revocations.json"),trustPath);err==nil{t.Fatal("revocations inside signed artifacts accepted")}
  if _,err:=NewVerifiedReleaseCatalog(dir,rootPath,revPath,filepath.Join(dir,"trust.json"));err==nil{t.Fatal("trust state inside signed artifacts accepted")}
+ alias:=filepath.Join(base,"signed-alias")
+ if err:=os.Symlink(dir,alias);err!=nil{t.Fatal(err)}
+ if _,err:=NewVerifiedReleaseCatalog(dir,rootPath,revPath,filepath.Join(alias,"trust.json"));err==nil{t.Fatal("symlinked trust state inside signed artifacts accepted")}
+ revAlias:=filepath.Join(base,"rev-alias.json")
+ if err:=os.Symlink(filepath.Join(dir,"manifest.json"),revAlias);err!=nil{t.Fatal(err)}
+ if _,err:=NewVerifiedReleaseCatalog(dir,rootPath,revAlias,trustPath);err==nil{t.Fatal("symlinked revocations inside signed artifacts accepted")}
 }
 
 func TestVerifiedReleaseCatalogRequiresValidPinnedRoot(t *testing.T) {

@@ -44,3 +44,35 @@ func TestAgentComponentReportHTTPAuthAndReplay(t *testing.T) {
  bad,err:=json.Marshal(report);if err!=nil{t.Fatal(err)}
  if got:=send("test-token",bad);got!=http.StatusBadRequest {t.Fatalf("duplicate component status=%d",got)}
 }
+
+func TestAgentComponentReportHTTPRejectsRevokedNodeAfterReopen(t *testing.T) {
+ store,err:=OpenStore(filepath.Join(t.TempDir(),"bcc.sqlite"))
+ if err!=nil { t.Fatal(err) }
+ store.st.Nodes["revocable"] = Node{ID:"revocable",AgentTokenHash:tokenHash("valid-agent-token")}
+ if err:=store.saveLocked();err!=nil { t.Fatal(err) }
+ now:=time.Date(2026,10,18,12,0,0,0,time.UTC)
+ srv,err:=NewServer(store,"admin-test-secret")
+ if err!=nil { t.Fatal(err) }
+ srv.now=func()time.Time{return now}
+ send:=func(at time.Time)int {
+  t.Helper()
+  payload,err:=json.Marshal(map[string]any{"node_id":"revocable","observed_at":at,"components":[]map[string]string{
+   {"component":"transport","state":"unknown"},{"component":"agent","state":"unknown"},{"component":"bcc","state":"unknown"},
+  }})
+  if err!=nil {t.Fatal(err)}
+  req:=httptest.NewRequest(http.MethodPost,"/api/agent/component-report",bytes.NewReader(payload))
+  req.Header.Set("Authorization","Bearer valid-agent-token")
+  rr:=httptest.NewRecorder()
+  srv.Handler().ServeHTTP(rr,req)
+  return rr.Code
+ }
+ if got:=send(now);got!=http.StatusAccepted {t.Fatalf("pre-revocation report status=%d",got)}
+ if _,err:=store.RevokeNode("revocable","security test",now.Add(time.Second));err!=nil {t.Fatal(err)}
+ reopened,err:=OpenStore(store.path)
+ if err!=nil {t.Fatal(err)}
+ srv.store=reopened
+ now=now.Add(2*time.Second)
+ if got:=send(now);got!=http.StatusUnauthorized {t.Fatalf("revoked node accepted via production handler: HTTP %d",got)}
+ _,receipts:=reopened.ComponentVersionSnapshot()
+ if !receipts["revocable"].ObservedAt.Equal(now.Add(-2*time.Second)) {t.Fatalf("revoked node advanced receipt cursor: %+v",receipts["revocable"])}
+}

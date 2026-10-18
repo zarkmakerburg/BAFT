@@ -54,6 +54,9 @@ func (s *Server) nodeReleaseAccept(w http.ResponseWriter,r *http.Request) {
  if err:=decodeJSON(r,&in);err!=nil{http.Error(w,"invalid request",http.StatusBadRequest);return}
  if strings.TrimSpace(in.Version)==""||strings.TrimSpace(in.Commit)=="" {http.Error(w,"version and commit required",http.StatusBadRequest);return}
  if in.Confirmation!="ACCEPT "+in.Version+" "+in.Commit {http.Error(w,"explicit version and commit confirmation required",http.StatusBadRequest);return}
+ // A downgrade is a distinct high-risk operation: require an additional
+ // confirmation that names the exact release identity.
+ if in.AllowDowngrade && r.Header.Get("X-BAFT-Downgrade-Confirmation")!="DOWNGRADE "+in.Version+" "+in.Commit {http.Error(w,"explicit downgrade confirmation required",http.StatusBadRequest);return}
  s.mutationMu.Lock()
  defer s.mutationMu.Unlock()
  v,err:=s.verifiedCatalog.AcceptReleaseWithIntent(s.now(),in.Version,in.Commit,in.AllowDowngrade,func(v release.Verified)error {

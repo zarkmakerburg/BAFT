@@ -231,7 +231,7 @@ html[lang="fa"] .tn-en,html:not([lang="fa"]) .tn-fa{display:none!important}
 <div class="tablewrap"><table><thead><tr><th></th><th>Alias</th><th>ID</th><th>Address</th><th>Role</th><th>Health Check</th><th>Last Check</th><th>BAFT / Agent / BCC</th><th>Security</th></tr></thead><tbody id="rows"></tbody></table></div>
 <div class="actions"><button id="deploySelected" onclick="deploy()" disabled>One-Click Deploy Selected</button><button class="alt" onclick="loadAll()">Refresh</button></div></div>
 
-<div class="card"><b>Recent Jobs</b><div id="jobs" class="muted" style="margin-top:10px">Admin token required.</div></div>
+<div class="card"><div class="top"><b>BCC Backups / پشتیبان‌های BCC</b><button class="alt" onclick="loadBackups()">Refresh inventory</button></div><p class="muted">Encrypted BCC-wide backups. Restore preview only; no restore execution from this panel.</p><div class="actions"><button onclick="createBCCBackup()">Create encrypted backup / ایجاد پشتیبان</button></div><div id="backupStatus" class="muted" role="status" aria-live="polite"></div><div id="backupInventory" class="muted"></div></div>\n<div class="card"><b>Recent Jobs</b><div id="jobs" class="muted" style="margin-top:10px">Admin token required.</div></div>
 <div class="card"><div class="top"><b>Immutable Audit Log</b><button class="alt" onclick="loadAudit()">Refresh</button></div>
 <div class="muted" style="margin-top:8px">Read-only hash-chained admin events. No delete/edit action is exposed.</div>
 <div class="tablewrap"><table><thead><tr><th>#</th><th>UTC</th><th>IP</th><th>Action</th><th>Target</th><th>Outcome</th><th>Hash</th></tr></thead><tbody id="auditRows"></tbody></table></div></div>
@@ -256,6 +256,36 @@ function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&l
 function ago(v){if(!v||new Date(v).getFullYear()<2000)return '—';let d=(Date.now()-new Date(v).getTime())/1000;if(d<60)return Math.max(0,Math.round(d))+'s ago';if(d<3600)return Math.round(d/60)+'m ago';return Math.round(d/3600)+'h ago'}
 function rate(v){return (Number(v||0)/1000).toFixed(2)+'/min'}
 function routeHTML(rs){if(!rs||!rs.length)return '<span class=muted>—</span>';return rs.map(r=>'<div class=route><span class="badge '+esc(r.status)+'">'+esc(r.status)+'</span><span>'+esc(r.route_id)+'</span><span class=muted>'+((r.latency_ms??-1)>=0?esc(r.latency_ms)+' ms':'—')+' · '+esc(r.probe_kind||'')+'</span></div>').join('')}
+async function loadBackups(){
+ if(!token())return;
+ let out=q('#backupInventory'),status=q('#backupStatus');if(!out||!status)return;
+ try{
+  let r=await fetch('/api/backups',{headers:ah()});
+  if(!r.ok){status.textContent='Backup inventory unavailable (HTTP '+r.status+')';out.textContent='';return}
+  let data=await r.json(),entries=Array.isArray(data.backups)?data.backups:[];
+  out.innerHTML=entries.map(e=>'<div class="route"><span>'+esc(e.name)+' · '+esc(e.size)+' bytes</span> <button class="alt" data-name="'+esc(e.name)+'" onclick="previewBCCRestore(this.dataset.name)">Preview restore</button></div>').join('')||'No backups / بدون پشتیبان';
+  status.textContent=entries.length+' backups';
+ }catch(e){status.textContent='Backup inventory unavailable';out.textContent=''}
+}
+async function createBCCBackup(){
+ if(!token()||!confirm('Create a new encrypted BCC backup? / ایجاد پشتیبان رمزگذاری‌شده؟'))return;
+ let status=q('#backupStatus');status.textContent='Creating backup...';
+ try{
+  let r=await fetch('/api/backups/create',{method:'POST',headers:ah()});
+  let data=await r.json().catch(()=>({}));
+  if(!r.ok){status.textContent=data.reconciliation_required?'Outcome uncertain: reconcile backup '+String(data.name||''):'Backup failed (HTTP '+r.status+')';return}
+  status.textContent='Created: '+String(data.name||'');await loadBackups();
+ }catch(e){status.textContent='Backup request failed; check audit before retry'}
+}
+async function previewBCCRestore(name){
+ if(!token())return;
+ let status=q('#backupStatus');status.textContent='Checking restore preview...';
+ try{
+  let r=await fetch('/api/backups/restore-preview',{method:'POST',headers:{...ah(),'Content-Type':'application/json'},body:JSON.stringify({filename:name})});
+  if(!r.ok){status.textContent='Restore preview failed (HTTP '+r.status+')';return}
+  let data=await r.json();status.textContent='Restore preview '+(data.verified?'verified':'NOT verified')+(data.would_refuse?' — REFUSED: '+String(data.would_refuse):'')+'; no restore executed';
+ }catch(e){status.textContent='Restore preview unavailable'}
+}
 function renderNodeCards(versionMap){
  let cards=q('#nodeCards');if(!cards)return;
  cards.innerHTML=(Array.isArray(nodes)?nodes:[]).map(n=>{

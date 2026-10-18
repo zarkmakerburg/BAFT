@@ -33,18 +33,22 @@ func NewVerifiedReleaseCatalog(dir,rootPublicKeyFile,revocationsFile,statePath s
  // State must not be inside the release directory, whose contents VerifyDir
  // validates as an exact signed artifact set.
  absDir,err:=filepath.Abs(dir);if err!=nil{return nil,err}
+ absDir,err=filepath.EvalSymlinks(absDir);if err!=nil{return nil,fmt.Errorf("resolve signed release directory: %w",err)}
  absState,err:=filepath.Abs(statePath);if err!=nil{return nil,err}
+ stateParent,err:=filepath.EvalSymlinks(filepath.Dir(absState));if err!=nil{return nil,fmt.Errorf("resolve trust state parent: %w",err)}
+ absState=filepath.Join(stateParent,filepath.Base(absState))
  rel,err:=filepath.Rel(absDir,absState);if err!=nil{return nil,err}
  if rel=="." || (rel!=".." && !strings.HasPrefix(rel,".."+string(os.PathSeparator))) {
   return nil,errors.New("trust state must be outside signed release directory")
  }
  revAbs,err:=filepath.Abs(revocationsFile);if err!=nil{return nil,err}
+ revAbs,err=filepath.EvalSymlinks(revAbs);if err!=nil{return nil,fmt.Errorf("resolve revocations: %w",err)}
  revRel,err:=filepath.Rel(absDir,revAbs);if err!=nil{return nil,err}
  if revRel=="." || (revRel!=".." && !strings.HasPrefix(revRel,".."+string(os.PathSeparator))) {return nil,errors.New("revocation list must be outside signed release directory")}
  raw,err:=os.ReadFile(rootPublicKeyFile);if err!=nil{return nil,fmt.Errorf("read pinned root: %w",err)}
  pub,err:=release.DecodePublic(strings.TrimSpace(string(raw)));if err!=nil{return nil,fmt.Errorf("pinned root: %w",err)}
  if _,err:=release.ReadState(statePath);err!=nil{return nil,err}
- return &VerifiedReleaseCatalog{dir:absDir,statePath:absState,revocationsPath:revocationsFile,root:pub},nil
+ return &VerifiedReleaseCatalog{dir:absDir,statePath:absState,revocationsPath:revAbs,root:pub},nil
 }
 
 // Verify takes a mutex over trust-state read/verify/commit, so concurrent

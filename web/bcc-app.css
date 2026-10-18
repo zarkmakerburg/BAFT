@@ -263,7 +263,7 @@ td select{min-height:34px;padding:5px 10px;width:auto;min-width:150px}
 .ops-card label:has(input[type=checkbox]){display:inline-flex;gap:8px;align-items:center;color:var(--text)}
 .ops-card td,.ops-card th{white-space:nowrap}
 .ops-card .top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.ops-card .top>b{display:none}
+.ops-card>.top>b{display:none}
 .ops-card .kpis{position:static;display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;padding:0;margin:0!important}
 .ops-card .kpi{display:block;padding:12px 14px;border-radius:12px;background:var(--panel2);backdrop-filter:none;color:var(--muted);font-size:12px}
 .ops-card .kpi b{display:block;font-size:22px;color:var(--text);direction:ltr;text-align:start}
@@ -446,3 +446,26 @@ html[lang="fa"] .tn-en,html:not([lang="fa"]) .tn-fa{display:none!important}
 .tnReview{display:grid;gap:9px;padding:14px;border:1px solid var(--bcc-line,#34343b);border-radius:12px;margin-bottom:12px;overflow-wrap:anywhere}
 .tnWizardControls{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0}
 @media(max-width:620px){.tnWizardSteps{display:flex;overflow:auto;gap:7px;padding:0 0 8px}.tnWizardSteps span[data-tn-nav]{min-width:92px;flex:none}.tnFields{grid-template-columns:1fr}.tnWizardControls button{flex:1}}
+
+/* ---------- Server and tunnel cards ---------- */
+.srv-open{background:none;border:0;padding:0;color:inherit;font:inherit;cursor:pointer;text-align:start}
+.srv-open:hover b,.srv-open:focus-visible b{color:var(--gold);text-decoration:underline;text-underline-offset:3px}
+.card-dlg{width:min(640px,calc(100vw - 32px))}
+.entity-card{gap:10px}
+.entity-card h3{margin:14px 0 2px;font-size:14px;color:var(--muted);display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.card-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-inline-end:40px}
+.card-title h2{margin:0;font-size:20px}
+.card-title small{color:var(--muted)}
+.card-back{align-self:flex-start}
+.kv{display:grid;grid-template-columns:minmax(110px,auto) 1fr;gap:6px 16px;margin:0}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;overflow-wrap:anywhere}
+.ver-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ver-row>div{border:1px solid var(--line2);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.ver-row small{color:var(--muted)}
+.tun-list{display:flex;flex-direction:column;gap:6px}
+.tun-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;width:100%;text-align:start;background:none;color:inherit;font:inherit;border:1px solid var(--line2);border-radius:12px;padding:10px 12px;cursor:pointer}
+.tun-row:hover,.tun-row:focus-visible{border-color:var(--gold)}
+.tun-row .badge{margin-inline-start:auto}
+.card-actions{display:flex;gap:8px;flex-wrap:wrap}
+@media (max-width:520px){.ver-row{grid-template-columns:1fr}.kv{grid-template-columns:1fr}.kv dt{margin-top:4px}}

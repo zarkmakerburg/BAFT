@@ -307,7 +307,6 @@ func (s *Store) UpsertNode(n Node, agentToken string, audits ...AuditEntry) (Nod
 	if exists {
 		// Rebinding an ID to a different host, route or key voids prior
 		// operator confirmation. Cosmetic alias updates do not.
-		if old.Address==n.Address && old.Role==n.Role && old.PublicKey==n.PublicKey && old.PathIPv4==n.PathIPv4 && old.PathIPv6==n.PathIPv6 && old.AgentTokenHash==n.AgentTokenHash && !old.Revoked { n.Platform=old.Platform }
 		n.PreviousAgentTokenHash=old.PreviousAgentTokenHash
 		n.PreviousAgentTokenUntil=old.PreviousAgentTokenUntil
 		n.Revoked=old.Revoked
@@ -316,6 +315,7 @@ func (s *Store) UpsertNode(n Node, agentToken string, audits ...AuditEntry) (Nod
 		if n.AgentSeen.IsZero(){n.AgentSeen=old.AgentSeen}
 		if n.PathIPv4==""{n.PathIPv4=old.PathIPv4}
 		if n.PathIPv6==""{n.PathIPv6=old.PathIPv6}
+		if old.Address==n.Address && old.Role==n.Role && old.PublicKey==n.PublicKey && old.PathIPv4==n.PathIPv4 && old.PathIPv6==n.PathIPv6 && old.AgentTokenHash==n.AgentTokenHash && !old.Revoked { n.Platform=old.Platform }
 		if n.Country==""{n.Country=old.Country;n.CountryManual=old.CountryManual;n.CountryAuto=old.CountryAuto}
 		n.AppliedGeneration=old.AppliedGeneration
 		if len(old.AppliedGenerations)>0{

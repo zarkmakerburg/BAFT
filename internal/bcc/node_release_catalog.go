@@ -53,7 +53,7 @@ func NewVerifiedReleaseCatalog(dir,rootPublicKeyFile,revocationsFile,statePath s
  raw,err:=os.ReadFile(rootPublicKeyFile);if err!=nil{return nil,fmt.Errorf("read pinned root: %w",err)}
  pub,err:=release.DecodePublic(strings.TrimSpace(string(raw)));if err!=nil{return nil,fmt.Errorf("pinned root: %w",err)}
  if _,err:=release.ReadState(statePath);err!=nil{return nil,err}
- return &VerifiedReleaseCatalog{dir:absDir,statePath:absState,revocationsPath:revAbs,root:pub},nil
+ return &VerifiedReleaseCatalog{dir:dir,statePath:absState,revocationsPath:revocationsFile,root:pub},nil
 }
 
 // Verify takes a mutex over trust-state read/verify/commit, so concurrent
@@ -62,9 +62,17 @@ func (c *VerifiedReleaseCatalog) Verify(now time.Time) (release.Verified,error) 
  if c==nil {return release.Verified{},errors.New("release catalog not configured")}
  c.mu.Lock()
  defer c.mu.Unlock()
+ // Resolve the operator-controlled current links on every verification.
+ // Recheck that the revocation file remains outside the signed directory.
+ absDir,err:=filepath.Abs(c.dir);if err!=nil{return release.Verified{},err}
+ absDir,err=filepath.EvalSymlinks(absDir);if err!=nil{return release.Verified{},fmt.Errorf("resolve signed release directory: %w",err)}
+ revAbs,err:=filepath.Abs(c.revocationsPath);if err!=nil{return release.Verified{},err}
+ revAbs,err=filepath.EvalSymlinks(revAbs);if err!=nil{return release.Verified{},fmt.Errorf("resolve revocations: %w",err)}
+ revRel,err:=filepath.Rel(absDir,revAbs);if err!=nil{return release.Verified{},err}
+ if revRel=="." || (revRel!=".." && !strings.HasPrefix(revRel,".."+string(os.PathSeparator))) {return release.Verified{},errors.New("revocation list must be outside signed release directory")}
  prior,err:=release.ReadState(c.statePath);if err!=nil{return release.Verified{},err}
- rev,err:=release.ReadEnvelope(c.revocationsPath);if err!=nil{return release.Verified{},fmt.Errorf("revocations: %w",err)}
- v,err:=release.VerifyDir(release.VerifyInput{Dir:c.dir,Root:c.root,Revocations:&rev,Now:now,State:&prior})
+ rev,err:=release.ReadEnvelope(revAbs);if err!=nil{return release.Verified{},fmt.Errorf("revocations: %w",err)}
+ v,err:=release.VerifyDir(release.VerifyInput{Dir:absDir,Root:c.root,Revocations:&rev,Now:now,State:&prior})
  if err!=nil{return release.Verified{},err}
  if now.IsZero(){now=time.Now().UTC()}
  if err:=release.WriteState(c.statePath,prior.Advance(v,now));err!=nil{return release.Verified{},fmt.Errorf("persist release trust state: %w",err)}

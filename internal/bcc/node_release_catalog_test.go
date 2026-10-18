@@ -318,3 +318,48 @@ func TestVerifiedReleaseCatalogIntentFailureBlocksAcceptance(t *testing.T) {
  state,err=release.ReadState(statePath);if err!=nil{t.Fatal(err)}
  if called!=2||state.Version!="v2.0.0"||state.Commit!=commit||state.RevocationSequence!=12{t.Fatalf("unexpected acceptance after durable intent: called=%d state=%+v",called,state)}
 }
+
+func TestNodeReleaseAcceptHTTPSignedCatalogAndAudit(t *testing.T) {
+ base:=t.TempDir()
+ dir:=filepath.Join(base,"signed")
+ if err:=os.Mkdir(dir,0700);err!=nil{t.Fatal(err)}
+ now:=time.Date(2026,10,18,16,0,0,0,time.UTC)
+ rootPub,rootPriv,err:=release.GenerateKey();if err!=nil{t.Fatal(err)}
+ signPub,signPriv,err:=release.GenerateKey();if err!=nil{t.Fatal(err)}
+ cert,err:=release.Certify(rootPriv,signPub,now.Add(-time.Hour),now.Add(time.Hour));if err!=nil{t.Fatal(err)}
+ rev,err:=release.SignRevocations(rootPriv,13,nil,now.Add(-time.Hour),now.Add(time.Hour));if err!=nil{t.Fatal(err)}
+ rootPath:=filepath.Join(base,"root.pub")
+ revPath:=filepath.Join(base,"revocations.json")
+ statePath:=filepath.Join(base,"trust.json")
+ if err:=os.WriteFile(rootPath,[]byte(release.EncodePublic(rootPub)),0600);err!=nil{t.Fatal(err)}
+ if err:=release.WriteEnvelope(revPath,rev);err!=nil{t.Fatal(err)}
+ if err:=os.WriteFile(filepath.Join(dir,"baft-linux-amd64"),[]byte("signed binary"),0700);err!=nil{t.Fatal(err)}
+ commit:=strings.Repeat("b",40)
+ if _,err:=release.SignDir(release.SignInput{Dir:dir,Version:"v2.0.0",Commit:commit,CreatedAt:now,Provenance:release.Provenance{Builder:"test",GoVersion:"go1.27"},Key:signPriv,Cert:cert,Root:rootPub});err!=nil{t.Fatal(err)}
+ cat,err:=NewVerifiedReleaseCatalog(dir,rootPath,revPath,statePath);if err!=nil{t.Fatal(err)}
+ store,err:=OpenStore(filepath.Join(base,"bcc.sqlite"));if err!=nil{t.Fatal(err)}
+ app,err:=NewServer(store,"admin-secret");if err!=nil{t.Fatal(err)}
+ app.now=func()time.Time{return now}
+ app.ConfigureVerifiedCatalog(cat)
+ request:=func(token,confirmation string)*httptest.ResponseRecorder{
+  body,_:=json.Marshal(map[string]any{"version":"v2.0.0","commit":commit,"confirmation":confirmation})
+  rec:=httptest.NewRecorder()
+  app.Handler().ServeHTTP(rec,authReq(http.MethodPost,"/api/nodes/versions/accept",token,strings.NewReader(string(body))))
+  return rec
+ }
+ if rec:=request("admin-secret","");rec.Code!=http.StatusBadRequest{t.Fatalf("missing confirmation: %d %s",rec.Code,rec.Body.String())}
+ if rec:=request("admin-secret","ACCEPT v2.0.0 "+strings.Repeat("a",40));rec.Code!=http.StatusBadRequest{t.Fatalf("wrong confirmation: %d %s",rec.Code,rec.Body.String())}
+ state,err:=release.ReadState(statePath);if err!=nil{t.Fatal(err)}
+ if state.Version!=""{t.Fatalf("invalid confirmation mutated state: %+v",state)}
+ if rec:=request("","ACCEPT v2.0.0 "+commit);rec.Code!=http.StatusUnauthorized{t.Fatalf("unauthorized acceptance: %d",rec.Code)}
+ if rec:=request("admin-secret","ACCEPT v2.0.0 "+commit);rec.Code!=http.StatusOK{t.Fatalf("accepted status %d: %s",rec.Code,rec.Body.String())}
+ state,err=release.ReadState(statePath);if err!=nil{t.Fatal(err)}
+ if state.Version!="v2.0.0"||state.Commit!=commit||state.RevocationSequence!=13{t.Fatalf("accepted state invalid: %+v",state)}
+ entries,err:=app.audit.List(0);if err!=nil{t.Fatal(err)}
+ intent,success:=-1,-1
+ for i,e:=range entries {
+  if e.Action=="release.accept.intent"{intent=i}
+  if e.Action=="release.accept"&&e.Outcome=="success"{success=i}
+ }
+ if intent<0||success<=intent{t.Fatalf("missing ordered audit intent and completion: %+v",entries)}
+}

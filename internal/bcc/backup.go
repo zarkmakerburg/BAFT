@@ -77,6 +77,7 @@ func normalizeState(st *state){
 	if st.Tunnels==nil{st.Tunnels=map[string]Tunnel{}}
 	if st.Health==nil{st.Health=map[string]NodeHealthRecord{}}
 	if st.Discovery==nil{st.Discovery=map[string]NodeDiscovery{}}
+	if st.ComponentDigestReceipts==nil{st.ComponentDigestReceipts=map[string]ComponentDigestReceipt{}}
 	if st.CertRotations==nil{st.CertRotations=map[string]CertRotation{}}
 	if st.SecurityAuditIntents==nil{st.SecurityAuditIntents=map[string]AuditEntry{}}
 	if st.IRPool==nil{st.IRPool=map[string]IRPoolMember{}}

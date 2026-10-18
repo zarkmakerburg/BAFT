@@ -28,6 +28,10 @@ func main(){
 	listen:=flag.String("listen","127.0.0.1:8080","BCC HTTP listen address")
 	stateFile:=flag.String("state-file","./bcc-state.json","persistent BCC state file")
 	adminTokenFile:=flag.String("admin-token-file","","file containing BCC admin bearer token")
+	catalogDir:=flag.String("component-catalog-dir","","directory of signed BAFT release artifacts")
+	catalogRoot:=flag.String("component-catalog-root","","file containing pinned Ed25519 root public key")
+	catalogRevocations:=flag.String("component-catalog-revocations","","external root-signed revocations file")
+	catalogState:=flag.String("component-catalog-trust-state","","persistent anti-rollback state file outside signed release directory")
 	healthInterval:=flag.Duration("health-interval",10*time.Second,"node TCP health-check interval")
 	telemetryStale:=flag.Duration("telemetry-stale",3*time.Minute,"telemetry stale threshold")
 	handshakeErrorRate:=flag.Float64("handshake-error-rate",5.0,"handshake error alert threshold per minute")
@@ -85,6 +89,11 @@ func main(){
 	app,err:=bcc.NewServer(store,adminToken)
 	if err!=nil{fmt.Fprintln(os.Stderr,"BCC server:",err);os.Exit(1)}
 	app.SetVersion(version)
+	if *catalogDir!=""||*catalogRoot!=""||*catalogRevocations!=""||*catalogState!="" {
+		catalog,err:=bcc.NewVerifiedReleaseCatalog(*catalogDir,*catalogRoot,*catalogRevocations,*catalogState)
+		if err!=nil{fmt.Fprintln(os.Stderr,"BCC component catalog:",err);os.Exit(2)}
+		app.ConfigureVerifiedCatalog(catalog)
+	}
 	trustedProxies:=[]string{}
 	for _,part:=range strings.Split(os.Getenv("BAFT_BCC_TRUSTED_PROXIES"),","){
 		if v:=strings.TrimSpace(part);v!=""{trustedProxies=append(trustedProxies,v)}

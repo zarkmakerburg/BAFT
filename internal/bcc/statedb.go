@@ -69,11 +69,13 @@ var stateMigrations = []string{
 	 CREATE TABLE path_discoveries (id TEXT PRIMARY KEY, doc TEXT NOT NULL);`,
 	// 12: append-only managed configuration change ledger (OPS-P5).
 	`CREATE TABLE change_ledger (seq INTEGER PRIMARY KEY, doc TEXT NOT NULL);`,
+	// 13: authenticated component digest receipt cursors (P0-UUM-03).
+	`CREATE TABLE component_digest_receipts (node_id TEXT PRIMARY KEY, doc TEXT NOT NULL);`,
 }
 
 var stateTables = []string{
 	"nodes", "jobs", "finance", "finance_policies", "finance_rate_history", "finance_ledger",
-	"finance_remainders", "telemetry", "history", "active_alerts", "retired_boot_ids", "counters", "tunnels", "node_health", "node_discovery", "cert_rotations", "security_audit_intents", "topology", "ingress_selections", "ingress_distributions", "smart_ingress_plans", "path_probes", "path_discoveries", "change_ledger",
+	"finance_remainders", "telemetry", "history", "active_alerts", "retired_boot_ids", "counters", "tunnels", "node_health", "node_discovery", "cert_rotations", "security_audit_intents", "topology", "ingress_selections", "ingress_distributions", "smart_ingress_plans", "path_probes", "path_discoveries", "change_ledger", "component_digest_receipts",
 }
 
 func isSQLiteFile(b []byte) bool { return bytes.HasPrefix(b, []byte(sqliteMagic)) }
@@ -244,6 +246,9 @@ func writeStateTx(tx *sql.Tx, st state) error {
 		if err := put(`INSERT INTO node_health VALUES (?, ?)`, id, v); err != nil {
 			return err
 		}
+	}
+	for id, v := range st.ComponentDigestReceipts {
+		if err := put(`INSERT INTO component_digest_receipts VALUES (?, ?)`, id, v); err != nil { return err }
 	}
 	for id, v := range st.Discovery {
 		if err := put(`INSERT INTO node_discovery VALUES (?, ?)`, id, v); err != nil {
@@ -437,6 +442,13 @@ func readStateDB(path string) (state, error) {
 			err := decode("node_discovery", d, &v)
 			st.Discovery[k] = v
 			return err
+		}},
+		{`SELECT node_id, 0, doc FROM component_digest_receipts`, func(k string, _ int64, d []byte) error {
+			var v ComponentDigestReceipt
+			if err := decode("component_digest_receipts", d, &v); err != nil { return err }
+			if st.ComponentDigestReceipts == nil { st.ComponentDigestReceipts = make(map[string]ComponentDigestReceipt) }
+			st.ComponentDigestReceipts[k] = v
+			return nil
 		}},
 		{`SELECT id, 0, doc FROM cert_rotations`, func(k string, _ int64, d []byte) error {
 			var v CertRotation

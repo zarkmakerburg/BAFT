@@ -1,6 +1,7 @@
 package bcc
 
 import (
+ "errors"
  "crypto/sha256"
  "encoding/hex"
  "encoding/json"
@@ -287,4 +288,33 @@ func TestVerifiedReleaseCatalogConcurrentObservationsDoNotRatchet(t *testing.T) 
  for err:=range failures{t.Fatal(err)}
  state,err:=release.ReadState(statePath);if err!=nil{t.Fatal(err)}
  if state.Version!="v1.0.0"||state.Commit!=accepted.Commit||state.RevocationSequence!=11{t.Fatalf("concurrent reads mutated acceptance: %+v",state)}
+}
+
+func TestVerifiedReleaseCatalogIntentFailureBlocksAcceptance(t *testing.T) {
+ base:=t.TempDir()
+ dir:=filepath.Join(base,"signed")
+ if err:=os.Mkdir(dir,0700);err!=nil{t.Fatal(err)}
+ now:=time.Date(2026,10,18,16,0,0,0,time.UTC)
+ rootPub,rootPriv,err:=release.GenerateKey();if err!=nil{t.Fatal(err)}
+ signPub,signPriv,err:=release.GenerateKey();if err!=nil{t.Fatal(err)}
+ cert,err:=release.Certify(rootPriv,signPub,now.Add(-time.Hour),now.Add(time.Hour));if err!=nil{t.Fatal(err)}
+ rev,err:=release.SignRevocations(rootPriv,12,nil,now.Add(-time.Hour),now.Add(time.Hour));if err!=nil{t.Fatal(err)}
+ rootPath:=filepath.Join(base,"root.pub")
+ revPath:=filepath.Join(base,"revocations.json")
+ statePath:=filepath.Join(base,"trust.json")
+ if err:=os.WriteFile(rootPath,[]byte(release.EncodePublic(rootPub)),0600);err!=nil{t.Fatal(err)}
+ if err:=release.WriteEnvelope(revPath,rev);err!=nil{t.Fatal(err)}
+ if err:=os.WriteFile(filepath.Join(dir,"baft-linux-amd64"),[]byte("signed binary"),0700);err!=nil{t.Fatal(err)}
+ commit:=strings.Repeat("b",40)
+ if _,err:=release.SignDir(release.SignInput{Dir:dir,Version:"v2.0.0",Commit:commit,CreatedAt:now,Provenance:release.Provenance{Builder:"test",GoVersion:"go1.27"},Key:signPriv,Cert:cert,Root:rootPub});err!=nil{t.Fatal(err)}
+ cat,err:=NewVerifiedReleaseCatalog(dir,rootPath,revPath,statePath);if err!=nil{t.Fatal(err)}
+ called:=0
+ if _,err:=cat.AcceptReleaseWithIntent(now,"v2.0.0",strings.Repeat("c",40),false,func(release.Verified)error{called++;return nil});err==nil{t.Fatal("wrong identity accepted")}
+ if called!=0{t.Fatal("audit intent ran before signed identity check")}
+ if _,err:=cat.AcceptReleaseWithIntent(now,"v2.0.0",commit,false,func(v release.Verified)error{called++;if v.Version!="v2.0.0"{t.Fatal("wrong intent identity")};return errors.New("audit storage unavailable")});err==nil{t.Fatal("acceptance proceeded despite audit failure")}
+ state,err:=release.ReadState(statePath);if err!=nil{t.Fatal(err)}
+ if state.Version!=""||state.RevocationSequence!=0{t.Fatalf("failed intent mutated trust: %+v",state)}
+ if _,err:=cat.AcceptReleaseWithIntent(now,"v2.0.0",commit,false,func(release.Verified)error{called++;return nil});err!=nil{t.Fatal(err)}
+ state,err=release.ReadState(statePath);if err!=nil{t.Fatal(err)}
+ if called!=2||state.Version!="v2.0.0"||state.Commit!=commit||state.RevocationSequence!=12{t.Fatalf("unexpected acceptance after durable intent: called=%d state=%+v",called,state)}
 }

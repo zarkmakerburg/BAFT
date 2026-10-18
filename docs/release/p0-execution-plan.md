@@ -49,8 +49,9 @@ is "done" only where a PR, its tests and CI are named.
 ## What the update flow decides (and may be changed)
 
 - Apply runs the release's own signed installer, once per installed component, in the mode it was installed in (`--role ir|ex` from the node's config, `--agent-only`, `--bcc-only`). Owner-approved rule.
-- Order: BCC, agent, transport service (control plane first). **My choice**; easy to change.
-- An installer step may change binaries, the release state and restarts only. Keys, certificates, config, pairing, tokens, access files and units may not, and an unknown step is refused. Unit rewrites are refused on purpose: a rewritten panel unit could change its listen address.
+- Order: BCC, transport service, agent. `baft` and `baft-pair` are files the transport service runs and the agent installer also installs, and an installer restarts only its own service; the transport must replace them first or its process keeps the old code while the files look current. (An earlier draft put the agent first; an independent review found that defect, and #250 now carries the fix and a test.)
+- An installer step may change binaries, the release state and restarts only. Keys, certificates, config, pairing, tokens, access files and units may not, and an unknown step is refused. This is checked on the installer's `--plan` and again on the plan it prints after it has downloaded the release. The one accepted unit change is the BCC unit's `# baft-bootstrap-sha256` comment, which moves with the bootstrap script a release ships; any other unit change is reported after the run.
+- No pass may replace `baft` while another BAFT transport service on the host runs it and is not part of the run.
 - BCC needs a `*.baftbak` backup newer than 26 hours, or `--skip-backup-check`. **My choice** of limit.
 - The installer runs in its own session with its output in `<prefix>/update-logs/`, so a dropped session cannot leave a half-applied install.
 
@@ -58,6 +59,7 @@ is "done" only where a PR, its tests and CI are named.
 
 1. **Manual wizard inputs.** The 2026-10-17 19:38Z directive says exactly four inputs (Iran node, foreign node, tunnel port, ingress port). The 2026-10-17 report lists five with the engine first. With only the Native engine selectable the difference is invisible today; which is the contract once a second engine is real?
 2. **Agent -> BCC report.** Binary digests compared with signed release digests (proposed), or self-reported version strings? Digests need no cooperation from old binaries; strings need every binary to carry one.
-3. **Allowing unit changes in an update** when a future release legitimately changes a unit template (currently refused, apply by hand).
-4. **BCC backup freshness** limit and whether `--skip-backup-check` should exist at all.
-5. **Retire the older key** `41f8a2dc…` only after every live host runs a release signed by `702c…` (the standing R1-07 decision); the update flow does not change that.
+3. **Hosts with BCC-built tunnels.** `baft update apply` recognises only the unit `install.sh` writes. A transport unit written by the BCC tunnel builder (ownership markers, `baft.managed.json`, possibly several instances next to `baft.service`) is refused, and so is any run that would replace `baft` under such a service. That is the safe default, but it means those hosts cannot use `baft update apply` for the transport yet. The fix is a coordinated per-instance restart owned by BCC (P0-UUM-03/04), not a longer allow-list in the CLI. Do you want that first, or recognition of the primary managed unit as an interim?
+4. **Allowing unit changes in an update** when a future release legitimately changes a unit template (currently refused, apply by hand).
+5. **BCC backup freshness** limit and whether `--skip-backup-check` should exist at all.
+6. **Retire the older key** `41f8a2dc…` only after every live host runs a release signed by `702c…` (the standing R1-07 decision); the update flow does not change that.

@@ -342,9 +342,9 @@ func TestNodeReleaseAcceptHTTPSignedCatalogAndAudit(t *testing.T) {
  app.now=func()time.Time{return now}
  app.ConfigureVerifiedCatalog(cat)
  request:=func(token,confirmation string)*httptest.ResponseRecorder{
-  body,_:=json.Marshal(map[string]any{"version":"v2.0.0","commit":commit,"confirmation":confirmation})
+  body:=map[string]any{"version":"v2.0.0","commit":commit,"confirmation":confirmation}
   rec:=httptest.NewRecorder()
-  app.Handler().ServeHTTP(rec,authReq(http.MethodPost,"/api/nodes/versions/accept",token,strings.NewReader(string(body))))
+  app.Handler().ServeHTTP(rec,authReq(http.MethodPost,"/api/nodes/versions/accept",token,body))
   return rec
  }
  if rec:=request("admin-secret","");rec.Code!=http.StatusBadRequest{t.Fatalf("missing confirmation: %d %s",rec.Code,rec.Body.String())}

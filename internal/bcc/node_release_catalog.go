@@ -75,6 +75,12 @@ func (c *VerifiedReleaseCatalog) Verify(now time.Time) (release.Verified,error) 
  v,err:=release.VerifyDir(release.VerifyInput{Dir:absDir,Root:c.root,Revocations:&rev,Now:now,State:&prior})
  if err!=nil{return release.Verified{},err}
  if now.IsZero(){now=time.Now().UTC()}
- // A read-only catalog observation must not accept a new release version.\n // Only the independently authenticated revocation sequence may advance.\n if v.Revocations.Sequence>prior.RevocationSequence {\n  prior.RevocationSequence=v.Revocations.Sequence\n  prior.UpdatedAt=now.UTC().Truncate(time.Second)\n  if err:=release.WriteState(c.statePath,prior);err!=nil{return release.Verified{},fmt.Errorf("persist revocation trust state: %w",err)}\n }
+ // A read-only catalog observation must not accept a new release version.
+ // Only the independently authenticated revocation sequence may advance.
+ if v.Revocations.Sequence>prior.RevocationSequence {
+  prior.RevocationSequence=v.Revocations.Sequence
+  prior.UpdatedAt=now.UTC().Truncate(time.Second)
+  if err:=release.WriteState(c.statePath,prior);err!=nil{return release.Verified{},fmt.Errorf("persist revocation trust state: %w",err)}
+ }
  return v,nil
 }

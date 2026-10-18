@@ -20,13 +20,14 @@ type VerifiedReleaseCatalog struct {
  mu sync.Mutex
  dir string
  statePath string
+ revocationsPath string
  root ed25519.PublicKey
 }
 
 // NewVerifiedReleaseCatalog pins the root key at process startup. Nothing
 // supplied by agents or HTTP callers can replace the trust anchor.
-func NewVerifiedReleaseCatalog(dir,rootPublicKeyFile,statePath string) (*VerifiedReleaseCatalog,error) {
- if strings.TrimSpace(dir)==""||strings.TrimSpace(rootPublicKeyFile)==""||strings.TrimSpace(statePath)=="" {
+func NewVerifiedReleaseCatalog(dir,rootPublicKeyFile,revocationsFile,statePath string) (*VerifiedReleaseCatalog,error) {
+ if strings.TrimSpace(dir)==""||strings.TrimSpace(rootPublicKeyFile)==""||strings.TrimSpace(revocationsFile)==""||strings.TrimSpace(statePath)=="" {
   return nil,errors.New("signed catalog needs directory, root public key, and durable trust state path")
  }
  // State must not be inside the release directory, whose contents VerifyDir
@@ -37,10 +38,13 @@ func NewVerifiedReleaseCatalog(dir,rootPublicKeyFile,statePath string) (*Verifie
  if rel=="." || (rel!=".." && !strings.HasPrefix(rel,".."+string(os.PathSeparator))) {
   return nil,errors.New("trust state must be outside signed release directory")
  }
+ revAbs,err:=filepath.Abs(revocationsFile);if err!=nil{return nil,err}
+ revRel,err:=filepath.Rel(absDir,revAbs);if err!=nil{return nil,err}
+ if revRel=="." || (revRel!=".." && !strings.HasPrefix(revRel,".."+string(os.PathSeparator))) {return nil,errors.New("revocation list must be outside signed release directory")}
  raw,err:=os.ReadFile(rootPublicKeyFile);if err!=nil{return nil,fmt.Errorf("read pinned root: %w",err)}
  pub,err:=release.DecodePublic(strings.TrimSpace(string(raw)));if err!=nil{return nil,fmt.Errorf("pinned root: %w",err)}
  if _,err:=release.ReadState(statePath);err!=nil{return nil,err}
- return &VerifiedReleaseCatalog{dir:absDir,statePath:absState,root:pub},nil
+ return &VerifiedReleaseCatalog{dir:absDir,statePath:absState,revocationsPath:revocationsFile,root:pub},nil
 }
 
 // Verify takes a mutex over trust-state read/verify/commit, so concurrent
@@ -50,7 +54,7 @@ func (c *VerifiedReleaseCatalog) Verify(now time.Time) (release.Verified,error) 
  c.mu.Lock()
  defer c.mu.Unlock()
  prior,err:=release.ReadState(c.statePath);if err!=nil{return release.Verified{},err}
- rev,err:=release.ReadEnvelope(filepath.Join(c.dir,"revocations.json"));if err!=nil{return release.Verified{},fmt.Errorf("revocations: %w",err)}
+ rev,err:=release.ReadEnvelope(c.revocationsPath);if err!=nil{return release.Verified{},fmt.Errorf("revocations: %w",err)}
  v,err:=release.VerifyDir(release.VerifyInput{Dir:c.dir,Root:c.root,Revocations:&rev,Now:now,State:&prior})
  if err!=nil{return release.Verified{},err}
  if now.IsZero(){now=time.Now().UTC()}

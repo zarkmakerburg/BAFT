@@ -363,3 +363,17 @@ func TestNodeReleaseAcceptHTTPSignedCatalogAndAudit(t *testing.T) {
  }
  if intent<0||success<=intent{t.Fatalf("missing ordered audit intent and completion: %+v",entries)}
 }
+
+func TestNodeReleaseAcceptHTTPDowngradeNeedsSecondConfirmation(t *testing.T) {
+ base:=t.TempDir()
+ store,err:=OpenStore(filepath.Join(base,"state.db"));if err!=nil{t.Fatal(err)}
+ app,err:=NewServer(store,"admin-secret");if err!=nil{t.Fatal(err)}
+ // The request must fail before catalog verification when the separate
+ // downgrade confirmation is absent. A configured catalog is required first.
+ app.ConfigureVerifiedCatalog(&VerifiedReleaseCatalog{})
+ commit:=strings.Repeat("a",40)
+ body:=map[string]any{"version":"v1.0.0","commit":commit,"allow_downgrade":true,"confirmation":"ACCEPT v1.0.0 "+commit}
+ rec:=httptest.NewRecorder()
+ app.Handler().ServeHTTP(rec,authReq(http.MethodPost,"/api/nodes/versions/accept","admin-secret",body))
+ if rec.Code!=http.StatusBadRequest{t.Fatalf("downgrade without second confirmation status %d: %s",rec.Code,rec.Body.String())}
+}

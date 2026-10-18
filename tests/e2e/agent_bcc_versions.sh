@@ -103,7 +103,7 @@ status() {
 }
 start_bcc
 "$BCC_BIN" jobkey show --job-key-file "$WORK/s.json.job-key" >"$NODE/bcc-job.pub"
-status 200 -d '{"ID":"node-e2e","Alias":"versions e2e","Address":"127.0.0.1:1","Role":"foreign","AgentTokenEnv":"AGENT_TOK"}' "$BCC_URL/api/nodes"
+status 201 -d '{"ID":"node-e2e","Alias":"versions e2e","Address":"127.0.0.1:1","Role":"foreign","AgentTokenEnv":"AGENT_TOK"}' "$BCC_URL/api/nodes"
 
 # ---- agent -------------------------------------------------------------------
 # One poll by the real agent binary installed on the node. It sends its

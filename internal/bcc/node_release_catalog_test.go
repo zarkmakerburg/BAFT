@@ -70,6 +70,18 @@ func TestVerifiedReleaseCatalogPinsRootAndPersistsState(t *testing.T) {
  older,err:=release.SignRevocations(rootPriv,1,nil,now.Add(-time.Hour),now.Add(24*time.Hour));if err!=nil{t.Fatal(err)}
  if err:=release.WriteEnvelope(revPath,older);err!=nil{t.Fatal(err)}
  if _,err:=cat.Verify(now);err==nil{t.Fatal("older revocation sequence accepted")}
+ response=httptest.NewRecorder()
+ app.Handler().ServeHTTP(response,authReq(http.MethodGet,"/api/nodes/versions","admin-secret",nil))
+ if response.Code!=http.StatusOK{t.Fatalf("fail-closed endpoint status=%d",response.Code)}
+ var unavailable struct {
+  CatalogStatus string `json:"catalog_status"`
+  Nodes []NodeVersionStatus `json:"nodes"`
+ }
+ if err:=json.Unmarshal(response.Body.Bytes(),&unavailable);err!=nil{t.Fatal(err)}
+ if unavailable.CatalogStatus!="unavailable"||len(unavailable.Nodes)!=1{t.Fatalf("unexpected failure model: %+v",unavailable)}
+ for _,component:=range unavailable.Nodes[0].Components {
+  if component.State!=ComponentUnknown||component.Version!=""{t.Fatalf("untrusted version leaked after revocation replay: %+v",component)}
+ }
  if _,err:=NewVerifiedReleaseCatalog(dir,rootPath,filepath.Join(dir,"revocations.json"),trustPath);err==nil{t.Fatal("revocations inside signed artifacts accepted")}
  if _,err:=NewVerifiedReleaseCatalog(dir,rootPath,revPath,filepath.Join(dir,"trust.json"));err==nil{t.Fatal("trust state inside signed artifacts accepted")}
  alias:=filepath.Join(base,"signed-alias")

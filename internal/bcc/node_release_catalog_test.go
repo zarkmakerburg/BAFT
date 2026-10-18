@@ -132,3 +132,34 @@ func TestVerifiedReleaseCatalogSeesRotatedRevocationSymlink(t *testing.T) {
  if err:=os.Rename(replacement,link);err!=nil{t.Fatal(err)}
  if _,err:=cat.Verify(now);err==nil{t.Fatal("rotated revocations still accepted revoked signing key")}
 }
+
+func TestVerifiedReleaseCatalogSeesRotatedDirectorySymlink(t *testing.T) {
+ base:=t.TempDir()
+ now:=time.Date(2026,10,18,16,0,0,0,time.UTC)
+ rootPub,rootPriv,err:=release.GenerateKey();if err!=nil{t.Fatal(err)}
+ signPub,signPriv,err:=release.GenerateKey();if err!=nil{t.Fatal(err)}
+ cert,err:=release.Certify(rootPriv,signPub,now.Add(-time.Hour),now.Add(time.Hour));if err!=nil{t.Fatal(err)}
+ rootPath:=filepath.Join(base,"root.pub")
+ if err:=os.WriteFile(rootPath,[]byte(release.EncodePublic(rootPub)),0600);err!=nil{t.Fatal(err)}
+ rev,err:=release.SignRevocations(rootPriv,1,nil,now.Add(-time.Hour),now.Add(time.Hour));if err!=nil{t.Fatal(err)}
+ revPath:=filepath.Join(base,"revocations.json")
+ if err:=release.WriteEnvelope(revPath,rev);err!=nil{t.Fatal(err)}
+ makeDir:=func(name,version,commit string)string{
+  t.Helper()
+  dir:=filepath.Join(base,name)
+  if err:=os.Mkdir(dir,0700);err!=nil{t.Fatal(err)}
+  if err:=os.WriteFile(filepath.Join(dir,"baft-linux-amd64"),[]byte(version),0700);err!=nil{t.Fatal(err)}
+  if _,err:=release.SignDir(release.SignInput{Dir:dir,Version:version,Commit:strings.Repeat(commit,40),CreatedAt:now,Provenance:release.Provenance{Builder:"test",GoVersion:"go1.27"},Key:signPriv,Cert:cert,Root:rootPub});err!=nil{t.Fatal(err)}
+  return dir
+ }
+ first:=makeDir("first","v1.0.0","a")
+ second:=makeDir("second","v1.1.0","b")
+ current:=filepath.Join(base,"current")
+ if err:=os.Symlink(first,current);err!=nil{t.Fatal(err)}
+ cat,err:=NewVerifiedReleaseCatalog(current,rootPath,revPath,filepath.Join(base,"trust.json"));if err!=nil{t.Fatal(err)}
+ v,err:=cat.Verify(now);if err!=nil||v.Version!="v1.0.0"{t.Fatalf("first version: %v %+v",err,v)}
+ next:=filepath.Join(base,"next")
+ if err:=os.Symlink(second,next);err!=nil{t.Fatal(err)}
+ if err:=os.Rename(next,current);err!=nil{t.Fatal(err)}
+ v,err=cat.Verify(now);if err!=nil||v.Version!="v1.1.0"{t.Fatalf("rotated catalog not observed: %v %+v",err,v)}
+}

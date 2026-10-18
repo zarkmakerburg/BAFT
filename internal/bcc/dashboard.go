@@ -283,7 +283,9 @@ async function previewBCCRestore(name){
  try{
   let r=await fetch('/api/backups/restore-preview',{method:'POST',headers:{...ah(),'Content-Type':'application/json'},body:JSON.stringify({filename:name})});
   if(!r.ok){status.textContent='Restore preview failed (HTTP '+r.status+')';return}
-  let data=await r.json();status.textContent='Restore preview '+(data.verified?'verified':'NOT verified')+(data.would_refuse?' — REFUSED: '+String(data.would_refuse):'')+'; no restore executed';
+  let data=await r.json(),safe=data.verified===true&&!data.problem&&!data.would_refuse;
+  let diff=['nodes','tunnels','jobs'].map(k=>{let d=data[k]||{};return k+': '+String(d.current??'?')+' → '+String(d.after_restore??'?')}).join(' | ');
+  status.textContent='Restore preview '+(safe?'verified':'BLOCKED')+(data.problem?' — '+String(data.problem):'')+(data.would_refuse?' — REFUSED: '+String(data.would_refuse):'')+'; '+diff+'; warnings: '+(Array.isArray(data.warnings)?data.warnings.length:0)+'; no restore executed';
  }catch(e){status.textContent='Restore preview unavailable'}
 }
 function renderNodeCards(versionMap){

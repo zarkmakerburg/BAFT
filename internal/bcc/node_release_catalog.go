@@ -37,6 +37,11 @@ func NewVerifiedReleaseCatalog(dir,rootPublicKeyFile,revocationsFile,statePath s
  absState,err:=filepath.Abs(statePath);if err!=nil{return nil,err}
  stateParent,err:=filepath.EvalSymlinks(filepath.Dir(absState));if err!=nil{return nil,fmt.Errorf("resolve trust state parent: %w",err)}
  absState=filepath.Join(stateParent,filepath.Base(absState))
+ if info,statErr:=os.Lstat(absState);statErr==nil {
+  if info.Mode()&os.ModeSymlink!=0 {
+   absState,err=filepath.EvalSymlinks(absState);if err!=nil{return nil,fmt.Errorf("resolve trust state symlink: %w",err)}
+  }
+ } else if !os.IsNotExist(statErr) {return nil,fmt.Errorf("inspect trust state: %w",statErr)}
  rel,err:=filepath.Rel(absDir,absState);if err!=nil{return nil,err}
  if rel=="." || (rel!=".." && !strings.HasPrefix(rel,".."+string(os.PathSeparator))) {
   return nil,errors.New("trust state must be outside signed release directory")

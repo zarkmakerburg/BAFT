@@ -40,7 +40,19 @@ func TestVerifyAndCompareComponentDigestTamperedManifest(t *testing.T) {
  revokedInput.Revocations=&revoked
  state,err=VerifyAndCompareComponentDigest(hex.EncodeToString(digest[:]),name,revokedInput)
  if err==nil||state!=ComponentUnknown{t.Fatalf("revoked signer accepted: %s %v",state,err)}
- // End-to-end platform gate: the same signed artifact is verified only\n // with separately confirmed node platform evidence.\n platform:=NodePlatformEvidence{OS:"linux",Arch:"amd64",Confirmed:true,Source:"operator-verified"}\n state,err=AttestNodeComponent("transport",hex.EncodeToString(digest[:]),platform,input)\n if err!=nil||state!=ComponentVerified{t.Fatalf("platform attestation: %s %v",state,err)}\n platform.Arch="arm64"\n state,err=AttestNodeComponent("transport",hex.EncodeToString(digest[:]),platform,input)\n if err!=nil||state!=ComponentUnknown{t.Fatalf("wrong architecture must be unknown: %s %v",state,err)}\n platform.Arch="amd64"\n platform.Source="component-report"\n state,err=AttestNodeComponent("transport",hex.EncodeToString(digest[:]),platform,input)\n if err!=nil||state!=ComponentUnknown{t.Fatalf("self-reported platform must be unknown: %s %v",state,err)}\n manifestPath:=filepath.Join(dir,release.ManifestFile)
+ // End-to-end platform gate: the same signed artifact is verified only
+ // with separately confirmed node platform evidence.
+ platform:=NodePlatformEvidence{OS:"linux",Arch:"amd64",Confirmed:true,Source:"operator-verified"}
+ state,err=AttestNodeComponent("transport",hex.EncodeToString(digest[:]),platform,input)
+ if err!=nil||state!=ComponentVerified{t.Fatalf("platform attestation: %s %v",state,err)}
+ platform.Arch="arm64"
+ state,err=AttestNodeComponent("transport",hex.EncodeToString(digest[:]),platform,input)
+ if err!=nil||state!=ComponentUnknown{t.Fatalf("wrong architecture must be unknown: %s %v",state,err)}
+ platform.Arch="amd64"
+ platform.Source="component-report"
+ state,err=AttestNodeComponent("transport",hex.EncodeToString(digest[:]),platform,input)
+ if err!=nil||state!=ComponentUnknown{t.Fatalf("self-reported platform must be unknown: %s %v",state,err)}
+ manifestPath:=filepath.Join(dir,release.ManifestFile)
  env,err:=release.ReadEnvelope(manifestPath);if err!=nil{t.Fatal(err)}
  payload,err:=base64.StdEncoding.DecodeString(env.Payload);if err!=nil{t.Fatal(err)}
  env.Payload=base64.StdEncoding.EncodeToString([]byte(strings.Replace(string(payload),"v1.2.3","v9.9.9",1)))

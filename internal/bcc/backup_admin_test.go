@@ -238,7 +238,6 @@ func TestAdminBackupCreateInventoryPreviewEndToEnd(t *testing.T) {
  if err := json.Unmarshal(previewResp.Body.Bytes(),&preview); err != nil { t.Fatal(err) }
  if !preview.Verified || preview.Problem!="" || preview.WouldRefuse!="" { t.Fatalf("preview blocked: %+v",preview) }
  if preview.Nodes.Current!=2 || preview.Nodes.After!=1 { t.Fatalf("incorrect diff: %+v",preview.Nodes) }
- current,err:=store.ListNodes()
- if err!=nil { t.Fatal(err) }
+ current:=store.ListNodes()
  if len(current)!=2 { t.Fatalf("preview mutated live nodes: %+v",current) }
 }

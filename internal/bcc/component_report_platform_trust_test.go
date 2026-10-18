@@ -13,7 +13,7 @@ func TestTrustedNodeArtifactNameFailClosed(t *testing.T) {
   {"missing-source",NodePlatformEvidence{OS:"linux",Arch:"amd64",Confirmed:true},false},
   {"unsupported",NodePlatformEvidence{OS:"windows",Arch:"amd64",Confirmed:true,Source:"enrollment"},false},
   {"arbitrary-source",NodePlatformEvidence{OS:"linux",Arch:"arm64",Confirmed:true,Source:"enrollment"},false},
-  {"confirmed",NodePlatformEvidence{OS:"linux",Arch:"arm64",Confirmed:true,Source:"enrollment"},true},
+  {"confirmed",NodePlatformEvidence{OS:"linux",Arch:"arm64",Confirmed:true,Source:"operator-verified"},true},
  }
  for _,tc:=range cases {t.Run(tc.name,func(t *testing.T){name,ok:=TrustedNodeArtifactName("agent",tc.evidence);if ok!=tc.ok{t.Fatalf("ok=%t want %t",ok,tc.ok)};if ok&&name!="baft-agent-linux-arm64"{t.Fatalf("unexpected name %q",name)};if !ok&&name!=""{t.Fatalf("untrusted artifact %q",name)}})}
 }

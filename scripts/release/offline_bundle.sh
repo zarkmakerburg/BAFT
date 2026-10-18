@@ -19,6 +19,9 @@
 # rebuild it from the release assets and compare.
 set -euo pipefail
 
+# Use GNU tar (gtar on macOS via brew install gnu-tar) for --sort=name support.
+TAR=$(command -v gtar || command -v tar)
+
 dist=${1:?usage: offline_bundle.sh <dist-dir> <revocations.json> <install.sh> <out-dir>}
 rev=${2:?revocations.json is required}
 inst=${3:?install.sh is required}
@@ -81,6 +84,6 @@ chmod 0755 "$stage/$name/install.sh" "$stage/$name"/release/baft-*
 
 out=$(cd "$out" && pwd)
 epoch=${SOURCE_DATE_EPOCH:-0}
-(cd "$stage" && tar --sort=name --owner=0 --group=0 --numeric-owner --mtime="@$epoch" -cf - "$name") | gzip -n -9 > "$out/$name.tar.gz"
+(cd "$stage" && "$TAR" --sort=name --owner=0 --group=0 --numeric-owner --mtime="@$epoch" -cf - "$name") | gzip -n -9 > "$out/$name.tar.gz"
 (cd "$out" && sha256sum "$name.tar.gz" > "$name.tar.gz.sha256")
 echo "$out/$name.tar.gz"

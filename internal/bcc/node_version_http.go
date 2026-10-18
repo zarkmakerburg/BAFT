@@ -6,21 +6,23 @@ import (
  "github.com/zarkmakerburg/baft/internal/release"
 )
 
-// nodeVersions exposes only authenticated observations with conservative
-// unknown states. Signed release catalog verification is deliberately not
-// enabled until pinned-root and durable anti-rollback state are wired.
+// nodeVersions exposes authenticated observations only. Any missing or invalid
+// signed catalog evidence fails closed to unknown component states.
 func (s *Server) nodeVersions(w http.ResponseWriter,r *http.Request) {
  if r.Method!=http.MethodGet {http.Error(w,"method not allowed",http.StatusMethodNotAllowed);return}
  if !s.admin(w,r){return}
  nodes,receipts:=s.store.ComponentVersionSnapshot()
  var verified *release.Verified
+ catalogStatus:="not_configured"
  if s.verifiedCatalog!=nil {
+  catalogStatus="unavailable"
   v,err:=s.verifiedCatalog.Verify(s.now())
-  if err==nil { verified=&v }
+  if err==nil { verified=&v;catalogStatus="verified" }
  }
  statuses:=NodeVersionStatuses(nodes,receipts,verified,s.now(),15*time.Minute)
  writeJSON(w,http.StatusOK,map[string]any{
   "catalog_configured":s.verifiedCatalog!=nil,
+  "catalog_status":catalogStatus,
   "nodes":statuses,
  })
 }

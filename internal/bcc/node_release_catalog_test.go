@@ -58,10 +58,11 @@ func TestVerifiedReleaseCatalogPinsRootAndPersistsState(t *testing.T) {
  if response.Code!=http.StatusOK{t.Fatalf("status=%d",response.Code)}
  var model struct {
   CatalogConfigured bool `json:"catalog_configured"`
+  CatalogStatus string `json:"catalog_status"`
   Nodes []NodeVersionStatus `json:"nodes"`
  }
  if err:=json.Unmarshal(response.Body.Bytes(),&model);err!=nil{t.Fatal(err)}
- if !model.CatalogConfigured||len(model.Nodes)!=1||model.Nodes[0].Components[0].State!=ComponentVerified||model.Nodes[0].Components[0].Version!="v1.2.3"{
+ if !model.CatalogConfigured||model.CatalogStatus!="verified"||len(model.Nodes)!=1||model.Nodes[0].Components[0].State!=ComponentVerified||model.Nodes[0].Components[0].Version!="v1.2.3"{
   t.Fatalf("signed catalog not reflected in API: %+v",model)
  }
  if x:=CompareVerifiedComponentDigest(hex.EncodeToString(digest[:]),got,"baft-linux-amd64");x!=ComponentVerified{t.Fatalf("signed artifact status %s",x)}

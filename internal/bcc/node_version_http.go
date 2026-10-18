@@ -11,15 +11,16 @@ import (
 func (s *Server) nodeVersions(w http.ResponseWriter,r *http.Request) {
  if r.Method!=http.MethodGet {http.Error(w,"method not allowed",http.StatusMethodNotAllowed);return}
  if !s.admin(w,r){return}
+ now:=s.now()
  nodes,receipts:=s.store.ComponentVersionSnapshot()
  var verified *release.Verified
  catalogStatus:="not_configured"
  if s.verifiedCatalog!=nil {
   catalogStatus="unavailable"
-  v,err:=s.verifiedCatalog.Verify(s.now())
+  v,err:=s.verifiedCatalog.Verify(now)
   if err==nil { verified=&v;catalogStatus="verified" }
  }
- statuses:=NodeVersionStatuses(nodes,receipts,verified,s.now(),15*time.Minute)
+ statuses:=NodeVersionStatuses(nodes,receipts,verified,now,15*time.Minute)
  writeJSON(w,http.StatusOK,map[string]any{
   "catalog_configured":s.verifiedCatalog!=nil,
   "catalog_status":catalogStatus,

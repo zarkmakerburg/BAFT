@@ -55,11 +55,15 @@ is "done" only where a PR, its tests and CI are named.
 - BCC needs a `*.baftbak` backup newer than 26 hours, or `--skip-backup-check`. **My choice** of limit.
 - The installer runs in its own session with its output in `<prefix>/update-logs/`, so a dropped session cannot leave a half-applied install.
 
-## Decisions for the owner
+## Owner decisions (2026-10-18)
 
-1. **Manual wizard inputs.** The 2026-10-17 19:38Z directive says exactly four inputs (Iran node, foreign node, tunnel port, ingress port). The 2026-10-17 report lists five with the engine first. With only the Native engine selectable the difference is invisible today; which is the contract once a second engine is real?
-2. **Agent -> BCC report.** Binary digests compared with signed release digests (proposed), or self-reported version strings? Digests need no cooperation from old binaries; strings need every binary to carry one.
-3. **Hosts with BCC-built tunnels.** `baft update apply` recognises only the unit `install.sh` writes. A transport unit written by the BCC tunnel builder (ownership markers, `baft.managed.json`, possibly several instances next to `baft.service`) is refused, and so is any run that would replace `baft` under such a service. That is the safe default, but it means those hosts cannot use `baft update apply` for the transport yet. The fix is a coordinated per-instance restart owned by BCC (P0-UUM-03/04), not a longer allow-list in the CLI. Do you want that first, or recognition of the primary managed unit as an interim?
-4. **Allowing unit changes in an update** when a future release legitimately changes a unit template (currently refused, apply by hand).
-5. **BCC backup freshness** limit and whether `--skip-backup-check` should exist at all.
-6. **Retire the older key** `41f8a2dc…` only after every live host runs a release signed by `702c…` (the standing R1-07 decision); the update flow does not change that.
+- **Next:** the agent -> BCC component report (phase B's first slice).
+- **Report contents:** binary sha256 digests, compared in BCC with the signed release digests (not self-reported version strings).
+- **Hosts with BCC-built tunnels:** solved by a coordinated per-instance restart owned by BCC; until then `baft update apply` refuses the transport there.
+- **Manual wizard:** five inputs, engine first.
+
+## Still open for the owner
+
+1. **Allowing unit changes in an update** when a future release legitimately changes a unit template (currently refused, apply by hand).
+2. **BCC backup freshness** limit and whether `--skip-backup-check` should exist at all.
+3. **Retire the older key** `41f8a2dc…` only after every live host runs a release signed by `702c…` (the standing R1-07 decision); the update flow does not change that.

@@ -1,7 +1,5 @@
 package bcc
 
-import "strings"
-
 // NodePlatformEvidence is populated only from a separately authenticated
 // inventory/enrollment workflow, never from the component digest report.
 // Until BCC persists and validates such evidence, callers must pass zero
@@ -14,9 +12,9 @@ type NodePlatformEvidence struct {
 }
 
 // TrustedNodeArtifactName fails closed when the platform is absent, merely
-// self-reported, or otherwise not independently confirmed.
+// self-reported, or otherwise not independently confirmed by an operator-verified inventory workflow.
 func TrustedNodeArtifactName(component string, evidence NodePlatformEvidence) (string, bool) {
- if !evidence.Confirmed || strings.TrimSpace(evidence.Source)=="" || evidence.Source=="component-report" {
+ if !evidence.Confirmed || evidence.Source != "operator-verified" {
   return "", false
  }
  name, err := ComponentArtifactName(component,evidence.OS,evidence.Arch)

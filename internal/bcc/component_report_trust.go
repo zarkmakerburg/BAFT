@@ -3,6 +3,8 @@ package bcc
 import (
  "strings"
  "crypto/ed25519"
+ "fmt"
+ "runtime"
  "time"
 
  "github.com/zarkmakerburg/baft/internal/release"
@@ -50,4 +52,24 @@ func CompareVerifiedComponentDigest(observed string, verified release.Verified, 
  if matches != 1 || !isHexSHA256(expected) { return ComponentUnknown }
  if strings.EqualFold(observed, expected) { return ComponentVerified }
  return ComponentMismatch
+}
+
+// ComponentArtifactName chooses a release artifact using a validated platform.
+// No architecture or filename is trusted from an Agent-provided digest.
+func ComponentArtifactName(component, goos, arch string) (string, error) {
+ if goos != "linux" || (arch != "amd64" && arch != "arm64") { return "", fmt.Errorf("unsupported release platform") }
+ var binary string
+ switch component {
+ case "transport": binary = "baft"
+ case "agent": binary = "baft-agent"
+ case "bcc": binary = "baft-bcc"
+ default: return "", fmt.Errorf("unsupported component")
+ }
+ return fmt.Sprintf("%s-%s-%s",binary,goos,arch),nil
+}
+
+// LocalComponentArtifactName is for local diagnostics only; remote node
+// architecture must come from an authenticated, trusted enrollment record.
+func LocalComponentArtifactName(component string) (string,error) {
+ return ComponentArtifactName(component,runtime.GOOS,runtime.GOARCH)
 }

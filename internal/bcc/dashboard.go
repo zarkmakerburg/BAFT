@@ -274,7 +274,7 @@ async function createBCCBackup(){
   let r=await fetch('/api/backups/create',{method:'POST',headers:ah()});
   let data=await r.json().catch(()=>({}));
   if(!r.ok){status.textContent=data.reconciliation_required?'Outcome uncertain: reconcile backup '+String(data.name||''):'Backup failed (HTTP '+r.status+')';return}
-  status.textContent='Created: '+String(data.name||'');await loadBackups();
+  await loadBackups();status.textContent='Created: '+String(data.name||'')+'; '+status.textContent;
  }catch(e){status.textContent='Backup request failed; check audit before retry'}
 }
 async function previewBCCRestore(name){

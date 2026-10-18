@@ -64,5 +64,23 @@ func TestNodeVersionsEndpointUsesSingleClockSnapshot(t *testing.T) {
  rec:=httptest.NewRecorder()
  app.Handler().ServeHTTP(rec,authReq(http.MethodGet,"/api/nodes/versions","admin-secret",nil))
  if rec.Code!=http.StatusOK{t.Fatalf("status %d: %s",rec.Code,rec.Body.String())}
- // One clock read occurs in the auth layer and one in the handler.\n if calls!=2{t.Fatalf("expected auth and handler clock snapshots, got %d",calls)}
+ // One clock read occurs in the auth layer and one in the handler.
+ if calls!=2{t.Fatalf("expected auth and handler clock snapshots, got %d",calls)}
+}
+
+func TestNodeReleaseAcceptHTTPGuards(t *testing.T) {
+ store,err:=OpenStore(filepath.Join(t.TempDir(),"state.db"));if err!=nil{t.Fatal(err)}
+ app,err:=NewServer(store,"admin-secret");if err!=nil{t.Fatal(err)}
+ path:="/api/nodes/versions/accept"
+ for _,tc:=range []struct{name,method,token,body string;want int}{
+  {"unauthorized",http.MethodPost,"",`{}`,http.StatusUnauthorized},
+  {"wrong method",http.MethodGet,"admin-secret","",http.StatusMethodNotAllowed},
+  {"no catalog",http.MethodPost,"admin-secret",`{}`,http.StatusServiceUnavailable},
+ }{
+  t.Run(tc.name,func(t *testing.T){
+   rec:=httptest.NewRecorder()
+   app.Handler().ServeHTTP(rec,authReq(tc.method,path,tc.token,strings.NewReader(tc.body)))
+   if rec.Code!=tc.want{t.Fatalf("status %d, want %d: %s",rec.Code,tc.want,rec.Body.String())}
+  })
+ }
 }

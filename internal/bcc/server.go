@@ -225,6 +225,7 @@ func (s *Server) Handler() http.Handler {
 		_, _ = w.Write([]byte(dashboardHTML))
 	})
 	m.HandleFunc("/api/nodes", s.nodes)
+	m.HandleFunc("/api/nodes/platform", s.nodePlatform)
 	m.HandleFunc("/api/jobs", s.jobs)
 	m.HandleFunc("/api/enroll", s.enroll)
 	m.HandleFunc("/api/bootstrap", s.bootstrap)

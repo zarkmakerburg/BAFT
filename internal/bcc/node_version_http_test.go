@@ -24,10 +24,11 @@ func TestNodeVersionsEndpointUnknownWithoutSignedCatalog(t *testing.T) {
  if rec.Code!=http.StatusOK{t.Fatalf("status %d: %s",rec.Code,rec.Body.String())}
  var response struct {
   CatalogConfigured bool `json:"catalog_configured"`
+  CatalogStatus string `json:"catalog_status"`
   Nodes []NodeVersionStatus `json:"nodes"`
  }
  if err:=json.Unmarshal(rec.Body.Bytes(),&response);err!=nil{t.Fatal(err)}
- if response.CatalogConfigured||len(response.Nodes)!=1||len(response.Nodes[0].Components)!=3{t.Fatalf("unexpected model: %+v",response)}
+ if response.CatalogConfigured||response.CatalogStatus!="not_configured"||len(response.Nodes)!=1||len(response.Nodes[0].Components)!=3{t.Fatalf("unexpected model: %+v",response)}
  for _,item:=range response.Nodes[0].Components {
   if item.State!=ComponentUnknown||item.Version!=""{t.Fatalf("unverified version exposed: %+v",item)}
  }

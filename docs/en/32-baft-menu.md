@@ -18,7 +18,7 @@ Direct commands (`baft status`, `baft doctor --json`, `baft logs`, `baft version
 | 8 | Backup / Restore | backup guidance, read-only `baft-bcc restore-preview`, and the offline local `baft-bcc restore ... --yes` command |
 | 9 | Logs | last 100 or 500 lines (follow live with `baft logs -f`) |
 | 10 | Support bundle | after an explicit yes, writes the secret-safe diagnostics archive |
-| 11 | Update | submenu: 1 check for a newer signed release (read-only; verified against the pinned root key, the revocation list and this host's release state; a release that cannot be fetched or verified shows UNKNOWN, never "up to date"). 2 apply: the same flow as `baft update apply` (plan first, type `update` to confirm; without root it shows the plan only) |
+| 11 | Update | submenu: 1 check for a newer signed release (read-only; verified against the pinned root key, the revocation list and this host's release state; a release that cannot be fetched or verified shows UNKNOWN, never "up to date"). 2 apply: the same flow as `baft update apply` (plan first, type `update` to confirm; without root it shows the plan only, and a normal user cannot read the root-only files a full preview needs, so use `sudo baft update apply --plan` for the whole picture) |
 | 12 | Repair | **unavailable** (no number) |
 | 13 | Uninstall | HQ's submenu: 1 binaries only, 2 agent only, 3 BCC only, 4 services + binaries, 5 full uninstall, 6 preview, 0 back; every entry shows the plan first and removes nothing without the confirmations (doc 34) |
 | 14 | Advanced | configuration check, release information, agent, network diagnostics, debug information, service information, ownership/drift, local paths, version and build metadata |

@@ -330,7 +330,9 @@ active baft-bcc-fault && enabled baft-bcc-fault || fail "BCC v2 not active + ena
 #    environment from scratch (STUB_DIR is deliberately not passed on).
 log "7. baft update apply: a transport service one release behind is updated by the signed installer"
 mkdir -p "$W/cli" "$W/stubs2"
-go build -o "$W/cli/baft" ./cmd/baft
+# The CLI runs the installer with a fixed PATH (never the caller's), so the lab's
+# stub systemctl/apt-get are put on that PATH at build time, not through the environment.
+go build -ldflags "-X main.trustedPath=$W/stubs2:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" -o "$W/cli/baft" ./cmd/baft
 for f in systemctl apt-get; do sed "s#\$STUB_DIR#$W#g" "$W/stubs/$f" >"$W/stubs2/$f"; chmod +x "$W/stubs2/$f"; done
 openssl req -x509 -newkey rsa:2048 -nodes -keyout "$W/srv.key" -out "$W/srv.crt" -subj "/CN=127.0.0.1" \
   -addext "subjectAltName=IP:127.0.0.1" -days 1 >/dev/null 2>&1
@@ -362,11 +364,18 @@ grep -q 'v0.0.1-f' "$W/opt-ui/release-state.json" || fail "the IR does not recor
 
 UPENV() { # all flags explicit -> the CLI, the lab root and the https release
   env PATH="$W/stubs2:$PATH" BAFT_ROOT_PUB="$(cat "$W/rel1/root.pub")" SSL_CERT_FILE="$W/srv.crt" CURL_CA_BUNDLE="$W/srv.crt" \
-    BAFT_RELEASE_URL="https://127.0.0.1:$SRV_PORT/rel2/dist" BAFT_REVOCATIONS_URL="https://127.0.0.1:$SRV_PORT/rel2/revocations.json" \
+    BAFT_RELEASE_URL="https://127.0.0.1:$SRV_PORT/${UP_REL:-rel2}/dist" BAFT_REVOCATIONS_URL="https://127.0.0.1:$SRV_PORT/${UP_REL:-rel2}/revocations.json" \
     "$W/cli/baft" update "$@" </dev/null; }
-UP() { # args... -> the IR instance
+UP() { # args... -> the IR instance, with every service of the lab visible
   UPENV "$@" --unit-dir "$W/sysd" --service baft-ui --release-state "$W/opt-ui/release-state.json"; }
-ui_creds() { { sha256sum "$W/etc-ui/baft.yaml" "$W/etc-ui/noise-key.json" "$W/sysd/baft-ui.service" 2>/dev/null || true; } | sha256sum; }
+# The lab's services share one binary directory, so more than one of them runs
+# the baft binary an update replaces: exactly what the CLI refuses (7b2). A run
+# that is meant to succeed sees a unit directory in which only its own service
+# runs that binary, as on a real host with a single transport service.
+mkdir -p "$W/sysd-ui"; cp "$W/sysd/baft-ui.service" "$W/sysd-ui/"
+UPI() { UPENV "$@" --unit-dir "$W/sysd-ui" --service baft-ui --release-state "$W/opt-ui/release-state.json"; }
+AO=(--allow-root-override)   # the lab release is signed by a throwaway root taken from the environment
+ui_creds() { { sha256sum "$W/etc-ui/baft.yaml" "$W/etc-ui/noise-key.json" "$W/sysd-ui/baft-ui.service" 2>/dev/null || true; } | sha256sum; }
 
 log "7a. check: the IR's baft binary differs from the signed release"
 rc=0; UP check >"$W/o" 2>"$W/e" || rc=$?
@@ -374,24 +383,39 @@ rc=0; UP check >"$W/o" 2>"$W/e" || rc=$?
 grep -q 'transport .*OUTDATED' "$W/o" || { cat "$W/o"; fail "the IR is not reported OUTDATED"; }
 grep -q 'trust root    OVERRIDDEN by BAFT_ROOT_PUB' "$W/o" || { cat "$W/o"; fail "a lab root is not announced in the report"; }
 
-log "7b. apply --plan changes nothing"
+log "7b. apply --plan changes nothing, and (as root) shows the installer's plan after the download"
 U0="$(snapshot)"
-UP apply --plan --only transport >"$W/o" 2>"$W/e" || { cat "$W/o" "$W/e"; fail "apply --plan failed"; }
+UPI apply --plan --only transport >"$W/o" 2>"$W/e" || { cat "$W/o" "$W/e"; fail "apply --plan failed"; }
 grep -q 'This was a preview. Nothing was changed.' "$W/o" || { cat "$W/o"; fail "no preview verdict"; }
+grep -q 'baft binary .*update .*verified release' "$W/o" && ! grep -q 'decided by version before the download' "$W/o" ||
+  { cat "$W/o"; fail "the preview is not the plan the installer makes after the download"; }
 [[ "$(snapshot)" == "$U0" ]] || fail "apply --plan changed the host"
+[[ "$(ls "$W/opt-ui/update-logs" 2>/dev/null | grep -c '\.log$' || true)" == 0 ]] || fail "a preview ran an installer for real"
+
+log "7b2. several services of this host run the baft binary an update replaces: refused, each one named"
+rc=0; UP apply --plan --only transport >"$W/o" 2>"$W/e" || rc=$?
+[[ "$rc" == 1 ]] || { cat "$W/o" "$W/e"; fail "replacing a binary under services outside the run exited $rc, want 1"; }
+grep -q 'which this update replaces' "$W/o" && grep -Eq 'baft-(ex|ux) runs ' "$W/o" || { cat "$W/o"; fail "the refusal does not name the other services"; }
+[[ "$(snapshot)" == "$U0" ]] || fail "a refused plan changed the host"
 
 log "7c. an agent that is not running is refused (real installer says REPAIR_REQUIRED), nothing changes"
 U1="$(snapshot)"
 rc=0
-UPENV apply --yes --only agent --unit-dir "$W/sysd" --service baft-ex --release-state "$W/opt-ag/release-state.json" \
+UPENV apply --yes "${AO[@]}" --only agent --unit-dir "$W/sysd" --service baft-ex --release-state "$W/opt-ag/release-state.json" \
   >"$W/o" 2>"$W/e" || rc=$?
 [[ "$rc" == 1 ]] || { cat "$W/o" "$W/e"; fail "an agent that is not running was not refused (exit $rc)"; }
 grep -q 'REPAIR_REQUIRED' "$W/o" || { cat "$W/o"; fail "the refusal does not name the installer's state"; }
 [[ "$(snapshot)" == "$U1" ]] || fail "a refused apply changed the host"
 
+log "7c2. --yes with a release root / source taken from the environment is refused unless allowed explicitly"
+rc=0; UPI apply --yes --only transport >"$W/o" 2>"$W/e" || rc=$?
+[[ "$rc" == 1 ]] || { cat "$W/o" "$W/e"; fail "--yes with BAFT_ROOT_PUB in the environment exited $rc, want 1"; }
+grep -q -- '--allow-root-override' "$W/e" && grep -q 'BAFT_ROOT_PUB' "$W/o" || { cat "$W/o" "$W/e"; fail "the refusal does not name the variable and the flag"; }
+[[ "$(snapshot)" == "$U1" ]] || fail "a refused apply changed the host"
+
 log "7d. apply --yes: binary and release state move to v2; keys, config, PKI and unit are byte-identical"
 C0="$(ui_creds)"
-rc=0; UP apply --yes --only transport >"$W/o" 2>"$W/e" || rc=$?
+rc=0; UPI apply --yes "${AO[@]}" --only transport >"$W/o" 2>"$W/e" || rc=$?
 [[ "$rc" == 0 ]] || { cat "$W/o" "$W/e"; tail -20 "$W/opt-ui"/update-logs/*.log 2>/dev/null; fail "apply exited $rc"; }
 grep -q 'Updated to v0.0.2-f: transport' "$W/o" || { cat "$W/o"; fail "no success line"; }
 [[ "$("$W/bin/baft" version)" == "baft 0.0.2-f" ]] || fail "the baft binary was not updated"
@@ -402,7 +426,7 @@ ls "$W/opt-ui/update-logs/"*-transport.log >/dev/null 2>&1 || fail "no installer
 [[ "$(stat -c '%a' "$W"/opt-ui/update-logs/*-transport.log)" == 600 ]] || fail "the installer log is not private"
 
 log "7e. a second apply has nothing to do"
-UP apply --yes --only transport >"$W/o" 2>"$W/e" || { cat "$W/o" "$W/e"; fail "second apply failed"; }
+UPI apply --yes "${AO[@]}" --only transport >"$W/o" 2>"$W/e" || { cat "$W/o" "$W/e"; fail "second apply failed"; }
 grep -q 'Nothing to apply' "$W/o" || { cat "$W/o"; fail "the second apply did not say there is nothing to do"; }
 # The IR is current now. The agent's binary is byte-identical in v1 and v2 (only
 # baft and baft-bcc carry the version), so it is current as well: the inventory
@@ -423,12 +447,12 @@ grep -q 'status        UPDATE AVAILABLE' "$W/o" && grep -q 'but these components
 log "7f. BCC: refused without a recent backup, then updated to v2 with credentials, access files and the state DB untouched"
 bcc_files() { sha256sum "$W"/etc-bcc/* "$BCC_STATE" "$W/sysd/baft-bcc-fault.service" | sha256sum; }
 B0="$(bcc_files)"; U3="$(snapshot)"
-rc=0; UPENV apply --yes --only bcc "${BCCF[@]}" >"$W/o" 2>"$W/e" || rc=$?
+rc=0; UPENV apply --yes "${AO[@]}" --only bcc "${BCCF[@]}" >"$W/o" 2>"$W/e" || rc=$?
 [[ "$rc" == 1 ]] || { cat "$W/o" "$W/e"; fail "BCC was updated without a backup (exit $rc)"; }
 grep -q 'no BCC backup found' "$W/o" || { cat "$W/o"; fail "the refusal does not name the missing backup"; }
 [[ "$(snapshot)" == "$U3" ]] || fail "a refused BCC update changed the host"
 mkdir -p "$W/var-bcc/backups"; : >"$W/var-bcc/backups/bcc-daily-test.baftbak"
-rc=0; UPENV apply --yes --only bcc "${BCCF[@]}" >"$W/o" 2>"$W/e" || rc=$?
+rc=0; UPENV apply --yes "${AO[@]}" --only bcc "${BCCF[@]}" >"$W/o" 2>"$W/e" || rc=$?
 [[ "$rc" == 0 ]] || { cat "$W/o" "$W/e"; tail -20 "$W/opt-bcc"/update-logs/*.log 2>/dev/null; fail "the BCC update exited $rc"; }
 grep -q 'Updated to v0.0.2-f: bcc' "$W/o" || { cat "$W/o"; fail "no BCC success line"; }
 cmp -s "$W/rel2/dist/baft-bcc-linux-$bcc_arch" "$W/bin/baft-bcc" || fail "the BCC binary is not the signed v2 one"
@@ -439,13 +463,14 @@ rc=0; UPENV check "${BCCF[@]}" --service baft-ui >"$W/o" 2>"$W/e" || rc=$?
 
 log "7g. agent: a running agent whose binary differs is updated from the inputs recovered from its unit; token, job key and unit unchanged"
 touch "$W/state/active.baft-agent.service" "$W/state/enabled.baft-agent.service"
+cp "$W/opt-ag/release-state.json" "$W/rs-ag-v1.json"   # for 7i, which puts this host back on v1
 printf 'local build\n' >>"$W/bin/baft-agent"   # no longer the signed release's bytes
 ag_files() { sha256sum "$W/ag"/* "$W/sysd/baft-agent.service" | sha256sum; }
 AGF=(--unit-dir "$W/sysd" --service baft-ex --release-state "$W/opt-ag/release-state.json")
 rc=0; UPENV check "${AGF[@]}" >"$W/o" 2>"$W/e" || rc=$?
 grep -q 'agent .*OUTDATED' "$W/o" || { cat "$W/o"; fail "the agent with a different binary is not reported OUTDATED"; }
 A1="$(ag_files)"
-rc=0; UPENV apply --yes --only agent "${AGF[@]}" >"$W/o" 2>"$W/e" || rc=$?
+rc=0; UPENV apply --yes "${AO[@]}" --only agent "${AGF[@]}" >"$W/o" 2>"$W/e" || rc=$?
 [[ "$rc" == 0 ]] || { cat "$W/o" "$W/e"; tail -30 "$W/opt-ag"/update-logs/*-agent.log 2>/dev/null; fail "the agent update exited $rc"; }
 grep -q 'Updated to v0.0.2-f: agent' "$W/o" || { cat "$W/o"; fail "no agent success line"; }
 case "$(uname -m)" in x86_64) ag_arch=amd64 ;; aarch64) ag_arch=arm64 ;; esac
@@ -453,6 +478,61 @@ cmp -s "$W/rel2/dist/baft-agent-linux-$ag_arch" "$W/bin/baft-agent" || fail "the
 grep -q 'v0.0.2-f' "$W/opt-ag/release-state.json" || fail "the agent's release state was not advanced"
 [[ "$(ag_files)" == "$A1" ]] || fail "the agent's token, job key, root pin or unit changed by the update"
 active baft-agent && enabled baft-agent || fail "the agent is not running after the update"
+
+log "7i. transport and agent on one host: the transport goes first and an agent with nothing left is not run again"
+# baft and baft-pair are run by the transport service and also installed by the
+# agent installer, which restarts only the agent. The transport must replace them,
+# or its process would keep the old code while the files look current.
+mkdir -p "$W/sysd-ag"; cp "$W/sysd/baft-ex.service" "$W/sysd/baft-agent.service" "$W/sysd-ag/"
+AGC=(--unit-dir "$W/sysd-ag" --service baft-ex --release-state "$W/opt-ag/release-state.json")
+v1_back() { # this host's binaries and release state back to release 1
+  cp "$W/rel1/dist/baft-linux-$ag_arch" "$W/bin/baft"; cp "$W/rel1/dist/baft-pair-linux-$ag_arch" "$W/bin/baft-pair"
+  cp "$W/rel1/dist/baft-agent-linux-$ag_arch" "$W/bin/baft-agent"; cp "$W/rs-ag-v1.json" "$W/opt-ag/release-state.json"
+  rm -rf "$W/opt-ag/update-logs"; }
+ex_agent_files() { sha256sum "$W/etc-ex"/baft.yaml "$W/etc-ex"/noise-key.json "$W/ag"/* "$W/sysd-ag"/*.service | sha256sum; }
+v1_back
+G0="$(ex_agent_files)"
+rc=0; UPENV check "${AGC[@]}" >"$W/o" 2>"$W/e" || rc=$?
+grep -q 'transport .*OUTDATED' "$W/o" && grep -q 'agent .*OUTDATED' "$W/o" || { cat "$W/o"; fail "7i: both are not reported behind (only the shared baft and baft-pair differ for the agent)"; }
+rc=0; UPENV apply --yes "${AO[@]}" "${AGC[@]}" >"$W/o" 2>"$W/e" || rc=$?
+[[ "$rc" == 0 ]] || { cat "$W/o" "$W/e"; tail -30 "$W/opt-ag"/update-logs/*.log 2>/dev/null; fail "7i: the combined update exited $rc"; }
+grep -q 'Updated to v0.0.2-f: transport, agent' "$W/o" || { cat "$W/o"; fail "7i: no success line naming transport then agent"; }
+grep -q 'agent: already current' "$W/o" || { cat "$W/o"; fail "7i: the agent was not skipped although the transport pass updated everything it owns"; }
+ls "$W"/opt-ag/update-logs/*-transport.log >/dev/null 2>&1 || fail "7i: no transport installer ran"
+! ls "$W"/opt-ag/update-logs/*-agent.log >/dev/null 2>&1 || fail "7i: the agent installer ran with nothing to do"
+[[ "$("$W/bin/baft" version)" == "baft 0.0.2-f" ]] || fail "7i: baft was not updated"
+[[ "$(ex_agent_files)" == "$G0" ]] || fail "7i: the EX's config, key, agent files or units changed"
+active baft-ex && active baft-agent || fail "7i: a service is not running afterwards"
+
+log "7i2. the same host with the agent's own binary behind too: transport first, then the agent, units untouched"
+v1_back
+printf 'local build\n' >>"$W/bin/baft-agent"
+rc=0; UPENV apply --yes "${AO[@]}" "${AGC[@]}" >"$W/o" 2>"$W/e" || rc=$?
+[[ "$rc" == 0 ]] || { cat "$W/o" "$W/e"; tail -30 "$W/opt-ag"/update-logs/*.log 2>/dev/null; fail "7i2: the combined update exited $rc"; }
+t_line="$(grep -n '^== transport: running' "$W/o" | cut -d: -f1)"; a_line="$(grep -n '^== agent: running' "$W/o" | cut -d: -f1)"
+[[ -n "$t_line" && -n "$a_line" && "$t_line" -lt "$a_line" ]] || { cat "$W/o"; fail "7i2: the transport did not run before the agent"; }
+cmp -s "$W/rel2/dist/baft-agent-linux-$ag_arch" "$W/bin/baft-agent" || fail "7i2: the agent binary is not the signed v2 one"
+[[ "$(ex_agent_files)" == "$G0" ]] || fail "7i2: the EX's config, key, agent files or units changed"
+grep -q 'Updated to v0.0.2-f: transport, agent' "$W/o" || { cat "$W/o"; fail "7i2: no success line"; }
+
+log "7j. BCC: a release whose bootstrap script differs rewrites the unit's bootstrap-sha256 comment and nothing else"
+export BAFT_LOCAL_RELEASE_ROOT="$W/root"
+BAFT_LOCAL_RELEASE_INSTALLER_APPEND="bootstrap script changed in v3" scripts/release/local_release.sh "$W/rel3" v0.0.3-f >/dev/null
+unset BAFT_LOCAL_RELEASE_ROOT
+unit_bcc="$W/sysd/baft-bcc-fault.service"
+bootstrap_path="$(sed -n 's/^# baft-bootstrap-script: //p' "$unit_bcc")"
+cp "$unit_bcc" "$W/bcc-unit-before"
+B3="$(sha256sum "$W"/etc-bcc/* "$BCC_STATE" | sha256sum)"
+rc=0; UP_REL=rel3 UPENV apply --yes "${AO[@]}" --only bcc "${BCCF[@]}" >"$W/o" 2>"$W/e" || rc=$?
+[[ "$rc" == 0 ]] || { cat "$W/o" "$W/e"; tail -30 "$W/opt-bcc"/update-logs/*.log 2>/dev/null; fail "7j: the BCC update exited $rc"; }
+grep -q 'only that line changes' "$W/o" && ! grep -q WARNING "$W/o" || { cat "$W/o"; fail "7j: the unit comment was not announced, or a warning appeared"; }
+cmp -s "$W/rel3/dist/baft-bcc-linux-$bcc_arch" "$W/bin/baft-bcc" || fail "7j: the BCC binary is not the signed v3 one"
+cmp -s "$W/rel3/dist/baft-install-linux-$bcc_arch" "$bootstrap_path" || fail "7j: the bootstrap script is not the v3 installer"
+diff <(grep -v '^# baft-bootstrap-sha256:' "$W/bcc-unit-before") <(grep -v '^# baft-bootstrap-sha256:' "$unit_bcc") >/dev/null ||
+  { diff "$W/bcc-unit-before" "$unit_bcc" || true; fail "7j: the BCC unit changed beyond its bootstrap-sha256 comment"; }
+[[ "$(sed -n 's/^# baft-bootstrap-sha256: //p' "$unit_bcc")" == "$(sha256sum "$bootstrap_path" | cut -d' ' -f1)" ]] || fail "7j: the unit does not record the new bootstrap script"
+[[ "$(sha256sum "$W"/etc-bcc/* "$BCC_STATE" | sha256sum)" == "$B3" ]] || fail "7j: BCC credentials, access files or state DB changed"
+active baft-bcc-fault || fail "7j: BCC is not running afterwards"
 
 log "7h. without the lab root the pinned production root rejects the throwaway release"
 U2="$(snapshot)"; rc=0

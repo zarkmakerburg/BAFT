@@ -262,6 +262,7 @@ func (s *Server) Handler() http.Handler {
 	m.HandleFunc("/api/agent/jobs", s.agentJobs)
 	m.HandleFunc("/api/agent/ack", s.agentAck)
 	m.HandleFunc("/api/agent/traffic", s.agentTraffic)
+	m.HandleFunc("/api/agent/component-report", s.agentComponentReport)
 	m.HandleFunc("/api/finance", s.finance)
 	m.HandleFunc("/api/finance/report", s.financeReport)
 	m.HandleFunc("/api/monitoring", s.monitoring)

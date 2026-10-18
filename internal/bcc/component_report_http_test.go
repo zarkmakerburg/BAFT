@@ -6,6 +6,7 @@ import (
  "net/http"
  "net/http/httptest"
  "path/filepath"
+ "strings"
  "testing"
  "time"
 )
@@ -103,4 +104,31 @@ func TestAgentComponentReportHTTPBoundedClockSkew(t *testing.T) {
  if got:=send(first);got==http.StatusAccepted {t.Fatal("replay accepted within skew tolerance")}
  if got:=send(now.Add(3*time.Minute));got==http.StatusAccepted {t.Fatal("unbounded future report accepted")}
  if got:=send(now.Add(time.Second));got!=http.StatusAccepted {t.Fatalf("ordered future report rejected: %d",got)}
+}
+
+func TestAgentComponentReportHTTPForwardCompatibleSchema(t *testing.T) {
+ store,err:=OpenStore(filepath.Join(t.TempDir(),"bcc.sqlite"))
+ if err!=nil {t.Fatal(err)}
+ store.st.Nodes["compat-node"]=Node{ID:"compat-node",AgentTokenHash:tokenHash("compat-token")}
+ if err:=store.saveLocked();err!=nil {t.Fatal(err)}
+ now:=time.Date(2026,10,18,12,0,0,0,time.UTC)
+ srv,err:=NewServer(store,"admin-secret")
+ if err!=nil {t.Fatal(err)}
+ srv.now=func()time.Time{return now}
+ send:=func(body string)int {
+  t.Helper()
+  req:=httptest.NewRequest(http.MethodPost,"/api/agent/component-report",bytes.NewBufferString(body))
+  req.Header.Set("Authorization","Bearer compat-token")
+  rr:=httptest.NewRecorder()
+  srv.Handler().ServeHTTP(rr,req)
+  return rr.Code
+ }
+ futureField:=`{"node_id":"compat-node","observed_at":"2026-10-18T12:00:00Z","schema_version":2,"components":[{"component":"transport","state":"unknown","build_channel":"stable"},{"component":"agent","state":"unknown"},{"component":"bcc","state":"unknown"}]}`
+ if got:=send(futureField);got!=http.StatusAccepted {t.Fatalf("additive schema rejected: HTTP %d",got)}
+ duplicate:=`{"node_id":"compat-node","observed_at":"2026-10-18T12:00:01Z","components":[{"component":"transport","state":"unknown"},{"component":"transport","state":"unknown"},{"component":"bcc","state":"unknown"}]}`
+ if got:=send(duplicate);got!=http.StatusBadRequest {t.Fatalf("duplicate inventory accepted: HTTP %d",got)}
+ invalid:=`{"node_id":"compat-node","observed_at":"2026-10-18T12:00:02Z","components":[{"component":"transport","state":"observed","sha256":"wrong"},{"component":"agent","state":"unknown"},{"component":"bcc","state":"unknown"}]}`
+ if got:=send(invalid);got!=http.StatusBadRequest {t.Fatalf("invalid digest accepted: HTTP %d",got)}
+ oversized:=`{"node_id":"compat-node","observed_at":"2026-10-18T12:00:03Z","components":[{"component":"transport","state":"unknown"},{"component":"agent","state":"unknown"},{"component":"bcc","state":"unknown"}],"extension":"`+strings.Repeat("x",8192)+`"}`
+ if got:=send(oversized);got!=http.StatusRequestEntityTooLarge {t.Fatalf("oversized report accepted: HTTP %d",got)}
 }

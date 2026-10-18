@@ -31,6 +31,5 @@ edit, update, safe removal). Anything a standard card has, these must have.
 Small PRs with tests, evidence for every claim, no merge/release/deploy without
 HQ approval, never touch running user services or tunnels.
 
-## Known pre-existing failure (not from this PR)
-`web/tests/aurora-card-routing.test.cjs` fails on the #252 base: the Classic
-"BCC Backups" card has no Aurora route in `web/bcc-operations-v3.js` `routes`.
+## Previously failing base test
+Fixed in #252 (`972c161`): the Classic "BCC Backups" card now has its own Aurora tool on the Backups page.

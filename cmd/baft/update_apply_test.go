@@ -59,10 +59,12 @@ func defaultPlan(component string, changed bool) installerPlan {
 type fakeInstaller struct {
 	rig       *applyRig
 	runs      []installerSpec
-	plans     map[string]installerPlan // overrides by mode
+	plans     map[string]installerPlan // overrides by mode (the plan made before the download)
+	staged    map[string]installerPlan // overrides by mode (the plan after the download; default: the same as plans)
 	failApply map[string]int           // exit code of the apply run by mode
 	noUpgrade bool                     // apply "succeeds" but the binaries stay old
 	applied   map[string]bool
+	onApply   func(mode string) // called when an apply run finishes
 }
 
 func modeOf(args []string) string {
@@ -97,6 +99,16 @@ func (f *fakeInstaller) run(ctx context.Context, s installerSpec) installerOutco
 		if !ok {
 			p = defaultPlan(componentOfMode(mode), !f.applied[mode])
 		}
+		if !contains(s.Args, "--plan") { // the plan after the download; a real run stops asking (exit 4)
+			if sp, ok := f.staged[mode]; ok {
+				p = sp
+			}
+			b, _ := json.Marshal(p)
+			if p.Changes == 0 {
+				return installerOutcome{Stdout: string(b)}
+			}
+			return installerOutcome{Stdout: string(b), ExitCode: exitInstallerAsks, Stderr: "re-run with --yes"}
+		}
 		b, _ := json.Marshal(p)
 		return installerOutcome{Stdout: string(b)}
 	case "--yes":
@@ -110,10 +122,24 @@ func (f *fakeInstaller) run(ctx context.Context, s installerSpec) installerOutco
 		if !f.noUpgrade {
 			f.rig.upgrade(componentOfMode(mode))
 		}
+		if f.onApply != nil {
+			f.onApply(mode)
+		}
 		return installerOutcome{}
 	}
 	f.rig.t.Fatalf("unexpected installer args %v", s.Args)
 	return installerOutcome{}
+}
+
+// staged lists the modes whose plan was asked for after the download.
+func (f *fakeInstaller) stagedModes() []string {
+	var out []string
+	for _, r := range f.runs {
+		if r.Args[len(r.Args)-1] == "--json" && !contains(r.Args, "--plan") {
+			out = append(out, modeOf(r.Args))
+		}
+	}
+	return out
 }
 
 func (f *fakeInstaller) modes(suffix string) []string {
@@ -137,13 +163,29 @@ type applyRig struct {
 	confirm func(string) bool
 	asked   int
 	backup  time.Time
+	// stale names the services whose process still runs the previous binary
+	// (the file on disk is new, the process was not restarted).
+	stale map[string]bool
+}
+
+// runningDigest plays systemd + /proc: a restarted service runs the binary that
+// is on disk, a stale one the previous release's.
+func (r *applyRig) runningDigest(unit string) (string, error) {
+	bin := map[string]string{r.layout.service: "baft", r.layout.agentUnit: "baft-agent", r.layout.bccService: "baft-bcc"}[unit]
+	if bin == "" {
+		return "", errors.New("no such service")
+	}
+	if r.stale[unit] {
+		return hexSum(bin + "-v1"), nil
+	}
+	return sha256File(filepath.Join(r.dir, "bin", bin))
 }
 
 // newApplyRig installs a transport (IR) service, an agent and BCC, all one
 // release behind v0.3.4.
 func newApplyRig(t *testing.T) *applyRig {
 	t.Helper()
-	r := &applyRig{invRig: newInvRig(t), t: t, h: newFakeHost(t), backup: time.Now().Add(-time.Hour)}
+	r := &applyRig{invRig: newInvRig(t), t: t, h: newFakeHost(t), backup: time.Now().Add(-time.Hour), stale: map[string]bool{}}
 	cfgPath, _ := writeDialerConfigIn(t, filepath.Join(r.dir, "etc"), 0o600)
 	bin := r.bin("baft", "baft-v1")
 	r.bin("baft-pair", "pair-v1")
@@ -151,12 +193,14 @@ func newApplyRig(t *testing.T) *applyRig {
 	r.agent()
 	r.bcc(true)
 
-	r.inst = &fakeInstaller{rig: r, failApply: map[string]int{}, applied: map[string]bool{}}
+	r.inst = &fakeInstaller{rig: r, failApply: map[string]int{}, applied: map[string]bool{}, staged: map[string]installerPlan{}}
 	r.h.env.runInstaller = r.inst.run
 	r.h.env.geteuid = func() int { return 0 }
 	r.h.env.inventory = &inventoryHost{
 		readFile: os.ReadFile, hashFile: sha256File,
-		newestBackup: func(string) (time.Time, error) { return r.backup, nil },
+		newestBackup:  func(string) (time.Time, error) { return r.backup, nil },
+		listUnits:     listBaftUnits,
+		runningDigest: r.runningDigest,
 	}
 	rep := reportAvailable
 	rep.Artifacts = digests(map[string]string{"baft": "baft-v2", "baft-pair": "pair-v2", "baft-agent": "agent-v2", "baft-bcc": "bcc-v2"})
@@ -202,11 +246,14 @@ func TestApplyUpdatesEveryComponentInOrderAndVerifies(t *testing.T) {
 	if code := r.apply(nil); code != 0 {
 		t.Fatalf("code=%d\n%s%s", code, r.out.String(), r.errOut.String())
 	}
-	if got := strings.Join(r.inst.modes("--yes"), ","); got != "--bcc-only,--agent-only,ir" {
-		t.Errorf("apply order = %s, want control plane first and the transport service last", got)
+	if got := strings.Join(r.inst.modes("--yes"), ","); got != "--bcc-only,ir,--agent-only" {
+		t.Errorf("apply order = %s, want BCC, then the transport service, then the agent (they share baft and baft-pair)", got)
 	}
-	if got := len(r.inst.modes("--json")); got != 6 {
-		t.Errorf("%d plan runs, want 3 before and 3 after", got)
+	if got := len(r.inst.modes("--json")); got != 9 {
+		t.Errorf("%d plan runs, want 3 before the download, 3 after it and 3 after the update", got)
+	}
+	if got := strings.Join(r.inst.stagedModes(), ","); got != "--bcc-only,ir,--agent-only" {
+		t.Errorf("the plan after the download was asked for %q", got)
 	}
 	for _, s := range r.inst.runs {
 		env := strings.Join(s.Env, "\n")
@@ -220,7 +267,7 @@ func TestApplyUpdatesEveryComponentInOrderAndVerifies(t *testing.T) {
 		}
 	}
 	o := r.out.String()
-	for _, w := range []string{"== bcc: running the signed installer (--bcc-only)", "tail -f ", "update-logs", "Updated to v0.3.4: bcc, agent, transport"} {
+	for _, w := range []string{"== bcc: running the signed installer (--bcc-only)", "tail -f ", "update-logs", "Updated to v0.3.4: bcc, transport, agent"} {
 		if !strings.Contains(o, w) {
 			t.Errorf("output lacks %q:\n%s", w, o)
 		}
@@ -308,7 +355,7 @@ func TestInstallerEnvIsBuiltFromScratch(t *testing.T) {
 	t.Setenv("HTTPS_PROXY", "http://proxy:3128")
 	t.Setenv("BAFT_RELEASE_URL", "https://rel.example/dl")
 	env := installerEnv(menuCfg{releaseState: "/opt/baft/release-state.json", unitDir: "/etc/systemd/system"},
-		updateTarget{Env: map[string]string{"BAFT_SERVICE": "baft"}}, "v0.3.4", "pinned-key")
+		updateTarget{Env: map[string]string{"BAFT_SERVICE": "baft"}}, "v0.3.4", "pinned-key", "/opt/baft/update-tmp/run-1")
 	m := map[string]string{}
 	for _, kv := range env {
 		k, v, _ := strings.Cut(kv, "=")
@@ -474,10 +521,17 @@ func TestEverythingCurrentMeansNothingToApply(t *testing.T) {
 
 func TestOnlySelectsComponents(t *testing.T) {
 	r := newApplyRig(t)
-	if code := r.apply(func(p *applyParams) { p.only = map[string]bool{compAgent: true} }); code != 0 {
+	if code := r.apply(func(p *applyParams) { p.only = map[string]bool{compBCC: true} }); code != 0 {
 		t.Fatalf("code=%d\n%s", code, r.out.String())
 	}
-	if got := strings.Join(r.inst.modes("--yes"), ","); got != "--agent-only" {
+	if got := strings.Join(r.inst.modes("--yes"), ","); got != "--bcc-only" {
+		t.Fatalf("applied %s", got)
+	}
+	r1 := newApplyRig(t)
+	if code := r1.apply(func(p *applyParams) { p.only = map[string]bool{compTransport: true} }); code != 0 {
+		t.Fatalf("code=%d\n%s", code, r1.out.String())
+	}
+	if got := strings.Join(r1.inst.modes("--yes"), ","); got != "ir" {
 		t.Fatalf("applied %s", got)
 	}
 	r2 := newApplyRig(t)
@@ -489,23 +543,116 @@ func TestOnlySelectsComponents(t *testing.T) {
 	}
 }
 
+func TestABinaryIsNeverReplacedUnderAServiceOutsideTheRun(t *testing.T) {
+	// The agent installer replaces baft and baft-pair, which baft.service runs;
+	// an installer restarts only its own service, so the tunnel would keep the
+	// old process and switch to the new code at its next restart, unannounced.
+	r := newApplyRig(t)
+	if code := r.apply(func(p *applyParams) { p.only = map[string]bool{compAgent: true} }); code != 1 || len(r.inst.modes("--yes")) != 0 {
+		t.Fatalf("code=%d applied=%v\n%s", code, r.inst.modes("--yes"), r.out.String())
+	}
+	if o := r.out.String(); !strings.Contains(o, "baft runs ") || !strings.Contains(o, "is not part of this run") {
+		t.Errorf("the refusal does not say why:\n%s", o)
+	}
+
+	// The same for a service the BCC tunnel builder added next to baft.service.
+	r2 := newApplyRig(t)
+	bin := filepath.Join(r2.dir, "bin", "baft")
+	extra := uninstallServiceUnit(bin, filepath.Join(r2.dir, "etc", "instances", "t1", "baft.yaml"), filepath.Join(r2.dir, "var", "t1"))
+	r2.unit("baft-t1", extra)
+	if code := r2.apply(nil); code != 1 || len(r2.inst.modes("--yes")) != 0 {
+		t.Fatalf("code=%d applied=%v\n%s", code, r2.inst.modes("--yes"), r2.out.String())
+	}
+	if o := r2.out.String(); !strings.Contains(o, "baft-t1 runs ") {
+		t.Errorf("the unlisted service is not named:\n%s", o)
+	}
+	// Updating only BCC touches neither binary and is fine.
+	r3 := newApplyRig(t)
+	r3.unit("baft-t1", extra)
+	if code := r3.apply(func(p *applyParams) { p.only = map[string]bool{compBCC: true} }); code != 0 {
+		t.Fatalf("code=%d\n%s", code, r3.out.String())
+	}
+}
+
+func TestTheAgentIsNotRunAgainWhenTheTransportPassAlreadyUpdatedItsFiles(t *testing.T) {
+	r := newApplyRig(t)
+	r.bin("baft-agent", "agent-v2") // only baft and baft-pair, shared with the transport, are behind
+	r.inst.applied["--agent-only"] = true // so the installer's own plan for the agent has nothing left, as the real one would
+	if code := r.apply(nil); code != 0 {
+		t.Fatalf("code=%d\n%s", code, r.out.String())
+	}
+	if got := strings.Join(r.inst.modes("--yes"), ","); got != "--bcc-only,ir" {
+		t.Fatalf("applied %s", got)
+	}
+	if o := r.out.String(); !strings.Contains(o, "agent: already current") || !strings.Contains(o, "Updated to v0.3.4: bcc, transport, agent") {
+		t.Errorf("output:\n%s", o)
+	}
+}
+
+func TestAServiceStillRunningTheOldProcessFailsTheUpdate(t *testing.T) {
+	r := newApplyRig(t)
+	r.stale[r.layout.service] = true
+	if code := r.apply(nil); code != 1 {
+		t.Fatalf("code=%d\n%s", code, r.out.String())
+	}
+	o := r.out.String()
+	if !strings.Contains(o, "WARNING: "+r.layout.service+" is still running the previous baft") || strings.Contains(o, "Updated to v0.3.4") {
+		t.Errorf("output:\n%s", o)
+	}
+}
+
+func TestAServiceThatCannotBeInspectedIsSaidSoNotCountedAsVerified(t *testing.T) {
+	r := newApplyRig(t)
+	r.h.env.inventory.runningDigest = func(string) (string, error) { return "", errors.New("no systemd here") }
+	if code := r.apply(nil); code != 0 {
+		t.Fatalf("code=%d\n%s", code, r.out.String())
+	}
+	if o := r.out.String(); !strings.Contains(o, "NOTE: could not check which binary") || !strings.Contains(o, "no systemd here") {
+		t.Errorf("output:\n%s", o)
+	}
+}
+
 func TestAFailureStopsTheRunBeforeTheNextComponent(t *testing.T) {
 	r := newApplyRig(t)
-	r.inst.failApply["--agent-only"] = 1
+	r.inst.failApply["ir"] = 1
 	if code := r.apply(nil); code != 1 {
 		t.Fatalf("code=%d", code)
 	}
-	if got := strings.Join(r.inst.modes("--yes"), ","); got != "--bcc-only,--agent-only" {
-		t.Fatalf("applied %s: the transport service must not be touched after a failure", got)
+	if got := strings.Join(r.inst.modes("--yes"), ","); got != "--bcc-only,ir" {
+		t.Fatalf("applied %s: the agent must not be touched after a failure", got)
 	}
 	o := r.out.String()
-	for _, w := range []string{"agent FAILED: exit 1: boom", "rolls back its own run", "Updated: bcc. Not started: transport."} {
+	for _, w := range []string{"transport FAILED: exit 1: boom", "rolls back its own run", "Updated: bcc. Not started: agent."} {
 		if !strings.Contains(o, w) {
 			t.Errorf("output lacks %q:\n%s", w, o)
 		}
 	}
 	if strings.Contains(o, "Updated to v0.3.4") {
 		t.Error("a failed run claims success")
+	}
+}
+
+func TestAnInterruptStopsBeforeTheNextComponentAndFalseAlarmsDoNotFollow(t *testing.T) {
+	r := newApplyRig(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	r.inst.onApply = func(mode string) {
+		if mode == "--bcc-only" {
+			cancel() // Ctrl-C while BCC is being updated; its installer still finishes
+		}
+	}
+	p := r.params()
+	if code := applyUpdate(ctx, p); code != 1 {
+		t.Fatalf("code=%d\n%s", code, r.out.String())
+	}
+	if got := strings.Join(r.inst.modes("--yes"), ","); got != "--bcc-only" {
+		t.Fatalf("applied %s: nothing may start after the interrupt", got)
+	}
+	o := r.out.String()
+	if !strings.Contains(o, "Interrupted before the next component") || !strings.Contains(o, "Updated: bcc. Not started: transport, agent.") {
+		t.Errorf("output:\n%s", o)
+	}
+	if strings.Contains(o, "still has changes pending") {
+		t.Errorf("the interrupt produced a false alarm:\n%s", o)
 	}
 }
 

@@ -17,6 +17,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"unicode"
 
 	"github.com/zarkmakerburg/baft/internal/config"
 	"github.com/zarkmakerburg/baft/internal/release"
@@ -50,9 +51,11 @@ import (
 
 const (
 	planTimeout     = 90 * time.Second
+	stagedTimeout   = 10 * time.Minute
 	backupFreshness = 26 * time.Hour
 
 	exitNeedsConfirmation = 4
+	exitInstallerAsks     = 4 // install.sh: the plan changes an existing install and nothing confirmed it
 
 	installerHealthy = "ALREADY_INSTALLED"
 )
@@ -63,9 +66,13 @@ const (
 // PARTIAL_INSTALL, REPAIR_REQUIRED, BROKEN_INSTALL) is not something to update.
 var healthyStates = map[string]bool{installerHealthy: true, "UPGRADE_AVAILABLE": true, "CURRENT": true}
 
-// applyOrder is control plane first, data plane last: a failure stops the run
-// before the tunnels' own service is touched.
-var applyOrder = []string{compBCC, compAgent, compTransport}
+// applyOrder: BCC first (it shares nothing with the other two), then the
+// transport service, then the agent. baft and baft-pair are files the
+// transport service runs and the agent installer also installs, and an
+// installer restarts only its own service: whichever of the two replaces them
+// first must be the transport, or the tunnel would keep running the old
+// process while its files already look current.
+var applyOrder = []string{compBCC, compTransport, compAgent}
 
 type installerSpec struct {
 	Script  string
@@ -106,6 +113,8 @@ type updateTarget struct {
 	Env       map[string]string
 	BackupDir string // bcc only
 	plan      installerPlan
+	staged    bool // plan is the one printed after the release was downloaded and verified
+	nothing   bool // that plan has nothing to change: the component is not run again
 }
 
 // allowedSteps is every installer plan step an update may contain, with the
@@ -133,7 +142,11 @@ var allowedSteps = func() map[string]map[string]bool {
 }()
 
 // vetPlan returns why a plan may not be applied; none means it may.
-func vetPlan(p installerPlan) []string {
+func vetPlan(p installerPlan) []string { return vetPlanWith(p, nil) }
+
+// vetPlanWith is vetPlan with one narrow exception hook: allow may accept a
+// step the allow-list refuses.
+func vetPlanWith(p installerPlan, allow func(planStep) bool) []string {
 	var out []string
 	if !healthyStates[p.State] {
 		out = append(out, fmt.Sprintf("the install is %s (%s), not a healthy install to update; repair it first", clean(p.State), clean(p.Why)))
@@ -141,13 +154,53 @@ func vetPlan(p installerPlan) []string {
 	for _, s := range p.Steps {
 		actions, known := allowedSteps[s.Item]
 		switch {
+		case !known && strings.HasSuffix(s.Item, "service enable"):
+			// install.sh calls a running agent healthy even when its unit is not
+			// enabled, then plans to enable it; an update never changes that.
+			out = append(out, fmt.Sprintf("%s is running but not enabled at boot, and an update does not change that; enable it yourself (systemctl enable) or repair it first", clean(strings.TrimSuffix(s.Item, " enable"))))
 		case !known:
 			out = append(out, fmt.Sprintf("the installer plans a step this baft does not know (%q %s); apply by hand", clean(s.Item), clean(s.Action)))
-		case !actions[s.Action]:
+		case !actions[s.Action] && !(allow != nil && allow(s)):
 			out = append(out, fmt.Sprintf("the installer would %s %q, which an update never does", clean(s.Action), clean(s.Item)))
 		}
 	}
 	return out
+}
+
+func hasStep(p installerPlan, item, action string) bool {
+	for _, s := range p.Steps {
+		if s.Item == item && s.Action == action {
+			return true
+		}
+	}
+	return false
+}
+
+// vetStagedPlan vets the plan the installer prints after it has downloaded and
+// verified the release, i.e. the one it will really apply. It differs from the
+// plan made before the download in one known way: the BCC unit records the
+// sha256 of the bootstrap script as a comment, and a new release ships a new
+// bootstrap script, so the unit is rewritten with that one line changed. That
+// is accepted only together with the bootstrap script update that explains it,
+// and applyUpdate checks afterwards that nothing else in the unit changed.
+func vetStagedPlan(component string, p installerPlan) []string {
+	return vetPlanWith(p, func(s planStep) bool {
+		return component == compBCC && s.Item == "BCC systemd unit" && s.Action == "update" && hasStep(p, "BCC bootstrap script", "update")
+	})
+}
+
+// parseStagedPlan finds the plan in a real (not --plan) run's standard output:
+// the last line that is a plan.
+func parseStagedPlan(stdout string) (installerPlan, error) {
+	lines := strings.Split(strings.TrimSpace(stdout), "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		if line := strings.TrimSpace(lines[i]); strings.HasPrefix(line, "{") {
+			if p, err := parsePlan(line); err == nil {
+				return p, nil
+			}
+		}
+	}
+	return installerPlan{}, errors.New("the installer printed no plan")
 }
 
 func parsePlan(stdout string) (installerPlan, error) {
@@ -318,19 +371,23 @@ func bccTarget(l menuCfg, inv inventoryHost) (updateTarget, []string) {
 }
 
 // installerEnv is the complete environment for one installer run. It is built
-// from scratch: only what the installer needs from this process (paths, locale,
-// proxies and certificate bundles, and the release source the check used) is
-// passed on, and the downgrade switch is always off.
-func installerEnv(l menuCfg, t updateTarget, version, rootPub string) []string {
+// from scratch: nothing is inherited that could change which program the
+// installer runs as root (PATH and HOME are fixed, Python's per-user site
+// directory is off, TMPDIR is the private scratch directory), and only what the
+// installer needs from this process is passed on (locale, proxies and
+// certificate bundles, and the release source the check used). The downgrade
+// switch is always off.
+func installerEnv(l menuCfg, t updateTarget, version, rootPub, tmp string) []string {
 	env := map[string]string{
 		"BAFT_NONINTERACTIVE": "1", "BAFT_INSTALL_FROM": "release", "BAFT_VERSION": version,
 		"BAFT_ALLOW_DOWNGRADE": "0", "BAFT_ROOT_PUB": rootPub,
 		"BAFT_RELEASE_STATE": l.releaseState, "BAFT_PREFIX": filepath.Dir(l.releaseState), "BAFT_SYSTEMD_DIR": l.unitDir,
+		"PATH": trustedPath, "HOME": "/root", "PYTHONNOUSERSITE": "1", "PYTHONDONTWRITEBYTECODE": "1",
 	}
-	if env["PATH"] = os.Getenv("PATH"); env["PATH"] == "" {
-		env["PATH"] = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+	if tmp != "" {
+		env["TMPDIR"] = tmp
 	}
-	for _, k := range []string{"HOME", "LANG", "LC_ALL", "TMPDIR", "SSL_CERT_FILE", "SSL_CERT_DIR", "CURL_CA_BUNDLE",
+	for _, k := range []string{"LANG", "LC_ALL", "SSL_CERT_FILE", "SSL_CERT_DIR", "CURL_CA_BUNDLE",
 		"HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy", "NO_PROXY", "no_proxy",
 		"BAFT_GITHUB_REPO", "BAFT_RELEASE_URL", "BAFT_REVOCATIONS_URL"} {
 		if v := os.Getenv(k); v != "" {
@@ -346,6 +403,101 @@ func installerEnv(l menuCfg, t updateTarget, version, rootPub string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// trustedPath is the only PATH a root-run installer gets: system directories,
+// never the invoking user's (sudo -E, su without -, cron and systemd units can
+// all hand a root process a user's PATH). It is a variable only so that a test
+// build can put stub tools first (go build -ldflags "-X main.trustedPath=...");
+// nothing at run time can change it.
+var trustedPath = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+// bashPath is where the installer's interpreter is looked up: an absolute path
+// in a system directory, not whatever "bash" resolves to on the caller's PATH.
+var bashPath = func() string {
+	for _, p := range []string{"/usr/bin/bash", "/bin/bash"} {
+		if info, err := os.Stat(p); err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0o022 == 0 {
+			return p
+		}
+	}
+	return ""
+}()
+
+// overrideEnv lists the environment variables that redirect where a release
+// comes from or which key it must be signed by, as far as they are set. They
+// exist for lab releases signed with throwaway keys; on a production host they
+// are a reason to stop and look.
+func overrideEnv() []string {
+	var set []string
+	for _, k := range []string{"BAFT_ROOT_PUB", "BAFT_RELEASE_URL", "BAFT_GITHUB_REPO", "BAFT_REVOCATIONS_URL"} {
+		if strings.TrimSpace(os.Getenv(k)) != "" {
+			set = append(set, k)
+		}
+	}
+	return set
+}
+
+// scratchDir returns a fresh private directory for the verified installer and
+// the installer's own staging. As root it lives under the install prefix, which
+// must be root-owned and not writable by anyone else: a directory under a
+// caller-chosen TMPDIR could be swapped between the sha256 check and the run.
+func scratchDir(releaseState string, root bool) (string, error) {
+	if !root {
+		d, err := os.MkdirTemp("", "baft-update-")
+		if err != nil {
+			return "", err
+		}
+		return filepath.Abs(d)
+	}
+	prefix, err := filepath.Abs(filepath.Dir(releaseState))
+	if err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(prefix, 0o755); err != nil {
+		return "", err
+	}
+	if err := requireRootOnly(prefix); err != nil {
+		return "", err
+	}
+	parent := filepath.Join(prefix, "update-tmp")
+	if err := os.MkdirAll(parent, 0o700); err != nil {
+		return "", err
+	}
+	if err := requireRootOnly(parent); err != nil {
+		return "", err
+	}
+	pruneScratch(parent, 24*time.Hour)
+	return os.MkdirTemp(parent, "run-")
+}
+
+// requireRootOnly checks, when this process really is root, that dir is owned
+// by root and not writable by group or others.
+func requireRootOnly(dir string) error {
+	if os.Geteuid() != 0 {
+		return nil
+	}
+	info, err := os.Stat(dir)
+	if err != nil {
+		return err
+	}
+	st, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || st.Uid != 0 || info.Mode().Perm()&0o022 != 0 {
+		return fmt.Errorf("%s is not owned by root and closed to others; refusing to run an installer from under it", dir)
+	}
+	return nil
+}
+
+// pruneScratch removes leftovers of runs that died before cleaning up.
+func pruneScratch(parent string, olderThan time.Duration) {
+	ents, err := os.ReadDir(parent)
+	if err != nil {
+		return
+	}
+	for _, e := range ents {
+		if info, err := e.Info(); err == nil && e.IsDir() && strings.HasPrefix(e.Name(), "run-") && time.Since(info.ModTime()) > olderThan {
+			os.RemoveAll(filepath.Join(parent, e.Name()))
+		}
+	}
 }
 
 // ---- recovery readiness ----
@@ -391,7 +543,7 @@ func backupProblem(t updateTarget, now time.Time, h inventoryHost) string {
 
 func runUpdateApply(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer, env opsEnv) int {
 	var version, only string
-	var planOnly, yes, skipBackup bool
+	var planOnly, yes, skipBackup, allowOverride bool
 	var l menuCfg
 	f, ok := parseOpsFlags("update apply", args, stderr, func(fs *flag.FlagSet) {
 		fs.StringVar(&version, "version", "", "release to apply (default: the newest)")
@@ -399,6 +551,7 @@ func runUpdateApply(ctx context.Context, args []string, stdin io.Reader, stdout,
 		fs.BoolVar(&planOnly, "plan", false, "show what would change, change nothing")
 		fs.BoolVar(&yes, "yes", false, "apply without asking")
 		fs.BoolVar(&skipBackup, "skip-backup-check", false, "update BCC without a recent backup of it (not recommended)")
+		fs.BoolVar(&allowOverride, "allow-root-override", false, "with --yes: accept a release root or source set by BAFT_ROOT_PUB / BAFT_RELEASE_URL / BAFT_GITHUB_REPO / BAFT_REVOCATIONS_URL (lab releases only)")
 		fs.StringVar(&l.unitDir, "unit-dir", "/etc/systemd/system", "systemd unit directory")
 		fs.StringVar(&l.agentUnit, "agent-unit", "baft-agent", "agent service name")
 		fs.StringVar(&l.bccService, "bcc-service", "baft-bcc", "BCC service name")
@@ -429,7 +582,7 @@ func runUpdateApply(ctx context.Context, args []string, stdin io.Reader, stdout,
 		return exitNeedsConfirmation
 	}
 	return applyUpdate(ctx, applyParams{
-		layout: l, version: version, only: sel, planOnly: planOnly, yes: yes, skipBackupCheck: skipBackup,
+		layout: l, version: version, only: sel, planOnly: planOnly, yes: yes, skipBackupCheck: skipBackup, allowOverride: allowOverride,
 		confirm: func(q string) bool {
 			fmt.Fprint(stdout, q)
 			line, _ := in.ReadString('\n')
@@ -446,6 +599,7 @@ type applyParams struct {
 	planOnly        bool
 	yes             bool
 	skipBackupCheck bool
+	allowOverride   bool // --yes may use a release root / source taken from the environment
 	degradeToPlan   bool // the menu: without root, show the plan and stop instead of failing
 	confirm         func(question string) bool
 	out, errw       io.Writer
@@ -462,7 +616,7 @@ func applyUpdate(ctx context.Context, p applyParams) int {
 		p.planOnly = true
 		fmt.Fprintln(out, "Not running as root, so this shows the plan only. To apply: sudo baft update apply")
 	}
-	dir, err := os.MkdirTemp("", "baft-update-")
+	dir, err := scratchDir(l.releaseState, p.env.euid() == 0)
 	if err != nil {
 		fmt.Fprintln(p.errw, "cannot create a scratch directory:", err)
 		return 1
@@ -523,6 +677,14 @@ func applyUpdate(ctx context.Context, p applyParams) int {
 		return 1
 	}
 	rootText := release.EncodePublic(rootPub)
+	overrides := overrideEnv()
+	if len(overrides) > 0 {
+		fmt.Fprintf(out, "NOTE: %s set in this environment: the release is taken from, or checked against, what they name, not the production defaults pinned in baft.\n", strings.Join(overrides, ", "))
+		if p.yes && !p.planOnly && !p.allowOverride {
+			fmt.Fprintln(p.errw, "refusing --yes with a release root or source taken from the environment (sudo -E, a profile export?). Unset them, or pass --allow-root-override if this is a lab host.")
+			return 1
+		}
+	}
 	var targets []*updateTarget
 	for _, name := range applyOrder {
 		if !contains(behind, name) {
@@ -534,7 +696,8 @@ func applyUpdate(ctx context.Context, p applyParams) int {
 			targets = append(targets, &t)
 		}
 	}
-	fullEnv := func(t *updateTarget) []string { return installerEnv(l, *t, rep.Latest, rootText) }
+	blockers = append(blockers, sharedBinaryProblems(l, comps, targets, inv)...)
+	fullEnv := func(t *updateTarget) []string { return installerEnv(l, *t, rep.Latest, rootText, dir) }
 	for _, t := range targets {
 		pctx, pcancel := context.WithTimeout(ctx, planTimeout)
 		o := p.env.installer(pctx, installerSpec{Script: rep.Installer, Args: append(append([]string{}, t.Args...), "--plan", "--json"), Env: fullEnv(t)})
@@ -563,6 +726,43 @@ func applyUpdate(ctx context.Context, p applyParams) int {
 		return 1
 	}
 
+	// The plan above is made before anything is downloaded, so it can only judge
+	// binaries by version. The installer's own plan after it has downloaded and
+	// verified the release is the one it will really apply: ask for exactly that
+	// (a real run without --yes and without a terminal stops, with exit 4, right
+	// after printing it) and vet it too. This needs root, like the run itself.
+	if p.env.euid() == 0 {
+		for _, t := range targets {
+			sctx, scancel := context.WithTimeout(ctx, stagedTimeout)
+			o := p.env.installer(sctx, installerSpec{Script: rep.Installer, Args: append(append([]string{}, t.Args...), "--json"), Env: fullEnv(t)})
+			scancel()
+			plan, perr := parseStagedPlan(o.Stdout)
+			switch {
+			case o.Err != nil:
+				blockers = append(blockers, fmt.Sprintf("%s: the installer could not stage this update: %s", t.Component, installerFailure(o)))
+			case o.ExitCode == exitInstallerAsks && perr == nil:
+				t.plan, t.staged = plan, true
+				for _, why := range vetStagedPlan(t.Component, plan) {
+					blockers = append(blockers, fmt.Sprintf("%s: %s", t.Component, why))
+				}
+			case o.ExitCode == 0 && perr == nil && plan.Changes == 0:
+				// Nothing left to change (an earlier component's pass updated what
+				// they share); the installer ran through without changing anything.
+				t.plan, t.staged, t.nothing = plan, true, true
+			case o.ExitCode == 0 && perr == nil:
+				blockers = append(blockers, fmt.Sprintf("%s: the installer applied %d change(s) without asking; check it with baft doctor and its log", t.Component, plan.Changes))
+			default:
+				blockers = append(blockers, fmt.Sprintf("%s: the installer could not stage this update: %s", t.Component, installerFailure(o)))
+			}
+		}
+		if len(blockers) > 0 {
+			printBlockers(out, blockers)
+			return 1
+		}
+	} else {
+		fmt.Fprintln(out, "(The plan the installer makes after downloading is checked when this runs as root.)")
+	}
+
 	for _, t := range targets {
 		printTargetPlan(out, *t, comps, rep.Latest)
 	}
@@ -570,7 +770,11 @@ func applyUpdate(ctx context.Context, p applyParams) int {
 		fmt.Fprintln(out, "\nThis was a preview. Nothing was changed.")
 		return 0
 	}
-	if !p.yes && !p.confirm(fmt.Sprintf("\nThis restarts the services above and moves them to %s. Type 'update' to apply: ", clean(rep.Latest))) {
+	question := fmt.Sprintf("\nThis restarts the services above and moves them to %s. Type 'update' to apply: ", clean(rep.Latest))
+	if len(overrides) > 0 {
+		question = fmt.Sprintf("\nThis restarts the services above and moves them to %s, taken from the environment override (%s), not the production defaults. Type 'update' to apply: ", clean(rep.Latest), strings.Join(overrides, ", "))
+	}
+	if !p.yes && !p.confirm(question) {
 		fmt.Fprintln(out, "Not confirmed. Nothing was changed.")
 		return 1
 	}
@@ -585,8 +789,26 @@ func applyUpdate(ctx context.Context, p applyParams) int {
 	defer lock.Close()
 
 	want := rep.Artifacts[selfupdate.InstallerArtifact(runtime.GOARCH)]
-	var done []string
+	var done, unitChanged []string
 	for i, t := range targets {
+		if ctx.Err() != nil {
+			fmt.Fprintln(out, "\nInterrupted before the next component was started.")
+			reportProgress(out, done, targets[i:])
+			return 1
+		}
+		if i > 0 {
+			// An earlier pass can have replaced files this component shares with it.
+			if c, ok := findComponent(inspectComponents(l, runtime.GOARCH, rep.Artifacts, inv), t.Component); ok && c.Status == statCurrent {
+				fmt.Fprintf(out, "\n== %s: already current (the files it shares with an earlier component were updated with it); not run again\n", t.Component)
+				done = append(done, t.Component)
+				continue
+			}
+		}
+		if t.nothing {
+			fmt.Fprintf(out, "\n== %s: the installer has nothing left to change here; not run again\n", t.Component)
+			done = append(done, t.Component)
+			continue
+		}
 		// The installer was verified when it was downloaded; make sure the file
 		// is still those bytes right before it runs as root.
 		if got, err := inv.hashFile(rep.Installer); err != nil || want == "" || got != want {
@@ -596,6 +818,8 @@ func applyUpdate(ctx context.Context, p applyParams) int {
 		}
 		logPath := filepath.Join(filepath.Dir(l.releaseState), "update-logs", fmt.Sprintf("%s-%s.log", time.Now().UTC().Format("20060102T150405Z"), t.Component))
 		fmt.Fprintf(out, "\n== %s: running the signed installer (%s). If this session drops it keeps running; follow it with: tail -f %s\n", t.Component, strings.Join(t.Args, " "), logPath)
+		unitPath := filepath.Join(l.unitDir, t.Unit+".service")
+		unitBefore, _ := inv.readFile(unitPath)
 		o := p.env.installer(ctx, installerSpec{
 			Script: rep.Installer, Args: append(append([]string{}, t.Args...), "--yes"), Env: fullEnv(t),
 			Detach: true, LogPath: logPath, Tee: out, Lock: lock,
@@ -606,29 +830,155 @@ func applyUpdate(ctx context.Context, p applyParams) int {
 			return 1
 		}
 		done = append(done, t.Component)
+		if unitAfter, err := inv.readFile(unitPath); err == nil && unitBefore != nil && unitDrift(t.Component, unitBefore, unitAfter) {
+			unitChanged = append(unitChanged, fmt.Sprintf("%s (%s)", t.Component, clean(unitPath)))
+		}
 	}
 
-	// Trust but verify: a second plan must have nothing left to change, and the
-	// binaries must now be the signed release's.
+	// Trust but verify: a second plan must have nothing left to change, the
+	// binaries must now be the signed release's, and the services must be
+	// running those binaries, not only have them on disk. Not tied to ctx: an
+	// interrupt must not turn these checks into false alarms.
+	vctx := context.WithoutCancel(ctx)
 	code := 0
 	for _, t := range targets {
-		o := p.env.installer(ctx, installerSpec{Script: rep.Installer, Args: append(append([]string{}, t.Args...), "--plan", "--json"), Env: fullEnv(t)})
+		if !contains(done, t.Component) {
+			continue
+		}
+		pctx, pcancel := context.WithTimeout(vctx, planTimeout)
+		o := p.env.installer(pctx, installerSpec{Script: rep.Installer, Args: append(append([]string{}, t.Args...), "--plan", "--json"), Env: fullEnv(t)})
+		pcancel()
 		plan, err := parsePlan(o.Stdout)
 		if o.Err != nil || o.ExitCode != 0 || err != nil || !healthyStates[plan.State] || plan.Changes != 0 {
 			fmt.Fprintf(out, "WARNING: %s still has changes pending after the update; check it with baft doctor and the installer log.\n", t.Component)
 			code = 1
 		}
 	}
-	for _, c := range inspectComponents(l, runtime.GOARCH, rep.Artifacts, inv) {
+	after := inspectComponents(l, runtime.GOARCH, rep.Artifacts, inv)
+	for _, c := range after {
 		if contains(done, c.Name) && c.Status != statCurrent {
 			fmt.Fprintf(out, "WARNING: %s does not yet run the signed release's binaries (%s).\n", c.Name, componentDetail(c))
 			code = 1
 		}
 	}
+	if !verifyRunning(out, l, done, rep.Artifacts, inv) {
+		code = 1
+	}
+	for _, u := range unitChanged {
+		fmt.Fprintf(out, "WARNING: the systemd unit of %s changed beyond what an update may change; the installer kept the previous one under %s/backups. Look at the difference before restarting anything.\n", u, clean(filepath.Dir(l.releaseState)))
+		code = 1
+	}
 	if code == 0 {
 		fmt.Fprintf(out, "\nUpdated to %s: %s. Run baft doctor to see the node's health.\n", clean(rep.Latest), strings.Join(done, ", "))
 	}
 	return code
+}
+
+// unitDrift says whether an update changed a unit it may not change. The one
+// allowed difference is the BCC unit's record of its bootstrap script's sha256,
+// which moves with the bootstrap script (see vetStagedPlan).
+func unitDrift(component string, before, after []byte) bool {
+	norm := func(b []byte) string {
+		if component != compBCC {
+			return string(b)
+		}
+		var keep []string
+		for _, line := range strings.Split(string(b), "\n") {
+			if !strings.HasPrefix(line, "# baft-bootstrap-sha256:") {
+				keep = append(keep, line)
+			}
+		}
+		return strings.Join(keep, "\n")
+	}
+	return norm(before) != norm(after)
+}
+
+func findComponent(comps []componentInfo, name string) (componentInfo, bool) {
+	for _, c := range comps {
+		if c.Name == name {
+			return c, true
+		}
+	}
+	return componentInfo{}, false
+}
+
+// runningBinary names the unit of each component and the binary that unit runs.
+func runningBinary(l menuCfg, component string) (unit, binary string) {
+	switch component {
+	case compAgent:
+		return l.agentUnit, "baft-agent"
+	case compBCC:
+		return l.bccService, "baft-bcc"
+	}
+	return l.service, "baft"
+}
+
+// verifyRunning checks that each updated service runs the new executable. A
+// service that cannot be inspected (not running under systemd here, no
+// /proc access) is said so, never counted as verified; one that still runs the
+// previous binary fails the update, because its files look current while the
+// process is not.
+func verifyRunning(w io.Writer, l menuCfg, done []string, digests map[string]string, inv inventoryHost) bool {
+	ok := true
+	for _, name := range done {
+		unit, bin := runningBinary(l, name)
+		want := digests[bin+"-linux-"+runtime.GOARCH]
+		if inv.runningDigest == nil || want == "" {
+			continue
+		}
+		got, err := inv.runningDigest(unit)
+		switch {
+		case err != nil:
+			fmt.Fprintf(w, "NOTE: could not check which binary %s is running (%s); check it with systemctl status %s.\n", clean(unit), clean(err.Error()), clean(unit))
+		case got != want:
+			fmt.Fprintf(w, "WARNING: %s is still running the previous %s although the file on disk is the new one; restart it: systemctl restart %s\n", clean(unit), bin, clean(unit))
+			ok = false
+		}
+	}
+	return ok
+}
+
+// sharedBinaryProblems refuses a run in which a binary is replaced under a
+// BAFT transport service that is not part of the run: the file would change
+// while that tunnel keeps running the old process until its next restart, and
+// then silently switches to the new code. The services this covers include
+// the ones the BCC tunnel builder added next to the installer's baft.service.
+func sharedBinaryProblems(l menuCfg, comps []componentInfo, targets []*updateTarget, inv inventoryHost) []string {
+	replaced := map[string]bool{}
+	transportInRun := false
+	for _, t := range targets {
+		if t.Component == compTransport {
+			transportInRun = true
+		}
+		if c, ok := findComponent(comps, t.Component); ok {
+			for _, b := range c.Binaries {
+				if b.State == "differs" {
+					replaced[b.Path] = true
+				}
+			}
+		}
+	}
+	if len(replaced) == 0 {
+		return nil
+	}
+	runners, err := transportServices(l, inv)
+	if err != nil {
+		return []string{fmt.Sprintf("cannot list the services in %s to see which ones run a binary this update replaces: %v", clean(l.unitDir), err)}
+	}
+	var units []string
+	for u := range runners {
+		units = append(units, u)
+	}
+	sort.Strings(units)
+	var out []string
+	for _, u := range units {
+		bin := runners[u]
+		if !replaced[bin] || (u == l.service && transportInRun) {
+			continue
+		}
+		out = append(out, fmt.Sprintf("%s runs %s, which this update replaces, but %s is not part of this run; it would keep the old process until restarted and then switch to the new code unannounced. Update it in the same run, or leave this binary alone", clean(u), clean(bin), clean(u)))
+	}
+	return out
 }
 
 func contains(list []string, s string) bool {
@@ -642,9 +992,14 @@ func contains(list []string, s string) bool {
 
 func installerFailure(o installerOutcome) string {
 	if o.Err != nil {
-		return o.Err.Error()
+		return clean(o.Err.Error())
 	}
-	tail := strings.Split(strings.TrimSpace(clean(o.Stderr)), "\n")
+	var tail []string
+	for _, line := range strings.Split(o.Stderr, "\n") {
+		if line = strings.TrimSpace(clean(line)); line != "" {
+			tail = append(tail, line)
+		}
+	}
 	if len(tail) > 3 {
 		tail = tail[len(tail)-3:]
 	}
@@ -676,6 +1031,25 @@ func listOrNone(l []string) string {
 
 func printTargetPlan(w io.Writer, t updateTarget, comps []componentInfo, latest string) {
 	fmt.Fprintf(w, "[%s] unit %s, installer %s\n", t.Component, clean(t.Unit), strings.Join(t.Args, " "))
+	if t.staged {
+		// The installer's plan after the download is exact: show it as it is.
+		var kept []string
+		for _, s := range t.plan.Steps {
+			if s.Action == "keep" || s.Action == "skip" {
+				kept = append(kept, clean(s.Item))
+				continue
+			}
+			fmt.Fprintf(w, "    %-22s %-8s %s\n", clean(s.Item), clean(s.Action), clean(s.Detail))
+		}
+		if t.nothing {
+			fmt.Fprintln(w, "    nothing left to change for this component")
+		}
+		fmt.Fprintf(w, "    kept as they are: %s\n", strings.Join(kept, ", "))
+		if hasStep(t.plan, "BCC systemd unit", "update") {
+			fmt.Fprintln(w, "    (the BCC unit records the sha256 of its bootstrap script in a comment; only that line changes, and baft checks it afterwards)")
+		}
+		return
+	}
 	replaced := false
 	for _, c := range comps {
 		if c.Name != t.Component {
@@ -765,14 +1139,62 @@ func exitCodeOf(err error) (int, error) {
 	return -1, err
 }
 
+// lineSanitizer forwards text line by line with every control character other
+// than the line break and tab removed (escape sequences become inert text).
+type lineSanitizer struct {
+	w   io.Writer
+	buf []byte
+}
+
+func (l *lineSanitizer) Write(p []byte) (int, error) {
+	l.buf = append(l.buf, p...)
+	for {
+		i := bytes.IndexByte(l.buf, '\n')
+		if i < 0 {
+			break
+		}
+		if err := l.emit(l.buf[:i+1]); err != nil {
+			return len(p), err
+		}
+		l.buf = l.buf[i+1:]
+	}
+	if len(l.buf) > 1<<16 { // a line that never ends
+		err := l.emit(append(l.buf, '\n'))
+		l.buf = nil
+		return len(p), err
+	}
+	return len(p), nil
+}
+
+// Flush forwards an unfinished last line.
+func (l *lineSanitizer) Flush() {
+	if len(l.buf) > 0 {
+		l.emit(append(l.buf, '\n'))
+		l.buf = nil
+	}
+}
+
+func (l *lineSanitizer) emit(line []byte) error {
+	_, err := io.WriteString(l.w, strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\t' || !unicode.IsControl(r) {
+			return r
+		}
+		return -1
+	}, strings.ToValidUTF8(string(line), "?")))
+	return err
+}
+
 // hostRunInstaller runs `bash script args` with exactly spec.Env. A plan run is
 // plain and bounded by ctx. An apply run (Detach) gets its own session, no
 // terminal and its output in a log file, and is NOT tied to ctx: cancelling it
 // half way would skip the installer's own rollback. This process only follows
 // the log; if this process dies the installer finishes on its own.
 func hostRunInstaller(ctx context.Context, s installerSpec) installerOutcome {
+	if bashPath == "" {
+		return installerOutcome{Err: errors.New("no bash in /usr/bin or /bin (or it is writable by others); the installer cannot run")}
+	}
 	if !s.Detach {
-		cmd := exec.CommandContext(ctx, "bash", append([]string{s.Script}, s.Args...)...)
+		cmd := exec.CommandContext(ctx, bashPath, append([]string{s.Script}, s.Args...)...)
 		cmd.Env, cmd.Dir = s.Env, "/"
 		so, se := &cappedBuffer{limit: 1 << 20}, &cappedBuffer{limit: 1 << 16}
 		cmd.Stdout, cmd.Stderr = so, se
@@ -788,7 +1210,7 @@ func hostRunInstaller(ctx context.Context, s installerSpec) installerOutcome {
 		return installerOutcome{Err: err}
 	}
 	defer logf.Close()
-	cmd := exec.Command("bash", append([]string{s.Script}, s.Args...)...)
+	cmd := exec.Command(bashPath, append([]string{s.Script}, s.Args...)...)
 	cmd.Env, cmd.Dir = s.Env, "/"
 	cmd.Stdout, cmd.Stderr = logf, logf
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
@@ -805,9 +1227,16 @@ func hostRunInstaller(ctx context.Context, s installerSpec) installerOutcome {
 	if rd != nil {
 		defer rd.Close()
 	}
+	// The log keeps every byte the installer wrote; what is mirrored to the
+	// terminal has its control characters stripped, because some of that text
+	// (key ids, URLs) comes from files downloaded over the network.
+	var tee *lineSanitizer
+	if s.Tee != nil {
+		tee = &lineSanitizer{w: s.Tee}
+	}
 	pump := func() {
-		if rd != nil && s.Tee != nil {
-			io.Copy(s.Tee, rd)
+		if rd != nil && tee != nil {
+			io.Copy(tee, rd)
 		}
 	}
 	tick := time.NewTicker(150 * time.Millisecond)

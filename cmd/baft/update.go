@@ -33,7 +33,7 @@ const (
 
 func updateUsage(w io.Writer) {
 	fmt.Fprintln(w, "usage: baft update check [--release-state /opt/baft/release-state.json] [--version vX.Y.Z] [--save-installer FILE] [--json]")
-	fmt.Fprintln(w, "       baft update apply [--plan] [--yes] [--only transport,agent,bcc] [--version vX.Y.Z] [--skip-backup-check]")
+	fmt.Fprintln(w, "       baft update apply [--plan] [--yes] [--only transport,agent,bcc] [--version vX.Y.Z] [--skip-backup-check] [--allow-root-override]")
 	fmt.Fprintln(w, "  check changes nothing on this host. Exit 0: current, 3: an update is available,")
 	fmt.Fprintln(w, "  1: unknown (could not fetch or verify), 2: usage.")
 	fmt.Fprintln(w, "  apply runs the release's signed installer for every installed component that is behind")
@@ -224,7 +224,7 @@ func printUpdateReport(w io.Writer, rep selfupdate.Report, comps []componentInfo
 		fmt.Fprintln(w, "The installed release is the newest verified signed release. Nothing was changed.")
 	case selfupdate.UpdateAvailable:
 		fmt.Fprintln(w, "Nothing on this host was changed. To apply it with the release's signed installer:")
-		fmt.Fprintln(w, "  baft update apply --plan    (shows exactly what would change; no root needed)")
+		fmt.Fprintln(w, "  baft update apply --plan    (shows what would change; run it with sudo, a normal user cannot read the root-only files it needs)")
 		fmt.Fprintln(w, "  sudo baft update apply      (asks before it changes anything; rolls back on failure)")
 		file := "FILE"
 		if saved != "" {

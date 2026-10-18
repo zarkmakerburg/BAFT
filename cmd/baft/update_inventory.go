@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -54,9 +56,88 @@ type inventoryHost struct {
 	hashFile func(path string) (string, error)
 	// newestBackup is the modification time of the newest BCC backup in a directory.
 	newestBackup func(dir string) (time.Time, error)
+	// listUnits names the baft*.service unit files in a directory.
+	listUnits func(dir string) ([]string, error)
+	// runningDigest is the sha256 of the executable a service is running right now.
+	runningDigest func(unit string) (string, error)
 }
 
-var hostInventory = inventoryHost{readFile: os.ReadFile, hashFile: sha256File, newestBackup: newestBackup}
+var hostInventory = inventoryHost{
+	readFile: os.ReadFile, hashFile: sha256File, newestBackup: newestBackup,
+	listUnits: listBaftUnits, runningDigest: hostRunningDigest,
+}
+
+func listBaftUnits(dir string) ([]string, error) {
+	ents, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, e := range ents {
+		if n := e.Name(); strings.HasPrefix(n, "baft") && strings.HasSuffix(n, ".service") && !e.IsDir() {
+			out = append(out, strings.TrimSuffix(n, ".service"))
+		}
+	}
+	return out, nil
+}
+
+// hostRunningDigest hashes the executable the unit's main process is running
+// (/proc/PID/exe still reads the old file after a binary was replaced on disk).
+func hostRunningDigest(unit string) (string, error) {
+	var systemctl string
+	for _, p := range []string{"/usr/bin/systemctl", "/bin/systemctl"} {
+		if _, err := os.Stat(p); err == nil {
+			systemctl = p
+			break
+		}
+	}
+	if systemctl == "" {
+		return "", fmt.Errorf("systemctl not found")
+	}
+	cmd := exec.Command(systemctl, "show", "-p", "MainPID", "--value", unit+".service")
+	cmd.Env = []string{"PATH=" + trustedPath, "LC_ALL=C"}
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("systemctl show %s: %v", unit, err)
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(string(out)))
+	if err != nil || pid <= 0 {
+		return "", fmt.Errorf("%s has no running main process", unit)
+	}
+	return procDigest(pid)
+}
+
+func procDigest(pid int) (string, error) { return sha256File(fmt.Sprintf("/proc/%d/exe", pid)) }
+
+// transportServices maps each BAFT transport service in the unit directory (the
+// installer's baft.service and any the BCC tunnel builder added) to the
+// executable it runs. The agent and BCC services run their own binaries.
+func transportServices(l menuCfg, h inventoryHost) (map[string]string, error) {
+	out := map[string]string{}
+	if h.listUnits == nil {
+		return out, nil
+	}
+	names, err := h.listUnits(l.unitDir)
+	if err != nil {
+		return nil, err
+	}
+	for _, n := range names {
+		if n == l.agentUnit || n == l.bccService {
+			continue
+		}
+		raw, err := h.readFile(filepath.Join(l.unitDir, n+".service"))
+		if err != nil {
+			continue
+		}
+		for _, line := range strings.Split(string(raw), "\n") {
+			if f := strings.Fields(strings.TrimPrefix(line, "ExecStart=")); strings.HasPrefix(line, "ExecStart=") && len(f) >= 2 && filepath.Base(f[0]) == "baft" && f[1] == "run" {
+				out[n] = f[0]
+				break
+			}
+		}
+	}
+	return out, nil
+}
 
 func sha256File(path string) (string, error) {
 	f, err := os.Open(path)

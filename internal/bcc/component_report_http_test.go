@@ -76,3 +76,31 @@ func TestAgentComponentReportHTTPRejectsRevokedNodeAfterReopen(t *testing.T) {
  _,receipts:=reopened.ComponentVersionSnapshot()
  if !receipts["revocable"].ObservedAt.Equal(now.Add(-2*time.Second)) {t.Fatalf("revoked node advanced receipt cursor: %+v",receipts["revocable"])}
 }
+
+func TestAgentComponentReportHTTPBoundedClockSkew(t *testing.T) {
+ store,err:=OpenStore(filepath.Join(t.TempDir(),"bcc.sqlite"))
+ if err!=nil {t.Fatal(err)}
+ store.st.Nodes["skew-node"]=Node{ID:"skew-node",AgentTokenHash:tokenHash("skew-token")}
+ if err:=store.saveLocked();err!=nil {t.Fatal(err)}
+ now:=time.Date(2026,10,18,12,0,0,0,time.UTC)
+ srv,err:=NewServer(store,"admin-secret")
+ if err!=nil {t.Fatal(err)}
+ srv.now=func()time.Time{return now}
+ send:=func(at time.Time)int {
+  t.Helper()
+  body,err:=json.Marshal(map[string]any{"node_id":"skew-node","observed_at":at,"components":[]map[string]string{
+   {"component":"transport","state":"unknown"},{"component":"agent","state":"unknown"},{"component":"bcc","state":"unknown"},
+  }})
+  if err!=nil {t.Fatal(err)}
+  req:=httptest.NewRequest(http.MethodPost,"/api/agent/component-report",bytes.NewReader(body))
+  req.Header.Set("Authorization","Bearer skew-token")
+  rr:=httptest.NewRecorder()
+  srv.Handler().ServeHTTP(rr,req)
+  return rr.Code
+ }
+ first:=now.Add(50*time.Millisecond)
+ if got:=send(first);got!=http.StatusAccepted {t.Fatalf("50ms future skew rejected: %d",got)}
+ if got:=send(first);got==http.StatusAccepted {t.Fatal("replay accepted within skew tolerance")}
+ if got:=send(now.Add(3*time.Minute));got==http.StatusAccepted {t.Fatal("unbounded future report accepted")}
+ if got:=send(now.Add(time.Second));got!=http.StatusAccepted {t.Fatalf("ordered future report rejected: %d",got)}
+}

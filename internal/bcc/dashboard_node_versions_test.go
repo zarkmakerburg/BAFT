@@ -17,6 +17,8 @@ func TestDashboardNodeVersionSecurityContract(t *testing.T) {
   "onclick=\"tnRotate(this.dataset.id)\"",
   "onclick=\"tnDecommission(this.dataset.id)\"",
   "Retry decommission",
+  "let nodeActionsAllowed=!n.revoked",
+  "REVOKED — actions disabled",
   "renderNodeCards(window.nodeVersionMap||Object.create(null))",
   "No tunnels / بدون تونل",
   "id=\"catalogHealth\"",

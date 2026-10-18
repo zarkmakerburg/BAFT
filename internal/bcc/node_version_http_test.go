@@ -7,6 +7,7 @@ import (
  "strings"
  "path/filepath"
  "testing"
+ "time"
 )
 
 func TestNodeVersionsEndpointUnknownWithoutSignedCatalog(t *testing.T) {
@@ -51,4 +52,17 @@ func TestNodeVersionSnapshotCopiesDigests(t *testing.T) {
  rec.Digests["agent"]="modified"
  _,again:=store.ComponentVersionSnapshot()
  if again["node"].Digests["agent"]!="unknown"{t.Fatal("returned map aliases persistent digest state")}
+}
+
+func TestNodeVersionsEndpointUsesSingleClockSnapshot(t *testing.T) {
+ store,err:=OpenStore(filepath.Join(t.TempDir(),"state.db"))
+ if err!=nil{t.Fatal(err)}
+ app,err:=NewServer(store,"admin-secret")
+ if err!=nil{t.Fatal(err)}
+ calls:=0
+ app.now=func()time.Time{calls++;return time.Date(2026,10,18,12,0,0,0,time.UTC)}
+ rec:=httptest.NewRecorder()
+ app.Handler().ServeHTTP(rec,authReq(http.MethodGet,"/api/nodes/versions","admin-secret",nil))
+ if rec.Code!=http.StatusOK{t.Fatalf("status %d: %s",rec.Code,rec.Body.String())}
+ if calls!=1{t.Fatalf("expected one clock snapshot, got %d",calls)}
 }

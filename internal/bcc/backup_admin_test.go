@@ -205,3 +205,40 @@ func TestAdminBackupCreateAuditUncertaintyIsReconciliable(t *testing.T) {
 	}
 	if err := app.audit.Verify(); err != nil { t.Fatalf("audit chain invalid: %v", err) }
 }
+
+func TestAdminBackupCreateInventoryPreviewEndToEnd(t *testing.T) {
+ root := t.TempDir()
+ store, err := OpenStore(filepath.Join(root, "state.db"))
+ if err != nil { t.Fatal(err) }
+ if _, err := store.UpsertNode(Node{ID:"before", Alias:"Before", Address:"127.0.0.1:20100", Role:"foreign"}, "secret"); err != nil { t.Fatal(err) }
+ app, err := NewServer(store, "admin-secret")
+ if err != nil { t.Fatal(err) }
+ if err := app.ConfigureBackupAdmin(filepath.Join(root, "backups"), backupTestKey()); err != nil { t.Fatal(err) }
+ h := app.Handler()
+ request := func(method, path string, body any) *httptest.ResponseRecorder {
+  t.Helper()
+  rr := httptest.NewRecorder()
+  h.ServeHTTP(rr, authReq(method,path,"admin-secret",body))
+  return rr
+ }
+ created := request(http.MethodPost,"/api/backups/create",nil)
+ if created.Code != http.StatusCreated { t.Fatalf("create: %d %s",created.Code,created.Body.String()) }
+ var entry BackupAdminEntry
+ if err := json.Unmarshal(created.Body.Bytes(), &entry); err != nil { t.Fatal(err) }
+ if entry.Name == "" { t.Fatal("missing backup filename") }
+ if _, err := store.UpsertNode(Node{ID:"after", Alias:"After", Address:"127.0.0.1:20101", Role:"foreign"}, "secret"); err != nil { t.Fatal(err) }
+ inventory := request(http.MethodGet,"/api/backups",nil)
+ if inventory.Code != http.StatusOK { t.Fatalf("inventory: %d %s",inventory.Code,inventory.Body.String()) }
+ var list struct { Backups []BackupAdminEntry `json:"backups"` }
+ if err := json.Unmarshal(inventory.Body.Bytes(),&list); err != nil { t.Fatal(err) }
+ if len(list.Backups)!=1 || list.Backups[0].Name!=entry.Name { t.Fatalf("inventory mismatch: %+v",list.Backups) }
+ previewResp := request(http.MethodPost,"/api/backups/restore-preview",map[string]string{"filename":entry.Name})
+ if previewResp.Code != http.StatusOK { t.Fatalf("preview: %d %s",previewResp.Code,previewResp.Body.String()) }
+ var preview RestorePreview
+ if err := json.Unmarshal(previewResp.Body.Bytes(),&preview); err != nil { t.Fatal(err) }
+ if !preview.Verified || preview.Problem!="" || preview.WouldRefuse!="" { t.Fatalf("preview blocked: %+v",preview) }
+ if preview.Nodes.Current!=2 || preview.Nodes.After!=1 { t.Fatalf("incorrect diff: %+v",preview.Nodes) }
+ current,err:=store.ListNodes()
+ if err!=nil { t.Fatal(err) }
+ if len(current)!=2 { t.Fatalf("preview mutated live nodes: %+v",current) }
+}

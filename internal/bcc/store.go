@@ -30,6 +30,8 @@ var ErrAgentAuthentication = errors.New("agent authentication failed")
 
 type Node struct {
 	ID             string    `json:"id"`
+	// Platform is confirmed only by the separately authenticated admin endpoint.
+	Platform NodePlatformEvidence `json:"platform,omitempty"`
 	Alias          string    `json:"alias"`
 	Address        string    `json:"address"`
 	PathIPv4       string    `json:"path_ipv4,omitempty"`
@@ -298,8 +300,14 @@ func (s *Store) UpsertNode(n Node, agentToken string, audits ...AuditEntry) (Nod
 		if err!=nil{return Node{},err}
 	}
 	old,exists:=s.st.Nodes[n.ID]
+	// Ignore any caller-supplied platform evidence. It must come from the
+	// independently authenticated and audited confirmation endpoint.
+	n.Platform=NodePlatformEvidence{}
 	if agentToken!="" { n.AgentTokenHash=tokenHash(agentToken) } else if exists { n.AgentTokenHash=old.AgentTokenHash }
 	if exists {
+		// Rebinding an ID to a different host, route or key voids prior
+		// operator confirmation. Cosmetic alias updates do not.
+		if old.Address==n.Address && old.Role==n.Role && old.PublicKey==n.PublicKey && old.PathIPv4==n.PathIPv4 && old.PathIPv6==n.PathIPv6 && old.AgentTokenHash==n.AgentTokenHash && !old.Revoked { n.Platform=old.Platform }
 		n.PreviousAgentTokenHash=old.PreviousAgentTokenHash
 		n.PreviousAgentTokenUntil=old.PreviousAgentTokenUntil
 		n.Revoked=old.Revoked
@@ -468,6 +476,7 @@ func (s *Store) RevokeNode(nodeID,reason string,now time.Time,audits ...AuditEnt
 	n,ok:=s.st.Nodes[nodeID];if !ok{return Node{},errors.New("node not found")}
 	before,err:=cloneState(s.st);if err!=nil{return Node{},err}
 	n.Revoked=true
+	n.Platform=NodePlatformEvidence{}
 	n.RevokedAt=now
 	n.RevokeReason=strings.TrimSpace(reason)
 	n.PreviousAgentTokenHash=""

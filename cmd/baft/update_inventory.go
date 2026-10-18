@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/zarkmakerburg/baft/internal/selfupdate"
 	"github.com/zarkmakerburg/baft/internal/uninstall"
@@ -51,9 +54,90 @@ type componentInfo struct {
 type inventoryHost struct {
 	readFile func(path string) ([]byte, error)
 	hashFile func(path string) (string, error)
+	// newestBackup is the modification time of the newest BCC backup in a directory.
+	newestBackup func(dir string) (time.Time, error)
+	// listUnits names the baft*.service unit files in a directory.
+	listUnits func(dir string) ([]string, error)
+	// runningDigest is the sha256 of the executable a service is running right now.
+	runningDigest func(unit string) (string, error)
 }
 
-var hostInventory = inventoryHost{readFile: os.ReadFile, hashFile: sha256File}
+var hostInventory = inventoryHost{
+	readFile: os.ReadFile, hashFile: sha256File, newestBackup: newestBackup,
+	listUnits: listBaftUnits, runningDigest: hostRunningDigest,
+}
+
+func listBaftUnits(dir string) ([]string, error) {
+	ents, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, e := range ents {
+		if n := e.Name(); strings.HasPrefix(n, "baft") && strings.HasSuffix(n, ".service") && !e.IsDir() {
+			out = append(out, strings.TrimSuffix(n, ".service"))
+		}
+	}
+	return out, nil
+}
+
+// hostRunningDigest hashes the executable the unit's main process is running
+// (/proc/PID/exe still reads the old file after a binary was replaced on disk).
+func hostRunningDigest(unit string) (string, error) {
+	var systemctl string
+	for _, p := range []string{"/usr/bin/systemctl", "/bin/systemctl"} {
+		if _, err := os.Stat(p); err == nil {
+			systemctl = p
+			break
+		}
+	}
+	if systemctl == "" {
+		return "", fmt.Errorf("systemctl not found")
+	}
+	cmd := exec.Command(systemctl, "show", "-p", "MainPID", "--value", unit+".service")
+	cmd.Env = []string{"PATH=" + trustedPath, "LC_ALL=C"}
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("systemctl show %s: %v", unit, err)
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(string(out)))
+	if err != nil || pid <= 0 {
+		return "", fmt.Errorf("%s has no running main process", unit)
+	}
+	return procDigest(pid)
+}
+
+func procDigest(pid int) (string, error) { return sha256File(fmt.Sprintf("/proc/%d/exe", pid)) }
+
+// transportServices maps each BAFT transport service in the unit directory (the
+// installer's baft.service and any the BCC tunnel builder added) to the
+// executable it runs. The agent and BCC services run their own binaries.
+func transportServices(l menuCfg, h inventoryHost) (map[string]string, error) {
+	out := map[string]string{}
+	if h.listUnits == nil {
+		return out, nil
+	}
+	names, err := h.listUnits(l.unitDir)
+	if err != nil {
+		return nil, err
+	}
+	for _, n := range names {
+		if n == l.agentUnit || n == l.bccService {
+			continue
+		}
+		raw, err := h.readFile(filepath.Join(l.unitDir, n+".service"))
+		if err != nil {
+			continue
+		}
+		for _, line := range strings.Split(string(raw), "\n") {
+			if f := strings.Fields(strings.TrimPrefix(line, "ExecStart=")); strings.HasPrefix(line, "ExecStart=") && len(f) >= 2 && filepath.Base(f[0]) == "baft" && f[1] == "run" {
+				out[n] = f[0]
+				break
+			}
+		}
+	}
+	return out, nil
+}
 
 func sha256File(path string) (string, error) {
 	f, err := os.Open(path)
@@ -102,8 +186,8 @@ func inspectComponents(l menuCfg, arch string, digests map[string]string, h inve
 	}
 	if raw, err := h.readFile(unitPath(l.bccService)); err == nil {
 		c := componentInfo{Name: compBCC, Unit: l.bccService}
-		if bin, ok := bccBinary(string(raw)); ok {
-			c.Binaries = []binaryCheck{{Name: "baft-bcc", Path: bin}}
+		if u, ok := parseBCCUnit(string(raw)); ok {
+			c.Binaries = []binaryCheck{{Name: "baft-bcc", Path: u.Bin}}
 		} else {
 			c.Reason = "the unit is not the BCC unit install.sh writes"
 		}
@@ -112,23 +196,49 @@ func inspectComponents(l menuCfg, arch string, digests map[string]string, h inve
 	return out
 }
 
-// bccBinary returns the BCC binary an installer-labelled BCC unit runs.
-func bccBinary(unit string) (string, bool) {
+// bccUnit is what an installer-labelled BCC unit says about the panel.
+type bccUnit struct {
+	Bin       string
+	BackupDir string
+	// The paths the panel was installed with; the installer takes them from its
+	// environment, so an update must pass the installed ones back.
+	StateFile, AdminTokenFile, AccessFile, JobKeyFile string
+}
+
+// parseBCCUnit reads a BCC unit install.sh wrote: labelled as BAFT's BCC unit
+// and running a baft-bcc binary. ok is false for any other unit.
+func parseBCCUnit(unit string) (bccUnit, bool) {
 	var managed, bcc bool
-	bin := ""
+	var u bccUnit
 	for _, l := range strings.Split(unit, "\n") {
 		switch {
 		case l == "# baft-managed: true":
 			managed = true
 		case l == "# baft-component: bcc":
 			bcc = true
-		case bin == "" && strings.HasPrefix(l, "ExecStart="):
-			if f := strings.Fields(strings.TrimPrefix(l, "ExecStart=")); len(f) > 0 && filepath.Base(f[0]) == "baft-bcc" {
-				bin = f[0]
+		case u.Bin == "" && strings.HasPrefix(l, "ExecStart="):
+			f := strings.Fields(strings.TrimPrefix(l, "ExecStart="))
+			if len(f) == 0 || filepath.Base(f[0]) != "baft-bcc" {
+				continue
+			}
+			u.Bin = f[0]
+			for i := 1; i+1 < len(f); i++ {
+				switch f[i] {
+				case "--backup-dir":
+					u.BackupDir = f[i+1]
+				case "--state-file":
+					u.StateFile = f[i+1]
+				case "--admin-token-file":
+					u.AdminTokenFile = f[i+1]
+				case "--access-file":
+					u.AccessFile = f[i+1]
+				case "--job-key-file":
+					u.JobKeyFile = f[i+1]
+				}
 			}
 		}
 	}
-	return bin, managed && bcc && bin != ""
+	return u, managed && bcc && u.Bin != ""
 }
 
 func judge(c componentInfo, arch string, digests map[string]string, h inventoryHost) componentInfo {

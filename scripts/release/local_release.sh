@@ -13,7 +13,10 @@ set -euo pipefail
 # Test hooks (upgrade/rollback e2e): BAFT_LOCAL_RELEASE_ROOT=<dir> reuses (or
 # creates) one root key and revocation list across several releases;
 # BAFT_LOCAL_RELEASE_BREAK=version|run signs a release whose baft binary does
-# not run at all, or runs `version` but dies as a service.
+# not run at all, or runs `version` but dies as a service;
+# BAFT_LOCAL_RELEASE_INSTALLER_APPEND=<text> appends a comment line to the
+# signed installer, i.e. a release whose bootstrap script differs from the
+# previous release's (the BCC unit records that script's sha256).
 out=${1:?usage: local_release.sh <out-dir> [version]}
 version=${2:-v0.0.1-local}
 mkdir -p "$out"
@@ -45,6 +48,9 @@ case "${BAFT_LOCAL_RELEASE_BREAK:-}" in
   version) for f in "$out"/dist/baft-linux-*; do printf '#!/bin/sh\nexit 1\n' >"$f"; chmod 0755 "$f"; done ;;
   run) for f in "$out"/dist/baft-linux-*; do printf '#!/bin/sh\n[ "$1" = version ] && { echo broken; exit 0; }\nexit 1\n' >"$f"; chmod 0755 "$f"; done ;;
 esac
+if [[ -n "${BAFT_LOCAL_RELEASE_INSTALLER_APPEND:-}" ]]; then
+  for f in "$out"/dist/baft-install-linux-*; do printf '\n# %s\n' "$BAFT_LOCAL_RELEASE_INSTALLER_APPEND" >>"$f"; done
+fi
 BAFT_RELEASE_SIGNING_KEY=$(cat "$keys/release.key") \
   "$tool" sign -dir "$out/dist" -version "$version" -commit "$(git rev-parse HEAD)" \
   -cert "$out/cert.json" -root-pub "$keys/root.pub" >/dev/null

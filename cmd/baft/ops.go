@@ -51,6 +51,9 @@ type opsEnv struct {
 	// inventory reads installed units and binaries for `baft update check`;
 	// nil means the real files (hostInventory).
 	inventory *inventoryHost
+	// geteuid and runInstaller serve `baft update apply`; nil means the real ones.
+	geteuid      func() int
+	runInstaller func(ctx context.Context, s installerSpec) installerOutcome
 }
 
 var hostOps = opsEnv{

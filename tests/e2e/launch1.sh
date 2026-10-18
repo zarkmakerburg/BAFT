@@ -206,7 +206,7 @@ assert rc == 0, rc
 assert "\x1b[" in colored and "B  A  F  T" in re.sub(r"\x1b\[[0-9;]*m", "", colored), "no gold header on a color terminal"
 seen = re.sub(r"\x1b\[[0-9;]*m", "", colored)
 assert "Repair (unavailable)" in seen and "That option is unavailable in this release" in seen, seen[:500]
-assert "Update (unavailable)" not in seen and "Check for a newer signed release" in seen and "Apply an update (unavailable)" in seen, seen[:800]
+assert "Update (unavailable)" not in seen and "Check for a newer signed release" in seen and "Apply an update (shows the plan first" in seen and "Apply an update (unavailable)" not in seen, seen[:800]
 plain, rc = run_menu({"TERM": "xterm", "NO_COLOR": "1", "LANG": "C"}, 60)
 assert rc == 0 and "\x1b[" not in plain, "NO_COLOR was not respected"
 assert "BAFT | v" in plain, plain[:300]

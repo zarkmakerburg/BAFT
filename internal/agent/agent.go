@@ -78,6 +78,8 @@ type Agent struct {
 	// step does not wait for BCC's step timeout. Memory only: an output may
 	// be a one-time secret.
 	unacked []pendingAck
+	lastComponentReportAttempt time.Time
+	lastComponentReportError string
 }
 
 type pendingAck struct {
@@ -283,7 +285,7 @@ type Result struct {
 func (a *Agent) RunOnce(ctx context.Context) ([]Result, error) {
 	// Report observed binary digests without blocking job processing if the
 	// endpoint is unavailable during a rolling BCC upgrade.
-	_ = a.SendComponentReport(ctx)
+	a.maybeSendComponentReport(ctx)
 	a.flushAcks(ctx)
 	jobs, err := a.pull(ctx)
 	if err != nil {

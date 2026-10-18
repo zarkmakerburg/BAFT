@@ -15,11 +15,11 @@ type NodePlatformEvidence struct {
 
 // TrustedNodeArtifactName fails closed when the platform is absent, merely
 // self-reported, or otherwise not independently confirmed.
-func TrustedNodeArtifactName(component string, evidence NodePlatformEvidence) (string, ComponentTrustState) {
+func TrustedNodeArtifactName(component string, evidence NodePlatformEvidence) (string, bool) {
  if !evidence.Confirmed || strings.TrimSpace(evidence.Source)=="" || evidence.Source=="component-report" {
-  return "", ComponentUnknown
+  return "", false
  }
  name, err := ComponentArtifactName(component,evidence.OS,evidence.Arch)
- if err != nil {return "",ComponentUnknown}
- return name, ComponentVerified
+ if err != nil {return "",false}
+ return name, true
 }

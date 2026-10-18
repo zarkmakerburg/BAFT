@@ -1,16 +1,20 @@
 package bcc
 
-import "github.com/zarkmakerburg/baft/internal/release"
+import (
+ "time"
+ "github.com/zarkmakerburg/baft/internal/release"
+)
 
 // NodePlatformEvidence is populated only from a separately authenticated
 // inventory/enrollment workflow, never from the component digest report.
 // Until BCC persists and validates such evidence, callers must pass zero
 // value and render the version as unknown.
 type NodePlatformEvidence struct {
- OS string
- Arch string
- Confirmed bool
- Source string
+ OS string `json:"os,omitempty"`
+ Arch string `json:"arch,omitempty"`
+ Confirmed bool `json:"confirmed,omitempty"`
+ Source string `json:"source,omitempty"`
+ ConfirmedAt time.Time `json:"confirmed_at,omitempty"`
 }
 
 // TrustedNodeArtifactName fails closed when the platform is absent, merely

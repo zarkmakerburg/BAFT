@@ -15,15 +15,19 @@ func (s *Server) nodeVersions(w http.ResponseWriter,r *http.Request) {
  nodes,receipts:=s.store.ComponentVersionSnapshot()
  var verified *release.Verified
  catalogStatus:="not_configured"
+ catalogVersion:=""
+ var revocationSequence uint64
  if s.verifiedCatalog!=nil {
   catalogStatus="unavailable"
   v,err:=s.verifiedCatalog.Verify(now)
-  if err==nil { verified=&v;catalogStatus="verified" }
+  if err==nil { verified=&v;catalogStatus="verified";catalogVersion=v.Version;revocationSequence=v.Revocations.Sequence }
  }
  statuses:=NodeVersionStatuses(nodes,receipts,verified,now,15*time.Minute)
  writeJSON(w,http.StatusOK,map[string]any{
   "catalog_configured":s.verifiedCatalog!=nil,
   "catalog_status":catalogStatus,
+  "catalog_version":catalogVersion,
+  "revocation_sequence":revocationSequence,
   "nodes":statuses,
  })
 }

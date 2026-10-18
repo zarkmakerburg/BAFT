@@ -4,6 +4,7 @@ import (
  "encoding/json"
  "net/http"
  "net/http/httptest"
+ "strings"
  "path/filepath"
  "testing"
 )
@@ -20,6 +21,11 @@ func TestNodeVersionsEndpointUnknownWithoutSignedCatalog(t *testing.T) {
   return rec
  }
  if rec:=makeRequest("");rec.Code==http.StatusOK{t.Fatal("unauthorized read accepted")}
+ for _,method:=range []string{http.MethodPost,http.MethodPut,http.MethodDelete} {
+  forbidden:=httptest.NewRecorder()
+  app.Handler().ServeHTTP(forbidden,authReq(method,"/api/nodes/versions","admin-secret",strings.NewReader("{}")))
+  if forbidden.Code!=http.StatusMethodNotAllowed{t.Fatalf("method %s accepted: %d",method,forbidden.Code)}
+ }
  rec:=makeRequest("admin-secret")
  if rec.Code!=http.StatusOK{t.Fatalf("status %d: %s",rec.Code,rec.Body.String())}
  var response struct {

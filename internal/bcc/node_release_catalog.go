@@ -90,6 +90,12 @@ func (c *VerifiedReleaseCatalog) Verify(now time.Time) (release.Verified,error) 
 // has approved the exact version and commit. Downgrades are never implicit.
 // Callers must enforce administrator authentication and durable audit logging.
 func (c *VerifiedReleaseCatalog) AcceptRelease(now time.Time, expectedVersion, expectedCommit string, allowDowngrade bool) (release.Verified,error) {
+ return c.AcceptReleaseWithIntent(now,expectedVersion,expectedCommit,allowDowngrade,nil)
+}
+
+// AcceptReleaseWithIntent records a durable operator intent after verification
+// and before advancing trust state. The callback must fail closed on errors.
+func (c *VerifiedReleaseCatalog) AcceptReleaseWithIntent(now time.Time, expectedVersion, expectedCommit string, allowDowngrade bool, recordIntent func(release.Verified) error) (release.Verified,error) {
  if c==nil{return release.Verified{},errors.New("release catalog not configured")}
  if strings.TrimSpace(expectedVersion)==""||strings.TrimSpace(expectedCommit)==""{return release.Verified{},errors.New("expected version and commit required")}
  c.mu.Lock()
@@ -106,6 +112,7 @@ func (c *VerifiedReleaseCatalog) AcceptRelease(now time.Time, expectedVersion, e
  if err!=nil{return release.Verified{},err}
  if v.Version!=expectedVersion||v.Commit!=expectedCommit{return release.Verified{},errors.New("signed release does not match explicitly approved version and commit")}
  if now.IsZero(){now=time.Now().UTC()}
+ if recordIntent!=nil {if err:=recordIntent(v);err!=nil{return release.Verified{},fmt.Errorf("record acceptance intent: %w",err)}}
  if err:=release.WriteState(c.statePath,prior.Advance(v,now));err!=nil{return release.Verified{},fmt.Errorf("persist accepted release trust state: %w",err)}
  return v,nil
 }

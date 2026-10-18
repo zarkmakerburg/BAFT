@@ -58,6 +58,7 @@ type Alert struct {
 type Server struct {
 	store                   *Store
 	version                 string
+	verifiedCatalog *VerifiedReleaseCatalog
 	adminToken              string
 	audit                   *AuditLog
 	guard                   *IPGuard

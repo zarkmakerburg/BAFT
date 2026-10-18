@@ -22,6 +22,18 @@ func TestNodeVersionReadModel(t *testing.T) {
  }
  check(node,rec,nil,ComponentUnknown)
  check(node,rec,&signed,ComponentVerified)
+ future:=rec
+ future.AcceptedAt=now.Add(time.Second)
+ check(node,future,&signed,ComponentUnknown)
+ beforeConfirmation:=rec
+ beforeConfirmation.AcceptedAt=node.Platform.ConfirmedAt.Add(-time.Second)
+ check(node,beforeConfirmation,&signed,ComponentUnknown)
+ wrongNode:=rec
+ wrongNode.NodeID="different-node"
+ check(node,wrongNode,&signed,ComponentUnknown)
+ noExpiry:=rec
+ check(node,noExpiry,&signed,ComponentVerified)
+ if got:=NodeComponentReadModel(node,rec,&signed,now,0).Components[0];got.State!=ComponentUnknown{t.Fatal("zero freshness window accepted")}
  mismatched:=rec
  mismatched.Digests=map[string]string{"transport":strings.Repeat("b",64)}
  check(node,mismatched,&signed,ComponentMismatch)

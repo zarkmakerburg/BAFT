@@ -84,3 +84,28 @@ func (c *VerifiedReleaseCatalog) Verify(now time.Time) (release.Verified,error) 
  }
  return v,nil
 }
+
+ 
+// AcceptRelease explicitly ratchets the authenticated release after an operator
+// has approved the exact version and commit. Downgrades are never implicit.
+// Callers must enforce administrator authentication and durable audit logging.
+func (c *VerifiedReleaseCatalog) AcceptRelease(now time.Time, expectedVersion, expectedCommit string, allowDowngrade bool) (release.Verified,error) {
+ if c==nil{return release.Verified{},errors.New("release catalog not configured")}
+ if strings.TrimSpace(expectedVersion)==""||strings.TrimSpace(expectedCommit)==""{return release.Verified{},errors.New("expected version and commit required")}
+ c.mu.Lock()
+ defer c.mu.Unlock()
+ absDir,err:=filepath.Abs(c.dir);if err!=nil{return release.Verified{},err}
+ absDir,err=filepath.EvalSymlinks(absDir);if err!=nil{return release.Verified{},err}
+ revAbs,err:=filepath.Abs(c.revocationsPath);if err!=nil{return release.Verified{},err}
+ revAbs,err=filepath.EvalSymlinks(revAbs);if err!=nil{return release.Verified{},err}
+ rel,err:=filepath.Rel(absDir,revAbs);if err!=nil{return release.Verified{},err}
+ if rel=="."||(rel!=".."&&!strings.HasPrefix(rel,".."+string(os.PathSeparator))){return release.Verified{},errors.New("revocation list must be outside signed release directory")}
+ prior,err:=release.ReadState(c.statePath);if err!=nil{return release.Verified{},err}
+ rev,err:=release.ReadEnvelope(revAbs);if err!=nil{return release.Verified{},err}
+ v,err:=release.VerifyDir(release.VerifyInput{Dir:absDir,Root:c.root,Revocations:&rev,Now:now,State:&prior,AllowDowngrade:allowDowngrade})
+ if err!=nil{return release.Verified{},err}
+ if v.Version!=expectedVersion||v.Commit!=expectedCommit{return release.Verified{},errors.New("signed release does not match explicitly approved version and commit")}
+ if now.IsZero(){now=time.Now().UTC()}
+ if err:=release.WriteState(c.statePath,prior.Advance(v,now));err!=nil{return release.Verified{},fmt.Errorf("persist accepted release trust state: %w",err)}
+ return v,nil
+}

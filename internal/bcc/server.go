@@ -228,6 +228,7 @@ func (s *Server) Handler() http.Handler {
 	m.HandleFunc("/api/nodes", s.nodes)
 	m.HandleFunc("/api/nodes/platform", s.nodePlatform)
 	m.HandleFunc("/api/nodes/versions", s.nodeVersions)
+	m.HandleFunc("/api/nodes/versions/accept", s.nodeReleaseAccept)
 	m.HandleFunc("/api/jobs", s.jobs)
 	m.HandleFunc("/api/enroll", s.enroll)
 	m.HandleFunc("/api/bootstrap", s.bootstrap)

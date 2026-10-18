@@ -12,7 +12,7 @@ func TestNodePlatformAdminConfirmationPersistenceAndInvalidation(t *testing.T) {
  path:=filepath.Join(t.TempDir(),"state.db")
  store,err:=OpenStore(path)
  if err!=nil{t.Fatal(err)}
- initial:=Node{ID:"ex-1",Address:"127.0.0.1:2443",Role:"foreign",PublicKey:"key-a",Alias:"A"}
+ initial:=Node{ID:"ex-1",Address:"127.0.0.1:2443",PathIPv4:"127.0.0.1",Role:"foreign",PublicKey:"key-a",Alias:"A"}
  if _,err:=store.UpsertNode(initial,"agent-secret");err!=nil{t.Fatal(err)}
  app,err:=NewServer(store,"admin-secret")
  if err!=nil{t.Fatal(err)}
@@ -36,6 +36,9 @@ func TestNodePlatformAdminConfirmationPersistenceAndInvalidation(t *testing.T) {
  n,ok=reopened.GetNode("ex-1")
  if !ok||!n.Platform.Confirmed{t.Fatal("platform evidence lost on restart")}
  initial.Alias="Renamed"
+ // A partial API update may omit the route that BCC retains from the
+ // existing node. It must not silently invalidate confirmation.
+ initial.PathIPv4=""
  if _,err:=reopened.UpsertNode(initial,"");err!=nil{t.Fatal(err)}
  n,_=reopened.GetNode("ex-1")
  if !n.Platform.Confirmed{t.Fatal("cosmetic alias edit unexpectedly invalidated platform")}

@@ -438,36 +438,50 @@ func overrideEnv() []string {
 }
 
 // scratchDir returns a fresh private directory for the verified installer and
-// the installer's own staging. As root it lives under the install prefix, which
-// must be root-owned and not writable by anyone else: a directory under a
-// caller-chosen TMPDIR could be swapped between the sha256 check and the run.
-func scratchDir(releaseState string, root bool) (string, error) {
+// the installer's own staging, and a function that removes it again. As root it
+// lives under the install prefix, which must be root-owned and not writable by
+// anyone else: a directory under a caller-chosen TMPDIR could be swapped between
+// the sha256 check and the run. The cleanup also removes the (then empty)
+// holding directory, so a preview leaves nothing behind on the host.
+func scratchDir(releaseState string, root bool) (string, func(), error) {
 	if !root {
 		d, err := os.MkdirTemp("", "baft-update-")
 		if err != nil {
-			return "", err
+			return "", nil, err
 		}
-		return filepath.Abs(d)
+		abs, err := filepath.Abs(d)
+		return abs, func() { os.RemoveAll(d) }, err
 	}
 	prefix, err := filepath.Abs(filepath.Dir(releaseState))
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	if err := os.MkdirAll(prefix, 0o755); err != nil {
-		return "", err
+		return "", nil, err
 	}
 	if err := requireRootOnly(prefix); err != nil {
-		return "", err
+		return "", nil, err
 	}
 	parent := filepath.Join(prefix, "update-tmp")
-	if err := os.MkdirAll(parent, 0o700); err != nil {
-		return "", err
+	var d string
+	for attempt := 0; ; attempt++ { // another run may remove the empty holding directory between these two calls
+		if err = os.MkdirAll(parent, 0o700); err == nil {
+			if err = requireRootOnly(parent); err != nil {
+				return "", nil, err
+			}
+			pruneScratch(parent, 24*time.Hour)
+			if d, err = os.MkdirTemp(parent, "run-"); err == nil {
+				break
+			}
+		}
+		if attempt >= 3 {
+			return "", nil, err
+		}
 	}
-	if err := requireRootOnly(parent); err != nil {
-		return "", err
-	}
-	pruneScratch(parent, 24*time.Hour)
-	return os.MkdirTemp(parent, "run-")
+	return d, func() {
+		os.RemoveAll(d)
+		os.Remove(parent) // only succeeds when it is empty
+	}, nil
 }
 
 // requireRootOnly checks, when this process really is root, that dir is owned
@@ -616,12 +630,12 @@ func applyUpdate(ctx context.Context, p applyParams) int {
 		p.planOnly = true
 		fmt.Fprintln(out, "Not running as root, so this shows the plan only. To apply: sudo baft update apply")
 	}
-	dir, err := scratchDir(l.releaseState, p.env.euid() == 0)
+	dir, cleanupDir, err := scratchDir(l.releaseState, p.env.euid() == 0)
 	if err != nil {
 		fmt.Fprintln(p.errw, "cannot create a scratch directory:", err)
 		return 1
 	}
-	defer os.RemoveAll(dir)
+	defer cleanupDir()
 
 	check := p.env.checkUpdate
 	if check == nil {

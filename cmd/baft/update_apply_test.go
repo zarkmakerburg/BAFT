@@ -576,7 +576,7 @@ func TestABinaryIsNeverReplacedUnderAServiceOutsideTheRun(t *testing.T) {
 
 func TestTheAgentIsNotRunAgainWhenTheTransportPassAlreadyUpdatedItsFiles(t *testing.T) {
 	r := newApplyRig(t)
-	r.bin("baft-agent", "agent-v2") // only baft and baft-pair, shared with the transport, are behind
+	r.bin("baft-agent", "agent-v2")       // only baft and baft-pair, shared with the transport, are behind
 	r.inst.applied["--agent-only"] = true // so the installer's own plan for the agent has nothing left, as the real one would
 	if code := r.apply(nil); code != 0 {
 		t.Fatalf("code=%d\n%s", code, r.out.String())

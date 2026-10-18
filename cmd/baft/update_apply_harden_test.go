@@ -77,11 +77,11 @@ func TestScratchDirIsAbsoluteAndIgnoresARelativeTmpdir(t *testing.T) {
 	if err := os.Mkdir("tmp", 0o700); err != nil {
 		t.Fatal(err)
 	}
-	d, err := scratchDir(filepath.Join(t.TempDir(), "release-state.json"), false)
+	d, cleanup, err := scratchDir(filepath.Join(t.TempDir(), "release-state.json"), false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(d)
+	defer cleanup()
 	if !filepath.IsAbs(d) {
 		t.Fatalf("scratch dir %q is relative; the hash check and the run would resolve it differently", d)
 	}
@@ -90,7 +90,7 @@ func TestScratchDirIsAbsoluteAndIgnoresARelativeTmpdir(t *testing.T) {
 func TestScratchDirAsRootLivesUnderTheRootOnlyPrefix(t *testing.T) {
 	prefix := filepath.Join(t.TempDir(), "baft")
 	state := filepath.Join(prefix, "release-state.json")
-	d, err := scratchDir(state, true)
+	d, cleanup, err := scratchDir(state, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,13 +100,17 @@ func TestScratchDirAsRootLivesUnderTheRootOnlyPrefix(t *testing.T) {
 	if info, _ := os.Stat(d); info == nil || info.Mode().Perm() != 0o700 {
 		t.Fatalf("scratch dir mode: %v", info)
 	}
+	cleanup()
+	if _, err := os.Stat(filepath.Join(prefix, "update-tmp")); err == nil {
+		t.Error("the holding directory was left behind: a preview must leave nothing on the host")
+	}
 	if os.Geteuid() != 0 {
 		t.Skip("ownership is only enforced when really running as root")
 	}
 	if err := os.Chmod(prefix, 0o777); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := scratchDir(state, true); err == nil {
+	if _, _, err := scratchDir(state, true); err == nil {
 		t.Fatal("a prefix writable by others was accepted as the home of a root-run installer")
 	}
 }
@@ -481,5 +485,22 @@ func TestARunningServiceThatIsNotEnabledIsExplainedNotCalledUnknown(t *testing.T
 	o := r.out.String()
 	if !strings.Contains(o, "agent service is running but not enabled at boot") || strings.Contains(o, "does not know") {
 		t.Errorf("output:\n%s", o)
+	}
+}
+
+func TestAPreviewAsRootLeavesNothingUnderTheInstallPrefix(t *testing.T) {
+	r := newApplyRig(t)
+	prefix := filepath.Dir(r.layout.releaseState)
+	before, _ := os.ReadDir(prefix)
+	if code := r.apply(func(p *applyParams) { p.planOnly = true }); code != 0 {
+		t.Fatalf("code=%d\n%s", code, r.out.String())
+	}
+	after, _ := os.ReadDir(prefix)
+	if len(after) != len(before) {
+		var names []string
+		for _, e := range after {
+			names = append(names, e.Name())
+		}
+		t.Errorf("a preview left %v under %s", names, prefix)
 	}
 }

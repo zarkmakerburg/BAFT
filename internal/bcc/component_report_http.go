@@ -27,7 +27,7 @@ func (s *Server) agentComponentReport(w http.ResponseWriter, r *http.Request) {
   } `json:"components"`
  }
  dec := json.NewDecoder(bytes.NewReader(body))
- dec.DisallowUnknownFields()
+ // Ignore additive fields from newer agents; known fields and the bounded body remain validated.
  if err := dec.Decode(&in); err != nil { http.Error(w, "invalid JSON", http.StatusBadRequest); return }
  var extra any
  if err := dec.Decode(&extra); err != io.EOF { http.Error(w, "trailing JSON", http.StatusBadRequest); return }

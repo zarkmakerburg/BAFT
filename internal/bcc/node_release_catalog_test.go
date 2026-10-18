@@ -219,3 +219,37 @@ func TestVerifiedReleaseCatalogExplicitAcceptanceRequiresExactIdentity(t *testin
  state,err=release.ReadState(statePath);if err!=nil{t.Fatal(err)}
  if state.Version!="v2.0.0"||state.Commit!=commit||state.RevocationSequence!=7{t.Fatalf("accepted release not persisted: %+v",state)}
 }
+
+func TestVerifiedReleaseCatalogDowngradeRequiresExplicitApproval(t *testing.T) {
+ base:=t.TempDir()
+ dir:=filepath.Join(base,"signed")
+ if err:=os.Mkdir(dir,0700);err!=nil{t.Fatal(err)}
+ now:=time.Date(2026,10,18,16,0,0,0,time.UTC)
+ rootPub,rootPriv,err:=release.GenerateKey();if err!=nil{t.Fatal(err)}
+ signPub,signPriv,err:=release.GenerateKey();if err!=nil{t.Fatal(err)}
+ cert,err:=release.Certify(rootPriv,signPub,now.Add(-time.Hour),now.Add(time.Hour));if err!=nil{t.Fatal(err)}
+ rev,err:=release.SignRevocations(rootPriv,9,nil,now.Add(-time.Hour),now.Add(time.Hour));if err!=nil{t.Fatal(err)}
+ rootPath:=filepath.Join(base,"root.pub")
+ revPath:=filepath.Join(base,"revocations.json")
+ statePath:=filepath.Join(base,"trust.json")
+ if err:=os.WriteFile(rootPath,[]byte(release.EncodePublic(rootPub)),0600);err!=nil{t.Fatal(err)}
+ if err:=release.WriteEnvelope(revPath,rev);err!=nil{t.Fatal(err)}
+ if err:=os.WriteFile(filepath.Join(dir,"baft-linux-amd64"),[]byte("older signed binary"),0700);err!=nil{t.Fatal(err)}
+ commit:=strings.Repeat("a",40)
+ if _,err:=release.SignDir(release.SignInput{Dir:dir,Version:"v1.0.0",Commit:commit,CreatedAt:now,Provenance:release.Provenance{Builder:"test",GoVersion:"go1.27"},Key:signPriv,Cert:cert,Root:rootPub});err!=nil{t.Fatal(err)}
+ accepted:=release.TrustState{SchemaVersion:1,Version:"v2.0.0",Commit:strings.Repeat("b",40),RevocationSequence:8}
+ if err:=release.WriteState(statePath,accepted);err!=nil{t.Fatal(err)}
+ cat,err:=NewVerifiedReleaseCatalog(dir,rootPath,revPath,statePath);if err!=nil{t.Fatal(err)}
+ if _,err:=cat.Verify(now);err==nil{t.Fatal("ordinary observation accepted downgrade")}
+ if _,err:=cat.AcceptRelease(now,"v1.0.0",commit,false);err==nil{t.Fatal("downgrade accepted without explicit override")}
+ if _,err:=cat.AcceptRelease(now,"v1.0.0",strings.Repeat("c",40),true);err==nil{t.Fatal("wrong approved commit accepted")}
+ state,err:=release.ReadState(statePath);if err!=nil{t.Fatal(err)}
+ if state.Version!="v2.0.0"||state.RevocationSequence!=8{t.Fatalf("rejected downgrade changed state: %+v",state)}
+ if _,err:=cat.AcceptRelease(now,"v1.0.0",commit,true);err!=nil{t.Fatalf("approved downgrade rejected: %v",err)}
+ state,err=release.ReadState(statePath);if err!=nil{t.Fatal(err)}
+ if state.Version!="v1.0.0"||state.Commit!=commit||state.RevocationSequence!=9{t.Fatalf("approved downgrade not safely persisted: %+v",state)}
+ if err:=release.WriteEnvelope(revPath,rev);err!=nil{t.Fatal(err)}
+ oldRev,err:=release.SignRevocations(rootPriv,8,nil,now.Add(-time.Hour),now.Add(time.Hour));if err!=nil{t.Fatal(err)}
+ if err:=release.WriteEnvelope(revPath,oldRev);err!=nil{t.Fatal(err)}
+ if _,err:=cat.AcceptRelease(now,"v1.0.0",commit,true);err==nil{t.Fatal("downgrade bypassed revocation replay protection")}
+}

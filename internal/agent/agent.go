@@ -281,6 +281,9 @@ type Result struct {
 
 // RunOnce pulls and handles the pending jobs once.
 func (a *Agent) RunOnce(ctx context.Context) ([]Result, error) {
+	// Report observed binary digests without blocking job processing if the
+	// endpoint is unavailable during a rolling BCC upgrade.
+	_ = a.SendComponentReport(ctx)
 	a.flushAcks(ctx)
 	jobs, err := a.pull(ctx)
 	if err != nil {

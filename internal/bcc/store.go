@@ -161,6 +161,7 @@ type MonitoringNode struct {
 
 type state struct {
 	Nodes    map[string]Node          `json:"nodes"`
+	ComponentDigestReceipts map[string]ComponentDigestReceipt `json:"component_digest_receipts,omitempty"`
 	Jobs     map[string]Job           `json:"jobs"`
 	Finance   map[string]NodeFinance      `json:"finance,omitempty"`
 	Policies        map[string]FinancePolicy     `json:"finance_policies,omitempty"`

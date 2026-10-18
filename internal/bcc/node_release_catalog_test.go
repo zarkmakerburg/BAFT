@@ -165,3 +165,31 @@ func TestVerifiedReleaseCatalogSeesRotatedDirectorySymlink(t *testing.T) {
  state,err:=release.ReadState(filepath.Join(base,"trust.json"));if err!=nil{t.Fatal(err)}
  if state.Version!=""||state.RevocationSequence!=1{t.Fatalf("read-only observation ratcheted accepted version: %+v",state)}
 }
+
+func TestVerifiedReleaseCatalogReadDoesNotAdvanceAcceptedRelease(t *testing.T) {
+ base:=t.TempDir()
+ dir:=filepath.Join(base,"signed")
+ if err:=os.Mkdir(dir,0700);err!=nil{t.Fatal(err)}
+ now:=time.Date(2026,10,18,16,0,0,0,time.UTC)
+ rootPub,rootPriv,err:=release.GenerateKey();if err!=nil{t.Fatal(err)}
+ signPub,signPriv,err:=release.GenerateKey();if err!=nil{t.Fatal(err)}
+ cert,err:=release.Certify(rootPriv,signPub,now.Add(-time.Hour),now.Add(time.Hour));if err!=nil{t.Fatal(err)}
+ rev,err:=release.SignRevocations(rootPriv,4,nil,now.Add(-time.Hour),now.Add(time.Hour));if err!=nil{t.Fatal(err)}
+ rootPath:=filepath.Join(base,"root.pub")
+ revPath:=filepath.Join(base,"revocations.json")
+ statePath:=filepath.Join(base,"trust.json")
+ if err:=os.WriteFile(rootPath,[]byte(release.EncodePublic(rootPub)),0600);err!=nil{t.Fatal(err)}
+ if err:=release.WriteEnvelope(revPath,rev);err!=nil{t.Fatal(err)}
+ if err:=os.WriteFile(filepath.Join(dir,"baft-linux-amd64"),[]byte("new release"),0700);err!=nil{t.Fatal(err)}
+ if _,err:=release.SignDir(release.SignInput{Dir:dir,Version:"v2.0.0",Commit:strings.Repeat("b",40),CreatedAt:now,Provenance:release.Provenance{Builder:"test",GoVersion:"go1.27"},Key:signPriv,Cert:cert,Root:rootPub});err!=nil{t.Fatal(err)}
+ accepted:=release.TrustState{SchemaVersion:1,Version:"v1.0.0",Commit:strings.Repeat("a",40),RevocationSequence:3}
+ if err:=release.WriteState(statePath,accepted);err!=nil{t.Fatal(err)}
+ cat,err:=NewVerifiedReleaseCatalog(dir,rootPath,revPath,statePath);if err!=nil{t.Fatal(err)}
+ for i:=0;i<2;i++ {
+  v,err:=cat.Verify(now);if err!=nil||v.Version!="v2.0.0"{t.Fatalf("verified observation %d: %v %+v",i,err,v)}
+ }
+ state,err:=release.ReadState(statePath);if err!=nil{t.Fatal(err)}
+ if state.Version!="v1.0.0"||state.Commit!=accepted.Commit||state.RevocationSequence!=4 {
+  t.Fatalf("read ratcheted accepted version or failed revocation floor: %+v",state)
+ }
+}

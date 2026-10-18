@@ -8,6 +8,9 @@ import (
 func TestDashboardNodeVersionSecurityContract(t *testing.T) {
  checks:=[]string{
   "BAFT / Agent / BCC",
+  "id=\"catalogHealth\"",
+  "catalogStatus",
+  "Release catalog: ",
   "async function loadNodes()",
   "fetch('/api/nodes/versions',{headers:ah()})",
   "function componentVersionsHTML(item)",

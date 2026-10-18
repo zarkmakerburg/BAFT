@@ -150,7 +150,7 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       await shot(route);result.pages.push(route);
     });
     result.cards=[...cards].sort();
-    await check('complete card and page coverage',async()=>{assert.equal(cards.size,17);assert.equal(result.pages.length,10)});
+    await check('complete card and page coverage',async()=>{assert.equal(cards.size,18);assert.equal(result.pages.length,10)});
     await check('native toolbox opens collapsed Studio without deploy',async()=>{
       await nav('tunnels');
       const studio=page.locator('details[data-tool="tunnels"]');

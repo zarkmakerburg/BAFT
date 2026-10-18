@@ -260,7 +260,7 @@ function renderNodeCards(versionMap){
  let cards=q('#nodeCards');if(!cards)return;
  cards.innerHTML=(Array.isArray(nodes)?nodes:[]).map(n=>{
   let ts=(Array.isArray(tnWizardTunnels)?tnWizardTunnels:[]).filter(t=>t.ex_node===n.id||t.ir_node===n.id);
-  let tunnels=ts.map(t=>'<div class="route"><b>'+esc(t.id)+'</b> <span class="badge '+(t.phase==='active'?'up':'unknown')+'">'+esc(t.phase||'unknown')+'</span></div>').join('');
+  let tunnels=ts.map(t=>'<div class="route"><b>'+esc(t.id)+'</b> <span class="badge '+(t.phase==='active'?'up':t.phase==='rollback_failed'||t.phase==='decommission_failed'?'down':'unknown')+'">'+esc(t.phase||'unknown')+'</span> <span class="muted">'+esc(t.ex_node===n.id?'EX':'IR')+'</span>'+(t.phase==='active'?'<button class="alt" data-id="'+esc(t.id)+'" onclick="tnEdit(this.dataset.id)">Edit / ویرایش</button> <button class="alt" data-id="'+esc(t.id)+'" onclick="tnDrift(this.dataset.id)">Check drift</button>':'')+'</div>').join('');
   return '<section class="card"><div class="top"><b>'+esc(n.alias||n.id)+'</b><span class="badge '+esc(n.health||'unknown')+'">'+esc(n.health||'unknown')+'</span></div><div class="muted">'+esc(n.id)+' · '+esc(n.role||'')+' · '+esc(n.address||'')+'</div><div style="margin-top:10px">'+componentVersionsHTML(versionMap[n.id])+'</div><details><summary>Tunnels / تونل‌ها ('+ts.length+')</summary>'+(tunnels||'<span class="muted">No tunnels / بدون تونل</span>')+'</details></section>'
  }).join('');
 }

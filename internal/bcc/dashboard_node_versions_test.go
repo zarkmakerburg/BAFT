@@ -8,6 +8,11 @@ import (
 func TestDashboardNodeVersionSecurityContract(t *testing.T) {
  checks:=[]string{
   "BAFT / Agent / BCC",
+  "id=\"backupInventory\"",
+  "loadBackups()])",
+  "fetch('/api/backups',{headers:ah()})",
+  "fetch('/api/backups/create',{method:'POST',headers:ah()})",
+  "fetch('/api/backups/restore-preview'",
   "id=\"nodeCards\"",
   "function renderNodeCards(versionMap)",
   "t.ex_node===n.id||t.ir_node===n.id",

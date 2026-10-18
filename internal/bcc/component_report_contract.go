@@ -20,7 +20,8 @@ type ComponentDigestReceipt struct {
 func CheckComponentReceiptFreshness(observedAt, lastAccepted, now time.Time, maxAge time.Duration) error {
  if observedAt.IsZero() || maxAge <= 0 { return errors.New("invalid report time or max age") }
  age := now.Sub(observedAt)
- if age < 0 || age > maxAge { return errors.New("component report outside freshness window") }
+ // Tolerate bounded agent clock lead while retaining a strict replay cursor.
+ if age < -2*time.Minute || age > maxAge { return errors.New("component report outside freshness window") }
  if !lastAccepted.IsZero() && !observedAt.After(lastAccepted) { return errors.New("duplicate or out-of-order component report") }
  return nil
 }

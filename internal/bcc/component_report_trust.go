@@ -2,6 +2,8 @@ package bcc
 
 import (
  "strings"
+ "crypto/ed25519"
+ "time"
 
  "github.com/zarkmakerburg/baft/internal/release"
 )
@@ -16,6 +18,21 @@ const (
  ComponentMismatch ComponentTrustState = "mismatch"
  ComponentUnknown ComponentTrustState = "unknown"
 )
+
+// VerifyAndCompareComponentDigest checks the complete signed release directory
+// against a pinned root and revocations before trusting any artifact digest.
+// Verification failures fail closed to unknown, never mismatch/verified.
+func VerifyAndCompareComponentDigest(observed, artifactName string, input release.VerifyInput) (ComponentTrustState, error) {
+ verified, err := release.VerifyDir(input)
+ if err != nil { return ComponentUnknown, err }
+ return CompareVerifiedComponentDigest(observed, verified, artifactName), nil
+}
+
+// Ensure the signing authority is supplied by the caller; never trust a key
+// provided inside an agent report or an unsigned manifest.
+func VerifyComponentReleaseDir(dir string, root ed25519.PublicKey, revocations release.Envelope, now time.Time) (release.Verified, error) {
+ return release.VerifyDir(release.VerifyInput{Dir:dir, Root:root, Revocations:&revocations, Now:now})
+}
 
 // CompareVerifiedComponentDigest matches an observed binary digest against a
 // release.VerifyDir result, never against an Agent-claimed version. If an

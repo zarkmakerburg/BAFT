@@ -21,11 +21,11 @@
  function render(){if(!active)return;const dialog=active.firstElementChild;dialog.replaceChildren();const header=element('header',undefined,'baw-header');header.append(element('h2',tr('title')+' — '+stageNames[locale()][index],'baw-title'),button(tr('close'),close));dialog.append(header);
  const progress=element('div',undefined,'baw-progress');stages.forEach((name,i)=>{const p=element('span');p.setAttribute('aria-label',stageNames[locale()][i]);if(i===index)p.setAttribute('aria-current','step');if(i<index)p.dataset.complete='true';progress.append(p);});dialog.append(progress);
  const body=element('div',undefined,'baw-body');
- if(index===0)body.append(choice('Topology','topology',[['direct','Direct'],['reverse','Reverse']]));
- if(index===1){body.append(choice('Engine','engine',engineCatalog.filter(e=>e.installed).map(e=>[e.id,e.label])));if(!compatibleEngine(model.engine,model.topology)){const warning=element('p','Selected engine does not support this topology.');warning.setAttribute('role','alert');body.append(warning);}}
- if(index===2){body.append(element('p','Preview: node entries are illustrative; live node discovery is not connected.'),input('Iran node','iran'),input('Foreign node','foreign'));}
- if(index===3){body.append(element('p','Public ingress port is separate from inter-node transport and local route ports.'),input('Public ingress port','port'));}
- if(index===4){for(const [key,value] of Object.entries(model))body.append(element('p',key+': '+(value||'Not selected')));const notice=element('p','Preview only — no live checks or changes.');notice.setAttribute('role','status');body.append(notice);}
+ if(index===0)body.append(choice(tr('topology'),'topology',[['direct','Direct'],['reverse','Reverse']]));
+ if(index===1){body.append(choice(tr('engine'),'engine',engineCatalog.filter(e=>e.installed).map(e=>[e.id,e.label])));if(!compatibleEngine(model.engine,model.topology)){const warning=element('p',tr('unsupported'));warning.setAttribute('role','alert');body.append(warning);}}
+ if(index===2){body.append(element('p',tr('nodes')),input(tr('iran'),'iran'),input(tr('foreign'),'foreign'));}
+ if(index===3){body.append(element('p',tr('ports')),input(tr('port'),'port'));}
+ if(index===4){for(const [key,value] of Object.entries(model))body.append(element('p',key+': '+(value||'Not selected')));const notice=element('p',tr('notice'));notice.setAttribute('role','status');body.append(notice);}
  dialog.append(body);
  const footer=element('footer',undefined,'baw-actions');const back=button(tr('back'),()=>{index--;render();});back.disabled=index===0;footer.append(back);const next=button(index===4?tr('preview'):tr('next'),()=>{if(index===4)close();else{index++;render();}});next.disabled=(index===1&&!compatibleEngine(model.engine,model.topology))||(index===2&&!validNodes())||(index===3&&!validPort(model.port));next.dataset.bawNext='true';footer.append(next);dialog.append(footer);
  }

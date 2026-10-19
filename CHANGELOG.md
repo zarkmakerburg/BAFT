@@ -20,8 +20,8 @@ Development target: **v0.4.0**, draft PR #270. Not released. See [readiness and 
 ### Fixed
 
 - Generated `baft-panel` and `baft-net` menus accept Tab/Shift+Tab and numbered choices through the same action dispatch, with numeric fallback for dumb terminals and redirected input. The separate Go console remains numeric-only.
-- Network tuning saves the exact previous values of the keys it changes, restores them on partial failure, and keeps retryable rollback state. Legacy tuning without a snapshot is refused rather than guessed.
-- BCC certificate acceptance verifies the private key matches the certificate; failed ACME replacement restores the previous serving files. Renewal timer failure is reported without promising automatic renewal.
+- Network tuning requires explicit consent (including SSH-assisted installs), cancels on prompt EOF, and saves the exact previous values of the keys it changes, restores them on partial failure, and keeps retryable rollback state. Legacy tuning without a snapshot is refused rather than guessed.
+- BCC certificate acceptance requires DNS SAN and matching EC/RSA private key; new ACME downloads are pinned to a verified immutable archive and fallback requires explicit consent; failed ACME replacement restores the previous serving files. Renewal timer failure is reported without promising automatic renewal.
 - Signed ingress preflight jobs reject invalid ports and loopback endpoints, and lifecycle helpers reject malformed owned resources. Operational ingress application is still incomplete.
 - Floating wizard assets are embedded in BCC so their HTTP routes no longer return 404.
 

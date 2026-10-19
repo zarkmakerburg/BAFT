@@ -1,0 +1,179 @@
+{
+  "source": "c52a7e7fb54d18bc5fb013f1646dbc2969de6fc8",
+  "scope": "Chromium DOM smoke only; not full Playwright acceptance or carrier admission",
+  "profiles": [
+    {
+      "name": "desk-fa-dark",
+      "pages": [
+        "dashboard",
+        "servers",
+        "tunnels",
+        "monitoring",
+        "security",
+        "ssl",
+        "backups",
+        "updates",
+        "finance",
+        "settings"
+      ],
+      "checks": [
+        "real DOM login",
+        "language direction theme",
+        "native wizard opens without deployment"
+      ],
+      "failures": []
+    },
+    {
+      "name": "desk-fa-light",
+      "pages": [
+        "dashboard",
+        "servers",
+        "tunnels",
+        "monitoring",
+        "security",
+        "ssl",
+        "backups",
+        "updates",
+        "finance",
+        "settings"
+      ],
+      "checks": [
+        "real DOM login",
+        "language direction theme",
+        "native wizard opens without deployment"
+      ],
+      "failures": []
+    },
+    {
+      "name": "desk-en-dark",
+      "pages": [
+        "dashboard",
+        "servers",
+        "tunnels",
+        "monitoring",
+        "security",
+        "ssl",
+        "backups",
+        "updates",
+        "finance",
+        "settings"
+      ],
+      "checks": [
+        "real DOM login",
+        "language direction theme",
+        "native wizard opens without deployment"
+      ],
+      "failures": []
+    },
+    {
+      "name": "desk-en-light",
+      "pages": [
+        "dashboard",
+        "servers",
+        "tunnels",
+        "monitoring",
+        "security",
+        "ssl",
+        "backups",
+        "updates",
+        "finance",
+        "settings"
+      ],
+      "checks": [
+        "real DOM login",
+        "language direction theme",
+        "native wizard opens without deployment"
+      ],
+      "failures": []
+    },
+    {
+      "name": "mob-fa-dark",
+      "pages": [
+        "dashboard",
+        "servers",
+        "tunnels",
+        "monitoring",
+        "security",
+        "ssl",
+        "backups",
+        "updates",
+        "finance",
+        "settings"
+      ],
+      "checks": [
+        "real DOM login",
+        "language direction theme",
+        "native wizard opens without deployment"
+      ],
+      "failures": []
+    },
+    {
+      "name": "mob-fa-light",
+      "pages": [
+        "dashboard",
+        "servers",
+        "tunnels",
+        "monitoring",
+        "security",
+        "ssl",
+        "backups",
+        "updates",
+        "finance",
+        "settings"
+      ],
+      "checks": [
+        "real DOM login",
+        "language direction theme",
+        "native wizard opens without deployment"
+      ],
+      "failures": []
+    },
+    {
+      "name": "mob-en-dark",
+      "pages": [
+        "dashboard",
+        "servers",
+        "tunnels",
+        "monitoring",
+        "security",
+        "ssl",
+        "backups",
+        "updates",
+        "finance",
+        "settings"
+      ],
+      "checks": [
+        "real DOM login",
+        "language direction theme",
+        "native wizard opens without deployment"
+      ],
+      "failures": []
+    },
+    {
+      "name": "mob-en-light",
+      "pages": [
+        "dashboard",
+        "servers",
+        "tunnels",
+        "monitoring",
+        "security",
+        "ssl",
+        "backups",
+        "updates",
+        "finance",
+        "settings"
+      ],
+      "checks": [
+        "real DOM login",
+        "language direction theme",
+        "native wizard opens without deployment"
+      ],
+      "failures": []
+    }
+  ],
+  "browser": {
+    "product": "Chrome/155.0.8059.80",
+    "protocolVersion": "1.3",
+    "jsVersion": "15.5.35.23"
+  }
+}

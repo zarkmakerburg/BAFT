@@ -2,6 +2,9 @@
 (function () {
  'use strict';
  const stages = ['Topology','Engine','Nodes','Settings','Preview'];
+ const engineCatalog = Object.freeze([{id:'native',label:'BAFT Native',direct:true,reverse:false,installed:true}]);
+ function compatibleEngine(id,topology){const e=engineCatalog.find(x=>x.id===id);return Boolean(e&&e.installed&&(topology==='direct'?e.direct:e.reverse));}
+ function validPort(value){return /^[0-9]+$/.test(value)&&Number(value)>=1&&Number(value)<=65535;}
  const model = {topology:'direct',engine:'native',iran:'',foreign:'',port:''};
  let active = null, index = 0, returnFocus = null;
  function element(tag,text,cls) {const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;}
@@ -14,12 +17,12 @@
  const progress=element('div',undefined,'baw-progress');stages.forEach((name,i)=>{const p=element('span');p.setAttribute('aria-label',name);if(i===index)p.setAttribute('aria-current','step');if(i<index)p.dataset.complete='true';progress.append(p);});dialog.append(progress);
  const body=element('div',undefined,'baw-body');
  if(index===0)body.append(choice('Topology','topology',[['direct','Direct'],['reverse','Reverse']]));
- if(index===1){body.append(choice('Engine','engine',[['native','BAFT Native']]));if(model.topology==='reverse')body.append(element('p','Reverse capability is not yet verified for this engine.'));}
+ if(index===1){body.append(choice('Engine','engine',engineCatalog.filter(e=>e.installed).map(e=>[e.id,e.label])));if(!compatibleEngine(model.engine,model.topology)){const warning=element('p','Selected engine does not support this topology.');warning.setAttribute('role','alert');body.append(warning);}}
  if(index===2){body.append(element('p','Preview: node entries are illustrative; live node discovery is not connected.'),input('Iran node','iran'),input('Foreign node','foreign'));}
  if(index===3){body.append(element('p','Public ingress port is separate from inter-node transport and local route ports.'),input('Public ingress port','port'));}
- if(index===4){for(const [key,value] of Object.entries(model))body.append(element('p',key+': '+(value||'Not selected')));body.append(element('p','Preview only — no live checks or changes.'));}
+ if(index===4){for(const [key,value] of Object.entries(model))body.append(element('p',key+': '+(value||'Not selected')));const notice=element('p','Preview only — no live checks or changes.');notice.setAttribute('role','status');body.append(notice);}
  dialog.append(body);
- const footer=element('footer',undefined,'baw-actions');const back=button('Back',()=>{index--;render();});back.disabled=index===0;footer.append(back);const next=button(index===4?'Close preview':'Next',()=>{if(index===4)close();else{index++;render();}});next.disabled=(index===1&&model.topology==='reverse')||(index===3&&(!/^[0-9]+$/.test(model.port)||Number(model.port)<1||Number(model.port)>65535));footer.append(next);dialog.append(footer);
+ const footer=element('footer',undefined,'baw-actions');const back=button('Back',()=>{index--;render();});back.disabled=index===0;footer.append(back);const next=button(index===4?'Close preview':'Next',()=>{if(index===4)close();else{index++;render();}});next.disabled=(index===1&&!compatibleEngine(model.engine,model.topology))||(index===3&&!validPort(model.port));footer.append(next);dialog.append(footer);
  }
  function open(){if(active)return;returnFocus=document.activeElement;index=0;Object.assign(model,{topology:'direct',engine:'native',iran:'',foreign:'',port:''});active=element('div',undefined,'baw-backdrop');const dialog=element('section',undefined,'baw-dialog');dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');dialog.setAttribute('aria-label','Tunnel wizard preview');active.append(dialog);document.body.append(active);active.addEventListener('click',e=>{if(e.target===active)close();});document.addEventListener('keydown',onKey);render();dialog.querySelector('button').focus();}
  window.BAFTActionWizard={open,close,version:'1.0-preview'};

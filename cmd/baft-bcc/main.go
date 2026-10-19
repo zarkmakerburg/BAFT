@@ -38,6 +38,7 @@ func main(){
 	alertInterval:=flag.Duration("alert-interval",15*time.Second,"alert evaluation interval")
 	auditAnchorInterval:=flag.Duration("audit-anchor-interval",time.Hour,"external audit anchor interval")
 	backupDir:=flag.String("backup-dir","./backups","encrypted BCC backup directory")
+	backupKeyFile:=flag.String("backup-key-file","","file containing base64-encoded 32-byte backup key; preferred over BAFT_BCC_BACKUP_KEY env var (env is not visible in ps/proc)")
 	backupInterval:=flag.Duration("backup-interval",24*time.Hour,"encrypted backup interval")
 	backupDailyRetention:=flag.Int("backup-daily-retention",7,"daily backup retention count")
 	backupWeeklyRetention:=flag.Int("backup-weekly-retention",4,"weekly backup retention count")
@@ -132,8 +133,14 @@ func main(){
 	go app.StartAlertLoop(ctx)
 	app.StartTunnelLoop(ctx,2*time.Second)
 	go app.StartAuditAnchorLoop(ctx)
-	if strings.TrimSpace(os.Getenv("BAFT_BCC_BACKUP_KEY"))!=""{
-		backupKey,err:=bcc.BackupKeyFromEnv()
+	if *backupKeyFile!=""||strings.TrimSpace(os.Getenv("BAFT_BCC_BACKUP_KEY"))!=""{
+		var backupKey []byte
+		var err error
+		if *backupKeyFile!=""{
+			backupKey,err=bcc.BackupKeyFromFile(*backupKeyFile)
+		}else{
+			backupKey,err=bcc.BackupKeyFromEnv()
+		}
 		if err!=nil{fmt.Fprintln(os.Stderr,"backup key:",err);os.Exit(2)}
 		if err:=app.ConfigureBackupAdmin(*backupDir,backupKey);err!=nil{fmt.Fprintln(os.Stderr,"backup admin:",err);os.Exit(2)}
 		go app.StartBackupLoop(ctx,*backupDir,backupKey,*backupInterval,bcc.BackupRetention{Daily:*backupDailyRetention,Weekly:*backupWeeklyRetention})

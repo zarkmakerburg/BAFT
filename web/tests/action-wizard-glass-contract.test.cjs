@@ -83,3 +83,10 @@ test('validation feedback remains visible and respects reduced motion',()=>{
  assert.match(js,/role','alert/);
  assert.match(js,/aria-live','polite/);
 });
+
+test('validation warnings update as fields change',()=>{
+ assert.match(js,/bawNodeWarning/);
+ assert.match(js,/bawPortWarning/);
+ assert.match(js,/warning\.hidden=validNodes\(\)/);
+ assert.match(js,/warning\.hidden=validPort\(model\.port\)/);
+});

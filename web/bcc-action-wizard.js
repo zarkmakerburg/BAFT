@@ -7,6 +7,7 @@
  function validPort(value){return /^[0-9]+$/.test(value)&&Number(value)>=1&&Number(value)<=65535;}
  function validNodes(){return model.iran.trim().length>0&&model.foreign.trim().length>0&&model.iran.trim()!==model.foreign.trim();}
  const model = {topology:'direct',engine:'native',iran:'',foreign:'',port:''};
+ const stageNames={fa:['نوع تونل','موتور','سرورها','تنظیمات','پیش‌نمایش'],en:stages};
  const labels={fa:{title:'ساخت تونل هوشمند',close:'بستن',back:'قبلی',next:'بعدی',preview:'بستن پیش‌نمایش'},en:{title:'Create Smart Tunnel',close:'Close',back:'Back',next:'Next',preview:'Close preview'}};
  function locale(){return document.documentElement.lang==='fa'?'fa':'en';}
  function tr(key){return labels[locale()][key];}
@@ -17,8 +18,8 @@
  function button(label,fn){const b=element('button',label);b.type='button';b.addEventListener('click',fn);return b;}
  function choice(label,key,options){const wrap=element('label',label+' ');const s=element('select');for(const [value,name] of options){const o=element('option',name);o.value=value;s.append(o);}s.value=model[key];s.addEventListener('change',()=>{model[key]=s.value;render();});wrap.append(s);return wrap;}
  function input(label,key){const wrap=element('label',label+' '),field=element('input');field.value=model[key];if(key==='port'){field.type='number';field.min='1';field.max='65535';field.inputMode='numeric';}field.addEventListener('input',()=>{model[key]=field.value;const next=active?.querySelector('[data-baw-next]');if(next&&index===3)next.disabled=!validPort(model.port);if(next&&index===2)next.disabled=!validNodes();});wrap.append(field);return wrap;}
- function render(){if(!active)return;const dialog=active.firstElementChild;dialog.replaceChildren();const header=element('header',undefined,'baw-header');header.append(element('h2',tr('title')+' — '+stages[index],'baw-title'),button(tr('close'),close));dialog.append(header);
- const progress=element('div',undefined,'baw-progress');stages.forEach((name,i)=>{const p=element('span');p.setAttribute('aria-label',name);if(i===index)p.setAttribute('aria-current','step');if(i<index)p.dataset.complete='true';progress.append(p);});dialog.append(progress);
+ function render(){if(!active)return;const dialog=active.firstElementChild;dialog.replaceChildren();const header=element('header',undefined,'baw-header');header.append(element('h2',tr('title')+' — '+stageNames[locale()][index],'baw-title'),button(tr('close'),close));dialog.append(header);
+ const progress=element('div',undefined,'baw-progress');stages.forEach((name,i)=>{const p=element('span');p.setAttribute('aria-label',stageNames[locale()][i]);if(i===index)p.setAttribute('aria-current','step');if(i<index)p.dataset.complete='true';progress.append(p);});dialog.append(progress);
  const body=element('div',undefined,'baw-body');
  if(index===0)body.append(choice('Topology','topology',[['direct','Direct'],['reverse','Reverse']]));
  if(index===1){body.append(choice('Engine','engine',engineCatalog.filter(e=>e.installed).map(e=>[e.id,e.label])));if(!compatibleEngine(model.engine,model.topology)){const warning=element('p','Selected engine does not support this topology.');warning.setAttribute('role','alert');body.append(warning);}}

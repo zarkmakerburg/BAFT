@@ -20,6 +20,4 @@ func TestP0PublicIngressReservations(t *testing.T) {
  if err := ValidatePublicIngressReservation(changed, []PublicIngressSpec{a}); err == nil { t.Fatal("same tunnel cannot silently change owned target") }
 }
 
-// Review note: future tests should cover whitespace-normalized node ownership.
-
-// TODO(P0): add failing normalization regression tests when implementation is approved.
+// TODO(P0): verify canonical ownership checks alongside the reservation fix.

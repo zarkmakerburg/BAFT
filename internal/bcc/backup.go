@@ -65,6 +65,20 @@ func BackupKeyFromEnv()([]byte,error){
 	return key,nil
 }
 
+// BackupKeyFromFile reads a backup key from a file, using the same format as
+// BackupKeyFromEnv (base64-encoded 32 bytes). Using a file keeps the key out
+// of the process environment (not visible in /proc/<pid>/environ or ps auxe).
+func BackupKeyFromFile(path string)([]byte,error){
+	b,err:=os.ReadFile(path)
+	if err!=nil{return nil,fmt.Errorf("backup key file: %w",err)}
+	raw:=strings.TrimSpace(string(b))
+	if raw==""{return nil,errors.New("backup key file is empty")}
+	key,err:=base64.StdEncoding.DecodeString(raw)
+	if err!=nil{return nil,errors.New("backup key file must contain a base64-encoded key")}
+	if len(key)!=32{return nil,errors.New("backup key file must decode to exactly 32 bytes")}
+	return key,nil
+}
+
 func newAEAD(key []byte)(cipher.AEAD,error){
 	if len(key)!=32{return nil,errors.New("backup key must be exactly 32 bytes")}
 	block,err:=aes.NewCipher(key);if err!=nil{return nil,err}

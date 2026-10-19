@@ -20,7 +20,7 @@ func TestP0PublicIngressReservations(t *testing.T) {
  if err := ValidatePublicIngressReservation(changed, []PublicIngressSpec{a}); err == nil { t.Fatal("same tunnel cannot silently change owned target") }
 }
 
-// TODO(P0): verify canonical ownership checks alongside the reservation fix.
+// Canonical ownership checks are covered by TestP0PublicIngressCanonicalOwnership.
 
 func TestP0PublicIngressCanonicalOwnership(t *testing.T) {
  base, err := PlanPublicIngress("arno", "tun-a", 54619, "127.0.0.1:1444")

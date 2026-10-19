@@ -2672,7 +2672,7 @@ do_speed() {
 do_latency() {
   local h t
   for h in 1.1.1.1 8.8.8.8 www.google.com github.com; do
-    if t="$(curl -o /dev/null -s --max-time 6 -w '%{time_connect}' "https://$h" 2>/dev/null)" && [[ -n "$t" ]]; then printf '  %-16s %s ms\n' "$h" "$(awk -v t="$t" 'BEGIN{printf "%.0f", t*1000}')"
+    if t="$(curl -o /dev/null -s --max-time 6 -w '%{time_connect}' "https://$h" 2>/dev/null)" && [[ "$t" =~ ^[0-9]+([.][0-9]+)?$ ]]; then printf '  %-16s %s ms\n' "$h" "$(awk -v t="$t" 'BEGIN{printf "%.0f", t*1000}')"
     else printf '  %-16s %sno answer%s\n' "$h" "$ER" "$R"; fi
   done
 }

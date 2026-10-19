@@ -16,3 +16,15 @@
 @media(prefers-color-scheme:light){.baw-backdrop{background:rgba(30,42,65,.32)}.baw-dialog{background:linear-gradient(145deg,rgba(249,251,255,.94),rgba(229,237,250,.96));color:#17223a;border-color:rgba(255,255,255,.75);box-shadow:0 22px 80px rgba(34,49,80,.2),0 0 30px rgba(87,142,255,.13)}.baw-close{border-color:rgba(40,70,110,.2);background:rgba(255,255,255,.6)}.baw-progress>span{background:rgba(30,50,80,.14)}}
 @media(max-width:600px){.baw-backdrop{padding:8px;align-items:end}.baw-dialog{width:100%;max-height:calc(100dvh - 16px);border-radius:24px 24px 16px 16px;padding:20px 16px calc(20px + env(safe-area-inset-bottom))}}
 @media(prefers-reduced-motion:no-preference){.baw-dialog{animation:baw-appear .22s ease-out}@keyframes baw-appear{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}}
+
+/* Interactive form elements and preview launch affordance */
+.baw-launch{border:1px solid rgba(138,184,255,.38);background:rgba(114,165,255,.11);color:inherit;border-radius:12px;padding:9px 12px;cursor:pointer;white-space:nowrap}
+.baw-launch:hover,.baw-launch:focus-visible{box-shadow:0 0 18px rgba(119,172,255,.18);outline-offset:3px}
+.baw-body label{display:flex;flex-direction:column;gap:7px;margin-block:12px;font-weight:600}
+.baw-body input,.baw-body select{box-sizing:border-box;width:100%;padding:11px 13px;border:1px solid rgba(145,175,220,.38);border-radius:12px;background:rgba(14,24,44,.68);color:#fff;font:inherit}
+.baw-body option{color:#101d33;background:#fff}
+.baw-body p{overflow-wrap:anywhere}
+.baw-actions button{border:1px solid rgba(150,190,245,.38);background:rgba(95,148,240,.2);color:inherit}
+.baw-actions button:disabled{opacity:.4;cursor:not-allowed}
+@media(prefers-color-scheme:light){.baw-body input,.baw-body select{background:rgba(255,255,255,.75);color:#17223a}.baw-actions button{background:rgba(100,150,235,.12)}}
+@media(max-width:600px){.baw-launch{padding:8px;font-size:.8rem}}

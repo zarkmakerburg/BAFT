@@ -2697,7 +2697,7 @@ do_port() {
     return 2
   fi
   t="$(curl -o /dev/null -s --max-time 6 -w '%{time_connect}' "telnet://$h:$p" 2>/dev/null </dev/null)"
-  if [[ -n "$t" && "$t" != "0.000000" && "$t" != "0" ]]; then printf '  %s:%s %sopen%s  %s ms\n' "$h" "$p" "$OK" "$R" "$(awk -v t="$t" 'BEGIN{printf "%.0f", t*1000}')"
+  if [[ "$t" =~ ^[0-9]+([.][0-9]+)?$ && "$t" != "0.000000" && "$t" != "0" ]]; then printf '  %s:%s %sopen%s  %s ms\n' "$h" "$p" "$OK" "$R" "$(awk -v t="$t" 'BEGIN{printf "%.0f", t*1000}')"
   else printf '  %s:%s %sno answer%s\n' "$h" "$p" "$ER" "$R"; fi
 }
 

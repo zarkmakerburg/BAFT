@@ -75,3 +75,11 @@ test('strict preview input constraints and focus isolation',()=>{
  assert.match(js,/aria-invalid/);
  assert.match(js,/function isOpen\(\)/);
 });
+
+test('validation feedback remains visible and respects reduced motion',()=>{
+ assert.match(css,/\[aria-invalid="true"\]/);
+ assert.match(css,/\[role="alert"\]/);
+ assert.match(css,/prefers-reduced-motion:reduce/);
+ assert.match(js,/role','alert/);
+ assert.match(js,/aria-live','polite/);
+});

@@ -2,12 +2,12 @@
 (function () {
  'use strict';
  const stages = ['Topology','Engine','Nodes','Settings','Preview'];
- const engineCatalog = Object.freeze([{id:'native',label:'BAFT Native',direct:true,reverse:false,installed:true}]);
+ const engineCatalog = Object.freeze([{id:'baft',label:'BAFT Secure (TLS + Noise)',direct:true,reverse:false,installed:true}]);
  function compatibleEngine(id,topology){const e=engineCatalog.find(x=>x.id===id);return Boolean(e&&e.installed&&(topology==='direct'?e.direct:e.reverse));}
  function validPort(value){return /^[0-9]+$/.test(value)&&Number(value)>=1&&Number(value)<=65535;}
  function validNodes(){return model.iran.trim().length>0&&model.foreign.trim().length>0&&model.iran.trim()!==model.foreign.trim();}
  function canAdvance(stage){return stage===1?compatibleEngine(model.engine,model.topology):stage===2?validNodes():stage===3?validPort(model.port):true;}
- const model = {topology:'direct',engine:'native',iran:'',foreign:'',port:''};
+ const model = {topology:'direct',engine:'baft',iran:'',foreign:'',port:''};
  const stageNames={fa:['نوع تونل','موتور','سرورها','تنظیمات','پیش‌نمایش'],en:stages};
  const labels={
  fa:{title:'ساخت تونل هوشمند',close:'بستن',back:'قبلی',next:'بعدی',preview:'بستن پیش‌نمایش',topology:'نوع تونل',engine:'موتور تونل',iran:'سرور ایران',foreign:'سرور خارج',port:'پورت عمومی',unsupported:'این موتور از نوع تونل انتخاب‌شده پشتیبانی نمی‌کند.',nodes:'پیش‌نمایش: انتخاب سرور هنوز به فهرست واقعی متصل نیست.',ports:'پورت عمومی از پورت ارتباط بین سرورها مستقل است.',notice:'فقط پیش‌نمایش؛ هیچ تغییری روی سرورها انجام نمی‌شود.'},
@@ -33,7 +33,7 @@
  dialog.append(body);
  const footer=element('footer',undefined,'baw-actions');const back=button(tr('back'),()=>{index--;render();});back.disabled=index===0;footer.append(back);const next=button(index===4?tr('preview'):tr('next'),()=>{if(index===4)close();else if(canAdvance(index)){index++;render();}});next.disabled=!canAdvance(index);next.dataset.bawNext='true';footer.append(next);dialog.append(footer);if(wasInside){const focusTarget=dialog.querySelector('select,input,button');if(focusTarget)focusTarget.focus();}
  }
- function open(){if(active)return;returnFocus=document.activeElement;index=0;Object.assign(model,{topology:'direct',engine:'native',iran:'',foreign:'',port:''});previousOverflow=document.body.style.overflow;document.body.style.overflow='hidden';active=element('div',undefined,'baw-backdrop');const dialog=element('section',undefined,'baw-dialog');dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');dialog.setAttribute('aria-label',tr('title'));
+ function open(){if(active)return;returnFocus=document.activeElement;index=0;Object.assign(model,{topology:'direct',engine:'baft',iran:'',foreign:'',port:''});previousOverflow=document.body.style.overflow;document.body.style.overflow='hidden';active=element('div',undefined,'baw-backdrop');const dialog=element('section',undefined,'baw-dialog');dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');dialog.setAttribute('aria-label',tr('title'));
  dialog.setAttribute('dir',document.documentElement.dir||'auto');active.append(dialog);document.body.append(active);active.addEventListener('click',e=>{if(e.target===active)close();});document.addEventListener('keydown',onKey);render();dialog.querySelector('button').focus();}
  window.BAFTActionWizard={open,close,version:'1.0-preview'};
  document.addEventListener('click',event=>{const button=event.target.closest?.('[data-baw-open]');if(button){event.preventDefault();open();}});

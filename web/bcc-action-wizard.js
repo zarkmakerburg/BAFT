@@ -15,13 +15,13 @@
  const body=element('div',undefined,'baw-body');
  if(index===0)body.append(choice('Topology','topology',[['direct','Direct'],['reverse','Reverse']]));
  if(index===1){body.append(choice('Engine','engine',[['native','BAFT Native']]));if(model.topology==='reverse')body.append(element('p','Reverse capability is not yet verified for this engine.'));}
- if(index===2)body.append(input('Iran node','iran'),input('Foreign node','foreign'));
- if(index===3)body.append(input('Public ingress port','port'));
+ if(index===2){body.append(element('p','Preview: node entries are illustrative; live node discovery is not connected.'),input('Iran node','iran'),input('Foreign node','foreign'));}
+ if(index===3){body.append(element('p','Public ingress port is separate from inter-node transport and local route ports.'),input('Public ingress port','port'));}
  if(index===4){for(const [key,value] of Object.entries(model))body.append(element('p',key+': '+(value||'Not selected')));body.append(element('p','Preview only — no live checks or changes.'));}
  dialog.append(body);
  const footer=element('footer',undefined,'baw-actions');const back=button('Back',()=>{index--;render();});back.disabled=index===0;footer.append(back);const next=button(index===4?'Close preview':'Next',()=>{if(index===4)close();else{index++;render();}});next.disabled=(index===1&&model.topology==='reverse')||(index===3&&(!/^[0-9]+$/.test(model.port)||Number(model.port)<1||Number(model.port)>65535));footer.append(next);dialog.append(footer);
  }
- function open(){if(active)return;returnFocus=document.activeElement;index=0;active=element('div',undefined,'baw-backdrop');const dialog=element('section',undefined,'baw-dialog');dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');dialog.setAttribute('aria-label','Tunnel wizard preview');active.append(dialog);document.body.append(active);active.addEventListener('click',e=>{if(e.target===active)close();});document.addEventListener('keydown',onKey);render();dialog.querySelector('button').focus();}
+ function open(){if(active)return;returnFocus=document.activeElement;index=0;Object.assign(model,{topology:'direct',engine:'native',iran:'',foreign:'',port:''});active=element('div',undefined,'baw-backdrop');const dialog=element('section',undefined,'baw-dialog');dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');dialog.setAttribute('aria-label','Tunnel wizard preview');active.append(dialog);document.body.append(active);active.addEventListener('click',e=>{if(e.target===active)close();});document.addEventListener('keydown',onKey);render();dialog.querySelector('button').focus();}
  window.BAFTActionWizard={open,close,version:'1.0-preview'};
  const launch=document.getElementById('baw-open');if(launch)launch.addEventListener('click',open);
 }());

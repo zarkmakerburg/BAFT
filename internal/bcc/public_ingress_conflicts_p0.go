@@ -2,15 +2,16 @@ package bcc
 
 import "fmt"
 
-// ValidatePublicIngressReservation rejects a public port already reserved on
-// the same IR node by a different tunnel. This is an in-memory preflight;
-// host socket occupancy must still be checked by the agent before apply.
-// A matching tunnel ID is idempotent only if the full specification matches.
+// ValidatePublicIngressReservation checks desired-state ownership only.
+// Agent-side listener and firewall verification are separate mandatory gates.
+// Canonicalization is required for both candidate and stored reservations so
+// whitespace or equivalent loopback forms cannot bypass collision checks.
 func ValidatePublicIngressReservation(candidate PublicIngressSpec, existing []PublicIngressSpec) error {
- if _, err := PlanPublicIngress(candidate.IRNode, candidate.TunnelID, candidate.PublicPort, candidate.LocalTarget); err != nil {
-  return err
- }
- for _, old := range existing {
+ candidate, err := PlanPublicIngress(candidate.IRNode, candidate.TunnelID, candidate.PublicPort, candidate.LocalTarget)
+ if err != nil { return err }
+ for _, raw := range existing {
+  old, err := PlanPublicIngress(raw.IRNode, raw.TunnelID, raw.PublicPort, raw.LocalTarget)
+  if err != nil { return fmt.Errorf("invalid existing public ingress reservation: %w", err) }
   if old.IRNode != candidate.IRNode { continue }
   if old.TunnelID == candidate.TunnelID {
    if old.PublicPort != candidate.PublicPort || old.LocalTarget != candidate.LocalTarget {

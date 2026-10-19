@@ -2692,7 +2692,7 @@ do_port() {
   read -r -p "  Port [443]: " p || return 1
   p="${p:-443}"
   [[ -n "$h" ]] || return 0
-  if [[ ! "$p" =~ ^[0-9]+$ ]] || ((10#$p < 1 || 10#$p > 65535)); then
+  if [[ ! "$p" =~ ^[0-9]{1,5}$ ]] || ((10#$p < 1 || 10#$p > 65535)); then
     echo "  invalid TCP port: enter a number from 1 to 65535" >&2
     return 2
   fi

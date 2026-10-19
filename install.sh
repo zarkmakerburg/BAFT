@@ -2639,10 +2639,16 @@ CONF
 }
 
 do_off() {
-  rm -f "$SYSCTL_FILE"
-  sysctl -q -w net.ipv4.tcp_congestion_control=cubic >/dev/null 2>&1 || true
-  sysctl -q -w net.core.default_qdisc=fq_codel >/dev/null 2>&1 || true
-  sysctl -q --system >/dev/null 2>&1 || true
+  if [[ ! -f "$SYSCTL_FILE" ]]; then
+    echo "  no BAFT-owned network tuning file to remove"
+    do_status
+    return 0
+  fi
+  rm -f -- "$SYSCTL_FILE" || return 1
+  if ! sysctl -q --system >/dev/null 2>&1; then
+    echo "  system sysctl reload failed; inspect the host configuration" >&2
+    return 1
+  fi
   do_status
 }
 

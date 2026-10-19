@@ -21,3 +21,32 @@ func TestP0PublicIngressReservations(t *testing.T) {
 }
 
 // TODO(P0): verify canonical ownership checks alongside the reservation fix.
+
+func TestP0PublicIngressCanonicalOwnership(t *testing.T) {
+ base, err := PlanPublicIngress("arno", "tun-a", 54619, "127.0.0.1:1444")
+ if err != nil { t.Fatal(err) }
+ equivalent := base
+ equivalent.IRNode = " arno "
+ equivalent.TunnelID = " tun-a "
+ equivalent.LocalTarget = "127.0.0.01:1444"
+ // Use canonicalizable IPv6 loopback textual forms instead of ambiguous IPv4 octets.
+ equivalent.LocalTarget = "[0:0:0:0:0:0:0:1]:1444"
+ canonical, err := PlanPublicIngress("arno", "tun-a", 54619, "[::1]:1444")
+ if err != nil { t.Fatal(err) }
+ if err := ValidatePublicIngressReservation(equivalent, []PublicIngressSpec{canonical}); err != nil {
+  t.Fatalf("equivalent canonical reservations should be idempotent: %v", err)
+ }
+ collision := base
+ collision.IRNode = " arno "
+ collision.TunnelID = "tun-b"
+ stored := base
+ stored.IRNode = " arno "
+ if err := ValidatePublicIngressReservation(collision, []PublicIngressSpec{stored}); err == nil {
+  t.Fatal("whitespace in stored IR node must not bypass public port ownership")
+ }
+ malformed := base
+ malformed.LocalTarget = "0.0.0.0:1444"
+ if err := ValidatePublicIngressReservation(base, []PublicIngressSpec{malformed}); err == nil {
+  t.Fatal("invalid stored reservations must fail closed")
+ }
+}

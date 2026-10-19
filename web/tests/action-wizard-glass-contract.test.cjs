@@ -40,3 +40,12 @@ test('unsupported reverse is blocked and port validation is live',()=>{
  assert.match(js,/!validPort\(model\.port\)/);
  assert.match(js,/data-baw-next|dataset\.bawNext/);
 });
+
+test('tunnel page can open preview without replacing operational wizard',()=>{
+ const app=fs.readFileSync(path.join(web,'bcc-app.js'),'utf8');
+ assert.match(app,/dataset\.bawOpen='true'/);
+ assert.match(js,/\[data-baw-open\]/);
+ assert.match(js,/validNodes/);
+ assert.match(js,/stageNames/);
+ assert.match(js,/tr\('notice'\)/);
+});

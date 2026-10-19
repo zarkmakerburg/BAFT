@@ -8,7 +8,10 @@
  function validNodes(){return model.iran.trim().length>0&&model.foreign.trim().length>0&&model.iran.trim()!==model.foreign.trim();}
  const model = {topology:'direct',engine:'native',iran:'',foreign:'',port:''};
  const stageNames={fa:['نوع تونل','موتور','سرورها','تنظیمات','پیش‌نمایش'],en:stages};
- const labels={fa:{title:'ساخت تونل هوشمند',close:'بستن',back:'قبلی',next:'بعدی',preview:'بستن پیش‌نمایش'},en:{title:'Create Smart Tunnel',close:'Close',back:'Back',next:'Next',preview:'Close preview'}};
+ const labels={
+ fa:{title:'ساخت تونل هوشمند',close:'بستن',back:'قبلی',next:'بعدی',preview:'بستن پیش‌نمایش',topology:'نوع تونل',engine:'موتور تونل',iran:'سرور ایران',foreign:'سرور خارج',port:'پورت عمومی',unsupported:'این موتور از نوع تونل انتخاب‌شده پشتیبانی نمی‌کند.',nodes:'پیش‌نمایش: انتخاب سرور هنوز به فهرست واقعی متصل نیست.',ports:'پورت عمومی از پورت ارتباط بین سرورها مستقل است.',notice:'فقط پیش‌نمایش؛ هیچ تغییری روی سرورها انجام نمی‌شود.'},
+ en:{title:'Create Smart Tunnel',close:'Close',back:'Back',next:'Next',preview:'Close preview',topology:'Topology',engine:'Tunnel engine',iran:'Iran node',foreign:'Foreign node',port:'Public ingress port',unsupported:'Selected engine does not support this topology.',nodes:'Preview: live node discovery is not connected.',ports:'Public ingress port is separate from inter-node transport.',notice:'Preview only — no live checks or changes.'}
+ };
  function locale(){return document.documentElement.lang==='fa'?'fa':'en';}
  function tr(key){return labels[locale()][key];}
  let active = null, index = 0, returnFocus = null, previousOverflow = null;

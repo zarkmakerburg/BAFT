@@ -22,7 +22,7 @@ const s=document.createElement('script');s.textContent=script;if(cfg.nonce)s.non
 // CSP nonce in script-src causes browsers to ignore unsafe-inline entirely, including inline event
 // handler attributes (onclick=…). Delegate those calls via a capture listener so they reach the
 // window-scope functions defined in the injected ops script above.
-if(cfg.nonce)root.addEventListener('click',e=>{
+if(cfg.nonce)document.addEventListener('click',e=>{
   const el=e.target.closest('[onclick]');if(!el||el.disabled)return;
   const m=el.getAttribute('onclick').match(/^([A-Za-z_$][\w$]*)\(([^)]*)\)$/);if(!m)return;
   const fn=window[m[1]];if(typeof fn!=='function')return;

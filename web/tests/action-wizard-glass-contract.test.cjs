@@ -22,5 +22,21 @@ test('floating glass backdrop, focus and motion preferences exist',()=>{
 test('preview cannot submit deployment',()=>{
  assert.match(js,/Preview only/);
  assert.doesNotMatch(js,/fetch\(|XMLHttpRequest|sendBeacon/);
- assert.match(js,/Reverse capability is not yet verified/);
+ assert.match(js,/compatibleEngine/);
+ assert.match(js,/validPort/);
+ assert.match(js,/engineCatalog/);
+});
+
+test('localized modal keeps focus and background scroll under control',()=>{
+ assert.match(js,/document\.documentElement\.lang/);
+ assert.match(js,/document\.documentElement\.dir/);
+ assert.match(js,/previousOverflow/);
+ assert.match(js,/document\.body\.style\.overflow='hidden'/);
+ assert.match(js,/returnFocus\.focus\(\)/);
+});
+test('unsupported reverse is blocked and port validation is live',()=>{
+ assert.match(js,/reverse:false/);
+ assert.match(js,/!compatibleEngine\(model\.engine,model\.topology\)/);
+ assert.match(js,/!validPort\(model\.port\)/);
+ assert.match(js,/data-baw-next|dataset\.bawNext/);
 });

@@ -84,7 +84,7 @@ async function runProfile(browser,[name,viewport,lang,theme]){
     });
     page=await ctx.newPage();page.setDefaultTimeout(10000);
     page.on('pageerror',e=>fail('uncaught JavaScript',e));
-    page.on('dialog',d=>d.dismiss());
+    const dismissDialog=d=>d.dismiss();page.on('dialog',dismissDialog);
     page.on('response',r=>{if(r.status()===429){result.rateLimited??=[];result.rateLimited.push({path:new URL(r.url()).pathname.slice(new URL(f.base).pathname.length),type:r.request().resourceType()})}});
     page.on('request',r=>{const u=new URL(r.url());if(u.pathname.includes('/api/'))apiRequests.push({path:u.pathname.slice(new URL(f.base).pathname.length),method:r.method(),headers:r.headers()})});
     const shot=async label=>{
@@ -209,6 +209,7 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       const denied=await page.evaluate(async base=>{const r=await fetch(base+'api/nodes/location',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({node_id:'qa-ex',country:'US'})});return r.status},f.base);
       assert.equal(denied,401);await nav('servers');
       const select=page.locator('select[data-country="qa-ex"]');await select.waitFor({state:'visible'});
+      page.off('dialog',dismissDialog);page.once('dialog',d=>{d.accept();page.on('dialog',dismissDialog);});
       const [response]=await Promise.all([page.waitForResponse(r=>r.url()===f.base+'api/nodes/location'&&r.request().method()==='POST'),select.selectOption('US')]);
       assert.equal(response.status(),200);const headers=response.request().headers();assert.ok(headers['x-baft-csrf']);assert.equal(headers.authorization,undefined);
       const nodes=await page.evaluate(async base=>(await fetch(base+'api/nodes')).json(),f.base);assert.equal(nodes.find(n=>n.id==='qa-ex').country,'US');

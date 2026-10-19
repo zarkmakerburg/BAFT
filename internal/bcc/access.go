@@ -582,6 +582,8 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request, a AccessFile, bas
 		http.Error(w, "audit log failure", http.StatusInternalServerError)
 		return
 	}
+	s.access.drop(r) // expire any previous session for this browser
+	http.SetCookie(w, s.access.cookie(a.SecretPath, "", -1))
 	http.SetCookie(w, s.access.cookie(a.SecretPath, token, int(sessionMaxLifetime/time.Second)))
 	target := base
 	if classicUI(r) {
@@ -624,7 +626,7 @@ canvas{width:100%;height:100%;display:block;filter:drop-shadow(0 0 35px rgba(243
 <h1><span class="gold">بافت؛</span> زیرساخت تاب‌آور برای مسیرهای چندگانه</h1>
 <p>مرکز فرمان BAFT آماده است. از این صفحه وارد BCC شوید، وضعیت نودها را ببینید، مسیرهای فعال را کنترل کنید و failover را از یک نقطه مدیریت کنید.</p>
 <div class="actions"><a class="btn primary" href="{{LOGIN}}">شروع سریع ←</a><a class="btn ghost" href="#status">وضعیت نصب</a></div>
-<div class="strip" id="status"><div class="chip"><i class="dot"></i>ECRL Runtime</div><div class="chip"><i class="dot"></i>N-Node Failover</div><div class="chip"><i class="dot"></i>RTL Safe</div><div class="chip"><i class="dot"></i>Logo Preserved</div></div>
+<div class="strip" id="status"><div class="chip"><i class="dot"></i>ECRL Runtime</div><div class="chip"><i class="dot"></i>N-Node Failover</div><div class="chip"><i class="dot"></i>RTL Safe</div></div>
 </section><section class="stage" aria-label="Rotating BAFT command globe">
 <div class="scene"><canvas id="globe" width="900" height="900"></canvas><i class="orbit"></i><i class="orbit"></i><i class="orbit"></i></div>
 <div class="panel"><b>Live Command Surface</b><div class="metrics"><div class="metric"><span>ROUTES</span><strong>N</strong></div><div class="metric"><span>FAILOVER</span><strong style="color:#92f0bf">READY</strong></div><div class="metric"><span>ACCESS</span><strong>SECURE</strong></div></div></div>
@@ -658,8 +660,8 @@ input,button{font:inherit;padding:13px 14px;border-radius:14px;border:1px solid 
 button{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#090909;border:0;font-weight:950;cursor:pointer}.err{min-height:18px;color:#ffabb6;font-size:13px}.safe{color:#92f0bf;font-size:12px;direction:ltr;text-align:left}
 </style></head><body>
 <form method="post" action="{{ACTION}}"><div class="brand">BAFT</div><b>ورود به Command Center</b><div class="sub">برای ادامه، اطلاعات دسترسی ساخته‌شده بعد از نصب را وارد کنید.</div>
-<input name="username" autocomplete="username" placeholder="username" required>
-<input name="password" type="password" autocomplete="current-password" placeholder="password" required>
+<label for="bcc-username" style="font-size:13px;color:var(--muted)">نام کاربری</label><input id="bcc-username" name="username" autocomplete="username" placeholder="username" required>
+<label for="bcc-password" style="font-size:13px;color:var(--muted)">رمز عبور</label><input id="bcc-password" name="password" type="password" autocomplete="current-password" placeholder="password" required>
 <button>ورود به BCC</button><div class="err">{{ERROR}}</div><div class="safe">Secret-path protected · Session guarded · No index</div></form></body></html>`
 
 // The page templates contain literal % (CSS), so they are filled with named

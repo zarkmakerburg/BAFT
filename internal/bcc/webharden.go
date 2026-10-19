@@ -61,7 +61,7 @@ func (s *Server) harden(next http.Handler) http.Handler {
 		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()")
 		h.Set("Cache-Control", "no-store")
 		if r.TLS != nil || (s.access != nil && s.access.secure) {
-			h.Set("Strict-Transport-Security", "max-age=31536000")
+			h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		}
 		ctx := context.WithValue(r.Context(), requestIDKey{}, id)
 		ctx = context.WithValue(ctx, requestNonceKey{}, nonce)

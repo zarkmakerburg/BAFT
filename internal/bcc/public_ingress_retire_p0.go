@@ -1,0 +1,24 @@
+package bcc
+
+import "fmt"
+
+// PublicIngressRetireProof identifies exactly the managed resource that may
+// be removed. A real agent must independently verify the live generation and
+// ownership before performing any host mutation.
+type PublicIngressRetireProof struct {
+ Spec PublicIngressSpec
+ Generation uint64
+ OwnerVerified bool
+}
+
+// CanRetirePublicIngress is a pure safety gate, not a deletion operation.
+// It refuses an unknown owner, zero generation or stale generation.
+func CanRetirePublicIngress(desired PublicIngressSpec, expectedGeneration uint64, proof PublicIngressRetireProof) error {
+ if _,err:=PlanPublicIngress(desired.IRNode,desired.TunnelID,desired.PublicPort,desired.LocalTarget);err!=nil{return err}
+ if !proof.OwnerVerified {return fmt.Errorf("public ingress retire requires verified ownership")}
+ if expectedGeneration==0 || proof.Generation==0 || expectedGeneration!=proof.Generation {
+  return fmt.Errorf("public ingress retire generation mismatch")
+ }
+ if desired!=proof.Spec {return fmt.Errorf("public ingress retire resource mismatch")}
+ return nil
+}

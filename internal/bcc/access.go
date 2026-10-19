@@ -495,13 +495,18 @@ func (s *Server) serveClassic(w http.ResponseWriter, r *http.Request, a AccessFi
 			_, _ = io.WriteString(w, renderLogin(base+"login?ui=classic", loginError))
 			return
 		}
-		_, _ = io.WriteString(w, renderWelcome(base+"login?ui=classic"))
+		_, _ = io.WriteString(w, renderWelcome(base+"login?ui=classic", RequestNonce(r)))
 		return
 	}
 	// The dashboard script calls /api/...; route those calls through the
 	// secret path with the session cookie and the CSRF token instead of a
 	// bearer token.
-	shim := fmt.Sprintf(`<script>(()=>{const B=%q,C=%q;localStorage.setItem('bccToken','session');const f=window.fetch.bind(window);window.fetch=(u,o)=>{o=Object.assign({},o||{});if(typeof u==='string'&&u.startsWith('/api/')){u=B+u.slice(1);const h=Object.assign({},o.headers||{});delete h.Authorization;h[%q]=C;o.headers=h;o.credentials='same-origin'}return f(u,o)};window.addEventListener('DOMContentLoaded',()=>{const fm=document.createElement('form');fm.method='post';fm.action=B+'logout';fm.style='position:fixed;top:8px;right:8px';fm.innerHTML='<button>Log out</button>';document.body.appendChild(fm)})})();</script>`,
+	nonce := RequestNonce(r)
+	nonceAttr := ""
+	if nonce != "" {
+		nonceAttr = ` nonce="` + html.EscapeString(nonce) + `"`
+	}
+	shim := fmt.Sprintf(`<script`+nonceAttr+`>(()=>{const B=%q,C=%q;localStorage.setItem('bccToken','session');const f=window.fetch.bind(window);window.fetch=(u,o)=>{o=Object.assign({},o||{});if(typeof u==='string'&&u.startsWith('/api/')){u=B+u.slice(1);const h=Object.assign({},o.headers||{});delete h.Authorization;h[%q]=C;o.headers=h;o.credentials='same-origin'}return f(u,o)};window.addEventListener('DOMContentLoaded',()=>{const fm=document.createElement('form');fm.method='post';fm.action=B+'logout';fm.style='position:fixed;top:8px;right:8px';fm.innerHTML='<button>Log out</button>';document.body.appendChild(fm)})})();</script>`,
 		base, sess.csrf, csrfHeader)
 	page := strings.Replace(dashboardHTML, "<head>", "<head>"+shim, 1)
 	_, _ = w.Write([]byte(page))
@@ -663,8 +668,13 @@ func renderLogin(action, errText string) string {
 	return strings.NewReplacer("{{ACTION}}", html.EscapeString(action), "{{ERROR}}", html.EscapeString(errText)).Replace(loginHTML)
 }
 
-func renderWelcome(loginURL string) string {
-	return strings.NewReplacer("{{LOGIN}}", html.EscapeString(loginURL)).Replace(welcomeHTML)
+func renderWelcome(loginURL, nonce string) string {
+	nonceAttr := ""
+	if nonce != "" {
+		nonceAttr = ` nonce="` + html.EscapeString(nonce) + `"`
+	}
+	out := strings.NewReplacer("{{LOGIN}}", html.EscapeString(loginURL)).Replace(welcomeHTML)
+	return strings.Replace(out, "<script>", "<script"+nonceAttr+">", 1)
 }
 
 // serveCommandCenterV3 serves the Command Center at the secret path. It reuses
@@ -688,7 +698,7 @@ func (s *Server) serveCommandCenterV3(w http.ResponseWriter, r *http.Request, a 
 		}
 		w.WriteHeader(code)
 	}
-	config := webui.Config{Mode: mode, Base: base, LoginAction: base + "login", Error: loginError}
+	config := webui.Config{Mode: mode, Base: base, LoginAction: base + "login", Error: loginError, Nonce: RequestNonce(r)}
 	if sess := s.access.lookup(r, s.now(), a.Generation); sess != nil {
 		config.CSRF = sess.csrf
 		config.CSRFHeader = csrfHeader

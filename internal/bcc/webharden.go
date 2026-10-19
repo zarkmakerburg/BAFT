@@ -17,6 +17,7 @@ import (
 )
 
 type requestIDKey struct{}
+type requestNonceKey struct{}
 
 // RequestID returns the ID assigned to r by the hardening middleware.
 func RequestID(r *http.Request) string {
@@ -24,23 +25,34 @@ func RequestID(r *http.Request) string {
 	return id
 }
 
-// contentSecurityPolicy blocks every origin but our own, framing, form posts
-// elsewhere and <base> injection. The dashboard still uses inline scripts and
-// handlers, so script-src keeps 'unsafe-inline'; moving them to nonces is
-// tracked in docs/en/24-p1c-bcc-access.md.
-const contentSecurityPolicy = "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
-	"img-src 'self' data:; font-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
+// RequestNonce returns the per-request CSP nonce assigned by the hardening
+// middleware. Inline <script> elements must carry this as their nonce attribute.
+func RequestNonce(r *http.Request) string {
+	n, _ := r.Context().Value(requestNonceKey{}).(string)
+	return n
+}
+
+// buildCSP returns a per-request Content-Security-Policy that includes a
+// nonce for inline scripts. 'unsafe-inline' is kept alongside the nonce so
+// that the classic dashboard's inline event handlers continue to work; modern
+// browsers that support nonces ignore 'unsafe-inline' for <script> blocks,
+// so the nonce still enforces its protection there.
+func buildCSP(nonce string) string {
+	return "default-src 'none'; script-src 'self' 'nonce-" + nonce + "' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
+		"img-src 'self' data:; font-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
+}
 
 // harden is the outermost handler: even a rate-limited or 404 response gets
 // the headers and an ID. The client's own X-Request-ID is never trusted.
 func (s *Server) harden(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var b [8]byte
+		var b [16]byte
 		_, _ = rand.Read(b[:])
-		id := hex.EncodeToString(b[:])
+		id := hex.EncodeToString(b[:8])
+		nonce := hex.EncodeToString(b[8:])
 		h := w.Header()
 		h.Set("X-Request-ID", id)
-		h.Set("Content-Security-Policy", contentSecurityPolicy)
+		h.Set("Content-Security-Policy", buildCSP(nonce))
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Referrer-Policy", "no-referrer")
@@ -51,7 +63,9 @@ func (s *Server) harden(next http.Handler) http.Handler {
 		if r.TLS != nil || (s.access != nil && s.access.secure) {
 			h.Set("Strict-Transport-Security", "max-age=31536000")
 		}
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), requestIDKey{}, id)))
+		ctx := context.WithValue(r.Context(), requestIDKey{}, id)
+		ctx = context.WithValue(ctx, requestNonceKey{}, nonce)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 

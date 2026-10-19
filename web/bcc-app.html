@@ -8,7 +8,7 @@
 <title>BAFT Command Center</title>
 <link rel="icon" href="./assets/baft-brand.png">
 <link rel="stylesheet" href="./bcc-app.css">
-<script>
+<script id="prepaint">
 /* Apply the saved theme and language before the first paint. */
 (()=>{let t=null,l=null;try{t=localStorage.getItem('baft.theme');l=localStorage.getItem('baft.lang')}catch{}
 const r=document.documentElement;if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';if(l!=='fa'&&l!=='en')l='fa';

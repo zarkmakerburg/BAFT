@@ -62,8 +62,7 @@ const svg=(name,cls)=>'<svg viewBox="0 0 24 24" aria-hidden="true"'+(cls?' class
 const ROUTES=['dashboard','servers','tunnels','monitoring','security','ssl','backups','updates','finance','settings'];
 /* Ways to support the project. An empty value hides its row, so only real
    links and addresses are ever shown. */
-const SUPPORT={github:'https://github.com/zarkmakerburg/baft',coffee:'',wallets:[
-  {coin:'USDT',icon:'usdt',network:'BNB Smart Chain (BEP20)',chain:'bsc',address:'0x14d3D8A4d7Bb02a578afc83D5bf38C80649a69C1'}]};
+const SUPPORT={github:'https://github.com/zarkmakerburg/baft',coffee:'',wallets:cfg.wallets||[]};
 /* Coin and network marks, drawn inline so nothing is fetched from a third party. */
 const COIN={usdt:'<svg viewBox="0 0 32 32" aria-hidden="true" class="coin"><circle cx="16" cy="16" r="16" fill="#26a17b"/><path fill="#fff" d="M17.9 17.4v0c-.1 0-.7.1-1.9.1-1 0-1.6 0-1.9-.1v0c-3.7-.2-6.4-.8-6.4-1.6s2.7-1.4 6.4-1.6v2.5c.2 0 .9.1 1.9.1 1.2 0 1.7-.1 1.9-.1v-2.5c3.7.2 6.4.8 6.4 1.6s-2.7 1.4-6.4 1.6m0-3.4V11.8h5.2V8.3H8.9v3.5h5.2V14c-4.2.2-7.4 1-7.4 2s3.2 1.8 7.4 2v7.1h3.8V18c4.2-.2 7.4-1 7.4-2s-3.2-1.8-7.4-2"/></svg>'};
 const CHAIN={bsc:'<svg viewBox="0 0 32 32" aria-hidden="true" class="chain"><circle cx="16" cy="16" r="16" fill="#f3ba2f"/><path fill="#fff" d="M12.1 14.1L16 10.2l3.9 3.9 2.3-2.3L16 5.6l-6.2 6.2zM5.6 16l2.3-2.3 2.3 2.3-2.3 2.3zm6.5 1.9L16 21.8l3.9-3.9 2.3 2.3L16 26.4l-6.2-6.2zm9.7-1.9l2.3-2.3 2.3 2.3-2.3 2.3zM18.4 16L16 13.6 14.2 15.4l-.2.2-.4.4L16 18.4z"/></svg>'};

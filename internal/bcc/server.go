@@ -14,6 +14,7 @@ import (
 	"net/netip"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -781,7 +782,21 @@ func (s *Server) auditEntries(w http.ResponseWriter, r *http.Request) {
 	if !s.admin(w, r) {
 		return
 	}
-	entries, err := s.audit.List(200)
+	q := AuditQuery{
+		Actor:  r.URL.Query().Get("actor"),
+		Action: r.URL.Query().Get("action"),
+	}
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			q.Limit = n
+		}
+	}
+	if v := r.URL.Query().Get("after"); v != "" {
+		if n, err := strconv.ParseUint(v, 10, 64); err == nil {
+			q.After = n
+		}
+	}
+	entries, err := s.audit.Query(q)
 	if err != nil {
 		http.Error(w, "audit read failed", 500)
 		return

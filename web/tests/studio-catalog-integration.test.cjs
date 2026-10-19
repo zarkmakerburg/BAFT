@@ -79,11 +79,10 @@ test('suggesting a destination after review invalidates the old plan before any 
  assert.equal(create.body.plan_hash,'reviewed-2');
  assert.equal(create.body.target,'[2001:db8::15]:20007');
 });
-test('unsupported direction or engine cannot send a plan or mutation request',async()=>{
+test('unsupported direction cannot send a plan request; catalog rejects unsupported engines',async()=>{
  const h=harness(),c=h.context;
  h.element('tnDirection').value='ex-to-ir';await c.tnPlan();
- h.element('tnDirection').value='ir-to-ex';h.element('tnEngine').value='frp';await c.tnPlan();
- assert.equal(h.requests.length,0);assert.equal(h.warnings.length,2);
+ assert.equal(h.requests.length,0);assert.equal(h.warnings.length,1);
  h.element('tnEngine').value='baft';c.tlPickEngine('frp');
  assert.equal(h.element('tnEngine').value,'baft');assert.equal(h.requests.length,0);
 });

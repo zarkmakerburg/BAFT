@@ -52,14 +52,14 @@ for(const instance of ['', 'existing-managed'])test('editing '+(instance?'manage
  assert.equal(result.instance_id,instance);
  assert.equal(result.route_id,old.route_id);
 });
-test('review requires an explicit service destination and valid BAFT port',()=>{
+test('review requires a valid BAFT port; empty destination uses the configured default',()=>{
  const fields={...defaults,tnIngressConfirm:true};
  const c=context(fields,'const tnWizardText=(en,fa)=>fa;'+fn('function tnWizardValidateStep(i)','function tnWizardStep(i)'));
  for(const port of ['', '0', '65536', '8.5']){
   fields.tnPort=port;assert.equal(vm.runInContext('tnWizardValidateStep(2)',c),false);
  }
  fields.tnPort='8444';
- fields.tnTarget='  ';assert.equal(vm.runInContext('tnWizardValidateStep(2)',c),false);
+ fields.tnTarget='  ';assert.equal(vm.runInContext('tnWizardValidateStep(2)',c),true);
  fields.tnTarget='[::1]:5432';assert.equal(vm.runInContext('tnWizardValidateStep(2)',c),true);
 });
 test('public IR ingress acknowledgement is required before review',()=>{
@@ -129,12 +129,11 @@ test('manual target edit clears an obsolete suggestion hint and invalidates the 
  vm.runInContext('tnWizardTargetChanged()',h.c);
  assert.equal(h.values.tnTarget,'192.0.2.8:53001');assert.equal(h.values.tnServicePortHint,'');assert.equal(h.clears,1);
 });
-test('future reverse topology and unimplemented engines fail before plan creation',()=>{
+test('reverse topology fails before plan creation; engine is fixed at baft by hidden input',()=>{
  const fields={...defaults,tnDirection:'ex-to-ir'};
  const c=context(fields,'let tnEditBase=null;const tnWizardText=en=>en;'+fn('function tnWizardValidateStep(i)','function tnWizardStep(i)'));
  assert.equal(vm.runInContext('tnWizardValidateStep(0)',c),false);
  fields.tnDirection='ir-to-ex';assert.equal(vm.runInContext('tnWizardValidateStep(0)',c),true);
- fields.tnEngine='frp';assert.equal(vm.runInContext('tnWizardValidateStep(0)',c),false);
 });
 test('new tunnel resets direction and engine and requires an explicit destination',()=>{
  const fields={...defaults,tnDirection:'ex-to-ir',tnEngine:'frp',tnServicePortHint:'Old suggestion'};

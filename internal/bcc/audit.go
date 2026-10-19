@@ -110,6 +110,40 @@ func (a *AuditLog) List(limit int)([]AuditEntry,error){
 	return out,nil
 }
 
+// AuditQuery filters entries returned by Query.
+type AuditQuery struct {
+	After  uint64 // return entries with Sequence > After (0 = all)
+	Actor  string
+	Action string
+	Limit  int // 0 → 200; max 1000
+}
+
+// Query returns filtered audit entries. It reads the whole file but applies
+// server-side filtering so the caller never receives unbounded data.
+func (a *AuditLog) Query(q AuditQuery) ([]AuditEntry, error) {
+	if a == nil { return nil, errors.New("audit log is not configured") }
+	if q.Limit <= 0 { q.Limit = 200 }
+	if q.Limit > 1000 { q.Limit = 1000 }
+	a.mu.Lock(); defer a.mu.Unlock()
+	f, err := os.Open(a.path)
+	if errors.Is(err, os.ErrNotExist) { return []AuditEntry{}, nil }
+	if err != nil { return nil, err }
+	defer f.Close()
+	var out []AuditEntry
+	s := bufio.NewScanner(f)
+	for s.Scan() {
+		var e AuditEntry
+		if err := json.Unmarshal(s.Bytes(), &e); err != nil { return nil, err }
+		if q.After > 0 && e.Sequence <= q.After { continue }
+		if q.Actor != "" && e.Actor != q.Actor { continue }
+		if q.Action != "" && e.Action != q.Action { continue }
+		out = append(out, e)
+	}
+	if err := s.Err(); err != nil { return nil, err }
+	if len(out) > q.Limit { out = out[len(out)-q.Limit:] }
+	return out, nil
+}
+
 func (a *AuditLog) Verify() error {
 	if a==nil{return errors.New("audit log is not configured")}
 	_,err:=OpenAuditLog(a.path)

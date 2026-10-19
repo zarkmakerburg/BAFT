@@ -1,9 +1,11 @@
 package installer_test
 
 import (
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
@@ -42,12 +44,27 @@ func bccSSLFunctions(t *testing.T, names ...string) string {
 
 func bccTestCertificate(t *testing.T, dir, name string, expires time.Time) (string, string) {
 	t.Helper()
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	return bccTestCertificateKind(t, dir, name, expires, "ec")
+}
+
+func bccTestCertificateKind(t *testing.T, dir, name string, expires time.Time, kind string) (string, string) {
+	t.Helper()
+	var key crypto.Signer
+	var err error
+	if kind == "rsa" {
+		key, err = rsa.GenerateKey(rand.Reader, 2048)
+	} else {
+		key, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
 	tpl := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "ignored.invalid"}, DNSNames: []string{"bcc.example.test"}, IPAddresses: []net.IP{net.ParseIP("192.0.2.10")}, NotBefore: time.Now().Add(-48 * time.Hour), NotAfter: expires, KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}}
-	der, err := x509.CreateCertificate(rand.Reader, tpl, tpl, &key.PublicKey, key)
+	if kind == "cn-only" {
+		tpl.Subject.CommonName = "bcc.example.test"
+		tpl.DNSNames, tpl.IPAddresses = nil, nil
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tpl, tpl, key.Public(), key)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,6 +91,8 @@ func TestBCCCertificateAcceptance(t *testing.T) {
 	_, otherKey := bccTestCertificate(t, dir, "other", time.Now().Add(72*time.Hour))
 	expired, expiredKey := bccTestCertificate(t, dir, "expired", time.Now().Add(-time.Hour))
 	soon, soonKey := bccTestCertificate(t, dir, "soon", time.Now().Add(time.Hour))
+	cnOnly, cnOnlyKey := bccTestCertificateKind(t, dir, "cn-only", time.Now().Add(72*time.Hour), "cn-only")
+	rsaCert, rsaKey := bccTestCertificateKind(t, dir, "rsa", time.Now().Add(72*time.Hour), "rsa")
 	functions := bccSSLFunctions(t, "bcc_host_kind", "bcc_cert_ok")
 	for _, tc := range []struct {
 		name, cert, key, host string
@@ -81,6 +100,8 @@ func TestBCCCertificateAcceptance(t *testing.T) {
 	}{
 		{"valid-domain", cert, key, "bcc.example.test", true},
 		{"valid-ip", cert, key, "192.0.2.10", true},
+		{"valid-rsa", rsaCert, rsaKey, "bcc.example.test", true},
+		{"cn-only-rejected", cnOnly, cnOnlyKey, "bcc.example.test", false},
 		{"mismatched-key", cert, otherKey, "bcc.example.test", false},
 		{"wrong-san", cert, key, "other.example.test", false},
 		{"wrong-ip", cert, key, "192.0.2.11", false},

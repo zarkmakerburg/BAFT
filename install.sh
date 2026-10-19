@@ -1509,6 +1509,9 @@ bcc_cert_ok() {
   key_pub="$(openssl pkey -in "$BAFT_BCC_TLS_KEY" -passin pass: -pubout 2>/dev/null)" || return 1
   [[ -n "$cert_pub" && "$cert_pub" == "$key_pub" ]] || return 1
   if [[ "$(bcc_host_kind "$BAFT_BCC_DOMAIN")" == domain ]]; then
+    # OpenSSL's checkhost permits legacy CN fallback when DNS SANs are absent;
+    # BCC requires a DNS SAN. These are identity/key checks, not CA trust proof.
+    openssl x509 -in "$BAFT_BCC_TLS_CERT" -noout -ext subjectAltName 2>/dev/null | grep -q 'DNS:' || return 1
     openssl x509 -in "$BAFT_BCC_TLS_CERT" -noout -checkhost "$BAFT_BCC_DOMAIN" 2>/dev/null | grep -q 'does match'
   else
     openssl x509 -in "$BAFT_BCC_TLS_CERT" -noout -checkip "$BAFT_BCC_DOMAIN" 2>/dev/null | grep -q 'does match'
@@ -2726,10 +2729,11 @@ net_lock() {
 net_unlock() { flock -u "$NET_LOCK_FD"; exec {NET_LOCK_FD}>&-; }
 
 net_snapshot_valid() {
-  [[ -f "$NET_STATE/before.conf" && ! -L "$NET_STATE/before.conf" &&
-     "$(stat -c %u:%a -- "$NET_STATE/before.conf")" == 0:600 ]] || return 1
+  local snapshot="${1:-$NET_STATE/before.conf}" expected="${2:-}"
+  [[ -f "$snapshot" && ! -L "$snapshot" &&
+     "$(stat -c %u:%a -- "$snapshot")" == 0:600 ]] || return 1
   # Never source saved data, and reject keys outside BAFT's small tuning set.
-  awk -F ' = ' '
+  awk -F ' = ' -v expected="$expected" '
     BEGIN { n=0 }
     !/^(net[.]core[.](default_qdisc|rmem_max|wmem_max|somaxconn)|net[.]ipv4[.](tcp_congestion_control|tcp_rmem|tcp_wmem|tcp_mtu_probing|tcp_slow_start_after_idle|tcp_notsent_lowat|tcp_max_syn_backlog)) = [a-zA-Z0-9_[:blank:]-]+$/ { exit 1 }
     { if (seen[$1]++) exit 1; n++ }
@@ -2737,8 +2741,9 @@ net_snapshot_valid() {
       split("net.core.rmem_max net.core.wmem_max net.ipv4.tcp_rmem net.ipv4.tcp_wmem net.ipv4.tcp_mtu_probing net.ipv4.tcp_slow_start_after_idle net.ipv4.tcp_notsent_lowat net.core.somaxconn net.ipv4.tcp_max_syn_backlog", required, " ")
       for (i in required) if (!seen[required[i]]) exit 1
       if (n != 9 && n != 11) exit 1
+      if (expected != "" && n != expected) exit 1
     }
-  ' "$NET_STATE/before.conf"
+  ' "$snapshot"
 }
 
 net_on_locked() {
@@ -2757,10 +2762,13 @@ net_on_locked() {
   profile="$(mktemp "$NET_STATE/profile.XXXXXX")" || return 1
   before="$(mktemp "$NET_STATE/before.XXXXXX")" || { rm -f -- "$profile"; return 1; }
   chmod 600 "$profile" "$before" || { rm -f -- "$profile" "$before"; return 1; }
-  {
-    echo "# Written by baft-net. Remove with: sudo baft-net off"
-    if [[ "$bbr" == 1 ]]; then echo "net.core.default_qdisc = fq"; echo "net.ipv4.tcp_congestion_control = bbr"; fi
-    cat <<'CONF'
+  if ! printf '%s\n' "# Written by baft-net. Remove with: sudo baft-net off" >"$profile"; then
+    rm -f -- "$profile" "$before"; return 1
+  fi
+  if [[ "$bbr" == 1 ]] && ! printf '%s\n' 'net.core.default_qdisc = fq' 'net.ipv4.tcp_congestion_control = bbr' >>"$profile"; then
+    rm -f -- "$profile" "$before"; return 1
+  fi
+  if ! cat >>"$profile" <<'CONF'
 net.core.rmem_max = 33554432
 net.core.wmem_max = 33554432
 net.ipv4.tcp_rmem = 4096 131072 33554432
@@ -2771,7 +2779,9 @@ net.ipv4.tcp_notsent_lowat = 16384
 net.core.somaxconn = 4096
 net.ipv4.tcp_max_syn_backlog = 8192
 CONF
-  } >"$profile"
+  then
+    rm -f -- "$profile" "$before"; return 1
+  fi
   while IFS= read -r key; do
     [[ "$key" == net.* ]] || continue
     key="${key%% =*}"
@@ -2779,8 +2789,15 @@ CONF
       echo "  cannot snapshot $key; no tuning was applied" >&2
       rm -f -- "$profile" "$before"; return 1
     fi
-    printf '%s = %s\n' "$key" "$value" >>"$before"
+    if ! printf '%s = %s\n' "$key" "$value" >>"$before"; then
+      echo "  cannot save network rollback snapshot; no tuning was applied" >&2
+      rm -f -- "$profile" "$before"; return 1
+    fi
   done <"$profile"
+  if ! net_snapshot_valid "$before" "$((9 + 2*bbr))"; then
+    echo "  incomplete network rollback snapshot; no tuning was applied" >&2
+    rm -f -- "$profile" "$before"; return 1
+  fi
   mv -- "$before" "$NET_STATE/before.conf" || { rm -f -- "$profile" "$before"; return 1; }
   mv -- "$profile" "$SYSCTL_FILE" || { rm -f -- "$profile" "$NET_STATE/before.conf"; return 1; }
   if ! sysctl -q -p "$SYSCTL_FILE"; then

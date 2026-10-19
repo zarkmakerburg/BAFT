@@ -48,7 +48,7 @@ func TestNetworkToolRuntimeRollback(t *testing.T) {
 		"net.ipv4.tcp_notsent_lowat": "4294967295", "net.core.somaxconn": "128",
 		"net.ipv4.tcp_max_syn_backlog": "256", "net.ipv4.ip_forward": "1",
 	}
-	for _, scenario := range []string{"roundtrip", "partial-apply", "restore-retry", "legacy", "symlink", "no-bbr", "missing-key", "busy-lock", "invalid-snapshot", "state-symlink", "rollback-retry", "cleanup-failure"} {
+	for _, scenario := range []string{"roundtrip", "partial-apply", "restore-retry", "legacy", "symlink", "no-bbr", "missing-key", "busy-lock", "invalid-snapshot", "state-symlink", "rollback-retry", "cleanup-failure", "snapshot-write-fail", "snapshot-lost-bbr", "profile-write-fail", "profile-body-write-fail"} {
 		t.Run(scenario, func(t *testing.T) {
 			root := t.TempDir()
 			store := filepath.Join(root, "kernel")
@@ -89,8 +89,24 @@ done <"$3"
 `)
 			profile := filepath.Join(root, "99-baft-net.conf")
 			tool := filepath.Join(root, "baft-net")
-			write(tool, fmt.Sprintf("#!/bin/bash\nSYSCTL_FILE=%q\n", profile)+body)
+			// Fail shell writes without changing the production body. A successful
+			// but truncated snapshot also exercises its pre-apply validation.
+			faults := `printf() {
+  if [[ "$1" == '%s = %s\n' ]]; then
+    [[ "${FAKE_IO_FAULT:-}" != snapshot-write-fail ]] || return 1
+    if [[ "${FAKE_IO_FAULT:-}" == snapshot-lost-bbr && ( "$2" == net.core.default_qdisc || "$2" == net.ipv4.tcp_congestion_control ) ]]; then return 0; fi
+  fi
+  if [[ "${FAKE_IO_FAULT:-}" == profile-write-fail && "$1" == '%s\n' && "$2" == '# Written by baft-net.'* ]]; then return 1; fi
+  builtin printf "$@"
+}
+cat() {
+  if [[ "${FAKE_IO_FAULT:-}" == profile-body-write-fail && "$#" == 0 ]]; then return 1; fi
+  command cat "$@"
+}
+`
+			write(tool, fmt.Sprintf("#!/bin/bash\nSYSCTL_FILE=%q\n", profile)+faults+body)
 			env := append(os.Environ(), "PATH="+bin+":"+os.Getenv("PATH"), "FAKE_KERNEL="+store)
+			env = append(env, "FAKE_IO_FAULT="+scenario)
 			if scenario == "no-bbr" {
 				env = append(env, "FAKE_CC=reno cubic")
 			}
@@ -119,6 +135,11 @@ done <"$3"
 				}
 			}
 			switch scenario {
+			case "snapshot-write-fail", "snapshot-lost-bbr", "profile-write-fail", "profile-body-write-fail":
+				run("on", false)
+				checkOriginal()
+				absent(profile)
+				absent(profile + ".state/before.conf")
 			case "legacy":
 				write(profile, "net.core.rmem_max = 999\n")
 				run("off", false)

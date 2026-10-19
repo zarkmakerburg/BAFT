@@ -90,3 +90,11 @@ test('validation warnings update as fields change',()=>{
  assert.match(js,/warning\.hidden=validNodes\(\)/);
  assert.match(js,/warning\.hidden=validPort\(model\.port\)/);
 });
+
+test('modal uses a concise description and prioritizes form focus',()=>{
+ assert.match(js,/aria-describedby','baw-description/);
+ assert.match(js,/description\.id='baw-description'/);
+ assert.match(js,/dialog\.removeAttribute\('aria-label'\)/);
+ assert.match(js,/\.baw-body select,\.baw-body input/);
+ assert.match(css,/\.baw-description/);
+});

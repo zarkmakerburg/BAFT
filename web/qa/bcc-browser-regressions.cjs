@@ -208,6 +208,7 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       const denied=await page.evaluate(async base=>{const r=await fetch(base+'api/nodes/location',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({node_id:'qa-ex',country:'US'})});return r.status},f.base);
       assert.equal(denied,401);await nav('servers');
       const select=page.locator('select[data-country="qa-ex"]');await select.waitFor({state:'visible'});
+      page.once('dialog',d=>d.accept());
       const [response]=await Promise.all([page.waitForResponse(r=>r.url()===f.base+'api/nodes/location'&&r.request().method()==='POST'),select.selectOption('US')]);
       assert.equal(response.status(),200);const headers=response.request().headers();assert.ok(headers['x-baft-csrf']);assert.equal(headers.authorization,undefined);
       const nodes=await page.evaluate(async base=>(await fetch(base+'api/nodes')).json(),f.base);assert.equal(nodes.find(n=>n.id==='qa-ex').country,'US');

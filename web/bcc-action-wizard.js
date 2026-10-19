@@ -35,5 +35,6 @@
  function open(){if(active)return;returnFocus=document.activeElement;index=0;Object.assign(model,{topology:'direct',engine:'native',iran:'',foreign:'',port:''});previousOverflow=document.body.style.overflow;document.body.style.overflow='hidden';active=element('div',undefined,'baw-backdrop');const dialog=element('section',undefined,'baw-dialog');dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');dialog.setAttribute('aria-label',tr('title'));
  dialog.setAttribute('dir',document.documentElement.dir||'auto');active.append(dialog);document.body.append(active);active.addEventListener('click',e=>{if(e.target===active)close();});document.addEventListener('keydown',onKey);render();dialog.querySelector('button').focus();}
  window.BAFTActionWizard={open,close,version:'1.0-preview'};
+ document.addEventListener('click',event=>{const button=event.target.closest?.('[data-baw-open]');if(button){event.preventDefault();open();}});
  const launch=document.getElementById('baw-open');if(launch)launch.addEventListener('click',open);
 }());

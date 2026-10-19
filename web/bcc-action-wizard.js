@@ -3,7 +3,7 @@
  'use strict';
  const stages = ['Topology','Engine','Nodes','Settings','Preview'];
  // Operational Studio uses tnDirection=ir-to-ex and tnEngine=baft; never infer reverse support from UI labels.
- const operationalDirection={direct:'ir-to-ex',reverse:'ex-to-ir'};
+ const operationalDirection=Object.freeze({direct:'ir-to-ex',reverse:'ex-to-ir'});
  const engineCatalog = Object.freeze([{id:'baft',label:'BAFT Secure (TLS + Noise)',direct:true,reverse:false,installed:true}]);
  function compatibleEngine(id,topology){const e=engineCatalog.find(x=>x.id===id);return Boolean(e&&e.installed&&(topology==='direct'?e.direct:e.reverse));}
  function validPort(value){return /^[0-9]+$/.test(value)&&Number(value)>=1&&Number(value)<=65535;}

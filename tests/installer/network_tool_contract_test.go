@@ -26,6 +26,11 @@ func TestNetworkToolSafetyContracts(t *testing.T) {
   "if ! sysctl -q --system",
   "invalid TCP port: enter a number from 1 to 65535",
   "Choose: \" c || return 0",
+  "^[0-9]{1,5}$",
+  "awk -v t=\"$t\" 'BEGIN { exit !(t > 0) }'",
+  "&& \"$t\" =~ ^[0-9]+([.][0-9]+)?$",
+  "&& \"${speed:-}\" =~ ^[0-9]+([.][0-9]+)?$",
+
  } {
   if !strings.Contains(script, required) { t.Errorf("network safety guard missing: %s", required) }
  }

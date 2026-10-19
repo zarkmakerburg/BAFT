@@ -36,6 +36,9 @@ test('localized modal keeps focus and background scroll under control',()=>{
 });
 test('unsupported reverse is blocked and port validation is live',()=>{
  assert.match(js,/reverse:false/);
+ assert.match(js,/id:'baft'/);
+ assert.match(js,/direct:'ir-to-ex'/);
+ assert.match(js,/reverse:'ex-to-ir'/);
  assert.match(js,/!compatibleEngine\(model\.engine,model\.topology\)/);
  assert.match(js,/!validPort\(model\.port\)/);
  assert.match(js,/data-baw-next|dataset\.bawNext/);

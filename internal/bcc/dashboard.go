@@ -139,20 +139,8 @@ html[lang="fa"] .tn-en,html:not([lang="fa"]) .tn-fa{display:none!important}
   <div class="tnFlowTrack" dir="ltr"><span>🇮🇷 IR (dialer)</span><span aria-hidden="true">→</span><span>🌍 EX (listener)</span><span aria-hidden="true">→</span><span>EX service</span></div>
   <p><span class="tn-en">Direction describes the inter-server connection, separate from user ingress. Reverse engines stay unavailable until their real adapters and two-node tests are ready.</span><span class="tn-fa">جهت تونل مربوط به اتصال بین سرورهاست و از ورودی کاربران جداست. موتورهای معکوس تا آماده‌شدن پیاده‌سازی واقعی و آزمون دو سرور غیرفعال می‌مانند.</span></p>
  </div>
- <label class="tnLabel" for="tnEngine"><span class="tn-en">Tunnel engine / driver</span><span class="tn-fa">نوع موتور تونل</span></label>
- <select id="tnEngine" onchange="tnClearPlan()" aria-describedby="tnEngineInfo">
-  <optgroup label="Direct / مستقیم">
-   <option value="baft">BAFT Secure — TLS + Noise (supported / پشتیبانی‌شده)</option>
-  </optgroup>
-  <optgroup label="Reverse / معکوس">
-   <option value="frp" disabled>FRP — Planned / در برنامه</option>
-   <option value="rathole" disabled>Rathole — Planned / در برنامه</option>
-  </optgroup>
-  <optgroup label="Carriers — planned / حامل‌ها — در برنامه">
-   <option value="wss" disabled>WSS / QUIC — Planned / در برنامه</option>
-  </optgroup>
- </select>
- <div class="muted" id="tnEngineInfo"><span class="tn-fa">موتور BAFT ترافیک را بین دو سرور و مقصد سرویس شما منتقل می‌کند. فقط موتورهای پیاده‌سازی‌شده قابل انتخاب‌اند؛ تنظیم برنامهٔ مقصد جداگانه انجام می‌شود.</span><span class="tn-en">BAFT forwards traffic between two servers and your service destination. Only implemented tunnel engines can be selected. Configure the destination application separately.</span></div>
+ <input type="hidden" id="tnEngine" value="baft">
+ <div class="muted"><span class="tn-en">Engine: BAFT Secure — TLS + Noise. Other engines will be added once implemented and tested.</span><span class="tn-fa">موتور: BAFT Secure با TLS و Noise. موتورهای دیگر پس از پیاده‌سازی و آزمون اضافه خواهند شد.</span></div>
  <label class="tnLabel" for="tnMode"><span class="tn-en">Action</span><span class="tn-fa">عملیات</span></label>
  <select id="tnMode" onchange="tnModeChanged()"><option value="independent">New independent tunnel / تونل مستقل جدید</option><option value="replace">Edit selected active tunnel / ویرایش تونل انتخاب‌شده</option></select>
  <p class="muted"><span class="tn-fa">برای ویرایش، از فهرست تونل‌های فعال دکمه «ویرایش» را انتخاب کنید. ساخت مستقل نباید تونل قبلی را جایگزین کند.</span><span class="tn-en">To edit, choose Edit on an active tunnel below. A new independent tunnel must not replace an existing tunnel.</span></p>
@@ -167,7 +155,6 @@ html[lang="fa"] .tn-en,html:not([lang="fa"]) .tn-fa{display:none!important}
  <h3><span class="tn-en">Ports and service destination</span><span class="tn-fa">پورت‌ها و مقصد سرویس</span></h3>
  <div class="tnFields">
   <label class="tnLabel"><span class="tn-en">BAFT inter-server port (EX)</span><span class="tn-fa">پورت ارتباط دو سرور BAFT (خارج)</span><input id="tnPort" type="number" inputmode="numeric" min="1" max="65535" value="8443" oninput="tnClearPlan()"></label>
-  <div class="tnLabel"><label for="tnTarget"><span class="tn-en">EX service destination (IP:port)</span><span class="tn-fa">نشانی و پورت مقصد سرویس در خارج</span></label><div class="tnPortPicker"><input id="tnTarget" dir="ltr" autocomplete="off" spellcheck="false" placeholder="127.0.0.1:2443" aria-describedby="tnTargetInfo tnServicePortHint" oninput="tnWizardTargetChanged()"><button type="button" class="alt" onclick="tnWizardGenerateServicePort()"><span class="tn-en">Suggest destination port</span><span class="tn-fa">پیشنهاد پورت مقصد</span></button></div></div>
   <label class="tnLabel"><span class="tn-en">Public client port on IR (externally managed)</span><span class="tn-fa">پورت کاربران روی سرور ایران (مدیریت خارجی)</span><input id="tnClientPort" type="number" inputmode="numeric" min="1" max="65535" placeholder="443" oninput="tnWizardIngressChanged()"></label>
  </div>
  <p id="tnTargetInfo" class="muted"><span class="tn-fa">موتور بومی BAFT به IP ثابت مقصد و پورت نیاز دارد؛ برای IPv6 از قالب <bdi dir="ltr">[::1]:2443</bdi> استفاده کنید. نشانی مربوط به سرویسی است که سرور خارج باید به آن متصل شود.</span><span class="tn-en">Native BAFT requires a fixed destination IP and port; use <bdi dir="ltr">[::1]:2443</bdi> for IPv6. This is the service the foreign server connects to.</span></p>
@@ -183,8 +170,9 @@ html[lang="fa"] .tn-en,html:not([lang="fa"]) .tn-fa{display:none!important}
  <div id="tnScopedFields" class="aurora-scope">
   <div class="tnNotice"><span class="tn-fa">هر تونل مستقل پیکربندی جداگانه دارد. مقادیر زیر پیشنهاد هستند؛ بررسی نهایی پورت‌ها هنگام Preview و استقرار انجام می‌شود.</span><span class="tn-en">Each independent tunnel has isolated config. Values below are suggestions; final conflicts are checked by the reviewed plan and deployment.</span></div>
   <label class="tnConfirm"><input type="checkbox" id="tnLegacyCoexist" onchange="tnClearPlan()"> <span class="tn-en">Keep active legacy tunnel on shared server (explicit consent)</span><span class="tn-fa">تونل قدیمی فعال روی سرور مشترک حفظ شود (تأیید صریح)</span></label>
-  <details class="tnAdvanced"><summary><span class="tn-en">Advanced: instance and internal listeners</span><span class="tn-fa">پیشرفته: شناسه و پورت‌های داخلی</span></summary>
+  <details class="tnAdvanced"><summary><span class="tn-en">Advanced: service destination and internal listeners</span><span class="tn-fa">پیشرفته: مقصد سرویس، شناسه و پورت‌های داخلی</span></summary>
     <div class="tnFields">
+      <div class="tnLabel"><label for="tnTarget"><span class="tn-en">EX service destination (IP:port, default 127.0.0.1:2443)</span><span class="tn-fa">نشانی و پورت مقصد سرویس در خارج (پیش‌فرض ۱۲۷.۰.۰.۱:۲۴۴۳)</span></label><div class="tnPortPicker"><input id="tnTarget" dir="ltr" autocomplete="off" spellcheck="false" placeholder="127.0.0.1:2443" aria-describedby="tnTargetInfo tnServicePortHint" oninput="tnWizardTargetChanged()"><button type="button" class="alt" onclick="tnWizardGenerateServicePort()"><span class="tn-en">Suggest destination port</span><span class="tn-fa">پیشنهاد پورت مقصد</span></button></div></div>
       <label class="tnLabel">Instance ID<input id="tnInstance" maxlength="40" autocomplete="off" placeholder="auto-created"></label>
       <label class="tnLabel">IR loopback route<input id="tnRouteListen" value="127.0.0.1:1444"></label>
       <label class="tnLabel">EX metrics loopback<input id="tnExMetric" value="127.0.0.1:9202"></label>
@@ -425,7 +413,6 @@ function tnWizardSuggest(){
 function tnWizardValidateStep(i){
  if(i===0){
   if(q('#tnDirection').value!=='ir-to-ex'){alert(tnWizardText('Reverse topology is not yet supported by the native BAFT engine.','اتصال معکوس هنوز در موتور بومی BAFT پیاده نشده است.'));return false}
-  if(q('#tnEngine').value!=='baft'){alert(tnWizardText('This tunnel engine is not implemented.','این موتور تونل هنوز پیاده‌سازی نشده است.'));return false}
   if(q('#tnMode').value==='replace'&&!tnEditBase){alert(tnWizardText('Choose Edit on an active tunnel in the list below.','برای ویرایش، ابتدا از فهرست پایین روی ویرایش تونل فعال بزنید.'));return false}
  }
  if(i===1){
@@ -433,7 +420,6 @@ function tnWizardValidateStep(i){
  }
  if(i===2){
   const port=Number(q('#tnPort').value);if(!Number.isInteger(port)||port<1||port>65535){alert(tnWizardText('Enter a valid BAFT port (1–65535).','پورت معتبر BAFT را وارد کنید (۱ تا ۶۵۵۳۵).'));return false}
-  if(!q('#tnTarget').value.trim()){alert(tnWizardText('Enter the service destination as IP:port.','نشانی IP و پورت مقصد سرویس را وارد کنید.'));return false}
   if(q('#tnClientPort').value){const n=Number(q('#tnClientPort').value);if(!Number.isInteger(n)||n<1||n>65535){alert(tnWizardText('Enter a valid public IR port.','پورت عمومی ایران معتبر نیست.'));return false}}
   if(!q('#tnIngressConfirm').checked){alert(tnWizardText('Confirm that BAFT does not create the public IR client ingress.','تأیید کنید که BAFT در این نسخه پورت عمومی کاربران ایران را ایجاد نمی‌کند.'));return false}
  }

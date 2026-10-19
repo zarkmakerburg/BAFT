@@ -2662,7 +2662,7 @@ do_speed() {
   if [[ "$rc" == 0 && "${size:-0}" =~ ^[0-9]+$ && "${size:-0}" -gt 0 && "${speed:-}" =~ ^[0-9]+([.][0-9]+)?$ ]]; then printf '%s%s%s  (%s bytes)\n' "$B" "$(mbps "${speed:-0}")" "$R" "$size"
   else printf '%sfailed%s\n' "$ER" "$R"; fi
   if [[ "$rc" != 0 && "${size:-0}" =~ ^[0-9]+$ && "${size:-0}" -gt 0 && "${size:-0}" -lt 65536 ]]; then
-    printf '  %sthe transfer stopped after %s bytes: foreign TCP looks cut on this server%s\n' "$ER" "${size:-0}" "$R"
+    printf '  %stransfer interrupted after %s bytes; cause unknown (check route, TLS, proxy and remote service)%s\n' "$ER" "${size:-0}" "$R"
   fi
   printf '  upload    '
   out="$(head -c 10000000 /dev/zero | curl -o /dev/null -sS --max-time 20 -w '%{speed_upload}' --data-binary @- 'https://speed.cloudflare.com/__up' 2>/dev/null)" && rc=0 || rc=$?

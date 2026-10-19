@@ -2665,8 +2665,8 @@ do_speed() {
     printf '  %sthe transfer stopped after %s bytes: foreign TCP looks cut on this server%s\n' "$ER" "${size:-0}" "$R"
   fi
   printf '  upload    '
-  out="$(head -c 10000000 /dev/zero | curl -o /dev/null -sS --max-time 20 -w '%{speed_upload}' --data-binary @- 'https://speed.cloudflare.com/__up' 2>/dev/null)" || true
-  if [[ "$out" =~ ^[0-9]+([.][0-9]+)?$ ]] && awk -v speed="$out" 'BEGIN { exit !(speed > 0) }'; then printf '%s%s%s\n' "$B" "$(mbps "$out")" "$R"; else printf '%sfailed%s\n' "$ER" "$R"; fi
+  out="$(head -c 10000000 /dev/zero | curl -o /dev/null -sS --max-time 20 -w '%{speed_upload}' --data-binary @- 'https://speed.cloudflare.com/__up' 2>/dev/null)" && rc=0 || rc=$?
+  if [[ "$rc" == 0 && "$out" =~ ^[0-9]+([.][0-9]+)?$ ]] && awk -v speed="$out" 'BEGIN { exit !(speed > 0) }'; then printf '%s%s%s\n' "$B" "$(mbps "$out")" "$R"; else printf '%sfailed%s\n' "$ER" "$R"; fi
 }
 
 do_latency() {

@@ -16,6 +16,9 @@ Before node selection, expose **Tunnel topology: Direct / Reverse** and **Tunnel
 5. **Confirm/execute:** revalidate plan and permissions; durable idempotent operation ID; signed allowlisted Agent jobs; prepare tunnel; commit/verify tunnel; prepare/commit/inspect public ingress; finalize. Present real-time evidence and errors. Preserve existing BAFT.goldapp.tr:2053.
 6. **Result:** verified endpoint, health, configuration history, audit, retry/recovery; do not claim success without observed Agent evidence.
 
+## Floating Liquid Glass visual contract
+Use a floating translucent glass modal with subtle Aurora accent glow, soft shadow, thin light-catching border and layered depth. Blur and dim the BCC dashboard backdrop while open, adapting tint and opacity to dark/light themes. Maintain WCAG-readable text and control contrast with solid-enough inner surfaces; never let glass transparency compromise legibility. Desktop modal max-width approximately 680–840px; mobile uses near-fullscreen responsive overlay with safe-area support and no horizontal scrolling. Animate entry/exit gently (~180–260ms) with reduced-motion support. Blur/glow must be performance-conscious (avoid large expensive filters on low-end devices); preserve focus trap, keyboard handling, safe dismissal and operation persistence. This is the universal Action Wizard shell across tunnel/server/backup/update/delete operations, not a one-off screen. Avoid harsh neon or heavy bloom.
+
 ## Universal overlay shell
 Context-aware launcher from tunnel/server card and command palette. Clear title, progress, back/next, contextual help, keyboard focus trap, ESC and backdrop safe handling, responsive fullscreen on narrow mobile, no redundant fields, save draft, accessible validation and loading states. Long-running operation persists independently of modal; closing overlay never cancels a running job. Destructive operations require stronger explicit confirmation and impact preview.
 

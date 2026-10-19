@@ -92,6 +92,10 @@ BAFT_BCC_LISTEN="${BAFT_BCC_LISTEN:-127.0.0.1:8080}"
 BAFT_BCC_DOMAIN="${BAFT_BCC_DOMAIN:-}"
 BAFT_BCC_PORT="${BAFT_BCC_PORT:-}"
 BAFT_ACME_VERSION="${BAFT_ACME_VERSION:-3.1.1}"
+# Official 3.1.1 tag -> commit, checked against GitHub's git/ref API. Hash is
+# the archive downloaded by immutable commit, not a mutable tag URL.
+BAFT_ACME_COMMIT="676d76696b616c0e013ad8a9be1aedd01e4e0204"
+BAFT_ACME_SHA256="2d5d635c4bd0e90b73999fa42ba33fcb4b61fb29df3a2daa10e7533e0ccf9510"
 BAFT_ACME_HOME="${BAFT_ACME_HOME:-/root/.acme.sh}"
 BAFT_BCC_TLS_DIR="${BAFT_BCC_TLS_DIR:-$BAFT_BCC_CONFIG_DIR/tls}"
 BAFT_PANEL_CMD="${BAFT_PANEL_CMD:-$(dirname "$BAFT_BCC_BIN")/baft-panel}"
@@ -1520,18 +1524,23 @@ bcc_cert_ok() {
 
 bcc_install_acme() {
   [[ -x "$BAFT_ACME_HOME/acme.sh" ]] && return 0
+  [[ "$BAFT_ACME_VERSION" == 3.1.1 ]] || { warn "unsupported acme.sh version; use the verified 3.1.1 pin or install a reviewed client manually"; return 1; }
   local tmp
   tmp="$(mktemp -d)"; CLEANUP+=("$tmp")
   log "downloading acme.sh $BAFT_ACME_VERSION"
-  curl -fsSL --max-time 120 "https://github.com/acmesh-official/acme.sh/archive/refs/tags/${BAFT_ACME_VERSION}.tar.gz" |
-    tar -xz -C "$tmp" || return 1
-  ( cd "$tmp/acme.sh-$BAFT_ACME_VERSION" && ./acme.sh --install --home "$BAFT_ACME_HOME" --nocron --noprofile ) >/dev/null 2>&1 || return 1
+  curl -fsSL --max-time 120 "https://github.com/acmesh-official/acme.sh/archive/${BAFT_ACME_COMMIT}.tar.gz" -o "$tmp/acme.tar.gz" || return 1
+  if ! printf '%s  %s\n' "$BAFT_ACME_SHA256" "$tmp/acme.tar.gz" | sha256sum -c - >/dev/null 2>&1; then
+    warn "acme.sh archive checksum mismatch; no downloaded code was extracted or executed"
+    return 1
+  fi
+  tar -xzf "$tmp/acme.tar.gz" -C "$tmp" || return 1
+  ( cd "$tmp/acme.sh-$BAFT_ACME_COMMIT" && ./acme.sh --install --home "$BAFT_ACME_HOME" --nocron --noprofile --auto-upgrade 0 ) >/dev/null 2>&1 || return 1
   [[ -x "$BAFT_ACME_HOME/acme.sh" ]]
 }
 
 # Daily renewal, as a systemd timer so it does not depend on cron.
 bcc_install_renew_timer() {
-  cat >"$BAFT_SYSTEMD_DIR/baft-bcc-cert.service" <<UNIT
+  cat >"$BAFT_SYSTEMD_DIR/baft-bcc-cert.service" <<UNIT || return 1
 # baft-managed: true
 # baft-component: bcc-cert
 [Unit]
@@ -1540,7 +1549,7 @@ Description=Renew the BAFT panel certificate
 Type=oneshot
 ExecStart=$BAFT_ACME_HOME/acme.sh --cron --home $BAFT_ACME_HOME
 UNIT
-  cat >"$BAFT_SYSTEMD_DIR/baft-bcc-cert.timer" <<UNIT
+  cat >"$BAFT_SYSTEMD_DIR/baft-bcc-cert.timer" <<UNIT || return 1
 # baft-managed: true
 # baft-component: bcc-cert
 [Unit]
@@ -1598,9 +1607,7 @@ bcc_obtain_cert() {
   [[ -n "$why" ]] || bcc_install_acme || why="could not download acme.sh"
   # IP certificates need ACME profile support (shortlived).
   if [[ -z "$why" && "$kind" != domain ]] && ! "$BAFT_ACME_HOME/acme.sh" --help 2>/dev/null | grep -q -- '--certificate-profile'; then
-    "$BAFT_ACME_HOME/acme.sh" --upgrade --home "$BAFT_ACME_HOME" >/dev/null 2>&1 || true
-    "$BAFT_ACME_HOME/acme.sh" --help 2>/dev/null | grep -q -- '--certificate-profile' ||
-      why="this acme.sh cannot request an IP certificate; use a domain instead"
+    why="this verified acme.sh cannot request an IP certificate; use a domain, or install a separately reviewed client with --certificate-profile support (automatic unverified upgrade is disabled)"
   fi
   if [[ -z "$why" ]]; then
     # Preserve the active pair before ACME can replace either file. Keep a
@@ -1656,8 +1663,8 @@ bcc_obtain_cert() {
   fi
   warn "no SSL certificate: $why"
   if [[ "$ASK_TTY" == 1 ]]; then
-    ask a "$(ui_ask_prompt "Continue with a self-signed certificate? The browser will warn once." "[Y/n]")" || true
-    [[ "$a" == n || "$a" == N || "$a" == no ]] && die "stopped before installing; nothing else was changed"
+    ask a "$(ui_ask_prompt "Continue with a self-signed certificate? The browser will warn once." "[y/N]")" || die "certificate issuance stopped; previous serving files preserved"
+    [[ "$a" == y || "$a" == Y || "$a" == yes ]] || die "certificate issuance stopped; previous serving files preserved"
   else
     die "no SSL certificate for $BAFT_BCC_DOMAIN: $why"
   fi
@@ -1970,8 +1977,7 @@ setup_ir_over_ssh() { # PAIRING_CODE -> prints the BAFTREPLY1 code on stdout
     cat "$dir/install.sh"
     printf 'BAFT_IR_INSTALL_SH_END\n'
     printf 'export BAFT_NONINTERACTIVE=1 BAFT_PAIRING_CODE=%q\n' "$code"
-    # The IR gets BBR and network tuning unless the operator said otherwise.
-    [[ -n "${BAFT_TUNE_NETWORK:-}" ]] || printf 'export BAFT_TUNE_NETWORK=1\n'
+    # Forward explicit tuning consent only; noninteractive IR installs default to no tuning.
     local v
     local -a pass_vars=() ir_env=()
     IFS=' ' read -r -a pass_vars <<<"$IR_SSH_ENV_PASS"
@@ -2924,8 +2930,8 @@ net_setup() {
   [[ -f "$BAFT_NET_SYSCTL" || "${BAFT_TUNE_NETWORK:-}" == 0 ]] && return 0
   if [[ "${BAFT_TUNE_NETWORK:-}" != 1 ]]; then
     [[ "$ASK_TTY" == 1 ]] || return 0
-    ask a "$(printf '\n'; ui_ask_prompt "Turn on BBR and network tuning? (recommended; undo with: sudo baft-net off)" "[Y/n]")" || true
-    [[ "$a" == n || "$a" == N || "$a" == no ]] && return 0
+    ask a "$(printf '\n'; ui_ask_prompt "Turn on BBR and network tuning? (host-wide changes; undo with: sudo baft-net off)" "[y/N]")" || return 0
+    [[ "$a" == y || "$a" == Y || "$a" == yes ]] || return 0
   fi
   if "$dest" on >/dev/null 2>&1; then ok "BBR and network tuning are on ($( [[ "$(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null)" == bbr ]] && echo "BBR active" || echo "no BBR in this kernel" ))"
   else warn "network tuning could not be applied"; fi

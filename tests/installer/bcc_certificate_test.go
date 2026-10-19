@@ -6,9 +6,11 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
 	"math/big"
 	"net"
 	"os"
@@ -128,6 +130,7 @@ func TestBCCACMEInstallValidatesBeforeSuccess(t *testing.T) {
 		name                       string
 		valid, existing, timerFail bool
 		fail                       string
+		answer                     string
 	}{
 		{name: "valid", valid: true},
 		{name: "mismatched-key"},
@@ -135,6 +138,8 @@ func TestBCCACMEInstallValidatesBeforeSuccess(t *testing.T) {
 		{name: "existing-pair-issuance-failure", existing: true, fail: "issue"},
 		{name: "existing-pair-install-failure", existing: true, fail: "install"},
 		{name: "timer-failure-honest", valid: true, timerFail: true},
+		{name: "selfsigned-eof-preserves-old-pair", existing: true, answer: "eof"},
+		{name: "selfsigned-default-preserves-old-pair", existing: true, answer: "empty"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -182,12 +187,17 @@ exit 0
 			harness := `
 phase(){ :; }; log(){ :; }; warn(){ echo "WARN $*"; }; ok(){ echo "SUCCESS $*"; }; die(){ echo "FAILED $*"; exit 1; }
 install(){ mkdir -p "$BAFT_BCC_TLS_DIR"; }
+ui_ask_prompt(){ :; }
+ask(){ [[ "$TEST_ANSWER" != eof ]] || return 1; printf -v "$1" '%s' ''; }
 bcc_install_acme(){ :; }; bcc_port_busy(){ return 1; }; bcc_public_ip(){ echo 192.0.2.10; }; getent(){ echo '192.0.2.10 STREAM bcc.example.test'; }
 bcc_install_renew_timer(){ echo TIMER; [[ "$TEST_TIMER_FAIL" != true ]]; }
 bcc_obtain_cert
 `
 			cmd := exec.Command("bash", "-c", "set -euo pipefail\n"+functions+harness)
 			cmd.Env = append(os.Environ(), "PATH="+bin+":"+os.Getenv("PATH"), "TEST_CERT="+cert, "TEST_KEY="+key, "TEST_FAIL="+tc.fail, "TEST_TIMER_FAIL="+map[bool]string{true: "true", false: "false"}[tc.timerFail], "BAFT_BCC_TLS_CERT="+activeCert, "BAFT_BCC_TLS_KEY="+activeKey, "BAFT_BCC_TLS_DIR="+tlsDir, "BAFT_ACME_HOME="+bin, "BAFT_BCC_DOMAIN=bcc.example.test", "BCC_WANT_CERT=1", "ASK_TTY=0")
+			if tc.answer != "" {
+				cmd.Env = append(cmd.Env, "ASK_TTY=1", "TEST_ANSWER="+tc.answer)
+			}
 			out, err := cmd.CombinedOutput()
 			if (err == nil) != tc.valid || strings.Contains(string(out), "SUCCESS") != tc.valid || strings.Contains(string(out), "TIMER") != tc.valid {
 				t.Fatalf("valid=%v err=%v output=%s", tc.valid, err, out)
@@ -215,6 +225,127 @@ bcc_obtain_cert
 			snapshots, _ := filepath.Glob(filepath.Join(tlsDir, ".previous.*"))
 			if len(snapshots) != 0 {
 				t.Fatal("certificate rollback snapshots were not cleaned")
+			}
+		})
+	}
+}
+
+func TestBCCACMEArchiveVerifiedBeforeExtraction(t *testing.T) {
+	if _, err := exec.LookPath("tar"); err != nil {
+		t.Skip("tar unavailable")
+	}
+	if _, err := exec.LookPath("sha256sum"); err != nil {
+		t.Skip("sha256sum unavailable")
+	}
+	functions := bccSSLFunctions(t, "bcc_install_acme")
+	for _, valid := range []bool{true, false} {
+		t.Run(map[bool]string{true: "verified", false: "checksum-mismatch"}[valid], func(t *testing.T) {
+			dir := t.TempDir()
+			source := filepath.Join(dir, "source")
+			root := filepath.Join(source, "acme.sh-test-commit")
+			if err := os.MkdirAll(root, 0700); err != nil {
+				t.Fatal(err)
+			}
+			fixture := `#!/bin/bash
+mkdir -p "$3"
+cp "$0" "$3/acme.sh"
+echo EXECUTED > "$TEST_EXEC_MARKER"
+`
+			if err := os.WriteFile(filepath.Join(root, "acme.sh"), []byte(fixture), 0700); err != nil {
+				t.Fatal(err)
+			}
+			archive := filepath.Join(dir, "archive.tar.gz")
+			if out, err := exec.Command("tar", "-czf", archive, "-C", source, "acme.sh-test-commit").CombinedOutput(); err != nil {
+				t.Fatalf("fixture archive: %v %s", err, out)
+			}
+			raw, err := os.ReadFile(archive)
+			if err != nil {
+				t.Fatal(err)
+			}
+			digest := fmt.Sprintf("%x", sha256.Sum256(raw))
+			if !valid {
+				digest = strings.Repeat("0", 64)
+			}
+			marker := filepath.Join(dir, "executed")
+			harness := `
+log(){ :; }; warn(){ echo "$*"; }
+curl(){ cp "$TEST_ARCHIVE" "${@: -1}"; }
+tar(){ echo EXTRACTED; command tar "$@"; }
+CLEANUP=()
+trap 'rm -rf -- "${CLEANUP[@]}"' EXIT
+bcc_install_acme
+`
+			cmd := exec.Command("bash", "-c", "set -euo pipefail\n"+functions+harness)
+			cmd.Env = append(os.Environ(), "BAFT_ACME_HOME="+filepath.Join(dir, "installed"), "BAFT_ACME_VERSION=3.1.1", "BAFT_ACME_COMMIT=test-commit", "BAFT_ACME_SHA256="+digest, "TEST_ARCHIVE="+archive, "TEST_EXEC_MARKER="+marker)
+			out, err := cmd.CombinedOutput()
+			if (err == nil) != valid || strings.Contains(string(out), "EXTRACTED") != valid {
+				t.Fatalf("valid=%v err=%v output=%s", valid, err, out)
+			}
+			_, statErr := os.Stat(marker)
+			if (statErr == nil) != valid {
+				t.Fatalf("unexpected downloaded code execution: valid=%v err=%v", valid, statErr)
+			}
+		})
+	}
+}
+
+func TestBCCUnsupportedIPCertificateDoesNotUpgradeClient(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "bin")
+	if err := os.Mkdir(bin, 0700); err != nil {
+		t.Fatal(err)
+	}
+	marker := filepath.Join(dir, "acme-calls")
+	for name, body := range map[string]string{"acme.sh": "#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$TEST_CALLS\"\nexit 0\n", "socat": "#!/bin/sh\nexit 0\n"} {
+		if err := os.WriteFile(filepath.Join(bin, name), []byte(body), 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	functions := bccSSLFunctions(t, "bcc_host_kind", "bcc_cert_ok", "bcc_obtain_cert")
+	harness := `
+phase(){ :; }; log(){ :; }; warn(){ echo "$*"; }; die(){ echo "$*"; exit 1; }
+install(){ mkdir -p "$BAFT_BCC_TLS_DIR"; }
+bcc_install_acme(){ :; }; bcc_port_busy(){ return 1; }
+bcc_obtain_cert
+`
+	cmd := exec.Command("bash", "-c", "set -euo pipefail\n"+functions+harness)
+	cmd.Env = append(os.Environ(), "PATH="+bin+":"+os.Getenv("PATH"), "TEST_CALLS="+marker, "BAFT_BCC_TLS_CERT="+filepath.Join(dir, "tls/cert.pem"), "BAFT_BCC_TLS_KEY="+filepath.Join(dir, "tls/key.pem"), "BAFT_BCC_TLS_DIR="+filepath.Join(dir, "tls"), "BAFT_ACME_HOME="+bin, "BAFT_BCC_DOMAIN=192.0.2.10", "BCC_WANT_CERT=1", "ASK_TTY=0")
+	out, err := cmd.CombinedOutput()
+	if err == nil || !strings.Contains(string(out), "automatic unverified upgrade is disabled") {
+		t.Fatalf("expected actionable failure: err=%v output=%s", err, out)
+	}
+	calls, err := os.ReadFile(marker)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(calls) != "--help\n" {
+		t.Fatalf("unsupported client was mutated: %s", calls)
+	}
+}
+
+func TestBCCRenewTimerWriteFailureDoesNotEnableTimer(t *testing.T) {
+	functions := bccSSLFunctions(t, "bcc_install_renew_timer")
+	for _, blocked := range []string{"baft-bcc-cert.service", "baft-bcc-cert.timer"} {
+		t.Run(blocked, func(t *testing.T) {
+			dir := t.TempDir()
+			if err := os.Mkdir(filepath.Join(dir, blocked), 0700); err != nil {
+				t.Fatal(err)
+			}
+			marker := filepath.Join(dir, "systemctl-called")
+			harness := `
+systemctl(){ echo CALLED > "$TEST_SYSTEMCTL_MARKER"; }
+# Match the production conditional caller: errexit is suppressed inside it.
+if bcc_install_renew_timer; then exit 0; else exit 7; fi
+`
+			cmd := exec.Command("bash", "-c", "set -euo pipefail\n"+functions+harness)
+			cmd.Env = append(os.Environ(), "BAFT_SYSTEMD_DIR="+dir, "BAFT_ACME_HOME="+filepath.Join(dir, "acme"), "TEST_SYSTEMCTL_MARKER="+marker)
+			out, err := cmd.CombinedOutput()
+			exitErr, ok := err.(*exec.ExitError)
+			if !ok || exitErr.ExitCode() != 7 {
+				t.Fatalf("expected rejected renewal setup: err=%v output=%s", err, out)
+			}
+			if _, err := os.Stat(marker); !os.IsNotExist(err) {
+				t.Fatalf("systemctl ran after failed unit write: %v", err)
 			}
 		})
 	}

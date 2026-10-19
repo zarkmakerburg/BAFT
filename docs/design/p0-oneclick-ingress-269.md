@@ -88,3 +88,23 @@ Source reviewed: `install.sh` (~3,231 lines). Existing UI helpers include `ui_ca
 **P0-S6 — Tests:** Cover valid domain, wrong DNS, blocked port 80, occupied port 80, IP-profile unsupported, ACME failure, revoked/expired certificate, self-signed fallback, renewal, key mismatch, interrupted install, rollback and repeated installation. Run disposable Debian/Ubuntu VM integration and CI tests; do not claim production readiness before evidence.
 
 **Exit criteria:** successful verified TLS handshake to the BCC endpoint; certificate matches the configured address; automated renewal proven; secrets protected; all failures preserve previous BCC and unrelated services; HQ approval before merge/release/deploy.
+
+## P0 — Adaptive server network performance and connection reliability (2026-10-20)
+
+**Goal:** The BAFT Linux installer must provide safe, measurable and reversible network optimization for IR/EX nodes and BCC hosts, without promising one universally best sysctl profile. Prioritize real user latency, throughput, connection establishment, packet loss and tunnel stability, not synthetic speed alone.
+
+**Existing implementation:** `install.sh` generates `baft-net` with BBR/fq, socket buffer tuning, TCP MTU probing, speed/latency tests and an enable/disable menu. The existing default tuning is not automatically optimal for every kernel, provider, route or tunnel. Review before replacing any settings.
+
+**P0-N1 — Baseline and discovery:** Before changes, collect kernel/version, NIC/link speed, virtualization/container restrictions, qdisc, congestion control, TCP buffer limits, MTU/PMTU, IPv4/IPv6, DNS latency, packet loss, RTT/jitter, TCP connect and TLS handshake times, retransmits and BAFT-specific tunnel health. Never export private endpoint identifiers or credentials without consent.
+
+**P0-N2 — Safe profiles:** Offer Automatic (recommended), Conservative/stability, Balanced, Throughput, Low-latency and Custom. Detect BBR availability and actual bottlenecks; use CUBIC or provider-safe defaults when BBR is unsupported or worse in measured tests. Avoid indiscriminate large buffers, disabling security protections, or setting unsupported sysctls. Distinguish host TCP optimization from transport protocol/application-layer tuning.
+
+**P0-N3 — Connection robustness:** Audit BAFT transport keepalive, dial/connect timeouts, bounded retry with jitter, exponential backoff, reconnection and route health checks, DNS fallback, MTU/MSS handling, socket/resource limits, and simultaneous-connection behavior. Any changes must preserve tunnel ownership and not interfere with 3X-UI or existing listeners.
+
+**P0-N4 — Ownership and rollback:** Snapshot each affected sysctl/qdisc/MTU/limit and existing config, identify conflicting files in `/etc/sysctl.d`, and write only BAFT-owned settings. On disable/rollback restore the exact prior effective values when safe, rather than blindly forcing `cubic`/`fq_codel`. Test network reachability after applying, revert automatically if regression thresholds are breached, and preserve SSH access.
+
+**P0-N5 — Installer UX:** Add a dedicated `Network Optimization` step after preflight, with before/after measurements, chosen profile, expected tradeoffs, reversible actions and explicit opt-in for host-wide changes. The operator can skip tuning. Integrate with `baft-net` diagnostics and BCC telemetry, with FA/EN text, noninteractive flags and no fabricated speed improvements.
+
+**P0-N6 — Benchmark and acceptance:** Use repeatable multi-run IR↔EX and client↔IR measurements under idle and load, packet loss, jitter, reconnect time and throughput. Include poor routes, BBR absent, restricted containers, IPv6, high-latency links, MTU blackholes, competing sysctl policies and 3X-UI coexistence. Record baseline and confidence intervals; ship a profile only when measured benefits outweigh regressions. CI, disposable VM tests and staged real-host validation required.
+
+**Release gate:** Existing BAFT.goldapp.tr:2053 and all active services remain intact. No global network mutation, merge, release or deployment without explicit HQ authorization.

@@ -3,7 +3,7 @@
 (()=>{'use strict';const c=document.getElementById('welcomeGlobe');if(!c)return;const ctx=c.getContext('2d');if(!ctx)return;
 const land=window.BAFT_LAND||[],reduce=matchMedia('(prefers-reduced-motion: reduce)').matches,rad=Math.PI/180,TILT=.32;
 const HUB=[51.39,35.69],NODES=[[8.68,50.11],[4.9,52.37],[-.12,51.51],[28.97,41.01],[-79.38,43.65],[103.82,1.35],[-74,40.7],[139.69,35.69],[55.27,25.2]];
-let w=1,h=1,dpr=1,last=0,angle=-.95,spin=reduce?0:2*Math.PI/110000,drag=null,vel=0,prev=0;
+let w=1,h=1,dpr=1,last=0,angle=-.95,spin=reduce?0:2*Math.PI/110000,drag=null,vel=0,prev=0,rafId=0;
 function resize(){const b=c.getBoundingClientRect();dpr=Math.min(devicePixelRatio||1,1.75);w=c.width=Math.max(1,Math.round(b.width*dpr));h=c.height=Math.max(1,Math.round(b.height*dpr));draw()}
 new ResizeObserver(resize).observe(c);
 const light=()=>document.documentElement.dataset.theme==='light';
@@ -29,10 +29,10 @@ function draw(time=performance.now()){const g=geom(),L=light();ctx.setTransform(
   const hq=view(hub,g);if(hq.z>0){ctx.beginPath();ctx.arc(hq.x,hq.y,5*dpr,0,Math.PI*2);ctx.fillStyle=core;ctx.shadowColor=gold;ctx.shadowBlur=22*dpr;ctx.fill();ctx.shadowBlur=0;ctx.beginPath();ctx.arc(hq.x,hq.y,12*dpr,0,Math.PI*2);ctx.strokeStyle=gold;ctx.globalAlpha=.55;ctx.stroke();ctx.globalAlpha=1}}
 function frame(now){const dt=Math.min(64,now-(prev||now));prev=now;
   if(!drag){if(Math.abs(vel)>1e-6){angle+=vel*dt;vel*=Math.pow(.94,dt/16)}else angle+=spin*dt}
-  if(now-last>30&&!c.closest('[hidden]')&&!document.hidden){draw(now);last=now}requestAnimationFrame(frame)}
+  if(now-last>30&&!c.closest('[hidden]')&&!document.hidden){draw(now);last=now}rafId=requestAnimationFrame(frame)}
 c.style.touchAction='pan-y';c.style.cursor='grab';
 c.addEventListener('pointerdown',e=>{drag={x:e.clientX,a:angle,t:performance.now(),lx:e.clientX};vel=0;c.style.cursor='grabbing';c.setPointerCapture(e.pointerId)});
 c.addEventListener('pointermove',e=>{if(!drag)return;const g=geom(),now=performance.now(),dx=(e.clientX-drag.x)*dpr;angle=drag.a+dx/g.r;vel=((e.clientX-drag.lx)*dpr/g.r)/Math.max(8,now-drag.t);drag.lx=e.clientX;drag.t=now});
 const end=()=>{drag=null;c.style.cursor='grab'};c.addEventListener('pointerup',end);c.addEventListener('pointercancel',end);
-window.addEventListener('baft:earth-ready',()=>draw());resize();requestAnimationFrame(frame);
+window.addEventListener('baft:earth-ready',()=>draw());resize();document.addEventListener('visibilitychange',()=>{if(document.hidden)cancelAnimationFrame(rafId);else{prev=0;rafId=requestAnimationFrame(frame)}});rafId=requestAnimationFrame(frame);
 })();

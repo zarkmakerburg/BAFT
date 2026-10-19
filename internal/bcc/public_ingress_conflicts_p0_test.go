@@ -19,3 +19,5 @@ func TestP0PublicIngressReservations(t *testing.T) {
  changed.LocalTarget = "127.0.0.1:1445"
  if err := ValidatePublicIngressReservation(changed, []PublicIngressSpec{a}); err == nil { t.Fatal("same tunnel cannot silently change owned target") }
 }
+
+// Review note: future tests should cover whitespace-normalized node ownership.

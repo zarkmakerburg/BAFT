@@ -42,3 +42,5 @@
 .baw-body [role="alert"]{border-inline-start:3px solid #ffb3a7;padding-inline-start:12px;margin-block:12px}
 .baw-body [role="status"]{opacity:.86;font-size:.92rem}
 @media(prefers-reduced-motion:reduce){.baw-dialog{animation:none!important;transition:none!important}}
+
+.baw-description{font-size:.85rem;line-height:1.5;opacity:.78;margin:0 0 12px}

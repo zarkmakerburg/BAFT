@@ -25,6 +25,7 @@ type Config struct {
 	Base           string          `json:"base"`
 	LoginAction    string          `json:"loginAction"`
 	Error          string          `json:"error,omitempty"`
+	Nonce          string          `json:"nonce,omitempty"` // sent to client so JS can stamp nonces on dynamic scripts
 	// Wallets, when non-nil, overrides the support wallet list in the UI.
 	// Omit to show no wallets; supply a JSON array of wallet objects to show them.
 	Wallets        json.RawMessage `json:"wallets,omitempty"`
@@ -35,7 +36,15 @@ type Config struct {
 func Page(config Config) string {
 	raw, _ := FS.ReadFile(PageFile)
 	data, _ := json.Marshal(config) // Escapes HTML-sensitive characters.
-	page := strings.Replace(string(raw), "<head>", "<head><script>window.BAFT_UI="+string(data)+";</script>", 1)
+	nonceAttr := ""
+	if config.Nonce != "" {
+		nonceAttr = ` nonce="` + html.EscapeString(config.Nonce) + `"`
+	}
+	// Inject per-request config as a nonced inline script.
+	configScript := "<script" + nonceAttr + ">window.BAFT_UI=" + string(data) + ";</script>"
+	page := strings.Replace(string(raw), "<head>", "<head>"+configScript, 1)
+	// Stamp the nonce onto the pre-paint inline script already in bcc-app.html.
+	page = strings.Replace(page, `<script id="prepaint">`, `<script id="prepaint"`+nonceAttr+`>`, 1)
 	if config.Base != "" {
 		base := html.EscapeString(config.Base)
 		page = strings.NewReplacer(`="./`, `="`+base+`v3/`, `action="login"`, `action="`+html.EscapeString(config.LoginAction)+`"`, `href="login"`, `href="`+base+`login"`).Replace(page)

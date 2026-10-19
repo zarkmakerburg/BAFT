@@ -270,7 +270,7 @@ func TestRepeatedLoginFailuresAreBlocked(t *testing.T) {
 func TestLoginAndWelcomePagesRenderWithoutFormatArtifacts(t *testing.T) {
 	// The templates are full of literal % (CSS); a fmt verb would corrupt them.
 	for name, page := range map[string]string{
-		"welcome":      renderWelcome("/secret/login"),
+		"welcome":      renderWelcome("/secret/login", ""),
 		"login":        renderLogin("/secret/login", `bad <b>"input"</b>`),
 		"login-no-err": renderLogin("/secret/login", ""),
 	} {
@@ -281,7 +281,7 @@ func TestLoginAndWelcomePagesRenderWithoutFormatArtifacts(t *testing.T) {
 			t.Errorf("%s page lost its CSS percentages", name)
 		}
 	}
-	if !strings.Contains(renderWelcome("/s/login"), `href="/s/login"`) || !strings.Contains(renderLogin("/s/login", ""), `action="/s/login"`) {
+	if !strings.Contains(renderWelcome("/s/login", ""), `href="/s/login"`) || !strings.Contains(renderLogin("/s/login", ""), `action="/s/login"`) {
 		t.Error("login URL not filled in")
 	}
 	if page := renderLogin("/s/login", `<script>x</script>`); strings.Contains(page, "<script>x") {

@@ -36,5 +36,5 @@
  dialog.setAttribute('dir',document.documentElement.dir||'auto');active.append(dialog);document.body.append(active);active.addEventListener('click',e=>{if(e.target===active)close();});document.addEventListener('keydown',onKey);render();dialog.querySelector('button').focus();}
  window.BAFTActionWizard={open,close,version:'1.0-preview'};
  document.addEventListener('click',event=>{const button=event.target.closest?.('[data-baw-open]');if(button){event.preventDefault();open();}});
- const launch=document.getElementById('baw-open');if(launch)launch.addEventListener('click',open);
+ const launch=document.getElementById('baw-open');if(launch){launch.addEventListener('click',open);launch.setAttribute('aria-haspopup','dialog');}
 }());

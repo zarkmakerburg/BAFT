@@ -2706,7 +2706,8 @@ menu() {
   printf '   %s1%s  status\n   %s2%s  turn on BBR and tuning\n   %s3%s  turn off BBR and tuning\n' "$G" "$R" "$G" "$R" "$G" "$R"
   printf '   %s4%s  speed test (also shows foreign TCP cut-off)\n   %s5%s  latency to well-known hosts\n' "$G" "$R" "$G" "$R"
   printf '   %s6%s  route to a host (mtr)\n   %s7%s  is a port open on a host\n   %s0%s  exit\n\n' "$G" "$R" "$G" "$R" "$G" "$R"
-  local c; read -r -p "  Choose: " c; echo
+  local c; read -r -p "  Choose: " c || return 0
+  echo
   case "$c" in
     1) do_status ;; 2) do_on ;; 3) do_off ;; 4) do_speed ;; 5) do_latency ;; 6) do_route ;; 7) do_port ;;
     0|"") exit 0 ;; *) echo "  type a number from the menu" ;;

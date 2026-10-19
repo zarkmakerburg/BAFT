@@ -23,18 +23,17 @@ test('Tunnel Studio exposes a single generic service destination in the ports st
  assert.doesNotMatch(html,/Xray|VLESS|VMess|Trojan|Shadowsocks|tnUserProtocol|tnXrayPort/i);
  assert.equal((html.match(/id="tnTarget"/g)||[]).length,1);
  const ports=html.slice(html.indexOf('data-tn-step="2"'),html.indexOf('data-tn-step="3"'));
- assert.match(ports,/id="tnTarget" dir="ltr"/);
- assert.match(ports,/IP:port/);
  assert.match(ports,/\[::1\]:2443/);
- assert.match(ports,/نشانی و پورت مقصد سرویس/);
+ const advanced=html.slice(html.indexOf('data-tn-step="3"'),html.indexOf('data-tn-step="4"'));
+ assert.match(advanced,/id="tnTarget" dir="ltr"/);
+ assert.match(advanced,/IP:port/);
+ assert.match(advanced,/نشانی و پورت مقصد سرویس/);
  assert.doesNotMatch(js,/tnUserProtocol|tnXrayPort|tnWizardTargetSync/);
 });
 test('unified Studio retains explicit port suggestions and truthful direction selection',()=>{
  assert.match(html,/<option value="ir-to-ex">Direct/);
  assert.match(html,/<option value="ex-to-ir" disabled>Reverse/);
  assert.match(html,/id="tnDirectionInfo"/);
- assert.match(html,/<optgroup label="Direct/);
- assert.match(html,/<optgroup label="Reverse/);
  assert.match(html,/onclick="tnWizardGenerateServicePort\(\)"/);
  assert.match(html,/label for="tnTarget"/);
  assert.match(html,/do not scan or reserve OS sockets/);
@@ -43,10 +42,10 @@ test('unified Studio retains explicit port suggestions and truthful direction se
  const request=js.slice(js.indexOf('function tnReq()'),js.indexOf('function tnModeChanged()'));
  assert.doesNotMatch(request,/tnDirection|reverse_engine|reverse_server|tnServicePort/);
 });
-test('only Native BAFT is selectable: future drivers cannot silently become live',()=>{
- assert.match(html,/<option value="baft">BAFT Secure/);
- for(const driver of ['frp','rathole','wss'])assert.match(html,new RegExp('<option value="'+driver+'" disabled>'));
- assert.match(js,/q\('#tnEngine'\)\.value!=='baft'/);
+test('only Native BAFT is runnable: engine is fixed by a hidden field; catalog rejects other drivers',()=>{
+ assert.match(html,/id="tnEngine"[^>]*value="baft"/);
+ assert.doesNotMatch(html,/<option[^>]*value="(frp|rathole|wss)"/);
+ assert.match(js,/if\(id!=='baft'/);
 });
 test('IR public client port is visibly unmanaged and never sent as BAFT tunnel API data',()=>{
  assert.match(html,/BAFT.*does NOT create the public IR client listener/);

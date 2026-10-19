@@ -17,14 +17,17 @@ const PageFile = "bcc-app.html"
 var FS embed.FS
 
 type Config struct {
-	OperationsHTML string `json:"operationsHTML,omitempty"`
-	OperationsJS   string `json:"operationsJS,omitempty"`
-	CSRF           string `json:"csrf,omitempty"`
-	CSRFHeader     string `json:"csrfHeader,omitempty"`
-	Mode           string `json:"mode"`
-	Base           string `json:"base"`
-	LoginAction    string `json:"loginAction"`
-	Error          string `json:"error,omitempty"`
+	OperationsHTML string          `json:"operationsHTML,omitempty"`
+	OperationsJS   string          `json:"operationsJS,omitempty"`
+	CSRF           string          `json:"csrf,omitempty"`
+	CSRFHeader     string          `json:"csrfHeader,omitempty"`
+	Mode           string          `json:"mode"`
+	Base           string          `json:"base"`
+	LoginAction    string          `json:"loginAction"`
+	Error          string          `json:"error,omitempty"`
+	// Wallets, when non-nil, overrides the support wallet list in the UI.
+	// Omit to show no wallets; supply a JSON array of wallet objects to show them.
+	Wallets        json.RawMessage `json:"wallets,omitempty"`
 }
 
 // Page renders the Command Center for one request. Assets are served under

@@ -48,3 +48,27 @@ func TestP0PublicIngressCanonicalOwnership(t *testing.T) {
   t.Fatal("invalid stored reservations must fail closed")
  }
 }
+
+func TestP0PublicIngressReservationFailClosedAcrossNodes(t *testing.T) {
+ candidate, err := PlanPublicIngress("ir-main", "tun-b", 2053, "127.0.0.1:9001")
+ if err != nil { t.Fatal(err) }
+ tests := []struct {
+  name string
+  existing PublicIngressSpec
+  wantError bool
+ }{
+  {"same node and port", PublicIngressSpec{IRNode:"ir-main", TunnelID:"tun-a", PublicPort:2053, LocalTarget:"127.0.0.1:9000"}, true},
+  {"trimmed node and port", PublicIngressSpec{IRNode:" ir-main ", TunnelID:"tun-a", PublicPort:2053, LocalTarget:"127.0.0.1:9000"}, true},
+  {"different node", PublicIngressSpec{IRNode:"ir-other", TunnelID:"tun-a", PublicPort:2053, LocalTarget:"127.0.0.1:9000"}, false},
+  {"different port", PublicIngressSpec{IRNode:"ir-main", TunnelID:"tun-a", PublicPort:2054, LocalTarget:"127.0.0.1:9000"}, false},
+  {"invalid stored target", PublicIngressSpec{IRNode:"ir-other", TunnelID:"tun-a", PublicPort:2053, LocalTarget:"0.0.0.0:9000"}, true},
+  {"invalid stored port", PublicIngressSpec{IRNode:"ir-other", TunnelID:"tun-a", PublicPort:0, LocalTarget:"127.0.0.1:9000"}, true},
+  {"empty stored tunnel", PublicIngressSpec{IRNode:"ir-other", TunnelID:"", PublicPort:2053, LocalTarget:"127.0.0.1:9000"}, true},
+ }
+ for _, tt := range tests {
+  t.Run(tt.name,func(t *testing.T){
+   err := ValidatePublicIngressReservation(candidate, []PublicIngressSpec{tt.existing})
+   if (err != nil) != tt.wantError { t.Fatalf("error=%v, wantError=%t",err,tt.wantError) }
+  })
+ }
+}

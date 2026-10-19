@@ -26,3 +26,9 @@ The current operational BCC wizard is embedded in `internal/bcc/dashboard.go`, n
 8. Test both language directions, mobile focus management, and all failure paths.
 9. Run CI and two-node staging verification before HQ review.
 10. No merge, release, deploy, or live host mutation without HQ approval.
+
+## Preview UI hardening (2026-10-19)
+The modern preview validates public ports as decimal 1–65535 without leading zeroes and limits free-text node identifiers to 128 characters. These are only UI constraints; server-side authorization, node ownership, ingress binding and collision checks remain mandatory. The dialog traps focus, restores prior focus, locks background scrolling and announces invalid fields. It does not discover real nodes or perform plan/deploy. The hardcoded BAFT engine capability is **preview data**, not a runtime capability claim.
+
+## Required integration proof
+Before exposing any operational confirmation in Aurora, verify real role-scoped node discovery, engine capability response, CSRF/session integration, server-side port reservation and public ingress listener lifecycle, plan hash invalidation on edits, persistent job status, rollback, and no disruption to the existing legacy listener. Test with a non-production environment first.

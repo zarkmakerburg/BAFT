@@ -63,3 +63,15 @@ test('modal exposes accessible labels and guarded navigation',()=>{
  const app=fs.readFileSync(path.join(web,'bcc-app.js'),'utf8');
  assert.match(app,/launcher\.setAttribute\('aria-haspopup','dialog'\)/);
 });
+
+test('strict preview input constraints and focus isolation',()=>{
+ assert.match(js,/function validPort/);
+ assert.match(js,/\[1-9\]/);
+ assert.match(js,/a\.length<=128&&b\.length<=128/);
+ assert.match(js,/field\.maxLength=128/);
+ assert.match(js,/function onFocus\(e\)/);
+ assert.match(js,/document\.addEventListener\('focusin',onFocus\)/);
+ assert.match(js,/document\.removeEventListener\('focusin',onFocus\)/);
+ assert.match(js,/aria-invalid/);
+ assert.match(js,/function isOpen\(\)/);
+});

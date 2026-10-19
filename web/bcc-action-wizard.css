@@ -28,3 +28,11 @@
 .baw-actions button:disabled{opacity:.4;cursor:not-allowed}
 @media(prefers-color-scheme:light){.baw-body input,.baw-body select{background:rgba(255,255,255,.75);color:#17223a}.baw-actions button{background:rgba(100,150,235,.12)}}
 @media(max-width:600px){.baw-launch{padding:8px;font-size:.8rem}}
+
+/* Logical spacing keeps the same modal usable in Persian RTL and English LTR. */
+.baw-dialog{direction:inherit;text-align:start}
+.baw-dialog label>span{display:block}
+.baw-body{overflow-wrap:break-word}
+.baw-dialog:focus-within{outline:none}
+@media(max-width:420px){.baw-header{align-items:flex-start}.baw-title{font-size:1.05rem}.baw-actions button{min-width:80px}}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.baw-backdrop{background:rgba(5,10,20,.86)}.baw-dialog{background:#202d45}}

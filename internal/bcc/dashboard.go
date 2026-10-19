@@ -442,6 +442,7 @@ function tnWizardStep(i){
  for(const chip of q('#tnWizardSteps').children){chip.classList.toggle('selected',Number(chip.dataset.tnNav)===i)}
  q('#tnWizardBack').hidden=i===0;q('#tnWizardNext').hidden=i===4;
  if(i===4)tnWizardSummary();
+ if(i===3){const adv=document.querySelector('.tnAdvanced');if(adv)adv.open=true}
 }
 function tnWizardSummary(){
  const r=tnReq(),c=q('#tnClientPort').value.trim(),legacy=tnWizardSharesLegacy(),active=!!tnEditBase;

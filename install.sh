@@ -2679,7 +2679,8 @@ do_latency() {
 
 do_route() {
   local h
-  read -r -p "  Host or IP to trace [1.1.1.1]: " h; h="${h:-1.1.1.1}"
+  read -r -p "  Host or IP to trace [1.1.1.1]: " h || return 1
+  h="${h:-1.1.1.1}"
   if command -v mtr >/dev/null 2>&1; then mtr -rwc 10 "$h"
   elif command -v tracepath >/dev/null 2>&1; then tracepath -n "$h"
   else echo "  installing mtr"; apt-get -qq install -y mtr-tiny >/dev/null 2>&1 && mtr -rwc 10 "$h"; fi

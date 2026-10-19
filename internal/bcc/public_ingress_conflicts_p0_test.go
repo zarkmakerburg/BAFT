@@ -28,8 +28,7 @@ func TestP0PublicIngressCanonicalOwnership(t *testing.T) {
  equivalent := base
  equivalent.IRNode = " arno "
  equivalent.TunnelID = " tun-a "
- equivalent.LocalTarget = "127.0.0.01:1444"
- // Use canonicalizable IPv6 loopback textual forms instead of ambiguous IPv4 octets.
+ // Equivalent expanded IPv6 loopback notation must canonicalize.
  equivalent.LocalTarget = "[0:0:0:0:0:0:0:1]:1444"
  canonical, err := PlanPublicIngress("arno", "tun-a", 54619, "[::1]:1444")
  if err != nil { t.Fatal(err) }

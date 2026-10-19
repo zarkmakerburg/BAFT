@@ -25,13 +25,12 @@ func TestP0PublicIngressReservations(t *testing.T) {
 func TestP0PublicIngressCanonicalOwnership(t *testing.T) {
  base, err := PlanPublicIngress("arno", "tun-a", 54619, "127.0.0.1:1444")
  if err != nil { t.Fatal(err) }
- equivalent := base
- equivalent.IRNode = " arno "
- equivalent.TunnelID = " tun-a "
- // Equivalent expanded IPv6 loopback notation must canonicalize.
- equivalent.LocalTarget = "[0:0:0:0:0:0:0:1]:1444"
  canonical, err := PlanPublicIngress("arno", "tun-a", 54619, "[::1]:1444")
  if err != nil { t.Fatal(err) }
+ equivalent := canonical
+ equivalent.IRNode = " arno "
+ equivalent.TunnelID = " tun-a "
+ equivalent.LocalTarget = "[0:0:0:0:0:0:0:1]:1444"
  if err := ValidatePublicIngressReservation(equivalent, []PublicIngressSpec{canonical}); err != nil {
   t.Fatalf("equivalent canonical reservations should be idempotent: %v", err)
  }

@@ -5,6 +5,9 @@ Status: product UX specification; no production behavior or deployment.
 ## Product objective
 Replace fragmented BCC forms with one reusable accessible overlay per action. Preserve all existing BCC functionality, integrate Aurora design language (not replace BCC), support Persian/English, RTL/LTR, dark/light and mobile.
 
+## First-class tunnel architecture selection
+Before node selection, expose **Tunnel topology: Direct / Reverse** and **Tunnel engine: Smart Auto / BAFT Native / installed compatible engines** as prominent first-class steps. The user-facing service intent (3X-UI/TCP/custom) remains separate. Treat topology, engine, and connection initiator direction as separate typed properties. Reverse must have an explicit engine-specific definition, including which node initiates outbound transport, listener placement and NAT/firewall implications. Do not imply reverse support until engine capability discovery proves it. Engine registry should publish supported topologies, protocol families, platform/version requirements, required parameters, health capabilities, rollback capabilities and deployment readiness. Unsupported combinations are disabled with an explanation, not silently substituted. Smart Auto may select only verified compatible installed engines. Engine-specific fields appear progressively; the preview shows topology, engine, initiation direction, endpoint and host mutations. Keep old tunnel configs backwards compatible and do not reinterpret existing tunnel direction.
+
 ## Smart tunnel creation flow
 1. **Intent:** choose 3X-UI, generic TCP or custom; smart defaults, advanced mode on demand.
 2. **Nodes:** context-select IR and EX, show live Agent health, versions, capacity, compatibility. Never infer live readiness from UI mock data.

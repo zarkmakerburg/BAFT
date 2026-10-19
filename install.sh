@@ -2630,7 +2630,10 @@ net.core.somaxconn = 4096
 net.ipv4.tcp_max_syn_backlog = 8192
 CONF
   } >"$SYSCTL_FILE"
-  sysctl -q -p "$SYSCTL_FILE" >/dev/null 2>&1 || true
+  if ! sysctl -q -p "$SYSCTL_FILE" >/dev/null 2>&1; then
+    echo "  network tuning could not be applied; inspect sysctl errors and kernel support" >&2
+    return 1
+  fi
   [[ "$bbr" == 1 ]] || echo "  ${ER}this kernel has no BBR${R}; buffer tuning is on without it"
   do_status
 }

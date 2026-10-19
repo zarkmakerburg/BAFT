@@ -2687,8 +2687,14 @@ do_route() {
 
 do_port() {
   local h p t
-  read -r -p "  Host or IP: " h; read -r -p "  Port [443]: " p; p="${p:-443}"
+  read -r -p "  Host or IP: " h || return 1
+  read -r -p "  Port [443]: " p || return 1
+  p="${p:-443}"
   [[ -n "$h" ]] || return 0
+  if [[ ! "$p" =~ ^[0-9]+$ ]] || ((10#$p < 1 || 10#$p > 65535)); then
+    echo "  invalid TCP port: enter a number from 1 to 65535" >&2
+    return 2
+  fi
   t="$(curl -o /dev/null -s --max-time 6 -w '%{time_connect}' "telnet://$h:$p" 2>/dev/null </dev/null)"
   if [[ -n "$t" && "$t" != "0.000000" && "$t" != "0" ]]; then printf '  %s:%s %sopen%s  %s ms\n' "$h" "$p" "$OK" "$R" "$(awk -v t="$t" 'BEGIN{printf "%.0f", t*1000}')"
   else printf '  %s:%s %sno answer%s\n' "$h" "$p" "$ER" "$R"; fi

@@ -12,11 +12,17 @@ func ValidatePublicIngressReservation(candidate PublicIngressSpec, existing []Pu
 		return err
 	}
 
+	// Validate the complete stored set before making any ownership decision.
+	// Invalid records on other nodes are still unsafe to silently ignore.
+	canonical := make([]PublicIngressSpec, 0, len(existing))
 	for _, raw := range existing {
 		old, err := PlanPublicIngress(raw.IRNode, raw.TunnelID, raw.PublicPort, raw.LocalTarget)
 		if err != nil {
 			return fmt.Errorf("invalid existing public ingress reservation: %w", err)
 		}
+		canonical = append(canonical, old)
+	}
+	for _, old := range canonical {
 		if old.IRNode != candidate.IRNode {
 			continue
 		}

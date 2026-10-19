@@ -9,6 +9,7 @@
  function validPort(value){return /^[0-9]+$/.test(value)&&Number(value)>=1&&Number(value)<=65535;}
  function validNodes(){return model.iran.trim().length>0&&model.foreign.trim().length>0&&model.iran.trim()!==model.foreign.trim();}
  function canAdvance(stage){return stage===1?compatibleEngine(model.engine,model.topology):stage===2?validNodes():stage===3?validPort(model.port):true;}
+ function canOpenOperationalStudio(){return false;} // Separate legacy Studio has its own plan/confirm and CSRF flow.
  const model = {topology:'direct',engine:'baft',iran:'',foreign:'',port:''};
  const stageNames={fa:['نوع تونل','موتور','سرورها','تنظیمات','پیش‌نمایش'],en:stages};
  const labels={

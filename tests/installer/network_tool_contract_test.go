@@ -31,6 +31,10 @@ func TestNetworkToolSafetyContracts(t *testing.T) {
   "&& \"$t\" =~ ^[0-9]+([.][0-9]+)?$",
   "&& \"${speed:-}\" =~ ^[0-9]+([.][0-9]+)?$",
   "awk -v speed=\"$out\" 'BEGIN { exit !(speed > 0) }'",
+  "\"$rc\" == 0 && \"${size:-0}\"",
+  "\"$rc\" == 0 && \"$out\"",
+  "cause unknown (check route, TLS, proxy and remote service)",
+
 
  } {
   if !strings.Contains(script, required) { t.Errorf("network safety guard missing: %s", required) }

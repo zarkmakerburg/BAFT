@@ -19,6 +19,18 @@ script=script.replaceAll('alert(await r.text())',"alert(await r.text().then(msg=
 if(script.includes('const q=s=>document.querySelector(s);'))console.error('[BCC] ops injection: querySelector scope patch missed');
 if(!script.includes('return "session"'))console.error('[BCC] ops injection: token() patch missed');
 const s=document.createElement('script');s.textContent=script;if(cfg.nonce)s.nonce=cfg.nonce;root.append(s);
+// CSP nonce in script-src causes browsers to ignore unsafe-inline entirely, including inline event
+// handler attributes (onclick=…). Delegate those calls via a capture listener so they reach the
+// window-scope functions defined in the injected ops script above.
+if(cfg.nonce)root.addEventListener('click',e=>{
+  const el=e.target.closest('[onclick]');if(!el||el.disabled)return;
+  const m=el.getAttribute('onclick').match(/^([A-Za-z_$][\w$]*)\(([^)]*)\)$/);if(!m)return;
+  const fn=window[m[1]];if(typeof fn!=='function')return;
+  const raw=m[2].trim();if(!raw){fn();return;}
+  const ds=raw.match(/^this\.dataset\.([A-Za-z_]\w*)$/);
+  if(ds){fn(el.dataset[ds[1]]);return;}
+  try{fn(...JSON.parse('['+raw+']'))}catch{fn(raw);}
+},true);
 const monitorTop=document.querySelector('#ops_monitorTime')?.parentElement;if(monitorTop){const refresh=document.createElement('button');refresh.type='button';refresh.className='alt';refresh.textContent=document.documentElement.lang==='fa'?'تازه‌سازی پایش':'Refresh monitoring';refresh.addEventListener('click',()=>window.loadMonitoring());monitorTop.append(refresh)}
 // Prevent empty registrations from reaching the mutation endpoint; backend still validates every field.
 for(const [id,max] of [['nid',128],['addr',255]]){const input=document.querySelector('#ops_'+id);input.required=true;input.maxLength=max;input.addEventListener('input',()=>{input.setCustomValidity('');input.removeAttribute('aria-invalid')})}

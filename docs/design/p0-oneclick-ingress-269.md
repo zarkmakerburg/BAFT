@@ -68,3 +68,23 @@ Source reviewed: `install.sh` (~3,231 lines). Existing UI helpers include `ui_ca
 **P0-M10 — Golden tests and acceptance:** Add shell snapshot/golden tests for terminal capabilities and locales, menu choice/invalid/EOF, width/wrapping, output streams, plan JSON parity, secret redaction, pairing handoff and interrupted install. Require `bash -n`, ShellCheck, noninteractive CI and disposable Debian/Ubuntu VM tests. Document before/after examples and only land behavior changes after evidence. No production changes or HQ-gated merge/release/deploy.
 
 **Sequencing:** (1) snapshot current menus/tables/output, (2) define CLI design tokens and stable output schema, (3) refactor pure presentation helpers, (4) validate input and pairing UX, (5) test install/upgrade/rollback scenarios, (6) stage and obtain HQ approval. Do not redesign the installer by replacing working safety gates.
+
+## P0 — BCC TLS/SSL certificate provisioning and renewal (2026-10-20)
+
+**Mandatory P0 acceptance gate:** Installing BCC must provide a trustworthy HTTPS certificate workflow, validate the result before declaring installation healthy, and preserve an explicit safe recovery path. This applies to initial install, existing BCC upgrades, domain/IP changes, certificate replacement and renewal. No live host changes without HQ approval.
+
+**Existing implementation audit:** `install.sh` already has `bcc_install_acme`, `bcc_cert_valid`, `bcc_setup_ssl` and a `baft-bcc-cert.timer` for ACME renewal. It requests Let's Encrypt via `acme.sh` HTTP-01 on port 80, supports domain or short-lived IP certificates where ACME profile support exists, and may offer self-signed fallback. **This P0 item is to audit, harden and verify the existing feature, not falsely claim SSL is absent.**
+
+**P0-S1 — Preflight:** Validate DNS A/AAAA or public IP reachability, chosen panel hostname, port 80 HTTP-01 availability, port 443/selected BCC HTTPS listener conflicts, firewall ownership, ACME rate limits and existing reverse proxy. Do not disrupt an unrelated port-80 service to obtain a certificate. Show operator options (existing certificate, DNS challenge where supported, manual certificate, or explicit safe retry).
+
+**P0-S2 — Trust:** Verify certificate SAN against domain/IP, expiration, chain and key pair; never treat self-signed as production-trusted. Explicitly warn about insecure fallback and block automatic SSH node enrollment when trust is inadequate. Preserve root-owned key permissions and avoid leaking keys/tokens in output or logs.
+
+**P0-S3 — Supply chain:** Pin and verify the ACME client artifact and version, use bounded downloads and atomic extraction, prohibit unsafe unverified auto-upgrade, and document supported ACME CA profiles for IP certificates. Preserve existing release verification policy.
+
+**P0-S4 — Renewal:** Test systemd timer enablement, ACME challenge reuse, certificate rotation with atomic writes, service reload/restart and post-renew TLS handshake. Alert on renewal failure and expiry; retain the last known-good certificate and never leave BCC without working HTTPS.
+
+**P0-S5 — UX:** Add an explicit `BCC HTTPS / SSL` step to the standard installer journey, with domain/IP selection, existing-certificate option, challenge preflight, issuance progress, failure explanation and recovery commands. FA/EN, noninteractive and Termux/SSH output must stay consistent; never promise a trusted IP certificate unless issued and verified.
+
+**P0-S6 — Tests:** Cover valid domain, wrong DNS, blocked port 80, occupied port 80, IP-profile unsupported, ACME failure, revoked/expired certificate, self-signed fallback, renewal, key mismatch, interrupted install, rollback and repeated installation. Run disposable Debian/Ubuntu VM integration and CI tests; do not claim production readiness before evidence.
+
+**Exit criteria:** successful verified TLS handshake to the BCC endpoint; certificate matches the configured address; automated renewal proven; secrets protected; all failures preserve previous BCC and unrelated services; HQ approval before merge/release/deploy.

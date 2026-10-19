@@ -2659,7 +2659,7 @@ do_speed() {
   printf '  download  '
   out="$(curl -o /dev/null -sS --max-time 20 -w '%{size_download} %{speed_download}' 'https://speed.cloudflare.com/__down?bytes=25000000' 2>/dev/null)"; rc=$?
   read -r size speed <<<"$out"
-  if [[ "$rc" == 0 && "${size:-0}" =~ ^[0-9]+$ && "${size:-0}" -gt 0 && "${speed:-}" =~ ^[0-9]+([.][0-9]+)?$ ]]; then printf '%s%s%s  (%s bytes)\n' "$B" "$(mbps "${speed:-0}")" "$R" "$size"
+  if [[ "$rc" == 0 && "${size:-0}" =~ ^[0-9]+$ && "${size:-0}" -eq 25000000 && "${speed:-}" =~ ^[0-9]+([.][0-9]+)?$ ]]; then printf '%s%s%s  (%s bytes)\n' "$B" "$(mbps "${speed:-0}")" "$R" "$size"
   else printf '%sfailed%s\n' "$ER" "$R"; fi
   if [[ "$rc" != 0 && "${size:-0}" =~ ^[0-9]+$ && "${size:-0}" -gt 0 && "${size:-0}" -lt 65536 ]]; then
     printf '  %stransfer interrupted after %s bytes; cause unknown (check route, TLS, proxy and remote service)%s\n' "$ER" "${size:-0}" "$R"

@@ -162,18 +162,19 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       assert.equal(apiRequests.filter(x=>x.method!=='GET').length,before);
       assert.equal(await page.locator('#ops_tnEngine').inputValue(),'baft');
       assert.equal(await page.locator('.tnWizardSteps .selected').evaluate(n=>getComputedStyle(n).color),await page.locator('body').evaluate(n=>getComputedStyle(n).color),'active step must use the current theme text color');
-      assert.equal(await page.locator('#ops_tnEngine option[value="frp"]').isDisabled(),true);
+      assert.equal(await page.locator('#ops_tnEngine').getAttribute('type'),'hidden');
       assert.equal(await page.locator('#ops_tnDirection option[value="ex-to-ir"]').isDisabled(),true);
     });
     await check('real reviewed plan, failed preview retention, edit invalidation',async()=>{
       await nav('tunnels');
       const next=page.locator('#ops_tnWizardNext');await next.click();
       await page.locator('#ops_tnIr').selectOption('qa-ir');await page.locator('#ops_tnEx').selectOption('qa-ex');await next.click();
+      await page.locator('#ops_tnPort').fill('8443');await page.locator('#ops_tnClientPort').fill('443');await page.locator('#ops_tnIngressConfirm').check();
+      await next.click();
       await page.locator('#ops_tnTarget').fill('[::1]:2443');
       await page.locator('[onclick="tnWizardGenerateServicePort()"]').click();
       assert.match(await page.locator('#ops_tnTarget').inputValue(),/^\[::1\]:[1-9][0-9]*$/);
-      await page.locator('#ops_tnPort').fill('8443');await page.locator('#ops_tnClientPort').fill('443');await page.locator('#ops_tnIngressConfirm').check();
-      await next.click();await next.click();
+      await next.click();
       const review=page.locator('[onclick="tnPlan()"]');
       const [response]=await Promise.all([page.waitForResponse(r=>r.url()===f.base+'api/tunnels/plan'&&r.request().method()==='POST'),review.click()]);
       assert.equal(response.status(),200);const plan=await response.json();assert.ok(plan.hash);assert.equal(plan.request.target.startsWith('[::1]:'),true);
@@ -186,7 +187,7 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       await page.route(endpoint,r=>r.fulfill({status:503,contentType:'text/plain',body:'QA failure fixture'}));
       await Promise.all([page.waitForResponse(r=>r.url()===endpoint&&r.status()===503),review.click()]);
       assert.ok((await page.locator('#ops_tnPlan').textContent()).includes(plan.hash));await page.unroute(endpoint);
-      await page.locator('#ops_tnWizardBack').click();await page.locator('#ops_tnWizardBack').click();await page.locator('#ops_tnTarget').fill('[::1]:5432');
+      await page.locator('#ops_tnWizardBack').click();await page.locator('#ops_tnTarget').fill('[::1]:5432');
       assert.equal(await page.locator('#ops_tnPlan [onclick="tnDeploy()"]').count(),0);
       assert.equal(apiRequests.filter(r=>r.path==='api/tunnels'&&r.method==='POST').length,0);
     });

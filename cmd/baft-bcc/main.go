@@ -146,12 +146,12 @@ func main(){
 		go app.StartBackupLoop(ctx,*backupDir,backupKey,*backupInterval,bcc.BackupRetention{Daily:*backupDailyRetention,Weekly:*backupWeeklyRetention})
 	}
 
-	srv:=&http.Server{Addr:*listen,Handler:app.Handler(),ReadHeaderTimeout:5*time.Second}
+	srv:=&http.Server{Addr:*listen,Handler:app.Handler(),ReadHeaderTimeout:5*time.Second,ReadTimeout:30*time.Second,WriteTimeout:60*time.Second,IdleTimeout:120*time.Second}
 	done:=make(chan error,1)
 	if useTLS{
 		certs:=&reloadingCert{certFile:*tlsCert,keyFile:*tlsKey}
 		if _,err:=certs.get(nil);err!=nil{fmt.Fprintln(os.Stderr,"TLS:",err);os.Exit(2)}
-		srv.TLSConfig=&tls.Config{MinVersion:tls.VersionTLS12,GetCertificate:certs.get}
+		srv.TLSConfig=&tls.Config{MinVersion:tls.VersionTLS13,GetCertificate:certs.get}
 		go func(){done<-srv.ListenAndServeTLS("","")}()
 		fmt.Printf("BAFT Command Center listening on https://%s (dashboard under its secret path; see: baft-bcc access show)\n",*listen)
 	}else{

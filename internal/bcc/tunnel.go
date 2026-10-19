@@ -274,7 +274,7 @@ func publicJob(j Job) Job {
 }
 
 func newTunnelID() string {
-	b := make([]byte, 4)
+	b := make([]byte, 8)
 	_, _ = rand.Read(b)
 	return "tun-" + hex.EncodeToString(b)
 }

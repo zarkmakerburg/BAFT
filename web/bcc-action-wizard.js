@@ -2,6 +2,8 @@
 (function () {
  'use strict';
  const stages = ['Topology','Engine','Nodes','Settings','Preview'];
+ // Operational Studio uses tnDirection=ir-to-ex and tnEngine=baft; never infer reverse support from UI labels.
+ const operationalDirection={direct:'ir-to-ex',reverse:'ex-to-ir'};
  const engineCatalog = Object.freeze([{id:'baft',label:'BAFT Secure (TLS + Noise)',direct:true,reverse:false,installed:true}]);
  function compatibleEngine(id,topology){const e=engineCatalog.find(x=>x.id===id);return Boolean(e&&e.installed&&(topology==='direct'?e.direct:e.reverse));}
  function validPort(value){return /^[0-9]+$/.test(value)&&Number(value)>=1&&Number(value)<=65535;}
@@ -29,7 +31,7 @@
  if(index===1){body.append(choice(tr('engine'),'engine',engineCatalog.filter(e=>e.installed).map(e=>[e.id,e.label])));if(!compatibleEngine(model.engine,model.topology)){const warning=element('p',tr('unsupported'));warning.setAttribute('role','alert');body.append(warning);}}
  if(index===2){body.append(element('p',tr('nodes')),input(tr('iran'),'iran'),input(tr('foreign'),'foreign'));}
  if(index===3){body.append(element('p',tr('ports')),input(tr('port'),'port'));}
- if(index===4){for(const [key,value] of Object.entries(model))body.append(element('p',(labels[locale()][key]||key)+': '+(value||'—')));const notice=element('p',tr('notice'));notice.setAttribute('role','status');body.append(notice);}
+ if(index===4){body.append(element('p','Operational direction: '+operationalDirection[model.topology]));for(const [key,value] of Object.entries(model))body.append(element('p',(labels[locale()][key]||key)+': '+(value||'—')));const notice=element('p',tr('notice'));notice.setAttribute('role','status');body.append(notice);}
  dialog.append(body);
  const footer=element('footer',undefined,'baw-actions');const back=button(tr('back'),()=>{index--;render();});back.disabled=index===0;footer.append(back);const next=button(index===4?tr('preview'):tr('next'),()=>{if(index===4)close();else if(canAdvance(index)){index++;render();}});next.disabled=!canAdvance(index);next.dataset.bawNext='true';footer.append(next);dialog.append(footer);if(wasInside){const focusTarget=dialog.querySelector('select,input,button');if(focusTarget)focusTarget.focus();}
  }

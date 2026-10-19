@@ -24,6 +24,7 @@ func TestNetworkToolSafetyContracts(t *testing.T) {
 	for _, forbidden := range []string{
 		"sysctl -q -w net.ipv4.tcp_congestion_control=cubic",
 		"sysctl -q -w net.core.default_qdisc=fq_codel",
+		"sysctl -q --system",
 		"sysctl -q -p \"$SYSCTL_FILE\" >/dev/null 2>&1 || true",
 	} {
 		if strings.Contains(script, forbidden) {
@@ -33,12 +34,12 @@ func TestNetworkToolSafetyContracts(t *testing.T) {
 
 	for _, required := range []string{
 		"if ! sysctl -q -p \"$SYSCTL_FILE\"",
-		"if ! sysctl -q --system",
+		"net_snapshot_valid",
 		"invalid TCP port: enter a number from 1 to 65535",
-		"Choose: \" c || return 0",
+		"baft_menu_read c",
 		"^[0-9]{1,5}$",
 		"awk -v t=\"$t\" 'BEGIN { exit !(t > 0) }'",
-		"&& \"$t\" =~ ^[0-9]+([.][0-9]+)?$",
+		"[[ \"$t\" =~ ^[0-9]+([.][0-9]+)?$",
 		"&& \"${speed:-}\" =~ ^[0-9]+([.][0-9]+)?$",
 		"awk -v speed=\"$out\" 'BEGIN { exit !(speed > 0) }'",
 		"\"$rc\" == 0 && \"${size:-0}\"",

@@ -126,17 +126,17 @@ var paramRules = map[string]map[string]*regexp.Regexp{
 	ActionPathProbeRun:         {"probe_id": tunnelIDRe, "family": familyRe, "target": endpointRe, "payload_bytes": probeBytesRe, "attempts": probeAttemptsRe, "trickle_bytes": probeBytesRe, "trickle_ms": probeDelayRe},
 	ActionPathProbeStop:        {"probe_id": tunnelIDRe},
 
-	ActionTunnelPrepareEX: {"tunnel_id": tunnelIDRe, "public_address": addressRe, "port": portRe, "target": fixedTargetR, "route_id": tunnelIDRe, "record_shaping": boolRe},
-	ActionTunnelPrepareIR: {"tunnel_id": tunnelIDRe, "code": pairCodeRe, "route_listen": loopbackListenR, "route_id": tunnelIDRe},
-	ActionTunnelCommitEX:  {"tunnel_id": tunnelIDRe, "reply": replyCodeRe},
-	ActionTunnelCommitIR:  {"tunnel_id": tunnelIDRe},
-	ActionTunnelHealth:    {"tunnel_id": tunnelIDRe},
-	ActionTunnelObserve:   {"tunnel_id": tunnelIDRe},
-	ActionTunnelInspect:   {},
-	ActionTunnelDiscover:  {},
-	ActionTunnelFinalize:  {"tunnel_id": tunnelIDRe},
-	ActionTunnelRollback:  {"tunnel_id": tunnelIDRe},
-	ActionTunnelRetire:    {"tunnel_id": tunnelIDRe, "generation": epochRe, "config_sha256": sha256Re, "unit_sha256": sha256Re, "marker_sha256": sha256Re},
+	ActionTunnelPrepareEX:        {"tunnel_id": tunnelIDRe, "public_address": addressRe, "port": portRe, "target": fixedTargetR, "route_id": tunnelIDRe, "record_shaping": boolRe},
+	ActionTunnelPrepareIR:        {"tunnel_id": tunnelIDRe, "code": pairCodeRe, "route_listen": loopbackListenR, "route_id": tunnelIDRe},
+	ActionTunnelCommitEX:         {"tunnel_id": tunnelIDRe, "reply": replyCodeRe},
+	ActionTunnelCommitIR:         {"tunnel_id": tunnelIDRe},
+	ActionTunnelHealth:           {"tunnel_id": tunnelIDRe},
+	ActionTunnelObserve:          {"tunnel_id": tunnelIDRe},
+	ActionTunnelInspect:          {},
+	ActionTunnelDiscover:         {},
+	ActionTunnelFinalize:         {"tunnel_id": tunnelIDRe},
+	ActionTunnelRollback:         {"tunnel_id": tunnelIDRe},
+	ActionTunnelRetire:           {"tunnel_id": tunnelIDRe, "generation": epochRe, "config_sha256": sha256Re, "unit_sha256": sha256Re, "marker_sha256": sha256Re},
 	ActionPublicIngressPreflight: {"tunnel_id": tunnelIDRe, "public_port": portRe, "local_target": loopbackListenR},
 
 	ActionCertPrepareEX:  {"tunnel_id": tunnelIDRe, "rotation_id": tunnelIDRe, "epoch": epochRe},
@@ -239,6 +239,14 @@ func (j Job) Validate() error {
 	if j.Action == ActionTunnelPrepareIR {
 		if err := validateTunnelEndpoint(j.Params["route_listen"], true); err != nil {
 			return fmt.Errorf("parameter route_listen: %w", err)
+		}
+	}
+	if j.Action == ActionPublicIngressPreflight {
+		if !validTCPPort(j.Params["public_port"]) {
+			return errors.New("parameter public_port must be between 1 and 65535")
+		}
+		if err := validateTunnelEndpoint(j.Params["local_target"], true); err != nil {
+			return fmt.Errorf("parameter local_target: %w", err)
 		}
 	}
 	if j.Action == ActionTunnelPrepareEX || j.Action == ActionTunnelPrepareIR {

@@ -19,6 +19,7 @@
  function locale(){return document.documentElement.lang==='fa'?'fa':'en';}
  function tr(key){return labels[locale()][key];}
  let active = null, index = 0, returnFocus = null, previousOverflow = null;
+ function isOpen(){return Boolean(active);}
  function element(tag,text,cls) {const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;}
  function close(){if(!active)return;active.remove();active=null;document.removeEventListener('keydown',onKey);if(previousOverflow!==null){document.body.style.overflow=previousOverflow;previousOverflow=null;}if(returnFocus&&returnFocus.isConnected)returnFocus.focus();}
  function onKey(e){if(!active)return;if(e.key==='Escape'){e.preventDefault();close();return;}if(e.key!=='Tab')return;const a=Array.from(active.querySelectorAll('button,select,input')).filter(x=>!x.disabled);if(!a.length)return;const first=a[0],last=a[a.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}
@@ -38,7 +39,7 @@
  }
  function open(){if(active)return;returnFocus=document.activeElement;index=0;Object.assign(model,{topology:'direct',engine:'baft',iran:'',foreign:'',port:''});previousOverflow=document.body.style.overflow;document.body.style.overflow='hidden';active=element('div',undefined,'baw-backdrop');const dialog=element('section',undefined,'baw-dialog');dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');dialog.setAttribute('aria-label',tr('title'));
  dialog.setAttribute('dir',document.documentElement.dir||'auto');active.append(dialog);document.body.append(active);active.addEventListener('click',e=>{if(e.target===active)close();});document.addEventListener('keydown',onKey);render();dialog.querySelector('button').focus();}
- window.BAFTActionWizard={open,close,version:'1.0-preview'};
+ window.BAFTActionWizard=Object.freeze({open,close,isOpen,version:'1.0-preview'});
  document.addEventListener('click',event=>{const button=event.target.closest?.('[data-baw-open]');if(button){event.preventDefault();open();}});
  const launch=document.getElementById('baw-open');if(launch){launch.addEventListener('click',open);launch.setAttribute('aria-haspopup','dialog');}
 }());

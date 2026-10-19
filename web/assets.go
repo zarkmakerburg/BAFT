@@ -25,7 +25,7 @@ type Config struct {
 	Base           string `json:"base"`
 	LoginAction    string `json:"loginAction"`
 	Error          string `json:"error,omitempty"`
-	Nonce          string `json:"-"` // not sent to the client; used for CSP nonces
+	Nonce          string `json:"nonce,omitempty"` // sent to client so JS can stamp nonces on dynamic scripts
 }
 
 // Page renders the Command Center for one request. Assets are served under

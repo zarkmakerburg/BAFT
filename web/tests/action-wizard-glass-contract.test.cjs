@@ -49,3 +49,14 @@ test('tunnel page can open preview without replacing operational wizard',()=>{
  assert.match(js,/stageNames/);
  assert.match(js,/tr\('notice'\)/);
 });
+
+test('modal exposes accessible labels and guarded navigation',()=>{
+ assert.match(js,/aria-labelledby/);
+ assert.match(js,/aria-describedby/);
+ assert.match(js,/aria-haspopup/);
+ assert.match(js,/function canAdvance\(stage\)/);
+ assert.match(js,/else if\(canAdvance\(index\)\)/);
+ assert.match(js,/field\.required=true/);
+ const app=fs.readFileSync(path.join(web,'bcc-app.js'),'utf8');
+ assert.match(app,/launcher\.setAttribute\('aria-haspopup','dialog'\)/);
+});

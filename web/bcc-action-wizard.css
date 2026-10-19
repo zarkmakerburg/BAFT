@@ -36,3 +36,9 @@
 .baw-dialog:focus-within{outline:none}
 @media(max-width:420px){.baw-header{align-items:flex-start}.baw-title{font-size:1.05rem}.baw-actions button{min-width:80px}}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.baw-backdrop{background:rgba(5,10,20,.86)}.baw-dialog{background:#202d45}}
+
+/* Explicit invalid-state styling and assistive feedback. */
+.baw-body [aria-invalid="true"]{border-color:#ff9d9d;box-shadow:0 0 0 1px rgba(255,157,157,.3)}
+.baw-body [role="alert"]{border-inline-start:3px solid #ffb3a7;padding-inline-start:12px;margin-block:12px}
+.baw-body [role="status"]{opacity:.86;font-size:.92rem}
+@media(prefers-reduced-motion:reduce){.baw-dialog{animation:none!important;transition:none!important}}

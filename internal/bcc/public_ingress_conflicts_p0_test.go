@@ -72,3 +72,15 @@ func TestP0PublicIngressReservationFailClosedAcrossNodes(t *testing.T) {
   })
  }
 }
+
+func TestP0PublicIngressRejectsMalformedReservationAfterMatchingNode(t *testing.T) {
+ candidate, err := PlanPublicIngress("ir-main", "tun-a", 2053, "127.0.0.1:9000")
+ if err != nil { t.Fatal(err) }
+ existing := []PublicIngressSpec{
+  candidate,
+  {IRNode:"ir-other",TunnelID:"tun-b",PublicPort:0,LocalTarget:"127.0.0.1:9001"},
+ }
+ if err := ValidatePublicIngressReservation(candidate, existing); err == nil {
+  t.Fatal("an idempotent match must not conceal later malformed reservations")
+ }
+}

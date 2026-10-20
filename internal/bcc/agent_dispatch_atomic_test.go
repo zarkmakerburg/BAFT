@@ -128,3 +128,41 @@ func TestAgentPullWithoutSigningKeyKeepsQueuedJob(t *testing.T) {
 		t.Fatalf("restored signing key did not deliver job: %d %s", response.Code, response.Body.String())
 	}
 }
+
+func TestAgentPullWithInconsistentSigningKeyKeepsQueuedJob(t *testing.T) {
+	store, err := OpenStore(filepath.Join(t.TempDir(), "bcc.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.UpsertNode(Node{ID: "ir", Role: "worker", Address: "127.0.0.1:2222"}, "token-ir"); err != nil {
+		t.Fatal(err)
+	}
+	jobs, err := store.CreateDeployJobs([]string{"ir"}, "v1.2.3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	app, err := NewServer(store, "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, key, err := release.GenerateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	bad := append([]byte(nil), key...)
+	bad[len(bad)-1] ^= 1 // Same length, but public half no longer matches seed.
+	app.ConfigureJobSigning(bad)
+	req := httptest.NewRequest(http.MethodGet, "/api/agent/jobs?node_id=ir", nil)
+	req.Header.Set("Authorization", "Bearer token-ir")
+	response := httptest.NewRecorder()
+	app.Handler().ServeHTTP(response, req)
+	if response.Code != http.StatusInternalServerError || store.st.Jobs[jobs[0].ID].Status != "queued" {
+		t.Fatalf("invalid signature escaped or stranded: status=%d job=%+v", response.Code, store.st.Jobs[jobs[0].ID])
+	}
+	app.ConfigureJobSigning(key)
+	response = httptest.NewRecorder()
+	app.Handler().ServeHTTP(response, req)
+	if response.Code != http.StatusOK || store.st.Jobs[jobs[0].ID].Status != "dispatched" {
+		t.Fatalf("valid signing key did not deliver job: %d %s", response.Code, response.Body.String())
+	}
+}

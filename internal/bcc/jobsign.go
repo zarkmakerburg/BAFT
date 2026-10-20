@@ -1,6 +1,7 @@
 package bcc
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"errors"
 	"fmt"
@@ -74,8 +75,13 @@ func agentAction(j Job) (string, map[string]string, error) {
 }
 
 func (s *Server) signAgentJobs(jobs []Job) ([]AgentJob, error) {
-	if len(jobs) != 0 && s.jobKey == nil {
-		return nil, errors.New("BCC job-signing key is not configured")
+	if len(jobs) != 0 {
+		if len(s.jobKey) != ed25519.PrivateKeySize {
+			return nil, errors.New("BCC job-signing key is not configured")
+		}
+		if !bytes.Equal(s.jobKey, ed25519.NewKeyFromSeed(s.jobKey.Seed())) {
+			return nil, errors.New("BCC job-signing key is inconsistent")
+		}
 	}
 	out := make([]AgentJob, 0, len(jobs))
 	now := s.now()

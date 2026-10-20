@@ -393,3 +393,19 @@ func TestPublicIngressPreflightRejectsMalformedObservationEntries(t *testing.T) 
   })
  }
 }
+
+func TestPublicIngressPreflightRequiresExplicitLimitations(t *testing.T) {
+ req := PublicIngressPreflightRequest{TunnelID: "tun-a", PublicPort: 14443, LocalTarget: "127.0.0.1:1443"}
+ params := map[string]string{"tunnel_id": req.TunnelID, "public_port": "14443", "local_target": req.LocalTarget}
+ var evidence map[string]any
+ if err := json.Unmarshal([]byte(publicIngressReceiptFixture(req)), &evidence); err != nil {t.Fatal(err)}
+ evidence["limitations"] = []string{}
+ payload, err := json.Marshal(evidence)
+ if err != nil {t.Fatal(err)}
+ if err := validatePublicIngressPreflightReceipt(string(payload), params); err == nil {
+  t.Fatal("preflight receipt without limitations accepted")
+ }
+ if err := validatePublicIngressPreflightReceipt(publicIngressReceiptFixture(req), params); err != nil {
+  t.Fatalf("receipt with explicit limitations rejected: %v", err)
+ }
+}

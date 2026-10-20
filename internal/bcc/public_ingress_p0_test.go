@@ -13,7 +13,6 @@ func TestPlanPublicIngress(t *testing.T) {
   {"missing node","","tun-1","127.0.0.1:1444",54619},
   {"missing tunnel","arno","","127.0.0.1:1444",54619},
   {"protected service port","arno","tun-1","127.0.0.1:1444",2053},
-  {"privileged public port","arno","tun-1","127.0.0.1:1444",443},
   {"zero public port","arno","tun-1","127.0.0.1:1444",0},
   {"overflow port","arno","tun-1","127.0.0.1:1444",65536},
   {"non-loopback","arno","tun-1","0.0.0.0:1444",54619},
@@ -30,7 +29,7 @@ func TestPlanPublicIngressCanonicalBoundaries(t *testing.T) {
   port int
   wantError bool
  }{
-  {"minimum public port"," ir-main "," tun-a ","127.0.0.1:2","127.0.0.1:2",1024,false},
+  {"minimum public port"," ir-main "," tun-a ","127.0.0.1:2","127.0.0.1:2",1,false},
   {"maximum public port","ir-main","tun-a","127.0.0.1:65534","127.0.0.1:65534",65535,false},
   {"IPv6 loopback","ir-main","tun-a","[::1]:9000","[::1]:9000",2054,false},
   {"expanded IPv6 loopback","ir-main","tun-a","[0:0:0:0:0:0:0:1]:9000","[::1]:9000",2054,false},

@@ -21,11 +21,19 @@ const (
 // change. APPLIED is only for a caller that has independently verified the
 // listener; this helper does not perform verification.
 func TransitionPublicIngress(current PublicIngressLifecycle, owner PublicIngressSpec, next string) (PublicIngressLifecycle, error) {
-	if _, err := PlanPublicIngress(current.Spec.IRNode, current.Spec.TunnelID, current.Spec.PublicPort, current.Spec.LocalTarget); err != nil {
+	canonicalCurrent, err := PlanPublicIngress(current.Spec.IRNode, current.Spec.TunnelID, current.Spec.PublicPort, current.Spec.LocalTarget)
+	if err != nil {
 		return current, fmt.Errorf("invalid public ingress resource: %w", err)
 	}
-	if current.Spec != owner {
+	canonicalOwner, err := PlanPublicIngress(owner.IRNode, owner.TunnelID, owner.PublicPort, owner.LocalTarget)
+	if err != nil {
+		return current, fmt.Errorf("invalid public ingress owner: %w", err)
+	}
+	if canonicalCurrent != canonicalOwner {
 		return current, fmt.Errorf("public ingress ownership mismatch")
+	}
+	if current.Applied != (current.Status == PublicIngressApplied) {
+		return current, fmt.Errorf("inconsistent public ingress applied state")
 	}
 	valid := false
 	switch current.Status {

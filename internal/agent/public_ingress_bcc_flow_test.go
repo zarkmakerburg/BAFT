@@ -48,7 +48,7 @@ func TestPublicIngressPreflightRealBCCAgentRoundTrip(t *testing.T) {
 	if _, err := store.PullJobs("ir", "token-ir"); err != nil {
 		t.Fatal(err)
 	}
-	tunnel, err := store.CreateTunnel(bcc.TunnelRequest{IRNode: "ir", EXNode: "ex", RouteListen: ln.Addr().String(), Port: 14443, Target: "127.0.0.1:2443"}, time.Now())
+	tunnel, err := store.CreateTunnel(bcc.TunnelRequest{IRNode: "ir", EXNode: "ex", RouteListen: target.Addr().String(), Port: 14443, Target: "127.0.0.1:2443"}, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}

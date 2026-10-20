@@ -176,7 +176,7 @@ cat "$WORK/ex.marker.keep" > /etc/baft-ex/baft.managed.json
 
 log "baft menu on a real terminal; direct commands stay plain"
 python3 - <<'PY' || fail "the baft menu did not behave on a terminal"
-import os, pty, re, select, struct, fcntl, termios, subprocess, time
+import os, pty, re, select, struct, fcntl, termios, subprocess, time, signal
 def run_menu(env, cols):
     pid, fd = pty.fork()
     if pid == 0:
@@ -197,8 +197,15 @@ def run_menu(env, cols):
     drain(1.5)
     for line in (b"11\n", b"\n", b"0\n"):
         os.write(fd, line); drain(0.7)
-    _, status = os.waitpid(pid, 0)
-    return out.decode(errors="replace"), os.WEXITSTATUS(status)
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        done, status = os.waitpid(pid, os.WNOHANG)
+        if done == pid:
+            return out.decode(errors="replace"), os.waitstatus_to_exitcode(status)
+        drain(0.1)
+    os.kill(pid, signal.SIGKILL)
+    os.waitpid(pid, 0)
+    raise AssertionError("interactive baft menu did not exit within 10 seconds; output tail: " + repr(out[-1500:]))
 colored, rc = run_menu({"TERM": "xterm-256color", "COLORTERM": "truecolor", "LANG": "C.UTF-8"}, 120)
 assert rc == 0, rc
 assert "\x1b[" in colored and "B  A  F  T" in re.sub(r"\x1b\[[0-9;]*m", "", colored), "no gold header on a color terminal"

@@ -26,10 +26,14 @@ func (s *Store) publicIngressReservationSpecsLocked() ([]PublicIngressSpec, erro
 		}
 		specs = append(specs, spec)
 	}
-	for _, spec := range specs {
-		if err := ValidatePublicIngressReservation(spec, specs); err != nil {
+	// Validate the entire canonical ownership set once. The validator already
+	// checks every stored record and all cross-record conflicts.
+	if len(specs) > 0 {
+		if err := ValidatePublicIngressReservation(specs[0], specs); err != nil {
 			return nil, err
 		}
+	}
+	for _, spec := range specs {
 		if err := s.validateIngressReservationResourcesLocked(spec); err != nil {
 			return nil, err
 		}

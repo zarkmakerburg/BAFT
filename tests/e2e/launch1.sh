@@ -195,7 +195,7 @@ def run_menu(env, cols):
                 if not d: return
                 out += d
     drain(1.5)
-    for line in (b"11\n", b"\n", b"0\n"):
+    for line in (b"1\n", b"\n", b"0\n"):
         os.write(fd, line); drain(0.7)
     deadline = time.monotonic() + 10
     while time.monotonic() < deadline:
@@ -210,7 +210,7 @@ colored, rc = run_menu({"TERM": "xterm-256color", "COLORTERM": "truecolor", "LAN
 assert rc == 0, rc
 assert "\x1b[" in colored and "B  A  F  T" in re.sub(r"\x1b\[[0-9;]*m", "", colored), "no gold header on a color terminal"
 seen = re.sub(r"\x1b\[[0-9;]*m", "", colored)
-assert "Update (planned)" in seen and "not available in this version yet" in seen, seen[:500]
+assert "Update" in seen and "(planned)" in seen and "Overview / Status" in seen, seen[:500]
 plain, rc = run_menu({"TERM": "xterm", "NO_COLOR": "1", "LANG": "C"}, 60)
 assert rc == 0 and "\x1b[" not in plain, "NO_COLOR was not respected"
 assert "BAFT | v" in plain, plain[:300]

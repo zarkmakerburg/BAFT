@@ -119,7 +119,13 @@ func TestAgentUnitMatchesInstaller(t *testing.T) {
 func TestCopyTreeKeepsModesAndLinks(t *testing.T) {
 	src := t.TempDir() + "/src"
 	os.MkdirAll(src+"/sub", 0o750)
-	os.WriteFile(src+"/sub/a", []byte("a"), 0o640)
+	if err := os.WriteFile(src+"/sub/a", []byte("a"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	// WriteFile applies umask; set the fixture mode explicitly.
+	if err := os.Chmod(src+"/sub/a", 0o640); err != nil {
+		t.Fatal(err)
+	}
 	os.WriteFile(src+"/b", []byte("bb"), 0o600)
 	os.Symlink("sub/a", src+"/link")
 	dst := t.TempDir() + "/dst"

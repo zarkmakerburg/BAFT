@@ -53,20 +53,20 @@ func TestP0PublicIngressCanonicalOwnership(t *testing.T) {
 }
 
 func TestP0PublicIngressReservationFailClosedAcrossNodes(t *testing.T) {
- candidate, err := PlanPublicIngress("ir-main", "tun-b", 2053, "127.0.0.1:9001")
+ candidate, err := PlanPublicIngress("ir-main", "tun-b", 2453, "127.0.0.1:9001")
  if err != nil { t.Fatal(err) }
  tests := []struct {
   name string
   existing PublicIngressSpec
   wantError bool
  }{
-  {"same node and port", PublicIngressSpec{IRNode:"ir-main", TunnelID:"tun-a", PublicPort:2053, LocalTarget:"127.0.0.1:9000"}, true},
-  {"trimmed node and port", PublicIngressSpec{IRNode:" ir-main ", TunnelID:"tun-a", PublicPort:2053, LocalTarget:"127.0.0.1:9000"}, true},
-  {"different node", PublicIngressSpec{IRNode:"ir-other", TunnelID:"tun-a", PublicPort:2053, LocalTarget:"127.0.0.1:9000"}, false},
+  {"same node and port", PublicIngressSpec{IRNode:"ir-main", TunnelID:"tun-a", PublicPort:2453, LocalTarget:"127.0.0.1:9000"}, true},
+  {"trimmed node and port", PublicIngressSpec{IRNode:" ir-main ", TunnelID:"tun-a", PublicPort:2453, LocalTarget:"127.0.0.1:9000"}, true},
+  {"different node", PublicIngressSpec{IRNode:"ir-other", TunnelID:"tun-a", PublicPort:2453, LocalTarget:"127.0.0.1:9000"}, false},
   {"different port", PublicIngressSpec{IRNode:"ir-main", TunnelID:"tun-a", PublicPort:2054, LocalTarget:"127.0.0.1:9000"}, false},
-  {"invalid stored target", PublicIngressSpec{IRNode:"ir-other", TunnelID:"tun-a", PublicPort:2053, LocalTarget:"0.0.0.0:9000"}, true},
+  {"invalid stored target", PublicIngressSpec{IRNode:"ir-other", TunnelID:"tun-a", PublicPort:2453, LocalTarget:"0.0.0.0:9000"}, true},
   {"invalid stored port", PublicIngressSpec{IRNode:"ir-other", TunnelID:"tun-a", PublicPort:0, LocalTarget:"127.0.0.1:9000"}, true},
-  {"empty stored tunnel", PublicIngressSpec{IRNode:"ir-other", TunnelID:"", PublicPort:2053, LocalTarget:"127.0.0.1:9000"}, true},
+  {"empty stored tunnel", PublicIngressSpec{IRNode:"ir-other", TunnelID:"", PublicPort:2453, LocalTarget:"127.0.0.1:9000"}, true},
  }
  for _, tt := range tests {
   t.Run(tt.name,func(t *testing.T){
@@ -77,7 +77,7 @@ func TestP0PublicIngressReservationFailClosedAcrossNodes(t *testing.T) {
 }
 
 func TestP0PublicIngressRejectsMalformedReservationAfterMatchingNode(t *testing.T) {
- candidate, err := PlanPublicIngress("ir-main", "tun-a", 2053, "127.0.0.1:9000")
+ candidate, err := PlanPublicIngress("ir-main", "tun-a", 2453, "127.0.0.1:9000")
  if err != nil { t.Fatal(err) }
  existing := []PublicIngressSpec{
   candidate,
@@ -97,28 +97,28 @@ func TestP0PublicIngressRejectsConflictingStoredSet(t *testing.T) {
   wantError bool
  }{
   {"different tunnels same node same port", []PublicIngressSpec{
-   {IRNode:"ir-main",TunnelID:"tun-a",PublicPort:2053,LocalTarget:"127.0.0.1:9000"},
-   {IRNode:"ir-main",TunnelID:"tun-b",PublicPort:2053,LocalTarget:"127.0.0.1:9001"},
+   {IRNode:"ir-main",TunnelID:"tun-a",PublicPort:2453,LocalTarget:"127.0.0.1:9000"},
+   {IRNode:"ir-main",TunnelID:"tun-b",PublicPort:2453,LocalTarget:"127.0.0.1:9001"},
   },true},
   {"same tunnel conflicting target", []PublicIngressSpec{
-   {IRNode:"ir-main",TunnelID:"tun-a",PublicPort:2053,LocalTarget:"127.0.0.1:9000"},
-   {IRNode:"ir-main",TunnelID:"tun-a",PublicPort:2053,LocalTarget:"127.0.0.1:9001"},
+   {IRNode:"ir-main",TunnelID:"tun-a",PublicPort:2453,LocalTarget:"127.0.0.1:9000"},
+   {IRNode:"ir-main",TunnelID:"tun-a",PublicPort:2453,LocalTarget:"127.0.0.1:9001"},
   },true},
   {"same tunnel conflicting port", []PublicIngressSpec{
-   {IRNode:"ir-main",TunnelID:"tun-a",PublicPort:2053,LocalTarget:"127.0.0.1:9000"},
+   {IRNode:"ir-main",TunnelID:"tun-a",PublicPort:2453,LocalTarget:"127.0.0.1:9000"},
    {IRNode:"ir-main",TunnelID:"tun-a",PublicPort:2054,LocalTarget:"127.0.0.1:9000"},
   },true},
   {"conflict on other node", []PublicIngressSpec{
-   {IRNode:"ir-other",TunnelID:"tun-a",PublicPort:2053,LocalTarget:"127.0.0.1:9000"},
-   {IRNode:"ir-other",TunnelID:"tun-b",PublicPort:2053,LocalTarget:"127.0.0.1:9001"},
+   {IRNode:"ir-other",TunnelID:"tun-a",PublicPort:2453,LocalTarget:"127.0.0.1:9000"},
+   {IRNode:"ir-other",TunnelID:"tun-b",PublicPort:2453,LocalTarget:"127.0.0.1:9001"},
   },true},
   {"identical duplicate is idempotent", []PublicIngressSpec{
-   {IRNode:"ir-main",TunnelID:"tun-a",PublicPort:2053,LocalTarget:"127.0.0.1:9000"},
-   {IRNode:" ir-main ",TunnelID:" tun-a ",PublicPort:2053,LocalTarget:"127.0.0.1:9000"},
+   {IRNode:"ir-main",TunnelID:"tun-a",PublicPort:2453,LocalTarget:"127.0.0.1:9000"},
+   {IRNode:" ir-main ",TunnelID:" tun-a ",PublicPort:2453,LocalTarget:"127.0.0.1:9000"},
   },false},
   {"same port on different nodes", []PublicIngressSpec{
-   {IRNode:"ir-main",TunnelID:"tun-a",PublicPort:2053,LocalTarget:"127.0.0.1:9000"},
-   {IRNode:"ir-other",TunnelID:"tun-b",PublicPort:2053,LocalTarget:"127.0.0.1:9001"},
+   {IRNode:"ir-main",TunnelID:"tun-a",PublicPort:2453,LocalTarget:"127.0.0.1:9000"},
+   {IRNode:"ir-other",TunnelID:"tun-b",PublicPort:2453,LocalTarget:"127.0.0.1:9001"},
   },false},
  }
  for _,tt := range tests {
@@ -148,7 +148,7 @@ func TestP0PublicIngressLargeReservationSet(t *testing.T) {
 }
 
 func TestP0PublicIngressOwnershipMatrix(t *testing.T) {
- base := PublicIngressSpec{IRNode:"ir-a",TunnelID:"tun-a",PublicPort:2053,LocalTarget:"127.0.0.1:9000"}
+ base := PublicIngressSpec{IRNode:"ir-a",TunnelID:"tun-a",PublicPort:2453,LocalTarget:"127.0.0.1:9000"}
  // Each entry exercises an independent allocator decision, not an agent apply.
  tests := []struct {
   name string
@@ -158,14 +158,14 @@ func TestP0PublicIngressOwnershipMatrix(t *testing.T) {
  }{
   {"01 empty set",base,nil,false},
   {"02 exact replay",base,[]PublicIngressSpec{base},false},
-  {"03 whitespace replay",base,[]PublicIngressSpec{{IRNode:" ir-a ",TunnelID:" tun-a ",PublicPort:2053,LocalTarget:"127.0.0.1:09000"}},false},
-  {"04 IPv4 mapped replay",base,[]PublicIngressSpec{{IRNode:"ir-a",TunnelID:"tun-a",PublicPort:2053,LocalTarget:"[::ffff:127.0.0.1]:9000"}},false},
+  {"03 whitespace replay",base,[]PublicIngressSpec{{IRNode:" ir-a ",TunnelID:" tun-a ",PublicPort:2453,LocalTarget:"127.0.0.1:09000"}},false},
+  {"04 IPv4 mapped replay",base,[]PublicIngressSpec{{IRNode:"ir-a",TunnelID:"tun-a",PublicPort:2453,LocalTarget:"[::ffff:127.0.0.1]:9000"}},false},
   {"05 same tunnel different port",base,[]PublicIngressSpec{{IRNode:"ir-a",TunnelID:"tun-a",PublicPort:2054,LocalTarget:"127.0.0.1:9000"}},true},
-  {"06 same tunnel different target",base,[]PublicIngressSpec{{IRNode:"ir-a",TunnelID:"tun-a",PublicPort:2053,LocalTarget:"127.0.0.1:9001"}},true},
-  {"07 different tunnel same port",base,[]PublicIngressSpec{{IRNode:"ir-a",TunnelID:"tun-b",PublicPort:2053,LocalTarget:"127.0.0.1:9000"}},true},
+  {"06 same tunnel different target",base,[]PublicIngressSpec{{IRNode:"ir-a",TunnelID:"tun-a",PublicPort:2453,LocalTarget:"127.0.0.1:9001"}},true},
+  {"07 different tunnel same port",base,[]PublicIngressSpec{{IRNode:"ir-a",TunnelID:"tun-b",PublicPort:2453,LocalTarget:"127.0.0.1:9000"}},true},
   {"08 different tunnel different port",base,[]PublicIngressSpec{{IRNode:"ir-a",TunnelID:"tun-b",PublicPort:2054,LocalTarget:"127.0.0.1:9000"}},false},
-  {"09 other node same port",base,[]PublicIngressSpec{{IRNode:"ir-b",TunnelID:"tun-b",PublicPort:2053,LocalTarget:"127.0.0.1:9000"}},false},
-  {"10 other node same tunnel",base,[]PublicIngressSpec{{IRNode:"ir-b",TunnelID:"tun-a",PublicPort:2053,LocalTarget:"127.0.0.1:9000"}},false},
+  {"09 other node same port",base,[]PublicIngressSpec{{IRNode:"ir-b",TunnelID:"tun-b",PublicPort:2453,LocalTarget:"127.0.0.1:9000"}},false},
+  {"10 other node same tunnel",base,[]PublicIngressSpec{{IRNode:"ir-b",TunnelID:"tun-a",PublicPort:2453,LocalTarget:"127.0.0.1:9000"}},false},
   {"11 malformed stored node",base,[]PublicIngressSpec{{IRNode:" ",TunnelID:"tun-b",PublicPort:2054,LocalTarget:"127.0.0.1:9000"}},true},
   {"12 malformed stored tunnel",base,[]PublicIngressSpec{{IRNode:"ir-b",TunnelID:" ",PublicPort:2054,LocalTarget:"127.0.0.1:9000"}},true},
   {"13 malformed stored public port",base,[]PublicIngressSpec{{IRNode:"ir-b",TunnelID:"tun-b",PublicPort:65536,LocalTarget:"127.0.0.1:9000"}},true},

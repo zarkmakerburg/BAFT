@@ -109,7 +109,7 @@ func (s *Server) bootstrap(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "SSH credentials must not cross the network in clear text: use https", http.StatusBadRequest)
 		return
 	}
-	if s.jobKey == nil {
+	if validateJobSigningKey(s.jobKey) != nil {
 		http.Error(w, "job signing is not configured; the agent could not verify jobs", http.StatusConflict)
 		return
 	}

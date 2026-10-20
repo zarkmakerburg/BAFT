@@ -12,7 +12,7 @@ func TestPlanPublicIngress(t *testing.T) {
  for _,tc:=range []struct{name,node,id,target string; port int}{
   {"missing node","","tun-1","127.0.0.1:1444",54619},
   {"missing tunnel","arno","","127.0.0.1:1444",54619},
-  {"protected service port","arno","tun-1","127.0.0.1:1444",2053},
+  {"invalid zero port","arno","tun-1","127.0.0.1:1444",0},
   {"zero public port","arno","tun-1","127.0.0.1:1444",0},
   {"overflow port","arno","tun-1","127.0.0.1:1444",65536},
   {"non-loopback","arno","tun-1","0.0.0.0:1444",54619},

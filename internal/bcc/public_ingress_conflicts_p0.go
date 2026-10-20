@@ -22,22 +22,28 @@ func ValidatePublicIngressReservation(candidate PublicIngressSpec, existing []Pu
 		}
 		canonical = append(canonical, old)
 	}
-	// Corrupt or conflicting stored reservations must never be treated as a
-	// healthy allocator state, even if the new candidate uses another port.
-	for i, old := range canonical {
-		for _, other := range canonical[:i] {
-			if old.IRNode != other.IRNode {
-				continue
+	// Check the entire stored set in linear time before admitting a candidate.
+	// Canonical duplicates are harmless; conflicting ownership is not.
+	type nodeTunnel struct{ node, tunnel string }
+	type nodePort struct{ node string; port int }
+	byTunnel := make(map[nodeTunnel]PublicIngressSpec, len(canonical))
+	byPort := make(map[nodePort]PublicIngressSpec, len(canonical))
+	for _, old := range canonical {
+		tk := nodeTunnel{old.IRNode, old.TunnelID}
+		if prior, ok := byTunnel[tk]; ok {
+			if prior.PublicPort != old.PublicPort || prior.LocalTarget != old.LocalTarget {
+				return fmt.Errorf("conflicting stored public ingress reservations for tunnel %s", old.TunnelID)
 			}
-			if old.TunnelID == other.TunnelID {
-				if old.PublicPort != other.PublicPort || old.LocalTarget != other.LocalTarget {
-					return fmt.Errorf("conflicting stored public ingress reservations for tunnel %s", old.TunnelID)
-				}
-				continue
-			}
-			if old.PublicPort == other.PublicPort {
+		} else {
+			byTunnel[tk] = old
+		}
+		pk := nodePort{old.IRNode, old.PublicPort}
+		if prior, ok := byPort[pk]; ok {
+			if prior.TunnelID != old.TunnelID {
 				return fmt.Errorf("conflicting stored public ingress reservations on IR node %s port %d", old.IRNode, old.PublicPort)
 			}
+		} else {
+			byPort[pk] = old
 		}
 	}
 	for _, old := range canonical {

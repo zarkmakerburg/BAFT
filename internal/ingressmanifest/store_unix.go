@@ -227,7 +227,7 @@ func (s *Store) Prepare(spec Spec, previous *Proof) (Proof, error) {
 		if current.Phase == PhasePrepared && current.Spec == normalized {
 			return s.syncCurrent(name, old)
 		}
-		if previous == nil || old != *previous || proof.Generation != old.Generation+1 {
+		if previous == nil || old != *previous || old.Generation == ^uint64(0) || proof.Generation != old.Generation+1 {
 			return Proof{}, errors.New("ingress generation or previous proof mismatch")
 		}
 	case errors.Is(err, ErrNotPrepared):

@@ -34,12 +34,28 @@ type liveEchoTarget struct {
 	done    chan struct{}
 }
 
+// The worker identity-derived route and metrics ports occupy 62000..65535.
+// Keep all harness-owned ephemeral listeners below that range so the OS cannot
+// choose a future worker port for an echo target, proxy or remote metrics.
+func liveTopologyListen(t *testing.T) net.Listener {
+	t.Helper()
+	for attempt := 0; attempt < 512; attempt++ {
+		ln, err := net.Listen("tcp4", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ln.Addr().(*net.TCPAddr).Port < 62000 {
+			return ln
+		}
+		_ = ln.Close()
+	}
+	t.Fatal("could not reserve a harness port outside worker route and metrics range")
+	return nil
+}
+
 func newLiveEchoTarget(t *testing.T) *liveEchoTarget {
 	t.Helper()
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
+	ln := liveTopologyListen(t)
 	e := &liveEchoTarget{ln: ln, conns: map[net.Conn]struct{}{}, done: make(chan struct{})}
 	go func() {
 		defer close(e.done)
@@ -166,10 +182,7 @@ func newLiveTopologyHarness(t *testing.T) *liveTopologyHarness {
 	used := map[string]struct{}{}
 	reserveUnique := func() string {
 		for {
-			ln, err := net.Listen("tcp", "127.0.0.1:0")
-			if err != nil {
-				t.Fatal(err)
-			}
+			ln := liveTopologyListen(t)
 			a := ln.Addr().String()
 			_ = ln.Close()
 			if _, ok := used[a]; ok {
@@ -233,7 +246,7 @@ func newLiveTopologyHarness(t *testing.T) *liveTopologyHarness {
 		case <-time.After(6 * time.Second):
 			t.Fatalf("remote %c readiness timeout", letter)
 		}
-		proxy := newCutProxy(t, ex.Server.Listen)
+		proxy := newCutProxyWithListener(t, ex.Server.Listen, liveTopologyListen(t))
 		h.remotes = append(h.remotes, &liveTopologyRemote{id: id, cfg: ex, runtime: rt, done: done, target: target, proxy: proxy})
 
 		src, err := config.LoadFile("../../configs/example-ir.yaml")

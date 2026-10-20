@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"regexp"
 	"sort"
@@ -315,7 +316,8 @@ func (v Verifier) Verify(env release.Envelope, now time.Time) (Job, error) {
 	if err := dec.Decode(&j); err != nil {
 		return j, fmt.Errorf("job payload: %w", err)
 	}
-	if dec.More() {
+	var trailing any
+	if err := dec.Decode(&trailing); err != io.EOF {
 		return j, errors.New("job payload: trailing data")
 	}
 	if err := j.Validate(); err != nil {

@@ -146,3 +146,43 @@ func TestP0PublicIngressLargeReservationSet(t *testing.T) {
  candidate.PublicPort=20000
  if err:=ValidatePublicIngressReservation(candidate,existing);err==nil {t.Fatal("corrupt large set must fail closed")}
 }
+
+func TestP0PublicIngressOwnershipMatrix(t *testing.T) {
+ base := PublicIngressSpec{IRNode:"ir-a",TunnelID:"tun-a",PublicPort:2053,LocalTarget:"127.0.0.1:9000"}
+ candidate := base
+ // Each entry exercises an independent allocator decision, not an agent apply.
+ tests := []struct {
+  name string
+  candidate PublicIngressSpec
+  existing []PublicIngressSpec
+  wantError bool
+ }{
+  {"01 empty set",base,nil,false},
+  {"02 exact replay",base,[]PublicIngressSpec{base},false},
+  {"03 whitespace replay",base,[]PublicIngressSpec{{IRNode:" ir-a ",TunnelID:" tun-a ",PublicPort:2053,LocalTarget:"127.0.0.1:09000"}},false},
+  {"04 IPv4 mapped replay",base,[]PublicIngressSpec{{IRNode:"ir-a",TunnelID:"tun-a",PublicPort:2053,LocalTarget:"[::ffff:127.0.0.1]:9000"}},false},
+  {"05 same tunnel different port",base,[]PublicIngressSpec{{IRNode:"ir-a",TunnelID:"tun-a",PublicPort:2054,LocalTarget:"127.0.0.1:9000"}},true},
+  {"06 same tunnel different target",base,[]PublicIngressSpec{{IRNode:"ir-a",TunnelID:"tun-a",PublicPort:2053,LocalTarget:"127.0.0.1:9001"}},true},
+  {"07 different tunnel same port",base,[]PublicIngressSpec{{IRNode:"ir-a",TunnelID:"tun-b",PublicPort:2053,LocalTarget:"127.0.0.1:9000"}},true},
+  {"08 different tunnel different port",base,[]PublicIngressSpec{{IRNode:"ir-a",TunnelID:"tun-b",PublicPort:2054,LocalTarget:"127.0.0.1:9000"}},false},
+  {"09 other node same port",base,[]PublicIngressSpec{{IRNode:"ir-b",TunnelID:"tun-b",PublicPort:2053,LocalTarget:"127.0.0.1:9000"}},false},
+  {"10 other node same tunnel",base,[]PublicIngressSpec{{IRNode:"ir-b",TunnelID:"tun-a",PublicPort:2053,LocalTarget:"127.0.0.1:9000"}},false},
+  {"11 malformed stored node",base,[]PublicIngressSpec{{IRNode:" ",TunnelID:"tun-b",PublicPort:2054,LocalTarget:"127.0.0.1:9000"}},true},
+  {"12 malformed stored tunnel",base,[]PublicIngressSpec{{IRNode:"ir-b",TunnelID:" ",PublicPort:2054,LocalTarget:"127.0.0.1:9000"}},true},
+  {"13 malformed stored public port",base,[]PublicIngressSpec{{IRNode:"ir-b",TunnelID:"tun-b",PublicPort:65536,LocalTarget:"127.0.0.1:9000"}},true},
+  {"14 malformed stored local target",base,[]PublicIngressSpec{{IRNode:"ir-b",TunnelID:"tun-b",PublicPort:2054,LocalTarget:"10.0.0.1:9000"}},true},
+  {"15 conflicting stored ports",base,[]PublicIngressSpec{{IRNode:"ir-b",TunnelID:"tun-b",PublicPort:2054,LocalTarget:"127.0.0.1:9000"},{IRNode:"ir-b",TunnelID:"tun-c",PublicPort:2054,LocalTarget:"127.0.0.1:9001"}},true},
+  {"16 conflicting stored tunnel targets",base,[]PublicIngressSpec{{IRNode:"ir-b",TunnelID:"tun-b",PublicPort:2054,LocalTarget:"127.0.0.1:9000"},{IRNode:"ir-b",TunnelID:"tun-b",PublicPort:2054,LocalTarget:"127.0.0.1:9001"}},true},
+  {"17 conflicting stored tunnel ports",base,[]PublicIngressSpec{{IRNode:"ir-b",TunnelID:"tun-b",PublicPort:2054,LocalTarget:"127.0.0.1:9000"},{IRNode:"ir-b",TunnelID:"tun-b",PublicPort:2055,LocalTarget:"127.0.0.1:9000"}},true},
+  {"18 canonical duplicate stored records",base,[]PublicIngressSpec{{IRNode:"ir-b",TunnelID:"tun-b",PublicPort:2054,LocalTarget:"127.0.0.1:9000"},{IRNode:" ir-b ",TunnelID:" tun-b ",PublicPort:2054,LocalTarget:"127.0.0.1:09000"}},false},
+  {"19 invalid record after exact replay",base,[]PublicIngressSpec{base,{IRNode:"ir-b",TunnelID:"tun-b",PublicPort:0,LocalTarget:"127.0.0.1:9000"}},true},
+  {"20 candidate invalid despite valid stored",PublicIngressSpec{IRNode:"ir-a",TunnelID:"tun-c",PublicPort:0,LocalTarget:"127.0.0.1:9000"},[]PublicIngressSpec{base},true},
+ }
+ _ = candidate
+ for _,tt := range tests {
+  t.Run(tt.name,func(t *testing.T){
+   err:=ValidatePublicIngressReservation(tt.candidate,tt.existing)
+   if (err!=nil)!=tt.wantError {t.Fatalf("error=%v wantError=%t",err,tt.wantError)}
+  })
+ }
+}

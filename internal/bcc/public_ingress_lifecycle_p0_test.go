@@ -65,3 +65,27 @@ func TestP0PublicIngressLifecycleRejectsMalformedResource(t *testing.T) {
 		})
 	}
 }
+
+func TestP0IngressLifecycleCanonicalOwnershipAndInvariants(t *testing.T) {
+ spec,err:=PlanPublicIngress("ir-main","tun-a",2053,"127.0.0.1:9000")
+ if err!=nil {t.Fatal(err)}
+ owner:=PublicIngressSpec{IRNode:" ir-main ",TunnelID:" tun-a ",PublicPort:2053,LocalTarget:"127.0.0.1:09000"}
+ state:=PublicIngressLifecycle{Spec:spec,Status:PublicIngressPending}
+ got,err:=TransitionPublicIngress(state,owner,PublicIngressApplied)
+ if err!=nil||!got.Applied {t.Fatalf("canonical owner should be accepted: %+v %v",got,err)}
+ for _,tt:=range []struct{name string; state PublicIngressLifecycle}{
+  {"pending marked applied",PublicIngressLifecycle{Spec:spec,Status:PublicIngressPending,Applied:true}},
+  {"applied marked unapplied",PublicIngressLifecycle{Spec:spec,Status:PublicIngressApplied,Applied:false}},
+  {"unknown status",PublicIngressLifecycle{Spec:spec,Status:"UNKNOWN",Applied:true}},
+ }{
+  t.Run(tt.name,func(t *testing.T){
+   previous:=tt.state
+   result,err:=TransitionPublicIngress(previous,spec,PublicIngressRemoved)
+   if err==nil {t.Fatal("invalid lifecycle state accepted")}
+   if result!=previous {t.Fatalf("rejected transition changed state: %+v",result)}
+  })
+ }
+ badOwner:=owner
+ badOwner.LocalTarget="0.0.0.0:9000"
+ if _,err:=TransitionPublicIngress(state,badOwner,PublicIngressApplied);err==nil {t.Fatal("invalid owner accepted")}
+}

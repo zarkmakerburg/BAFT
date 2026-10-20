@@ -113,6 +113,9 @@ func validatePublicIngressPreflightReceipt(output string, params map[string]stri
 	if err != nil || receipt.SchemaVersion != 1 || receipt.Scope != "agent_network_namespace_snapshot" || receipt.TunnelID != params["tunnel_id"] || receipt.PublicPort != port || receipt.LocalTarget != params["local_target"] {
 		return errors.New("preflight receipt does not match dispatched job")
 	}
+	if receipt.PublicListenerCount < 0 {
+		return errors.New("negative preflight listener count")
+	}
 	if receipt.ReadyToApply || receipt.OwnershipVerified || receipt.FirewallPolicyVerified {
 		return errors.New("preflight receipt cannot authorize application or claim verified ownership or firewall policy")
 	}

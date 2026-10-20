@@ -24,8 +24,8 @@ import (
 )
 
 // The interactive BAFT menu (HQ A3): `baft` on a terminal. It is a front for
-// what already exists, over plain numbered lines (no raw mode, so it works over
-// SSH and on a phone). It is READ-ONLY apart from the support bundle, which
+// what already exists, with numbered lines and terminal Tab selection over
+// SSH and on a phone. It is READ-ONLY apart from the support bundle, which
 // writes one archive after an explicit yes, and Uninstall (13), which runs the
 // same flow as `baft uninstall`: an exact preview, separate confirmations
 // (each data class defaults to NO, active tunnels, then typing "uninstall"),
@@ -40,15 +40,17 @@ type menuCfg struct {
 }
 
 type menu struct {
-	in   *bufio.Reader
-	out  io.Writer
-	errw io.Writer
-	env  opsEnv
-	cfg  menuCfg
-	caps termCaps
-	st   style
-	now  func() time.Time
-	host func() (string, error)
+	in            *bufio.Reader
+	terminal      *os.File
+	exitRequested bool
+	out           io.Writer
+	errw          io.Writer
+	env           opsEnv
+	cfg           menuCfg
+	caps          termCaps
+	st            style
+	now           func() time.Time
+	host          func() (string, error)
 }
 
 type menuItem struct {
@@ -74,6 +76,7 @@ func runMenu(args []string, in io.Reader, stdout, stderr io.Writer, env opsEnv, 
 	}
 	mc.file, mc.service, mc.releaseState = f.file, f.service, f.releaseState
 	m := &menu{in: bufio.NewReader(in), out: stdout, errw: stderr, env: env, cfg: mc, caps: caps, st: style{caps}, now: now, host: hostnameFn}
+	m.terminal = menuTerminal(in, stdout, caps)
 	return m.loop()
 }
 
@@ -113,7 +116,7 @@ func (m *menu) loop() int {
 			m.printf("  %s %s\n", m.st.highlight(fmt.Sprintf("%2d", i+1)), m.itemLabel(it))
 		}
 		m.printf("  %s %s\n", m.st.highlight(" 0"), "Exit")
-		a, ok := m.ask(m.st.gold("\nbaft> "))
+		a, ok := m.choose(items, "Exit")
 		if !ok {
 			m.printf("\n")
 			return 0
@@ -131,6 +134,9 @@ func (m *menu) loop() int {
 		}
 		m.printf("\n")
 		m.runItem(items[n-1])
+		if m.exitRequested {
+			return 0
+		}
 	}
 }
 
@@ -149,7 +155,9 @@ func (m *menu) runItem(it menuItem) {
 	} else {
 		it.run(m)
 	}
-	m.pause()
+	if !m.exitRequested {
+		m.pause()
+	}
 }
 
 func (m *menu) submenu(title string, items []menuItem) {
@@ -159,7 +167,7 @@ func (m *menu) submenu(title string, items []menuItem) {
 			m.printf("  %s %s\n", m.st.highlight(fmt.Sprintf("%2d", i+1)), m.itemLabel(it))
 		}
 		m.printf("  %s %s\n", m.st.highlight(" 0"), "Back")
-		a, ok := m.ask(m.st.gold("\nbaft> "))
+		a, ok := m.choose(items, "Back")
 		if !ok || a == "0" || strings.EqualFold(a, "b") || strings.EqualFold(a, "back") {
 			return
 		}

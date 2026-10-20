@@ -17,13 +17,16 @@ func TestPublicIngressEndpointsBeforeSigningAndAgentExecution(t *testing.T) {
 		field, value string
 		valid        bool
 	}{
-		{"public_port", "1", true},
+		{"public_port", "1", false},
 		{"public_port", "65535", true},
 		{"public_port", "2053", true},
+		{"public_port", "1023", false},
+		{"public_port", "1024", true},
 		{"public_port", "0", false},
 		{"public_port", "65536", false},
 		{"public_port", "99999", false},
 		{"local_target", "127.0.0.1:1", true},
+		{"local_target", "127.0.0.1:22", false},
 		{"local_target", "[::1]:65535", true},
 		{"local_target", "127.0.0.1:0", false},
 		{"local_target", "[::1]:65536", false},

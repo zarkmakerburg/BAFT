@@ -254,6 +254,12 @@ func (j Job) Validate() error {
 		_, targetPort, _ := net.SplitHostPort(j.Params["local_target"])
 		publicPort, _ := strconv.Atoi(j.Params["public_port"])
 		targetNumber, _ := strconv.Atoi(targetPort)
+		if publicPort < 1024 {
+			return errors.New("public ingress listen port must be at least 1024")
+		}
+		if targetNumber == 22 {
+			return errors.New("public ingress target port 22 is reserved for SSH management")
+		}
 		if publicPort == targetNumber {
 			return errors.New("public ingress target port must differ from public port")
 		}

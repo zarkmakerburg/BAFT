@@ -426,15 +426,19 @@ func (s *Server) agentJobs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	nodeID := r.URL.Query().Get("node_id")
-	jobs, err := s.store.PullJobs(nodeID, bearer(r))
+	var signed []AgentJob
+	_, err := s.store.pullJobs(nodeID, bearer(r), func(jobs []Job) error {
+		var signErr error
+		signed, signErr = s.signAgentJobs(jobs)
+		return signErr
+	})
 	s.agentAuthResult(r, err)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-	signed, err := s.signAgentJobs(jobs)
-	if err != nil {
-		http.Error(w, "job signing failed", http.StatusInternalServerError)
+		if errors.Is(err, ErrAgentAuthentication) {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+		} else {
+			http.Error(w, "job dispatch failed", http.StatusInternalServerError)
+		}
 		return
 	}
 	writeJSON(w, http.StatusOK, signed)

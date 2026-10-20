@@ -547,6 +547,13 @@ func (s *Store) noteAgentSeenLocked(nodeID string,now time.Time){
 }
 
 func (s *Store) PullJobs(nodeID,token string) ([]Job,error) {
+	return s.pullJobs(nodeID,token,nil)
+}
+
+// pullJobs optionally prepares the response while the queued state is still
+// reversible. A signing failure must never persist a dispatched job that the
+// agent never received. The response is returned only after the state commits.
+func (s *Store) pullJobs(nodeID,token string,prepare func([]Job)error) ([]Job,error) {
 	s.mu.Lock();defer s.mu.Unlock()
 	if !s.authorizedLocked(nodeID,token){return nil,ErrAgentAuthentication}
 	before,err:=cloneState(s.st);if err!=nil{return nil,err}
@@ -566,6 +573,7 @@ func (s *Store) PullJobs(nodeID,token string) ([]Job,error) {
 		j.Status="dispatched";j.UpdatedAt=time.Now().UTC();s.st.Jobs[id]=j;out=append(out,j)
 	}
 	sort.Slice(out,func(i,j int)bool{return out[i].CreatedAt.Before(out[j].CreatedAt)})
+	if prepare!=nil {if err:=prepare(out);err!=nil{s.st=before;return nil,err}}
 	if changed{if err:=s.saveLocked();err!=nil{s.st=before;return nil,err}}
 	return out,nil
 }

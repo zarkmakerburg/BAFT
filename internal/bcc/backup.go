@@ -353,6 +353,9 @@ func mergeAntiRollback(restored *state,current state,createdAt time.Time){
 		for bootID,v:=range ids{if v{restored.RetiredBootIDs[nodeID][bootID]=true}}
 	}
 	if current.NextRateVersion>restored.NextRateVersion{restored.NextRateVersion=current.NextRateVersion}
+	// An agent permanently remembers accepted job IDs. Rewinding this counter
+	// would reuse a signed ID after restore and make the new job unexecutable.
+	if current.NextJob>restored.NextJob{restored.NextJob=current.NextJob}
 	if current.NextTelemetryIngestID>restored.NextTelemetryIngestID{restored.NextTelemetryIngestID=current.NextTelemetryIngestID}
 }
 

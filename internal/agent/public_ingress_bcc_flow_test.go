@@ -28,6 +28,14 @@ func TestPublicIngressPreflightRealBCCAgentRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer ln.Close()
+	// The public port and loopback destination are independent resources.
+	// Keep both listeners bound to exercise real socket observations without
+	// creating a forwarding loop that production planning must reject.
+	target, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer target.Close()
 	store, err := bcc.OpenStore(filepath.Join(t.TempDir(), "bcc.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -55,7 +63,7 @@ func TestPublicIngressPreflightRealBCCAgentRoundTrip(t *testing.T) {
 	app.ConfigureJobSigning(key)
 	srv := httptest.NewServer(app.Handler())
 	defer srv.Close()
-	request := bcc.PublicIngressPreflightRequest{IRNode: "ir", TunnelID: tunnel.ID, PublicPort: ln.Addr().(*net.TCPAddr).Port, LocalTarget: ln.Addr().String()}
+	request := bcc.PublicIngressPreflightRequest{IRNode: "ir", TunnelID: tunnel.ID, PublicPort: ln.Addr().(*net.TCPAddr).Port, LocalTarget: target.Addr().String()}
 	body, _ := json.Marshal(request)
 	req := httptest.NewRequest(http.MethodPost, "/api/ingress/preflight", strings.NewReader(string(body)))
 	req.Header.Set("Authorization", "Bearer admin")

@@ -74,6 +74,9 @@ func agentAction(j Job) (string, map[string]string, error) {
 }
 
 func (s *Server) signAgentJobs(jobs []Job) ([]AgentJob, error) {
+	if len(jobs) != 0 && s.jobKey == nil {
+		return nil, errors.New("BCC job-signing key is not configured")
+	}
 	out := make([]AgentJob, 0, len(jobs))
 	now := s.now()
 	for _, j := range jobs {

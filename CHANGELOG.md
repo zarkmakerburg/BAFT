@@ -9,6 +9,7 @@ Development target: **v0.4.0**, draft PR #270. Not released. See [readiness and 
 ### Added
 
 - Read-only Public Ingress host preflight with signed BCC-to-Agent dispatch, strict receipt validation and authenticated result retrieval for an existing owned tunnel. It observes listeners without binding, connecting or changing host state; ingress apply remains unavailable.
+- Durable desired Public Ingress port reservations with authenticated API, concurrent conflict protection, atomic audit, restart persistence and allocator/restore guards. They do not bind ports or authorize host changes. SQLite schema 14 and encrypted backup schema 3 prevent older binaries from silently losing allocations; legacy schema 2 backups remain readable without reservation data. Retain a verified pre-upgrade snapshot for downgrade.
 
 - **Tunnel Toolbox in the panel**: the engines a server can run are listed from the panel's own catalog; only the native BAFT engine can be selected. Other engines are shown as not available and every action on them is refused before a plan is made.
 - **Smart Tunnel Wizard**: create a tunnel in five steps, with port suggestions checked against the catalog (a suggested port is not a reservation) and a truthful mapping for x-ui/Xray ports.
@@ -23,7 +24,8 @@ Development target: **v0.4.0**, draft PR #270. Not released. See [readiness and 
 
 - Public welcome/sign-in headers wrap on mobile with the preview launcher visible, preventing horizontal overflow. Full browser checks now cover public control bounds as well as authenticated pages.
 
-- Generated `baft-panel` and `baft-net` menus accept Tab/Shift+Tab and numbered choices through the same action dispatch, with numeric fallback for dumb terminals and redirected input. The separate Go console remains numeric-only.
+- Generated `baft-panel` and `baft-net` menus accept Up/Down, Tab/Shift+Tab and numbered choices through the same action dispatch, with numeric fallback for dumb terminals and redirected input. The Linux Go console also supports arrow/Tab selection, Back and Exit, restores terminal state before actions and on interruption, and keeps its plain input fallback.
+- Lost read-only ingress preflight delivery or ACK no longer blocks a node forever: a fresh request after five minutes atomically expires the pending inspection, records the replacement in the audit trail and rejects late ACKs for the old job.
 - Network tuning requires explicit consent (including SSH-assisted installs), cancels on prompt EOF, and saves the exact previous values of the keys it changes, restores them on partial failure, and keeps retryable rollback state. Legacy tuning without a snapshot is refused rather than guessed.
 - BCC certificate acceptance requires DNS SAN and matching EC/RSA private key; new ACME downloads are pinned to a verified immutable archive and fallback requires explicit consent; failed ACME replacement restores the previous serving files. Renewal timer failure is reported without promising automatic renewal.
 - Signed ingress preflight jobs reject invalid ports and loopback endpoints, and lifecycle helpers reject malformed owned resources. Operational ingress application is still incomplete.

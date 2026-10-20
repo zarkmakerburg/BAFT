@@ -82,7 +82,7 @@ Details: [Use with x-ui](docs/en/guide/02-use-with-x-ui.md).
 - `tests/installer/`: installer contract tests; static checks are not a substitute for VM and live-path validation.
 - `docs/design/`: proposed P0 work and engineering decisions, not proof that each feature has shipped.
 
-**Known development gaps:** The generated `baft-panel` and `baft-net` menus now support Tab/Shift+Tab and numbered choices; the separate Go console and the complete command catalog still need migration. Public-ingress agent apply/reconcile, fully reversible adaptive network profiles, and the v0.4.0 end-to-end release gates remain under development. Aurora is intended to complement the existing BCC, not replace it. Existing 3X-UI subscriptions and services remain externally owned.
+**Known development gaps:** The generated `baft-panel` and `baft-net` menus and the Linux Go console support Up/Down arrows, Tab/Shift+Tab and numbered choices, with plain input fallback; the complete command catalog and localization still need completion. Signed read-only public-ingress preflight is available, but agent apply/reconcile, fully reversible adaptive network profiles, and the v0.4.0 end-to-end release gates remain under development. Aurora is intended to complement the existing BCC, not replace it. Existing 3X-UI subscriptions and services remain externally owned.
 
 See the [v0.4.0 readiness matrix and upgrade gates](docs/release/v0.4.0-readiness.md) for tested changes and remaining blockers.
 

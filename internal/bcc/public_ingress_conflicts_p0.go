@@ -46,19 +46,14 @@ func ValidatePublicIngressReservation(candidate PublicIngressSpec, existing []Pu
 			byPort[pk] = old
 		}
 	}
-	for _, old := range canonical {
-		if old.IRNode != candidate.IRNode {
-			continue
+	if old, ok := byTunnel[nodeTunnel{candidate.IRNode, candidate.TunnelID}]; ok {
+		if old.PublicPort != candidate.PublicPort || old.LocalTarget != candidate.LocalTarget {
+			return fmt.Errorf("tunnel %s already has a different public ingress reservation", candidate.TunnelID)
 		}
-		if old.TunnelID == candidate.TunnelID {
-			if old.PublicPort != candidate.PublicPort || old.LocalTarget != candidate.LocalTarget {
-				return fmt.Errorf("tunnel %s already has a different public ingress reservation", candidate.TunnelID)
-			}
-			continue
-		}
-		if old.PublicPort == candidate.PublicPort {
-			return fmt.Errorf("IR node %s public port %d is reserved by tunnel %s", candidate.IRNode, candidate.PublicPort, old.TunnelID)
-		}
+		return nil
+	}
+	if old, ok := byPort[nodePort{candidate.IRNode, candidate.PublicPort}]; ok {
+		return fmt.Errorf("IR node %s public port %d is reserved by tunnel %s", candidate.IRNode, candidate.PublicPort, old.TunnelID)
 	}
 	return nil
 }

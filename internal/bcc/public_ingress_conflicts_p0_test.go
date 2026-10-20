@@ -1,6 +1,9 @@
 package bcc
 
-import "testing"
+import (
+ "fmt"
+ "testing"
+)
 
 func TestP0PublicIngressReservations(t *testing.T) {
  a, err := PlanPublicIngress("arno", "tun-a", 54619, "127.0.0.1:1444")
@@ -124,4 +127,22 @@ func TestP0PublicIngressRejectsConflictingStoredSet(t *testing.T) {
    if (err!=nil)!=tt.wantError {t.Fatalf("error=%v wantError=%t",err,tt.wantError)}
   })
  }
+}
+
+func TestP0PublicIngressLargeReservationSet(t *testing.T) {
+ const count = 2000
+ existing := make([]PublicIngressSpec, 0, count)
+ for i := 0; i < count; i++ {
+  spec, err := PlanPublicIngress("ir-main", fmt.Sprintf("tunnel-%d",i), 10000+i, "127.0.0.1:9000")
+  if err != nil {t.Fatal(err)}
+  existing=append(existing,spec)
+ }
+ candidate,err:=PlanPublicIngress("ir-main","new-tunnel",20000,"127.0.0.1:9001")
+ if err!=nil {t.Fatal(err)}
+ if err:=ValidatePublicIngressReservation(candidate,existing);err!=nil {t.Fatalf("valid large set rejected: %v",err)}
+ candidate.PublicPort=10000+count-1
+ if err:=ValidatePublicIngressReservation(candidate,existing);err==nil {t.Fatal("collision at end of large set must fail")}
+ existing[count-1].PublicPort=existing[0].PublicPort
+ candidate.PublicPort=20000
+ if err:=ValidatePublicIngressReservation(candidate,existing);err==nil {t.Fatal("corrupt large set must fail closed")}
 }

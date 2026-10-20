@@ -367,3 +367,29 @@ func TestPublicIngressPreflightRejectsNullObservationArrays(t *testing.T) {
   t.Fatalf("valid receipt with explicit arrays rejected: %v", err)
  }
 }
+
+func TestPublicIngressPreflightRejectsMalformedObservationEntries(t *testing.T) {
+ req := PublicIngressPreflightRequest{TunnelID: "tun-a", PublicPort: 14443, LocalTarget: "127.0.0.1:1443"}
+ params := map[string]string{"tunnel_id": req.TunnelID, "public_port": "14443", "local_target": req.LocalTarget}
+ cases := []struct{ field string; value any }{
+  {"firewall_tools", []any{nil}},
+  {"firewall_tools", []string{""}},
+  {"firewall_tools", []string{"  "}},
+  {"firewall_tools", []string{"iptables\\nforged"}},
+  {"limitations", []any{nil}},
+  {"limitations", []string{""}},
+  {"limitations", []string{"observations\\rforged"}},
+ }
+ for _, tc := range cases {
+  t.Run(tc.field, func(t *testing.T) {
+   var evidence map[string]any
+   if err := json.Unmarshal([]byte(publicIngressReceiptFixture(req)), &evidence); err != nil {t.Fatal(err)}
+   evidence[tc.field] = tc.value
+   payload, err := json.Marshal(evidence)
+   if err != nil {t.Fatal(err)}
+   if err := validatePublicIngressPreflightReceipt(string(payload), params); err == nil {
+    t.Fatalf("invalid %s entries accepted: %s", tc.field, payload)
+   }
+  })
+ }
+}

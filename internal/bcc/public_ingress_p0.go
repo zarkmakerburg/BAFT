@@ -36,5 +36,8 @@ func PlanPublicIngress(irNode, tunnelID string, publicPort int, localTarget stri
  if ip==nil || !ip.IsLoopback() {return PublicIngressSpec{}, fmt.Errorf("local ingress target must use a loopback IP")}
  n,err:=strconv.Atoi(port)
  if err!=nil || n<1 || n>65535 {return PublicIngressSpec{}, fmt.Errorf("invalid local ingress target port")}
+ // The ingress listener must never forward back into its own port, even
+ // through a different loopback address or an IPv6 wildcard listener.
+ if n == publicPort {return PublicIngressSpec{}, fmt.Errorf("public ingress target port must differ from public port")}
  return PublicIngressSpec{IRNode:strings.TrimSpace(irNode),TunnelID:strings.TrimSpace(tunnelID),PublicPort:publicPort,LocalTarget:net.JoinHostPort(ip.String(),strconv.Itoa(n))},nil
 }

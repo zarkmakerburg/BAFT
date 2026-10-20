@@ -53,3 +53,22 @@ func TestPublicIngressEndpointsBeforeSigningAndAgentExecution(t *testing.T) {
 		})
 	}
 }
+
+func TestSignedAgentJobRejectsTrailingJSONValues(t *testing.T) {
+ pub,key,err:=release.GenerateKey()
+ if err!=nil {t.Fatal(err)}
+ j:=job(ActionPublicIngressPreflight,map[string]string{
+  "tunnel_id":"tun-test","public_port":"54619","local_target":"127.0.0.1:1443",
+ })
+ j.SchemaVersion=SchemaVersion
+ raw,err:=json.Marshal(j)
+ if err!=nil {t.Fatal(err)}
+ for _,suffix:=range []string{" {}"," null"," true"," []"," 42"," \"extra\""}{
+  t.Run(suffix,func(t *testing.T){
+   env:=release.Sign(PayloadType,append(append([]byte(nil),raw...),[]byte(suffix)...),key)
+   if _,err:=(Verifier{BCCKey:pub,NodeID:j.NodeID}).Verify(env,now.Add(time.Minute));err==nil {
+    t.Fatal("accepted signed payload with trailing JSON value")
+   }
+  })
+ }
+}

@@ -392,3 +392,26 @@ func TestForwarderRejectsSecondServeWithoutClosingItsListener(t *testing.T) {
   t.Fatalf("rejected Serve disrupted active listener: %q, %v", response, err)
  }
 }
+
+func TestForwarderDoesNotTakeOwnershipOfMismatchedListener(t *testing.T) {
+ backend := echoBackend(t)
+ unrelated := echoBackend(t)
+ f, err := New(Config{Listen: unrelated.Addr().String(), Target: backend.Addr().String()})
+ if err != nil { t.Fatal(err) }
+ // Supply a different listener: the forwarder must not close or alter it.
+ other := tcpListener(t)
+ if err := f.Serve(context.Background(), other); err == nil {
+  t.Fatal("mismatched listener accepted")
+ }
+ // It must remain open and able to accept a new connection.
+ client := connect(t, other.Addr().String())
+ defer client.Close()
+ if _, err := io.WriteString(client, "still-open"); err != nil { t.Fatal(err) }
+ accepted, err := other.Accept()
+ if err != nil { t.Fatalf("rejected listener was closed: %v", err) }
+ defer accepted.Close()
+ data := make([]byte, len("still-open"))
+ if _, err := io.ReadFull(accepted, data); err != nil || string(data) != "still-open" {
+  t.Fatalf("rejected listener was altered: %q %v", data, err)
+ }
+}

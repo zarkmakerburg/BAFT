@@ -12,7 +12,7 @@ The existing agent job protocol (`internal/agentjob/agentjob.go`) uses an explic
 - `public_ingress_rollback`: remove only changes owned by the matching tunnel/generation; never touch other services.
 - `public_ingress_retire`: final removal with explicit ownership and digest checks.
 
-Each action requires validated `tunnel_id`, `instance_id` where applicable, `public_port`, `local_target`, `generation` and/or `digest` as appropriate. Validate public port as 1..65535 and local target as loopback only; reject duplicate port ownership. Avoid opening wildcard listener until checks pass.
+Each action requires validated `tunnel_id`, `instance_id` where applicable, `public_port`, `local_target`, `generation` and/or `digest` as appropriate. The current read-only preflight and manual listener accept public ports 1024..65535; the BCC planning contract permits 1..65535 but that broader range is not an apply capability. Supporting a privileged port such as 443 requires a separately reviewed binding and privilege strategy before enabling it in the wizard. Port 2053 is not globally banned: preserve an occupied listener and admit it only when free and ownership is proven. Validate local targets as loopback only; reject duplicate port ownership. Avoid opening a wildcard listener until all checks pass.
 
 ## Transaction ordering
 1. BCC resolves EX/IR tunnel and reserves port in durable state.
@@ -26,4 +26,4 @@ Each action requires validated `tunnel_id`, `instance_id` where applicable, `pub
 - On reboot, reconcile only BAFT-owned resources; fail closed on ownership ambiguity.
 - Existing BAFT.goldapp.tr:2053 and other unrelated services must remain untouched.
 - Shared TCP/443 requires proven multiplexing, never bypass `tunnelResourceConflict`.
-- No merge/release/deploy without HQ approval and gated real-host tests.
+- Owner authorization for merge/release/deploy is already recorded in HQ #67. Keep the PR draft and require all technical, security and real-host acceptance gates before using that authorization.

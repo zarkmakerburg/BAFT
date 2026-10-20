@@ -8,6 +8,8 @@ Development target: **v0.4.0**, draft PR #270. Not released. See [readiness and 
 
 ### Added
 
+- Read-only Public Ingress host preflight with signed BCC-to-Agent dispatch, strict receipt validation and authenticated result retrieval for an existing owned tunnel. It observes listeners without binding, connecting or changing host state; ingress apply remains unavailable.
+
 - **Tunnel Toolbox in the panel**: the engines a server can run are listed from the panel's own catalog; only the native BAFT engine can be selected. Other engines are shown as not available and every action on them is refused before a plan is made.
 - **Smart Tunnel Wizard**: create a tunnel in five steps, with port suggestions checked against the catalog (a suggested port is not a reservation) and a truthful mapping for x-ui/Xray ports.
 - **Engine inventory evidence contract**: a versioned format for what an agent reports about installed engines. It is not yet connected to live probes.
@@ -18,6 +20,8 @@ Development target: **v0.4.0**, draft PR #270. Not released. See [readiness and 
 - Classic and Aurora panels reach the same cards and actions (parity documented in `docs/release/r1-classic-aurora-parity-stage286.md`).
 
 ### Fixed
+
+- Public welcome/sign-in headers wrap on mobile with the preview launcher visible, preventing horizontal overflow. Full browser checks now cover public control bounds as well as authenticated pages.
 
 - Generated `baft-panel` and `baft-net` menus accept Tab/Shift+Tab and numbered choices through the same action dispatch, with numeric fallback for dumb terminals and redirected input. The separate Go console remains numeric-only.
 - Network tuning requires explicit consent (including SSH-assisted installs), cancels on prompt EOF, and saves the exact previous values of the keys it changes, restores them on partial failure, and keeps retryable rollback state. Legacy tuning without a snapshot is refused rather than guessed.

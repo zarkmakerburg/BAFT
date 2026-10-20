@@ -1,7 +1,6 @@
 package bcc
 
 import (
-	"crypto/ed25519"
 	"encoding/json"
 	"errors"
 	"io"
@@ -117,7 +116,7 @@ func (s *Server) publicIngressPreflightAPI(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if len(s.jobKey) != ed25519.PrivateKeySize {
+	if validateJobSigningKey(s.jobKey) != nil {
 		http.Error(w, "agent job signing is not configured", http.StatusServiceUnavailable)
 		return
 	}

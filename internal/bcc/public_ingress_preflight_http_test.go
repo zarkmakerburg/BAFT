@@ -236,29 +236,33 @@ func TestPublicIngressPreflightAPIRequiresAdminSigningStrictJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, key, _ := release.GenerateKey()
+	badKey := append([]byte(nil), key...)
+	badKey[len(badKey)-1] ^= 1
 	body, _ := json.Marshal(req)
 	for _, tc := range []struct {
 		name, token, body string
-		sign              bool
+		key               []byte
 		status            int
 	}{
-		{"agent denied", "tok-src", string(body), true, 401},
-		{"unsigned configuration", "admin", string(body), false, 503},
-		{"extra field", "admin", strings.TrimSuffix(string(body), "}") + `,"apply":true}`, true, 400},
-		{"trailing JSON", "admin", string(body) + ` {}`, true, 400},
-		{"accepted", "admin", string(body), true, 202},
+		{"agent denied", "tok-src", string(body), key, 401},
+		{"unsigned configuration", "admin", string(body), nil, 503},
+		{"inconsistent signing key", "admin", string(body), badKey, 503},
+		{"extra field", "admin", strings.TrimSuffix(string(body), "}") + `,"apply":true}`, key, 400},
+		{"trailing JSON", "admin", string(body) + ` {}`, key, 400},
+		{"accepted", "admin", string(body), key, 202},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			app.ConfigureJobSigning(nil)
-			if tc.sign {
-				app.ConfigureJobSigning(key)
-			}
+			app.ConfigureJobSigning(tc.key)
+			before := len(s.ListJobs())
 			rr := httptest.NewRecorder()
 			r := httptest.NewRequest(http.MethodPost, "/api/ingress/preflight", strings.NewReader(tc.body))
 			r.Header.Set("Authorization", "Bearer "+tc.token)
 			app.Handler().ServeHTTP(rr, r)
 			if rr.Code != tc.status {
 				t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
+			}
+			if tc.status != 202 && len(s.ListJobs()) != before {
+				t.Fatal("rejected request queued a job")
 			}
 			if tc.status == 202 && (!strings.Contains(rr.Body.String(), `"ready_to_apply":false`) || !strings.Contains(rr.Body.String(), `"read_only":true`)) {
 				t.Fatal("missing read-only contract")

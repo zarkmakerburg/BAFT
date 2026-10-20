@@ -42,10 +42,20 @@ func (s *Server) ConfigureJobSigning(key ed25519.PrivateKey) { s.jobKey = key }
 
 // JobPublicKey is what agents pin, or "" without job signing.
 func (s *Server) JobPublicKey() string {
-	if s.jobKey == nil {
+	if validateJobSigningKey(s.jobKey) != nil {
 		return ""
 	}
 	return release.EncodePublic(s.jobKey.Public().(ed25519.PublicKey))
+}
+
+func validateJobSigningKey(key ed25519.PrivateKey) error {
+	if len(key) != ed25519.PrivateKeySize {
+		return errors.New("BCC job-signing key is not configured")
+	}
+	if !bytes.Equal(key, ed25519.NewKeyFromSeed(key.Seed())) {
+		return errors.New("BCC job-signing key is inconsistent")
+	}
+	return nil
 }
 
 // AgentJob is a job as served to an agent: the record plus its signed form,
@@ -76,11 +86,8 @@ func agentAction(j Job) (string, map[string]string, error) {
 
 func (s *Server) signAgentJobs(jobs []Job) ([]AgentJob, error) {
 	if len(jobs) != 0 {
-		if len(s.jobKey) != ed25519.PrivateKeySize {
-			return nil, errors.New("BCC job-signing key is not configured")
-		}
-		if !bytes.Equal(s.jobKey, ed25519.NewKeyFromSeed(s.jobKey.Seed())) {
-			return nil, errors.New("BCC job-signing key is inconsistent")
+		if err := validateJobSigningKey(s.jobKey); err != nil {
+			return nil, err
 		}
 	}
 	out := make([]AgentJob, 0, len(jobs))

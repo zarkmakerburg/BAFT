@@ -413,3 +413,27 @@ func TestPreparedManifestRejectsForeignOwnerAtResourcePath(t *testing.T) {
 		t.Fatal("rejected foreign resource was changed")
 	}
 }
+
+// A generation counter must never wrap and resurrect generation one.
+func TestPreparedManifestGenerationOverflowRejected(t *testing.T) {
+	s, dir := fixtureStore(t)
+	spec := fixtureSpec()
+	spec.Generation = ^uint64(0)
+	raw, proof, err := encode(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, filename(spec.TunnelID, spec.InstanceID)), raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	next := spec
+	next.Generation = 1
+	next.Config.MaxClients = 64
+	if _, err := s.Prepare(next, &proof); err == nil {
+		t.Fatal("wrapped generation was accepted")
+	}
+	got, err := s.Inspect(proof)
+	if err != nil || !got.PreparedBytesMatch {
+		t.Fatalf("overflow attempt changed prepared record: %+v %v", got, err)
+	}
+}

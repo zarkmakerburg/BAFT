@@ -249,6 +249,14 @@ func (j Job) Validate() error {
 		if err := validateTunnelEndpoint(j.Params["local_target"], true); err != nil {
 			return fmt.Errorf("parameter local_target: %w", err)
 		}
+		// A wildcard public listener would also capture loopback traffic on
+		// the same port. Refuse self-forwarding before signing a job.
+		_, targetPort, _ := net.SplitHostPort(j.Params["local_target"])
+		publicPort, _ := strconv.Atoi(j.Params["public_port"])
+		targetNumber, _ := strconv.Atoi(targetPort)
+		if publicPort == targetNumber {
+			return errors.New("public ingress target port must differ from public port")
+		}
 	}
 	if j.Action == ActionTunnelPrepareEX || j.Action == ActionTunnelPrepareIR {
 		if endpoint, ok := j.Params["metrics_listen"]; ok {

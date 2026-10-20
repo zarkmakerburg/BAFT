@@ -122,12 +122,17 @@ func TestSignedPublicIngressPreflightObservesRealListenerWithoutMutation(t *test
 		t.Fatal(err)
 	}
 	defer ln.Close()
+	publicLn, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer publicLn.Close()
 	pub, key, err := release.GenerateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
 	j := ingressPreflightJob()
-	j.Params["public_port"] = strconv.Itoa(ln.Addr().(*net.TCPAddr).Port)
+	j.Params["public_port"] = strconv.Itoa(publicLn.Addr().(*net.TCPAddr).Port)
 	j.Params["local_target"] = ln.Addr().String()
 	env, err := agentjob.Sign(key, j)
 	if err != nil {

@@ -5,6 +5,7 @@ import (
  "net"
  "strconv"
  "strings"
+ "unicode"
 )
 
 // PublicIngressSpec is a validated desired-state contract, NOT an applied
@@ -20,6 +21,14 @@ type PublicIngressSpec struct {
 // port is intentionally separate from the EX inter-node transport port.
 func PlanPublicIngress(irNode, tunnelID string, publicPort int, localTarget string) (PublicIngressSpec, error) {
  if strings.TrimSpace(irNode)=="" || strings.TrimSpace(tunnelID)=="" {return PublicIngressSpec{}, fmt.Errorf("public ingress requires IR node and tunnel ID")}
+ // Reject control characters in identifiers before persisting or auditing them.
+ // Whitespace around an identifier is canonicalized, but embedded newlines,
+ // tabs, and other control bytes must never reach ownership or audit keys.
+ for _, identifier := range []string{irNode, tunnelID} {
+  for _, r := range strings.TrimSpace(identifier) {
+   if unicode.IsControl(r) {return PublicIngressSpec{}, fmt.Errorf("public ingress identifier contains a control character")}
+  }
+ }
  if publicPort<1 || publicPort>65535 {return PublicIngressSpec{}, fmt.Errorf("public ingress port must be between 1 and 65535")}
  host, port, err := net.SplitHostPort(localTarget)
  if err!=nil {return PublicIngressSpec{}, fmt.Errorf("invalid local ingress target: %w",err)}

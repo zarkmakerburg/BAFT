@@ -351,67 +351,83 @@ func TestForwarderAcceptFailureReleasesListener(t *testing.T) {
 }
 
 func TestForwarderRejectsSecondServeWithoutClosingItsListener(t *testing.T) {
- backend := echoBackend(t)
- first := tcpListener(t)
- address := first.Addr().String()
- f, err := New(Config{Listen: address, Target: backend.Addr().String()})
- if err != nil { t.Fatal(err) }
- ctx, cancel := context.WithCancel(context.Background())
- done := make(chan error, 1)
- go func() { done <- f.Serve(ctx, first) }()
- defer func() {
-  cancel()
-  select {
-  case err := <-done:
-   if err != nil { t.Errorf("first serve shutdown: %v", err) }
-  case <-time.After(3 * time.Second):
-   t.Error("first serve did not stop")
-  }
- }()
- // Wait until the first Serve is accepting rather than relying on timing.
- deadline := time.Now().Add(3 * time.Second)
- for {
-  c, err := net.DialTimeout("tcp4", address, 50*time.Millisecond)
-  if err == nil {
-   _ = c.Close()
-   break
-  }
-  if time.Now().After(deadline) { t.Fatalf("first serve did not start: %v", err) }
-  time.Sleep(time.Millisecond)
- }
- // A second Serve with the same already-owned listener must be refused,
- // without closing the listener used by the first Serve.
- if err := f.Serve(ctx, first); err == nil {
-  t.Fatal("concurrent Serve accepted")
- }
- c := connect(t, address)
- defer c.Close()
- if _, err := io.WriteString(c, "ok"); err != nil { t.Fatal(err) }
- response := make([]byte, 2)
- if _, err := io.ReadFull(c, response); err != nil || string(response) != "ok" {
-  t.Fatalf("rejected Serve disrupted active listener: %q, %v", response, err)
- }
+	backend := echoBackend(t)
+	first := tcpListener(t)
+	address := first.Addr().String()
+	f, err := New(Config{Listen: address, Target: backend.Addr().String()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- f.Serve(ctx, first) }()
+	defer func() {
+		cancel()
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Errorf("first serve shutdown: %v", err)
+			}
+		case <-time.After(3 * time.Second):
+			t.Error("first serve did not stop")
+		}
+	}()
+	// A bound TCP socket accepts kernel connections before Serve starts. Wait
+	// for the forwarder's ownership state before attempting the second Serve.
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		f.mu.Lock()
+		running := f.running
+		f.mu.Unlock()
+		if running {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("first serve did not start")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	// A second Serve with the same already-owned listener must be refused,
+	// without closing the listener used by the first Serve.
+	if err := f.Serve(ctx, first); err == nil {
+		t.Fatal("concurrent Serve accepted")
+	}
+	c := connect(t, address)
+	defer c.Close()
+	if _, err := io.WriteString(c, "ok"); err != nil {
+		t.Fatal(err)
+	}
+	response := make([]byte, 2)
+	if _, err := io.ReadFull(c, response); err != nil || string(response) != "ok" {
+		t.Fatalf("rejected Serve disrupted active listener: %q, %v", response, err)
+	}
 }
 
 func TestForwarderDoesNotTakeOwnershipOfMismatchedListener(t *testing.T) {
- backend := echoBackend(t)
- unrelated := echoBackend(t)
- f, err := New(Config{Listen: unrelated.Addr().String(), Target: backend.Addr().String()})
- if err != nil { t.Fatal(err) }
- // Supply a different listener: the forwarder must not close or alter it.
- other := tcpListener(t)
- if err := f.Serve(context.Background(), other); err == nil {
-  t.Fatal("mismatched listener accepted")
- }
- // It must remain open and able to accept a new connection.
- client := connect(t, other.Addr().String())
- defer client.Close()
- if _, err := io.WriteString(client, "still-open"); err != nil { t.Fatal(err) }
- accepted, err := other.Accept()
- if err != nil { t.Fatalf("rejected listener was closed: %v", err) }
- defer accepted.Close()
- data := make([]byte, len("still-open"))
- if _, err := io.ReadFull(accepted, data); err != nil || string(data) != "still-open" {
-  t.Fatalf("rejected listener was altered: %q %v", data, err)
- }
+	backend := echoBackend(t)
+	unrelated := echoBackend(t)
+	f, err := New(Config{Listen: unrelated.Addr().String(), Target: backend.Addr().String()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Supply a different listener: the forwarder must not close or alter it.
+	other := tcpListener(t)
+	if err := f.Serve(context.Background(), other); err == nil {
+		t.Fatal("mismatched listener accepted")
+	}
+	// It must remain open and able to accept a new connection.
+	client := connect(t, other.Addr().String())
+	defer client.Close()
+	if _, err := io.WriteString(client, "still-open"); err != nil {
+		t.Fatal(err)
+	}
+	accepted, err := other.Accept()
+	if err != nil {
+		t.Fatalf("rejected listener was closed: %v", err)
+	}
+	defer accepted.Close()
+	data := make([]byte, len("still-open"))
+	if _, err := io.ReadFull(accepted, data); err != nil || string(data) != "still-open" {
+		t.Fatalf("rejected listener was altered: %q %v", data, err)
+	}
 }

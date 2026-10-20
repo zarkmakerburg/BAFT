@@ -1,6 +1,7 @@
 package bcc
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -67,12 +68,34 @@ func TestPublicIngressPreflightExpiresBeforeLatePullAndAck(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	before, err := cloneState(s.st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := s.path
+	s.path = t.TempDir()
+	if _, err := s.PullJobs(req.IRNode, "tok-src"); err == nil {
+		t.Fatal("expired dispatch survived failed audit/state save")
+	}
+	if !reflect.DeepEqual(s.st, before) {
+		t.Fatal("failed expiry changed job or audit state")
+	}
+	s.path = path
 	jobs, err := s.PullJobs(req.IRNode, "tok-src")
 	if err != nil || len(jobs) != 0 {
 		t.Fatalf("expired pull: %+v %v", jobs, err)
 	}
 	if got := s.st.Jobs[job.ID]; got.Status != "failed" || got.Message == "" {
 		t.Fatalf("expired job state: %+v", got)
+	}
+	found := false
+	for _, intent := range s.PendingSecurityAuditIntents() {
+		if intent.Action == "public_ingress.preflight.expire" && intent.Target == req.TunnelID && intent.Details["job_id"] == job.ID {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("expired job lacks atomic audit intent")
 	}
 	reopened, err := OpenStore(s.path)
 	if err != nil {

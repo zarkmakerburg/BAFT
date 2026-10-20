@@ -60,7 +60,7 @@ func TestPublicIngressReservationsRejectOwnedAndProtectedPorts(t *testing.T) {
 		name   string
 		change func(*Store, *PublicIngressSpec)
 	}{
-		{"2053", func(_ *Store, p *PublicIngressSpec) { p.PublicPort = 2053 }},
+		{"SSH management", func(_ *Store, p *PublicIngressSpec) { p.PublicPort = 22 }},
 		{"ssh", func(_ *Store, p *PublicIngressSpec) { p.PublicPort = 22 }},
 		{"route", func(_ *Store, p *PublicIngressSpec) { p.PublicPort = 1443 }},
 		{"metrics", func(_ *Store, p *PublicIngressSpec) { p.PublicPort = 9191 }},
@@ -342,10 +342,10 @@ func TestPublicIngressReservationsRestoreChecksMergedResources(t *testing.T) {
 		})
 	}
 	protected := reservation
-	protected.Spec.PublicPort = 2053
+	protected.Spec.PublicPort = 22
 	isolated := state{PublicIngressReservations: map[string]PublicIngressReservation{spec.TunnelID: protected}}
 	if err := mergePublicIngressReservations(&isolated, state{}); err == nil || !strings.Contains(err.Error(), "protected") {
-		t.Fatalf("2053 reservation not specifically refused: %v", err)
+		t.Fatalf("SSH management reservation not specifically refused: %v", err)
 	}
 	orphan := state{}
 	if err := mergePublicIngressReservations(&orphan, s.st); err != nil {

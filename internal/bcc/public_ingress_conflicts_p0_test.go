@@ -149,7 +149,6 @@ func TestP0PublicIngressLargeReservationSet(t *testing.T) {
 
 func TestP0PublicIngressOwnershipMatrix(t *testing.T) {
  base := PublicIngressSpec{IRNode:"ir-a",TunnelID:"tun-a",PublicPort:2053,LocalTarget:"127.0.0.1:9000"}
- candidate := base
  // Each entry exercises an independent allocator decision, not an agent apply.
  tests := []struct {
   name string
@@ -178,7 +177,6 @@ func TestP0PublicIngressOwnershipMatrix(t *testing.T) {
   {"19 invalid record after exact replay",base,[]PublicIngressSpec{base,{IRNode:"ir-b",TunnelID:"tun-b",PublicPort:0,LocalTarget:"127.0.0.1:9000"}},true},
   {"20 candidate invalid despite valid stored",PublicIngressSpec{IRNode:"ir-a",TunnelID:"tun-c",PublicPort:0,LocalTarget:"127.0.0.1:9000"},[]PublicIngressSpec{base},true},
  }
- _ = candidate
  for _,tt := range tests {
   t.Run(tt.name,func(t *testing.T){
    err:=ValidatePublicIngressReservation(tt.candidate,tt.existing)

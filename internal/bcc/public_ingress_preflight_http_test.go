@@ -375,10 +375,10 @@ func TestPublicIngressPreflightRejectsMalformedObservationEntries(t *testing.T) 
   {"firewall_tools", []any{nil}},
   {"firewall_tools", []string{""}},
   {"firewall_tools", []string{"  "}},
-  {"firewall_tools", []string{"iptables\\nforged"}},
+  {"firewall_tools", []string{"iptables\nforged"}},
   {"limitations", []any{nil}},
   {"limitations", []string{""}},
-  {"limitations", []string{"observations\\rforged"}},
+  {"limitations", []string{"observations\rforged"}},
  }
  for _, tc := range cases {
   t.Run(tc.field, func(t *testing.T) {

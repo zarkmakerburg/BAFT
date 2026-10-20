@@ -121,11 +121,7 @@ func (s *Store) ReservePublicIngress(spec PublicIngressSpec, now time.Time, audi
 	if now.IsZero() {
 		return PublicIngressReservation{}, errors.New("reservation timestamp is required")
 	}
-	// Existing Imperial Crown ingress must never be captured by this new,
-	// desired-only allocator, even when legacy traffic is absent from BCC state.
-	if spec.PublicPort == 2053 || spec.PublicPort == 22 {
-		return PublicIngressReservation{}, errors.New("port is protected for Imperial Crown or SSH traffic")
-	}
+	// SSH management on port 22 remains reserved; other ports are checked against\n\t// BCC ownership and live host listeners before any future agent apply.\n\tif spec.PublicPort == 22 {\n\t\treturn PublicIngressReservation{}, errors.New("port 22 is reserved for SSH management")\n\t}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	n, ok := s.st.Nodes[spec.IRNode]
@@ -214,8 +210,8 @@ func mergePublicIngressReservations(restored *state, current state) error {
 // Missing historical owners retain their allocation; present resources must
 // still be conflict-free after node updates, migrations or older restores.
 func (s *Store) validateIngressReservationResourcesLocked(spec PublicIngressSpec) error {
-	if spec.PublicPort == 2053 || spec.PublicPort == 22 {
-		return errors.New("protected ingress/SSH port")
+	if spec.PublicPort == 22 {
+		return errors.New("protected SSH management port")
 	}
 	if node, ok := s.st.Nodes[spec.IRNode]; ok {
 		if node.Role != "worker" && node.Role != "master" {

@@ -577,6 +577,7 @@ func (s *Store) AckJobOutput(nodeID,token,jobID,status,message,output string) er
 	if !s.authorizedLocked(nodeID,token){return ErrAgentAuthentication}
 	j,ok:=s.st.Jobs[jobID];if !ok||j.NodeID!=nodeID{return errors.New("job not found")}
 	if j.Status!="dispatched"&&j.Status!="queued"{return errors.New("job already completed")}
+	if status=="succeeded"&&j.Type=="public_ingress_preflight"{if err:=validatePublicIngressPreflightReceipt(output,j.Params);err!=nil{return err}}
 	previous:=j
 	j.Status=status;j.Message=message;j.UpdatedAt=time.Now().UTC()
 	if status=="succeeded"{j.Output=output}

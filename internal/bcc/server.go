@@ -252,6 +252,7 @@ func (s *Server) Handler() http.Handler {
 	m.HandleFunc("/api/topology", s.topologyAPI)
 	m.HandleFunc("/api/topology/reconcile", s.topologyReconcileAPI)
 	m.HandleFunc("/api/ingress", s.ingressAPI)
+	m.HandleFunc("/api/ingress/preflight", s.publicIngressPreflightAPI)
 	m.HandleFunc("/api/ingress/evaluate", s.ingressEvaluateAPI)
 	m.HandleFunc("/api/ingress/distribution", s.distributionAPI)
 	m.HandleFunc("/api/ingress/distribution/evaluate", s.distributionEvaluateAPI)

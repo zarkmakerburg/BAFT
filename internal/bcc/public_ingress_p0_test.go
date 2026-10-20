@@ -16,6 +16,8 @@ func TestPlanPublicIngress(t *testing.T) {
   {"overflow port","arno","tun-1","127.0.0.1:1444",65536},
   {"non-loopback","arno","tun-1","0.0.0.0:1444",54619},
   {"remote target","arno","tun-1","10.0.0.1:1444",54619},
+  {"self loop IPv4","arno","tun-1","127.0.0.1:54619",54619},
+  {"self loop IPv6","arno","tun-1","[::1]:54619",54619},
   {"invalid target port","arno","tun-1","127.0.0.1:0",54619},
  } {t.Run(tc.name,func(t *testing.T){if _,err:=PlanPublicIngress(tc.node,tc.id,tc.port,tc.target);err==nil{t.Fatal("expected validation error")}})}
 }
@@ -26,8 +28,8 @@ func TestPlanPublicIngressCanonicalBoundaries(t *testing.T) {
   port int
   wantError bool
  }{
-  {"minimum public port"," ir-main "," tun-a ","127.0.0.1:1","127.0.0.1:1",1,false},
-  {"maximum public port","ir-main","tun-a","127.0.0.1:65535","127.0.0.1:65535",65535,false},
+  {"minimum public port"," ir-main "," tun-a ","127.0.0.1:2","127.0.0.1:2",1,false},
+  {"maximum public port","ir-main","tun-a","127.0.0.1:65534","127.0.0.1:65534",65535,false},
   {"IPv6 loopback","ir-main","tun-a","[::1]:9000","[::1]:9000",2053,false},
   {"expanded IPv6 loopback","ir-main","tun-a","[0:0:0:0:0:0:0:1]:9000","[::1]:9000",2053,false},
   {"leading zero target port","ir-main","tun-a","127.0.0.1:09000","127.0.0.1:9000",2053,false},

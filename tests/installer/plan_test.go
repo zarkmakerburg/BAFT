@@ -86,6 +86,10 @@ func (r *planRig) write(rel, content string, mode os.FileMode) {
 	if err := os.WriteFile(p, []byte(content), mode); err != nil {
 		r.t.Fatal(err)
 	}
+	// WriteFile is subject to the host umask; fixtures need exact modes.
+	if err := os.Chmod(p, mode); err != nil {
+		r.t.Fatal(err)
+	}
 }
 
 func (r *planRig) mark(name string) { r.write(name, "", 0o644) }

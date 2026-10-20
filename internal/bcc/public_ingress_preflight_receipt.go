@@ -113,6 +113,11 @@ func validatePublicIngressPreflightReceipt(output string, params map[string]stri
 	if err != nil || receipt.SchemaVersion != 1 || receipt.Scope != "agent_network_namespace_snapshot" || receipt.TunnelID != params["tunnel_id"] || receipt.PublicPort != port || receipt.LocalTarget != params["local_target"] {
 		return errors.New("preflight receipt does not match dispatched job")
 	}
+	// An explicit JSON null is not a valid observation list. Without this
+	// check, typed nil slices silently accept null instead of an array.
+	if receipt.FirewallTools == nil || receipt.Limitations == nil {
+		return errors.New("preflight receipt requires observation arrays")
+	}
 	if receipt.PublicListenerCount < 0 {
 		return errors.New("negative preflight listener count")
 	}

@@ -77,9 +77,9 @@ type Agent struct {
 	// BCC restarting). They are sent again on the next poll so a finished
 	// step does not wait for BCC's step timeout. Memory only: an output may
 	// be a one-time secret.
-	unacked []pendingAck
+	unacked                    []pendingAck
 	lastComponentReportAttempt time.Time
-	lastComponentReportError string
+	lastComponentReportError   string
 }
 
 type pendingAck struct {
@@ -309,6 +309,14 @@ func (a *Agent) RunOnce(ctx context.Context) ([]Result, error) {
 			if job.JobID == pj.ID && job.NodeID == a.cfg.NodeID {
 				_ = a.ack(ctx, pj.ID, "failed", "refused by agent: "+err.Error(), "")
 			}
+			continue
+		}
+		// The list entry is only a transport wrapper. It must identify the
+		// same job as the verified payload before either ID can be recorded,
+		// executed or acknowledged.
+		if pj.ID != job.JobID {
+			r.Status, r.Detail = "refused", "job wrapper ID differs from signed payload"
+			out = append(out, r)
 			continue
 		}
 		r.Action = job.Action

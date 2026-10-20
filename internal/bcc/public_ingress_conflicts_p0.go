@@ -22,6 +22,24 @@ func ValidatePublicIngressReservation(candidate PublicIngressSpec, existing []Pu
 		}
 		canonical = append(canonical, old)
 	}
+	// Corrupt or conflicting stored reservations must never be treated as a
+	// healthy allocator state, even if the new candidate uses another port.
+	for i, old := range canonical {
+		for _, other := range canonical[:i] {
+			if old.IRNode != other.IRNode {
+				continue
+			}
+			if old.TunnelID == other.TunnelID {
+				if old.PublicPort != other.PublicPort || old.LocalTarget != other.LocalTarget {
+					return fmt.Errorf("conflicting stored public ingress reservations for tunnel %s", old.TunnelID)
+				}
+				continue
+			}
+			if old.PublicPort == other.PublicPort {
+				return fmt.Errorf("conflicting stored public ingress reservations on IR node %s port %d", old.IRNode, old.PublicPort)
+			}
+		}
+	}
 	for _, old := range canonical {
 		if old.IRNode != candidate.IRNode {
 			continue

@@ -6,6 +6,8 @@ import (
 	"errors"
 	"io"
 	"strconv"
+ "strings"
+ "unicode"
 	"time"
 
 	"github.com/zarkmakerburg/baft/internal/agentjob"
@@ -117,6 +119,20 @@ func validatePublicIngressPreflightReceipt(output string, params map[string]stri
 	// check, typed nil slices silently accept null instead of an array.
 	if receipt.FirewallTools == nil || receipt.Limitations == nil {
 		return errors.New("preflight receipt requires observation arrays")
+	}
+	// Receipt arrays must contain meaningful strings. JSON null elements decode
+	// into empty Go strings, so reject those rather than trusting the evidence.
+	for _, entries := range [][]string{receipt.FirewallTools, receipt.Limitations} {
+		for _, entry := range entries {
+			if strings.TrimSpace(entry) == "" {
+				return errors.New("preflight receipt contains an empty observation")
+			}
+			for _, r := range entry {
+				if unicode.IsControl(r) {
+					return errors.New("preflight receipt contains a control character")
+				}
+			}
+		}
 	}
 	if receipt.PublicListenerCount < 0 {
 		return errors.New("negative preflight listener count")

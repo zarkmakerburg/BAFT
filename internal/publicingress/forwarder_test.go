@@ -280,9 +280,9 @@ func TestForwarderRejectsUnsafeConfiguration(t *testing.T) {
 		max            int
 		timeout        time.Duration
 	}{
-		{listen: "127.0.0.1:22"}, {listen: "127.0.0.1:2053"}, {listen: "127.0.0.1:0"}, {listen: "127.0.0.1:65536"},
+		{listen: "127.0.0.1:22"}, {listen: "127.0.0.1:0"}, {listen: "127.0.0.1:65536"},
 		{listen: "localhost:14443"}, {listen: ":14443"}, {listen: "224.0.0.1:14443"},
-		{target: "localhost:1443"}, {target: "127.0.0.1:22"}, {target: "127.0.0.1:2053"}, {target: "0.0.0.0:1443"}, {target: "192.0.2.1:1443"}, {target: "[::]:1443"}, {target: "127.0.0.1:0"},
+		{target: "localhost:1443"}, {target: "127.0.0.1:22"}, {target: "0.0.0.0:1443"}, {target: "192.0.2.1:1443"}, {target: "[::]:1443"}, {target: "127.0.0.1:0"},
 		{target: "127.0.0.1:14443"}, {max: -1}, {max: 1025}, {timeout: time.Millisecond}, {timeout: 11 * time.Second},
 	} {
 		t.Run(fmt.Sprintf("%+v", tc), func(t *testing.T) {

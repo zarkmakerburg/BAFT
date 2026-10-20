@@ -67,9 +67,9 @@ func TestP0PublicIngressLifecycleRejectsMalformedResource(t *testing.T) {
 }
 
 func TestP0IngressLifecycleCanonicalOwnershipAndInvariants(t *testing.T) {
- spec,err:=PlanPublicIngress("ir-main","tun-a",2053,"127.0.0.1:9000")
+ spec,err:=PlanPublicIngress("ir-main","tun-a",2453,"127.0.0.1:9000")
  if err!=nil {t.Fatal(err)}
- owner:=PublicIngressSpec{IRNode:" ir-main ",TunnelID:" tun-a ",PublicPort:2053,LocalTarget:"127.0.0.1:09000"}
+ owner:=PublicIngressSpec{IRNode:" ir-main ",TunnelID:" tun-a ",PublicPort:2453,LocalTarget:"127.0.0.1:09000"}
  state:=PublicIngressLifecycle{Spec:spec,Status:PublicIngressPending}
  got,err:=TransitionPublicIngress(state,owner,PublicIngressApplied)
  if err!=nil||!got.Applied {t.Fatalf("canonical owner should be accepted: %+v %v",got,err)}

@@ -404,6 +404,9 @@ func (s *Store) resolveTunnelLocked(req TunnelRequest, now time.Time) (Tunnel, N
 	if r := s.rotationOnNodesLocked(req.EXNode, req.IRNode); r != nil {
 		return Tunnel{}, Node{}, Node{}, fmt.Errorf("certificate rotation %s is %s on one of these nodes", r.ID, r.Phase)
 	}
+	if err := s.validateTunnelPublicIngressReservationsLocked(t); err != nil {
+		return Tunnel{}, Node{}, Node{}, err
+	}
 	// The same rules the agents apply, checked up front so a bad plan never
 	// starts.
 	exParams := t.prepareEXParams()

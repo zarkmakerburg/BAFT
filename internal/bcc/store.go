@@ -177,6 +177,7 @@ type state struct {
 	ActiveAlerts    map[string]Alert             `json:"active_alerts,omitempty"`
 	RetiredBootIDs  map[string]map[string]bool   `json:"retired_boot_ids,omitempty"`
 	Tunnels         map[string]Tunnel            `json:"tunnels,omitempty"`
+	PublicIngressReservations map[string]PublicIngressReservation `json:"public_ingress_reservations,omitempty"`
 	// Health is the layered health of each node (state machines + history).
 	Health          map[string]NodeHealthRecord  `json:"health,omitempty"`
 	// Discovery is the last report-only inventory of each node.
@@ -327,6 +328,7 @@ func (s *Store) UpsertNode(n Node, agentToken string, audits ...AuditEntry) (Nod
 	if n.LastChecked.IsZero()&&exists{n.LastChecked=old.LastChecked;n.LatencyMS=old.LatencyMS}
 	if n.LastChecked.IsZero()&&!exists{n.LatencyMS=-1}
 	n.UpdatedAt=time.Now().UTC()
+	if err:=s.validateNodePublicIngressReservationsLocked(n);err!=nil{return Node{},err}
 	s.st.Nodes[n.ID]=n
 	if len(audits)==1{
 		a:=audits[0]

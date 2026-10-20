@@ -61,3 +61,27 @@ func TestIngressCLICanceledRunAndBindFailure(t *testing.T) {
 		_ = file.Close()
 	}
 }
+
+func TestIngressCLIRequiresExplicitPublicListenerOptIn(t *testing.T) {
+ for _, listen := range []string{"0.0.0.0:14443", "[::]:14443", "192.0.2.10:14443"} {
+  t.Run(listen, func(t *testing.T) {
+   var stderr bytes.Buffer
+   args := []string{"run", "--listen", listen, "--target", "127.0.0.1:1443"}
+   if got := runIngress(context.Background(), args, &stderr); got != 2 {
+    t.Fatalf("public listener without consent exit=%d, stderr=%s", got, stderr.String())
+   }
+   if !strings.Contains(stderr.String(), "--allow-public") {
+    t.Fatalf("missing explicit opt-in guidance: %s", stderr.String())
+   }
+   // With opt-in the request proceeds past the policy check, even if the
+   // local host cannot bind the selected address or port.
+   ctx, cancel := context.WithCancel(context.Background())
+   cancel()
+   stderr.Reset()
+   args = append(args, "--allow-public")
+   if got := runIngress(ctx, args, &stderr); got != 0 {
+    t.Fatalf("explicit public opt-in rejected: exit=%d stderr=%s", got, stderr.String())
+   }
+  })
+ }
+}

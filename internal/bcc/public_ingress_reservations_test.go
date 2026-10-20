@@ -375,3 +375,24 @@ func TestPublicIngressReservationsAPIRejectsDuplicateFields(t *testing.T) {
 		}
 	}
 }
+
+func TestPublicIngressReservationStoredSetValidationAcrossNodes(t *testing.T) {
+ s,_:=reservationStore(t)
+ a:=PublicIngressSpec{IRNode:"src",TunnelID:"tun-a",PublicPort:54619,LocalTarget:"127.0.0.1:1443"}
+ b:=PublicIngressSpec{IRNode:"src",TunnelID:"tun-b",PublicPort:54619,LocalTarget:"127.0.0.1:1444"}
+ s.mu.Lock()
+ s.st.PublicIngressReservations=map[string]PublicIngressReservation{
+  "tun-a":{Spec:a,CreatedAt:time.Now()},
+  "tun-b":{Spec:b,CreatedAt:time.Now()},
+ }
+ _,err:=s.publicIngressReservationSpecsLocked()
+ s.mu.Unlock()
+ if err==nil {t.Fatal("conflicting persisted reservation set was accepted")}
+ s.mu.Lock()
+ b.IRNode="other-node"
+ s.st.PublicIngressReservations["tun-b"]=PublicIngressReservation{Spec:b,CreatedAt:time.Now()}
+ // Missing historical owners are allowed, but a second node can use the same public port.
+ _,err=s.publicIngressReservationSpecsLocked()
+ s.mu.Unlock()
+ if err!=nil {t.Fatalf("cross-node reuse should not conflict: %v",err)}
+}

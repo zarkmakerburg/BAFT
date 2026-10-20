@@ -6,8 +6,8 @@ import (
 	"errors"
 	"io"
 	"strconv"
- "strings"
- "unicode"
+	"strings"
+	"unicode"
 	"time"
 
 	"github.com/zarkmakerburg/baft/internal/agentjob"
@@ -133,6 +133,12 @@ func validatePublicIngressPreflightReceipt(output string, params map[string]stri
 				}
 			}
 		}
+	}
+	// Every preflight is deliberately non-authoritative. Require at least
+	// one explicit limitation so a successful response cannot look like an
+	// unconditional green light in downstream UIs.
+	if len(receipt.Limitations) == 0 {
+		return errors.New("preflight receipt must state its limitations")
 	}
 	if receipt.PublicListenerCount < 0 {
 		return errors.New("negative preflight listener count")

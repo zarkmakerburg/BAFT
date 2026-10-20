@@ -381,3 +381,56 @@ func (s *Store) Cancel(expected Proof) (Proof, error) {
 	}
 	return s.replace(name, tombstone, proof)
 }
+
+// FenceUnseen records a generation-1 cancellation when the authorized caller
+// knows a prepare may have been dispatched but no manifest exists yet. It
+// prevents that delayed prepare from recreating the retired generation.
+// This filesystem primitive does not authenticate the caller or stop jobs;
+// admission and ordering must be enforced by the agent and BCC.
+func (s *Store) FenceUnseen(spec Spec) (Proof, error) {
+	if s == nil {
+		return Proof{}, os.ErrInvalid
+	}
+	if spec.Generation != 1 {
+		return Proof{}, errors.New("unseen ingress fence requires generation1")
+	}
+	normalized, err := normalize(spec)
+	if err != nil {
+		return Proof{}, err
+	}
+	_, prepared, err := encode(normalized)
+	if err != nil {
+		return Proof{}, err
+	}
+	tombstone, proof, err := encodeRecord(Manifest{SchemaVersion: 2, Phase: PhaseCancelled, Spec: normalized, CancelledFromSHA256: prepared.ManifestSHA256})
+	if err != nil {
+		return Proof{}, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed || s.root == nil || s.directory == nil {
+		return Proof{}, os.ErrClosed
+	}
+	unlock, err := s.lock(true)
+	if err != nil {
+		return Proof{}, err
+	}
+	defer unlock()
+	name := filename(proof.TunnelID, proof.InstanceID)
+	existing, err := s.read(name)
+	switch {
+	case err == nil:
+		current, actual, err := decode(existing)
+		if err != nil {
+			return Proof{}, err
+		}
+		if current.Phase != PhaseCancelled || actual != proof {
+			return Proof{}, errors.New("unseen ingress fence conflicts with existing manifest")
+		}
+		return s.syncCurrent(name, actual)
+	case errors.Is(err, ErrNotPrepared):
+		return s.replace(name, tombstone, proof)
+	default:
+		return Proof{}, err
+	}
+}

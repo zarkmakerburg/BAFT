@@ -20,3 +20,6 @@ func (*Store) Inspect(Proof) (Inspection, error) {
 func (*Store) Cancel(Proof) (Proof, error) {
 	return Proof{}, errors.New("unsupported ingress manifest store platform")
 }
+func (*Store) FenceUnseen(Spec) (Proof, error) {
+	return Proof{}, errors.New("unsupported ingress manifest store platform")
+}

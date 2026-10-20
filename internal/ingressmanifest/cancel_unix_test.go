@@ -11,6 +11,134 @@ import (
 	"testing"
 )
 
+func TestUnseenIngressFencePersistsAcrossRestartAndRejectsReplay(t *testing.T) {
+	s, dir := fixtureStore(t)
+	spec := fixtureSpec()
+	_, prepared, err := encode(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fence, err := s.FenceUnseen(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.Inspect(fence)
+	if err != nil || got.Manifest.Phase != PhaseCancelled || got.Manifest.CancelledFromSHA256 != prepared.ManifestSHA256 || got.PreparedBytesMatch || got.LiveOwnershipVerified || got.ReadyToApply {
+		t.Fatalf("unseen fence evidence: %+v %v", got, err)
+	}
+	path := filepath.Join(dir, filename(spec.TunnelID, spec.InstanceID))
+	info, err := os.Stat(path)
+	if err != nil || info.Mode().Perm() != 0600 {
+		t.Fatalf("private fence file: %v %v", info, err)
+	}
+	reopened, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	if retry, err := reopened.FenceUnseen(spec); err != nil || retry != fence {
+		t.Fatalf("fence retry: %+v %v", retry, err)
+	}
+	if _, err := reopened.Prepare(spec, nil); err == nil {
+		t.Fatal("delayed generation-1 prepare recreated cancelled state")
+	}
+	spec.Generation = 2
+	if _, err := reopened.Prepare(spec, &prepared); err == nil {
+		t.Fatal("delayed prepared proof bypassed unseen fence")
+	}
+	next, err := reopened.Prepare(spec, &fence)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec.Generation = 1
+	if _, err := s.FenceUnseen(spec); err == nil {
+		t.Fatal("stale unseen fence affected newer generation")
+	}
+	after, err := os.ReadFile(path)
+	if err != nil || !bytes.Equal(before, after) {
+		t.Fatalf("stale fence changed newer bytes: %v", err)
+	}
+	if current, err := s.Inspect(next); err != nil || !current.PreparedBytesMatch {
+		t.Fatalf("new generation evidence: %+v %v", current, err)
+	}
+}
+
+func TestUnseenIngressFenceRefusesExistingPreparedOrDifferentIntent(t *testing.T) {
+	s, dir := fixtureStore(t)
+	spec := fixtureSpec()
+	if _, err := s.Prepare(spec, nil); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, filename(spec.TunnelID, spec.InstanceID))
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.FenceUnseen(spec); err == nil {
+		t.Fatal("unseen fence silently cancelled prepared state")
+	}
+	after, err := os.ReadFile(path)
+	if err != nil || !bytes.Equal(before, after) {
+		t.Fatalf("unseen fence mutated prepared state: %v", err)
+	}
+	other := fixtureSpec()
+	other.TunnelID = "tun-b"
+	if _, err := s.FenceUnseen(other); err != nil {
+		t.Fatal(err)
+	}
+	other.Config.Target = "127.0.0.1:1444"
+	if _, err := s.FenceUnseen(other); err == nil {
+		t.Fatal("different intent adopted existing tombstone")
+	}
+	other.Generation = 2
+	if _, err := s.FenceUnseen(other); err == nil {
+		t.Fatal("unseen fence skipped generation-1 admission")
+	}
+}
+
+func TestUnseenIngressFenceFaultWindowsRemainRecoverable(t *testing.T) {
+	for _, point := range []string{"before-file-sync", "before-rename", "before-directory-sync"} {
+		t.Run(point, func(t *testing.T) {
+			s, dir := fixtureStore(t)
+			spec := fixtureSpec()
+			s.fault = func(at string) error {
+				if at == point {
+					return errors.New("injected unseen fence failure")
+				}
+				return nil
+			}
+			result, err := s.FenceUnseen(spec)
+			if err == nil {
+				t.Fatal("fault reported successful unseen fence")
+			}
+			s.fault = nil
+			if point == "before-directory-sync" {
+				if !errors.Is(err, ErrDurabilityUncertain) || result.Generation != 1 {
+					t.Fatalf("uncertain fence result: %+v %v", result, err)
+				}
+				if _, err := s.Prepare(spec, nil); err == nil {
+					t.Fatal("post-rename fence lost replay protection")
+				}
+			} else {
+				if _, err := os.Stat(filepath.Join(dir, filename(spec.TunnelID, spec.InstanceID))); !errors.Is(err, os.ErrNotExist) {
+					t.Fatalf("pre-rename failure created manifest: %v", err)
+				}
+			}
+			retry, err := s.FenceUnseen(spec)
+			if err != nil || (point == "before-directory-sync" && retry != result) {
+				t.Fatalf("failed to retry unseen fence: %+v %v", retry, err)
+			}
+			if _, err := s.Prepare(spec, nil); err == nil {
+				t.Fatal("retried fence allowed delayed prepare")
+			}
+		})
+	}
+}
+
 func TestManifestCancelRetainsHighWaterAndBlocksReplay(t *testing.T) {
 	s, dir := fixtureStore(t)
 	spec := fixtureSpec()

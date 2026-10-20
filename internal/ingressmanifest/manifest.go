@@ -30,6 +30,10 @@ var (
 )
 
 const maxManifestBytes = 16 << 10
+const (
+	PhasePrepared  = "PREPARED"
+	PhaseCancelled = "CANCELLED"
+)
 
 type Config struct {
 	Listen        string `json:"listen"`
@@ -46,10 +50,11 @@ type Spec struct {
 }
 
 type Manifest struct {
-	SchemaVersion int    `json:"schema_version"`
-	Phase         string `json:"phase"`
-	Spec          Spec   `json:"spec"`
-	ConfigSHA256  string `json:"config_sha256"`
+	SchemaVersion       int    `json:"schema_version"`
+	Phase               string `json:"phase"`
+	Spec                Spec   `json:"spec"`
+	ConfigSHA256        string `json:"config_sha256"`
+	CancelledFromSHA256 string `json:"cancelled_from_sha256,omitempty"`
 }
 
 type Proof struct {
@@ -63,6 +68,7 @@ type Proof struct {
 type Inspection struct {
 	Manifest              Manifest `json:"manifest"`
 	Proof                 Proof    `json:"proof"`
+	ManifestBytesMatch    bool     `json:"manifest_bytes_match"`
 	PreparedBytesMatch    bool     `json:"prepared_bytes_match"`
 	LiveOwnershipVerified bool     `json:"live_ownership_verified"`
 	ReadyToApply          bool     `json:"ready_to_apply"`
@@ -101,7 +107,26 @@ func hash(raw []byte) string                  { sum := sha256.Sum256(raw); retur
 func filename(tunnel, instance string) string { return hash([]byte(tunnel+"\x00"+instance)) + ".json" }
 
 func encode(spec Spec) ([]byte, Proof, error) {
-	normalized, err := normalize(spec)
+	return encodeRecord(Manifest{SchemaVersion: 2, Phase: PhasePrepared, Spec: spec})
+}
+
+func encodeRecord(manifest Manifest) ([]byte, Proof, error) {
+	if manifest.SchemaVersion != 1 && manifest.SchemaVersion != 2 {
+		return nil, Proof{}, errors.New("unsupported ingress manifest schema")
+	}
+	switch manifest.Phase {
+	case PhasePrepared:
+		if manifest.CancelledFromSHA256 != "" {
+			return nil, Proof{}, errors.New("prepared manifest cannot carry cancellation lineage")
+		}
+	case PhaseCancelled:
+		if manifest.SchemaVersion != 2 || !digestPattern.MatchString(manifest.CancelledFromSHA256) {
+			return nil, Proof{}, errors.New("invalid cancelled ingress manifest lineage")
+		}
+	default:
+		return nil, Proof{}, errors.New("unsupported ingress manifest phase")
+	}
+	normalized, err := normalize(manifest.Spec)
 	if err != nil {
 		return nil, Proof{}, err
 	}
@@ -109,7 +134,8 @@ func encode(spec Spec) ([]byte, Proof, error) {
 	if err != nil {
 		return nil, Proof{}, err
 	}
-	manifest := Manifest{SchemaVersion: 1, Phase: "PREPARED", Spec: normalized, ConfigSHA256: hash(config)}
+	manifest.Spec = normalized
+	manifest.ConfigSHA256 = hash(config)
 	raw, err := json.Marshal(manifest)
 	if err != nil {
 		return nil, Proof{}, err
@@ -132,10 +158,7 @@ func decode(raw []byte) (Manifest, Proof, error) {
 	if err := dec.Decode(&trailing); err != io.EOF {
 		return Manifest{}, Proof{}, errors.New("trailing ingress manifest data")
 	}
-	if manifest.SchemaVersion != 1 || manifest.Phase != "PREPARED" {
-		return Manifest{}, Proof{}, errors.New("unsupported ingress manifest schema or phase")
-	}
-	canonical, proof, err := encode(manifest.Spec)
+	canonical, proof, err := encodeRecord(manifest)
 	if err != nil {
 		return Manifest{}, Proof{}, err
 	}

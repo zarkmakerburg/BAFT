@@ -16,3 +16,7 @@ func (*Store) Prepare(Spec, *Proof) (Proof, error) {
 func (*Store) Inspect(Proof) (Inspection, error) {
 	return Inspection{}, errors.New("unsupported ingress manifest store platform")
 }
+
+func (*Store) Cancel(Proof) (Proof, error) {
+	return Proof{}, errors.New("unsupported ingress manifest store platform")
+}

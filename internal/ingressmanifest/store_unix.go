@@ -3,7 +3,6 @@
 package ingressmanifest
 
 import (
-	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -212,27 +211,21 @@ func (s *Store) Prepare(spec Spec, previous *Proof) (Proof, error) {
 	existing, err := s.read(name)
 	switch {
 	case err == nil:
-		_, old, err := decode(existing)
+		current, old, err := decode(existing)
 		if err != nil {
 			return Proof{}, err
 		}
 		if old.TunnelID != proof.TunnelID || old.InstanceID != proof.InstanceID {
 			return Proof{}, errors.New("stored ingress manifest belongs to another owner tuple")
 		}
-		if bytes.Equal(raw, existing) {
-			f, err := s.openFile(name, os.O_RDONLY)
-			if err != nil {
-				return Proof{}, err
-			}
-			err = f.Sync()
-			f.Close()
-			if err == nil {
-				err = s.directory.Sync()
-			}
-			if err != nil {
-				return proof, fmt.Errorf("%w: %v", ErrDurabilityUncertain, err)
-			}
-			return proof, nil
+		normalized, err := normalize(spec)
+		if err != nil {
+			return Proof{}, err
+		}
+		// Legacy schema1 prepared bytes remain idempotent without being rewritten.
+		// CANCELLED never qualifies, even when the old config/generation match.
+		if current.Phase == PhasePrepared && current.Spec == normalized {
+			return s.syncCurrent(name, old)
 		}
 		if previous == nil || old != *previous || proof.Generation != old.Generation+1 {
 			return Proof{}, errors.New("ingress generation or previous proof mismatch")
@@ -244,6 +237,27 @@ func (s *Store) Prepare(spec Spec, previous *Proof) (Proof, error) {
 	default:
 		return Proof{}, err
 	}
+	return s.replace(name, raw, proof)
+}
+
+func (s *Store) syncCurrent(name string, proof Proof) (Proof, error) {
+	f, err := s.openFile(name, os.O_RDONLY)
+	if err != nil {
+		return Proof{}, err
+	}
+	err = f.Sync()
+	f.Close()
+	if err == nil {
+		err = s.directory.Sync()
+	}
+	if err != nil {
+		return proof, fmt.Errorf("%w: %v", ErrDurabilityUncertain, err)
+	}
+	return proof, nil
+}
+
+// replace requires both the Store mutex and exclusive process lock.
+func (s *Store) replace(name string, raw []byte, proof Proof) (Proof, error) {
 	entropy := make([]byte, 16)
 	if _, err := rand.Read(entropy); err != nil {
 		return Proof{}, err
@@ -314,5 +328,56 @@ func (s *Store) Inspect(expected Proof) (Inspection, error) {
 	if actual != expected {
 		return Inspection{}, errors.New("ingress prepared manifest proof mismatch")
 	}
-	return Inspection{Manifest: manifest, Proof: actual, PreparedBytesMatch: true}, nil
+	return Inspection{Manifest: manifest, Proof: actual, ManifestBytesMatch: true, PreparedBytesMatch: manifest.Phase == PhasePrepared}, nil
+}
+
+// Cancel atomically retains a CANCELLED tombstone at the current generation.
+// It never deletes a resource/high-water mark. The original prepared proof can
+// retry cancellation only while its exact cancellation lineage is still current.
+// A subsequent Prepare must use the tombstone proof and generation+1.
+func (s *Store) Cancel(expected Proof) (Proof, error) {
+	if s == nil {
+		return Proof{}, os.ErrInvalid
+	}
+	if err := validateProof(expected); err != nil {
+		return Proof{}, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed || s.root == nil || s.directory == nil {
+		return Proof{}, os.ErrClosed
+	}
+	unlock, err := s.lock(true)
+	if err != nil {
+		return Proof{}, err
+	}
+	defer unlock()
+	name := filename(expected.TunnelID, expected.InstanceID)
+	raw, err := s.read(name)
+	if err != nil {
+		return Proof{}, err
+	}
+	current, actual, err := decode(raw)
+	if err != nil {
+		return Proof{}, err
+	}
+	if actual.TunnelID != expected.TunnelID || actual.InstanceID != expected.InstanceID {
+		return Proof{}, errors.New("cancelled ingress owner tuple mismatch")
+	}
+	if current.Phase == PhaseCancelled {
+		lineageMatch := actual.Generation == expected.Generation && actual.ConfigSHA256 == expected.ConfigSHA256 && current.CancelledFromSHA256 == expected.ManifestSHA256
+		if actual != expected && !lineageMatch {
+			return Proof{}, errors.New("ingress cancellation proof mismatch")
+		}
+		return s.syncCurrent(name, actual)
+	}
+	if actual != expected {
+		return Proof{}, errors.New("ingress cancellation proof mismatch")
+	}
+	cancelled := Manifest{SchemaVersion: 2, Phase: PhaseCancelled, Spec: current.Spec, CancelledFromSHA256: actual.ManifestSHA256}
+	tombstone, proof, err := encodeRecord(cancelled)
+	if err != nil {
+		return Proof{}, err
+	}
+	return s.replace(name, tombstone, proof)
 }

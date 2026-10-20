@@ -25,7 +25,7 @@ func PlanPublicIngress(irNode, tunnelID string, publicPort int, localTarget stri
  // Whitespace around an identifier is canonicalized, but embedded newlines,
  // tabs, and other control bytes must never reach ownership or audit keys.
  for _, identifier := range []string{irNode, tunnelID} {
-  for _, r := range strings.TrimSpace(identifier) {
+  for _, r := range identifier {
    if unicode.IsControl(r) {return PublicIngressSpec{}, fmt.Errorf("public ingress identifier contains a control character")}
   }
  }

@@ -60,12 +60,12 @@ func TestPlanPublicIngressRejectsControlCharactersInOwnershipKeys(t *testing.T) 
  tests := []struct {
   name, node, tunnel string
  }{
-  {"node newline", "ir-main\\nforged-audit-entry", "tun-a"},
-  {"node carriage return", "ir-main\\rforged", "tun-a"},
-  {"node embedded tab", "ir\\tmain", "tun-a"},
-  {"tunnel newline", "ir-main", "tun-a\\nforged"},
-  {"tunnel null byte", "ir-main", "tun-a\\x00"},
-  {"tunnel unicode line separator control", "ir-main", "tun-a\\u0085"},
+  {"node newline", "ir-main\nforged-audit-entry", "tun-a"},
+  {"node carriage return", "ir-main\rforged", "tun-a"},
+  {"node embedded tab", "ir\tmain", "tun-a"},
+  {"tunnel newline", "ir-main", "tun-a\nforged"},
+  {"tunnel null byte", "ir-main", "tun-a\x00"},
+  {"tunnel unicode line separator control", "ir-main", "tun-a\u0085"},
  }
  for _, tt := range tests {
   t.Run(tt.name, func(t *testing.T) {

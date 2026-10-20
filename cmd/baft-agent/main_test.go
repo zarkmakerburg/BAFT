@@ -20,11 +20,20 @@ func TestFlagsAndSecrets(t *testing.T) {
 	}
 	dir := t.TempDir()
 	tok := filepath.Join(dir, "token")
-	os.WriteFile(tok, []byte("secret\n"), 0o644)
+	if err := os.WriteFile(tok, []byte("secret\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// Explicit chmod is necessary because the host umask may mask 0644
+	// during creation, silently invalidating the negative permission test.
+	if err := os.Chmod(tok, 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := readSecret(tok); err == nil {
 		t.Fatal("group-readable token accepted")
 	}
-	os.Chmod(tok, 0o600)
+	if err := os.Chmod(tok, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	if v, err := readSecret(tok); err != nil || v != "secret" {
 		t.Fatalf("token = %q, %v", v, err)
 	}

@@ -54,8 +54,8 @@ func New(cfg Config) (*Forwarder, error) {
 	if err != nil {
 		return nil, fmt.Errorf("listen: %w", err)
 	}
-	if port < 1024 || port == 2053 {
-		return nil, errors.New("listen port must be at least 1024 and cannot be protected port 2053")
+	if port < 1024 {
+		return nil, errors.New("listen port must be at least 1024")
 	}
 	if !ip.IsUnspecified() && !ip.IsGlobalUnicast() && !ip.IsLoopback() {
 		return nil, errors.New("listen IP must be unicast, loopback or wildcard")
@@ -67,8 +67,8 @@ func New(cfg Config) (*Forwarder, error) {
 	if !target.IsLoopback() {
 		return nil, errors.New("target must be a literal loopback IP")
 	}
-	if targetPort == 22 || targetPort == 2053 {
-		return nil, errors.New("target port 22 or 2053 is protected")
+	if targetPort == 22 {
+		return nil, errors.New("target port 22 is reserved for SSH management")
 	}
 	if port == targetPort {
 		return nil, errors.New("listen and target ports must differ to prevent forwarding loops")

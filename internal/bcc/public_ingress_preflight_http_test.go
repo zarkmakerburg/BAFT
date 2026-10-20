@@ -150,6 +150,7 @@ func TestPublicIngressPreflightStoreSigningAndAudit(t *testing.T) {
 		strings.Replace(validReceipt, `"ownership_verified":false`, `"ownership_verified":true`, 1),
 		strings.Replace(validReceipt, `"firewall_policy_verified":false`, `"firewall_policy_verified":true`, 1),
 		strings.Replace(validReceipt, `"ready_to_apply":false`, `"ready_to_apply":null`, 1),
+		strings.Replace(validReceipt, `"public_listener_count":0`, `"public_listener_count":-1`, 1),
 		strings.Replace(validReceipt, `"tunnel_id":"tun-test"`, `"tunnel_id":"different"`, 1),
 		strings.Replace(validReceipt, `"public_port":2053`, `"public_port":2054`, 1),
 		strings.Replace(validReceipt, `"local_target":"127.0.0.1:1443"`, `"local_target":"127.0.0.1:8443"`, 1),

@@ -29,7 +29,7 @@ func PlanPublicIngress(irNode, tunnelID string, publicPort int, localTarget stri
    if unicode.IsControl(r) {return PublicIngressSpec{}, fmt.Errorf("public ingress identifier contains a control character")}
   }
  }
- if publicPort<1 || publicPort>65535 {return PublicIngressSpec{}, fmt.Errorf("public ingress port must be between 1 and 65535")}
+ if publicPort<1024 || publicPort>65535 || publicPort==2053 {return PublicIngressSpec{}, fmt.Errorf("public ingress port must be 1024..65535 and must not use protected port 2053")}
  host, port, err := net.SplitHostPort(localTarget)
  if err!=nil {return PublicIngressSpec{}, fmt.Errorf("invalid local ingress target: %w",err)}
  ip:=net.ParseIP(host)

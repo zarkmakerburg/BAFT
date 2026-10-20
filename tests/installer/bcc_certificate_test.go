@@ -163,6 +163,13 @@ func TestBCCACMEInstallValidatesBeforeSuccess(t *testing.T) {
 				if err := os.WriteFile(activeKey, oldKey, 0600); err != nil {
 					t.Fatal(err)
 				}
+				// A restrictive host umask must not change the fixture's expected modes.
+				if err := os.Chmod(activeCert, 0640); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Chmod(activeKey, 0600); err != nil {
+					t.Fatal(err)
+				}
 			}
 			bin := filepath.Join(dir, "bin")
 			if err := os.Mkdir(bin, 0700); err != nil {

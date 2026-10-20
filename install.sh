@@ -240,7 +240,7 @@ ui_table() {
   done
   ((longest < max)) && widths[n - 1]=$longest
   ui_rule '┌' '┬' '┐' "${widths[@]}"
-  local line="" v="$S_MUTE│$S_R"
+  local line="" v="${S_MUTE}│${S_R}"
   for ((i = 0; i < n; i++)); do line+="$v $S_B$(printf '%-*s' "${widths[i]}" "${heads[i]}")$S_R "; done
   printf '  %s%s\n' "$line" "$v" >&2
   ui_rule '├' '┼' '┤' "${widths[@]}"

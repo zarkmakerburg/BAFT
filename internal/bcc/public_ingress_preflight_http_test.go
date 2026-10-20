@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -11,6 +12,75 @@ import (
 	"github.com/zarkmakerburg/baft/internal/agentjob"
 	"github.com/zarkmakerburg/baft/internal/release"
 )
+
+func TestPublicIngressPreflightLostDeliveryCanBeReplaced(t *testing.T) {
+	for _, status := range []string{"queued", "dispatched"} {
+		t.Run(status, func(t *testing.T) {
+			s, req := ingressPreflightStore(t)
+			now := time.Now().UTC()
+			old, err := s.CreatePublicIngressPreflight(req, now, ingressAudit())
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Model a lost job response/ACK, then restart. A fresh pending
+			// inspection still excludes another request for this node.
+			s.mu.Lock()
+			old.Status, old.CreatedAt = status, now.Add(-publicIngressPreflightPendingLifetime)
+			s.st.Jobs[old.ID] = old
+			err = s.saveLocked()
+			s.mu.Unlock()
+			if err != nil {
+				t.Fatal(err)
+			}
+			s, err = OpenStore(s.path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			before, err := cloneState(s.st)
+			if err != nil {
+				t.Fatal(err)
+			}
+			path := s.path
+			s.path = t.TempDir() // Saving to a directory must fail atomically.
+			if _, err := s.CreatePublicIngressPreflight(req, now, ingressAudit()); err == nil {
+				t.Fatal("save failure accepted")
+			}
+			if !reflect.DeepEqual(s.st, before) {
+				t.Fatal("failed replacement changed job/audit state")
+			}
+			s.path = path
+			replacement, err := s.CreatePublicIngressPreflight(req, now, ingressAudit())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if replacement.ID == old.ID || !replacement.CreatedAt.Equal(now) {
+				t.Fatal("replacement reused stale identity/time")
+			}
+			if err := s.AckJobOutput(req.IRNode, "tok-src", old.ID, "succeeded", "late ACK", publicIngressReceiptFixture(req)); err == nil {
+				t.Fatal("expired job accepted late ACK")
+			}
+			if _, err := s.CreatePublicIngressPreflight(req, now, ingressAudit()); err == nil {
+				t.Fatal("young pending job was replaced")
+			}
+			s, err = OpenStore(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if s.st.Jobs[old.ID].Status != "failed" || s.st.Jobs[replacement.ID].Status != "queued" {
+				t.Fatal("replacement not durable")
+			}
+			found := false
+			for _, a := range s.PendingSecurityAuditIntents() {
+				if ids, ok := a.Details["expired_preflight_job_ids"].([]any); ok && len(ids) == 1 && ids[0] == old.ID {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatal("replacement has no durable expiry audit")
+			}
+		})
+	}
+}
 
 func ingressPreflightStore(t *testing.T) (*Store, PublicIngressPreflightRequest) {
 	t.Helper()

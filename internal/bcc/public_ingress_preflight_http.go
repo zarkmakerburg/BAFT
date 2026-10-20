@@ -21,6 +21,10 @@ type PublicIngressPreflightRequest struct {
 	LocalTarget string `json:"local_target"`
 }
 
+// Lost delivery/ACK must not block future read-only inspections forever. This
+// is not a retry lease for mutating jobs and conveys no host resource ownership.
+const publicIngressPreflightPendingLifetime = 5 * time.Minute
+
 // CreatePublicIngressPreflight atomically persists a read-only job and its
 // audit intent. Tunnel ownership is checked against BCC state, never agent JSON.
 func (s *Store) CreatePublicIngressPreflight(req PublicIngressPreflightRequest, now time.Time, audit AuditEntry) (Job, error) {
@@ -49,18 +53,32 @@ func (s *Store) CreatePublicIngressPreflight(req PublicIngressPreflightRequest, 
 	if err != nil || expected.LocalTarget != spec.LocalTarget {
 		return Job{}, errors.New("local_target must match the tunnel's IR route listener")
 	}
+	var expired []string
 	for _, old := range s.st.Jobs {
 		if old.Type == agentjob.ActionPublicIngressPreflight && old.NodeID == spec.IRNode && (old.Status == "queued" || old.Status == "dispatched") {
-			return Job{}, errors.New("an IR preflight is already pending")
+			if now.Sub(old.CreatedAt) < publicIngressPreflightPendingLifetime {
+				return Job{}, errors.New("an IR preflight is already pending")
+			}
+			expired = append(expired, old.ID)
 		}
 	}
 	before, err := cloneState(s.st)
 	if err != nil {
 		return Job{}, err
 	}
+	for _, id := range expired {
+		old := s.st.Jobs[id]
+		old.Status, old.Message, old.UpdatedAt = "failed", "read-only preflight expired; a fresh inspection was requested", now.UTC()
+		s.st.Jobs[id] = old
+	}
 	job := s.newJobLocked(Job{Type: agentjob.ActionPublicIngressPreflight, NodeID: spec.IRNode, Params: params})
+	job.CreatedAt, job.UpdatedAt = now.UTC(), now.UTC()
+	s.st.Jobs[job.ID] = job
 	audit.Action, audit.Target, audit.Outcome = "public_ingress.preflight", spec.TunnelID, "success"
 	audit.Details = mergeAuditDetails(audit.Details, map[string]any{"job_id": job.ID, "ir_node": spec.IRNode, "public_port": spec.PublicPort, "local_target": spec.LocalTarget, "read_only": true})
+	if len(expired) != 0 {
+		audit.Details["expired_preflight_job_ids"] = expired
+	}
 	if _, err := s.enqueueSecurityAuditLocked(audit); err != nil {
 		s.st = before
 		return Job{}, err

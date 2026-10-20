@@ -17,6 +17,8 @@ An authenticated BCC administrator can POST to `api/ingress/preflight` under the
 
 The node must be enrolled, unrevoked, have an eligible IR role and authenticated agent contact within five minutes. The tunnel must already belong to that IR node, and the loopback target must match its canonical route listener. Requests reject unknown fields, trailing JSON and bodies over 4 KiB. At most one queued/dispatched ingress preflight per IR node is allowed. A pending job is not a port reservation.
 
+If delivery or ACK is lost, a new request after five minutes atomically marks the old pending read-only job failed and queues a fresh job with a new identity. The replacement audit records the expired job IDs; a failed save rolls both changes back. Late ACKs cannot revive expired jobs. This recovery applies only to read-only ingress preflight and never retries a mutating job or grants host ownership.
+
 BCC atomically persists the job and audit intent and returns HTTP 202 with `read_only: true` and `ready_to_apply: false`. The normal authenticated pull/sign/verify/ACK protocol executes `public_ingress_preflight`; the agent needs a build containing this handler. Older agents are not certified as compatible by this endpoint.
 
 An authenticated GET to `api/ingress/preflight?id=JOB_ID` returns only this action's job ID, node, status, timestamps and validated evidence. Other job types are not exposed. No generic job parameters, secret outputs or arbitrary job messages are returned. Successful evidence is checked again when read; invalid stored evidence is refused.

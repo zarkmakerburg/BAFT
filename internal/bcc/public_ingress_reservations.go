@@ -121,7 +121,11 @@ func (s *Store) ReservePublicIngress(spec PublicIngressSpec, now time.Time, audi
 	if now.IsZero() {
 		return PublicIngressReservation{}, errors.New("reservation timestamp is required")
 	}
-	// SSH management on port 22 remains reserved; other ports are checked against\n\t// BCC ownership and live host listeners before any future agent apply.\n\tif spec.PublicPort == 22 {\n\t\treturn PublicIngressReservation{}, errors.New("port 22 is reserved for SSH management")\n\t}
+	// Protect SSH management before consulting stored resource ownership.
+	// Other ports still require live host checks before any future agent apply.
+	if spec.PublicPort == 22 {
+		return PublicIngressReservation{}, errors.New("port 22 is reserved for SSH management")
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	n, ok := s.st.Nodes[spec.IRNode]

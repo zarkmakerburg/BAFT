@@ -61,7 +61,6 @@ func TestPublicIngressReservationsRejectOwnedAndProtectedPorts(t *testing.T) {
 		change func(*Store, *PublicIngressSpec)
 	}{
 		{"SSH management", func(_ *Store, p *PublicIngressSpec) { p.PublicPort = 22 }},
-		{"ssh", func(_ *Store, p *PublicIngressSpec) { p.PublicPort = 22 }},
 		{"route", func(_ *Store, p *PublicIngressSpec) { p.PublicPort = 1443 }},
 		{"metrics", func(_ *Store, p *PublicIngressSpec) { p.PublicPort = 9191 }},
 		{"node mismatch", func(_ *Store, p *PublicIngressSpec) { p.IRNode = "dst" }},
@@ -77,6 +76,8 @@ func TestPublicIngressReservationsRejectOwnedAndProtectedPorts(t *testing.T) {
 			tc.change(s, &spec)
 			if _, err := s.ReservePublicIngress(spec, time.Now(), ingressAudit()); err == nil {
 				t.Fatal("unsafe reservation accepted")
+			} else if tc.name == "SSH management" && err.Error() != "port 22 is reserved for SSH management" {
+				t.Fatalf("SSH guard was bypassed: %v", err)
 			}
 			if len(s.st.PublicIngressReservations) != 0 {
 				t.Fatal("rejected allocation persisted")

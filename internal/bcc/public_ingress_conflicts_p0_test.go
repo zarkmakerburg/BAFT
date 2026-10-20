@@ -84,3 +84,44 @@ func TestP0PublicIngressRejectsMalformedReservationAfterMatchingNode(t *testing.
   t.Fatal("an idempotent match must not conceal later malformed reservations")
  }
 }
+
+func TestP0PublicIngressRejectsConflictingStoredSet(t *testing.T) {
+ candidate, err := PlanPublicIngress("ir-main", "new-tunnel", 2055, "127.0.0.1:9005")
+ if err != nil { t.Fatal(err) }
+ tests := []struct{
+  name string
+  existing []PublicIngressSpec
+  wantError bool
+ }{
+  {"different tunnels same node same port", []PublicIngressSpec{
+   {IRNode:"ir-main",TunnelID:"tun-a",PublicPort:2053,LocalTarget:"127.0.0.1:9000"},
+   {IRNode:"ir-main",TunnelID:"tun-b",PublicPort:2053,LocalTarget:"127.0.0.1:9001"},
+  },true},
+  {"same tunnel conflicting target", []PublicIngressSpec{
+   {IRNode:"ir-main",TunnelID:"tun-a",PublicPort:2053,LocalTarget:"127.0.0.1:9000"},
+   {IRNode:"ir-main",TunnelID:"tun-a",PublicPort:2053,LocalTarget:"127.0.0.1:9001"},
+  },true},
+  {"same tunnel conflicting port", []PublicIngressSpec{
+   {IRNode:"ir-main",TunnelID:"tun-a",PublicPort:2053,LocalTarget:"127.0.0.1:9000"},
+   {IRNode:"ir-main",TunnelID:"tun-a",PublicPort:2054,LocalTarget:"127.0.0.1:9000"},
+  },true},
+  {"conflict on other node", []PublicIngressSpec{
+   {IRNode:"ir-other",TunnelID:"tun-a",PublicPort:2053,LocalTarget:"127.0.0.1:9000"},
+   {IRNode:"ir-other",TunnelID:"tun-b",PublicPort:2053,LocalTarget:"127.0.0.1:9001"},
+  },true},
+  {"identical duplicate is idempotent", []PublicIngressSpec{
+   {IRNode:"ir-main",TunnelID:"tun-a",PublicPort:2053,LocalTarget:"127.0.0.1:9000"},
+   {IRNode:" ir-main ",TunnelID:" tun-a ",PublicPort:2053,LocalTarget:"127.0.0.1:9000"},
+  },false},
+  {"same port on different nodes", []PublicIngressSpec{
+   {IRNode:"ir-main",TunnelID:"tun-a",PublicPort:2053,LocalTarget:"127.0.0.1:9000"},
+   {IRNode:"ir-other",TunnelID:"tun-b",PublicPort:2053,LocalTarget:"127.0.0.1:9001"},
+  },false},
+ }
+ for _,tt := range tests {
+  t.Run(tt.name,func(t *testing.T){
+   err := ValidatePublicIngressReservation(candidate,tt.existing)
+   if (err!=nil)!=tt.wantError {t.Fatalf("error=%v wantError=%t",err,tt.wantError)}
+  })
+ }
+}

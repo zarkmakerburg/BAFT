@@ -140,6 +140,12 @@ func validatePublicIngressPreflightReceipt(output string, params map[string]stri
 	if len(receipt.Limitations) == 0 {
 		return errors.New("preflight receipt must state its limitations")
 	}
+	// A complete socket inventory cannot simultaneously report an unknown
+	// port state. Conversely, an incomplete inventory must never claim that
+	// the public port was conclusively absent.
+	if receipt.SocketInventoryComplete && receipt.PublicPortState == "unknown" {
+		return errors.New("complete inventory cannot have unknown port state")
+	}
 	if receipt.PublicListenerCount < 0 {
 		return errors.New("negative preflight listener count")
 	}

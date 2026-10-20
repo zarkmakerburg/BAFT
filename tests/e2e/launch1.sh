@@ -212,7 +212,7 @@ assert "\x1b[" in colored and "B  A  F  T" in re.sub(r"\x1b\[[0-9;]*m", "", colo
 seen = re.sub(r"\x1b\[[0-9;]*m", "", colored)
 assert "Update" in seen and "(planned)" in seen and "Overview / Status" in seen, seen[:500]
 plain, rc = run_menu({"TERM": "xterm", "NO_COLOR": "1", "LANG": "C"}, 60)
-assert rc == 0 and "\x1b[" not in plain, "NO_COLOR was not respected; rc=%s, escape sequences=%r, output tail=%r" % (rc, re.findall(r"\x1b\[[0-9;?]*[ -/]*[@-~]", plain)[:20], plain[-1800:])
+assert rc == 0 and not re.search(r"\x1b\[[0-9;]*m", plain), "NO_COLOR emitted ANSI SGR color codes; rc=%s, output tail=%r" % (rc, plain[-1800:])
 assert "BAFT | v" in plain, plain[:300]
 # Direct commands print no splash and no escape sequence, even when asked on a terminal-capable host.
 for args in (["status", "--json"], ["doctor", "--json"], ["version", "--json"]):

@@ -251,7 +251,7 @@ func TestPreparedManifestDirectoryAndInputValidation(t *testing.T) {
 	for _, mutate := range []func(*Spec){
 		func(s *Spec) { s.TunnelID = "../escape" }, func(s *Spec) { s.InstanceID = "default" }, func(s *Spec) { s.Generation = 0 },
 		func(s *Spec) { s.InstanceID = "../escape" },
-		func(s *Spec) { s.Config.Listen = "0.0.0.0:2053" }, func(s *Spec) { s.Config.Target = "127.0.0.1:22" },
+		func(s *Spec) { s.Config.Listen = "0.0.0.0:1023" }, func(s *Spec) { s.Config.Target = "127.0.0.1:22" },
 		func(s *Spec) { s.Config.Target = "localhost:1443" }, func(s *Spec) { s.Config.MaxClients = 1025 }, func(s *Spec) { s.Config.DialTimeoutMS = 10001 },
 	} {
 		spec := fixtureSpec()

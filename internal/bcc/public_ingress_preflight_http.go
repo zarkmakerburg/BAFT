@@ -25,6 +25,12 @@ type PublicIngressPreflightRequest struct {
 // is not a retry lease for mutating jobs and conveys no host resource ownership.
 const publicIngressPreflightPendingLifetime = 5 * time.Minute
 
+// The persisted creation time, rather than the time an agent polls, bounds
+// this read-only observation. A queued job cannot acquire a fresh lifetime.
+func publicIngressPreflightDeadline(j Job) time.Time {
+	return j.CreatedAt.Add(publicIngressPreflightPendingLifetime)
+}
+
 // CreatePublicIngressPreflight atomically persists a read-only job and its
 // audit intent. Tunnel ownership is checked against BCC state, never agent JSON.
 func (s *Store) CreatePublicIngressPreflight(req PublicIngressPreflightRequest, now time.Time, audit AuditEntry) (Job, error) {

@@ -550,12 +550,16 @@ func (s *Store) PullJobs(nodeID,token string) ([]Job,error) {
 	s.mu.Lock();defer s.mu.Unlock()
 	if !s.authorizedLocked(nodeID,token){return nil,ErrAgentAuthentication}
 	before,err:=cloneState(s.st);if err!=nil{return nil,err}
-	s.noteAgentSeenLocked(nodeID,time.Now().UTC())
+	now:=time.Now().UTC()
+	s.noteAgentSeenLocked(nodeID,now)
 	var out []Job
 	changed:=false
 	for id,j:=range s.st.Jobs{
 		if j.NodeID!=nodeID||j.Status!="queued"{continue}
 		changed=true
+		if j.Type=="public_ingress_preflight" && !now.Before(publicIngressPreflightDeadline(j)) {
+			j.Status="failed";j.Message="read-only preflight expired before dispatch";j.UpdatedAt=now;s.st.Jobs[id]=j;continue
+		}
 		if j.Type==jobEnrollPeerLegacy{j.Status="failed";j.Message="retired job type: build tunnels with /api/tunnels";j.UpdatedAt=time.Now().UTC();s.st.Jobs[id]=j;continue}
 		j.Status="dispatched";j.UpdatedAt=time.Now().UTC();s.st.Jobs[id]=j;out=append(out,j)
 	}
@@ -579,6 +583,9 @@ func (s *Store) AckJobOutput(nodeID,token,jobID,status,message,output string) er
 	if !s.authorizedLocked(nodeID,token){return ErrAgentAuthentication}
 	j,ok:=s.st.Jobs[jobID];if !ok||j.NodeID!=nodeID{return errors.New("job not found")}
 	if j.Status!="dispatched"&&j.Status!="queued"{return errors.New("job already completed")}
+	if j.Type=="public_ingress_preflight" && !time.Now().Before(publicIngressPreflightDeadline(j)) {
+		return errors.New("read-only preflight expired before acknowledgement")
+	}
 	if status=="succeeded"&&j.Type=="public_ingress_preflight"{if err:=validatePublicIngressPreflightReceipt(output,j.Params);err!=nil{return err}}
 	previous:=j
 	j.Status=status;j.Message=message;j.UpdatedAt=time.Now().UTC()

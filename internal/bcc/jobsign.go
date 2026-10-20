@@ -79,13 +79,22 @@ func (s *Server) signAgentJobs(jobs []Job) ([]AgentJob, error) {
 	for _, j := range jobs {
 		aj := AgentJob{Job: j}
 		if s.jobKey != nil {
+			deadline := now.Add(jobValidity)
+			if j.Type == agentjob.ActionPublicIngressPreflight {
+				if j.CreatedAt.IsZero() || !now.Before(publicIngressPreflightDeadline(j)) {
+					return nil, fmt.Errorf("preflight job %s expired before signing", j.ID)
+				}
+				if deadline.After(publicIngressPreflightDeadline(j)) {
+					deadline = publicIngressPreflightDeadline(j)
+				}
+			}
 			action, params, err := agentAction(j)
 			if err != nil {
 				return nil, err
 			}
 			env, err := agentjob.Sign(s.jobKey, agentjob.Job{
 				JobID: j.ID, NodeID: j.NodeID, Action: action, Params: params,
-				IssuedAt: now, ExpiresAt: now.Add(jobValidity),
+				IssuedAt: now, ExpiresAt: deadline,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("sign job %s: %w", j.ID, err)

@@ -16,7 +16,7 @@ func TestIngressCLIArgumentAndHelpExitCodes(t *testing.T) {
 		{[]string{"ingress"}, 2},
 		{[]string{"ingress", "apply"}, 2},
 		{[]string{"ingress", "run"}, 2},
-		{[]string{"ingress", "run", "--listen", "127.0.0.1:2053", "--target", "127.0.0.1:1443"}, 2},
+		{[]string{"ingress", "run", "--listen", "127.0.0.1:1023", "--target", "127.0.0.1:1443"}, 2},
 		{[]string{"ingress", "run", "--listen", "127.0.0.1:22", "--target", "127.0.0.1:1443"}, 2},
 		{[]string{"ingress", "run", "--listen", "127.0.0.1:14443", "--target", "localhost:1443"}, 2},
 		{[]string{"ingress", "run", "--listen", "127.0.0.1:14443", "--target", "127.0.0.1:1443", "extra"}, 2},

@@ -10,11 +10,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -35,19 +38,20 @@ type liveEchoTarget struct {
 }
 
 // The worker identity-derived route and metrics ports occupy 62000..65535.
-// Keep all harness-owned ephemeral listeners below that range so the OS cannot
-// choose a future worker port for an echo target, proxy or remote metrics.
+// Bind harness listeners below that range explicitly: on some hosts the OS
+// assigns every port-zero listener inside the worker range. A successful bind
+// retains the socket, so concurrent fixtures cannot claim the same port.
 func liveTopologyListen(t *testing.T) net.Listener {
 	t.Helper()
-	for attempt := 0; attempt < 512; attempt++ {
-		ln, err := net.Listen("tcp4", "127.0.0.1:0")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if ln.Addr().(*net.TCPAddr).Port < 62000 {
+	for attempt := 0; attempt < 128; attempt++ {
+		port := 20000 + rand.IntN(40000)
+		ln, err := net.Listen("tcp4", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
+		if err == nil {
 			return ln
 		}
-		_ = ln.Close()
+		if !errors.Is(err, syscall.EADDRINUSE) {
+			t.Fatal(err)
+		}
 	}
 	t.Fatal("could not reserve a harness port outside worker route and metrics range")
 	return nil

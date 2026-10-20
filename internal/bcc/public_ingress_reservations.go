@@ -21,7 +21,10 @@ func (s *Store) publicIngressReservationSpecsLocked() ([]PublicIngressSpec, erro
 	specs := make([]PublicIngressSpec, 0, len(s.st.PublicIngressReservations))
 	for id, reservation := range s.st.PublicIngressReservations {
 		spec, err := PlanPublicIngress(reservation.Spec.IRNode, reservation.Spec.TunnelID, reservation.Spec.PublicPort, reservation.Spec.LocalTarget)
-		if err != nil || spec != reservation.Spec || id != spec.TunnelID || reservation.CreatedAt.IsZero() {
+		if err != nil {
+			return nil, fmt.Errorf("invalid stored public ingress reservation: %w", err)
+		}
+		if spec != reservation.Spec || id != spec.TunnelID || reservation.CreatedAt.IsZero() {
 			return nil, errors.New("invalid stored public ingress reservation")
 		}
 		specs = append(specs, spec)

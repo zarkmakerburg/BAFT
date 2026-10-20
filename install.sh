@@ -2642,14 +2642,14 @@ write_menu_reader() {
   cat <<'BAFT_MENU_READER'
 baft_menu_read() {
   local result="$1"; shift
-  local selected=0 typed="" key="" seq="" option number label match
+  local selected=0 typed="" key="" seq="" cursor="" option number label match
   local -a choices=("$@")
   if [[ ! -t 0 || ! -t 2 || "${TERM:-dumb}" == dumb ]]; then
     IFS= read -r -p "  Choose: " typed || return 1
     printf -v "$result" '%s' "$typed"
     return 0
   fi
-  printf '  Tab/Shift+Tab: select; number + Enter; 0: exit\n' >&2
+  printf '  Up/Down or Tab/Shift+Tab: select; number + Enter; 0: exit\n' >&2
   while :; do
     option="${choices[$selected]}"
     number="${option%%:*}"; label="${option#*:}"
@@ -2659,9 +2659,12 @@ baft_menu_read() {
       $'\t') typed=""; selected=$(( (selected + 1) % ${#choices[@]} )) ;;
       $'\e')
         seq=""
-        if IFS= read -r -s -n 1 -t 0.15 seq && [[ "$seq" == '[' ]]; then
-          if IFS= read -r -s -n 1 -t 0.15 seq && [[ "$seq" == Z ]]; then
-            typed=""; selected=$(( (selected + ${#choices[@]} - 1) % ${#choices[@]} ))
+        if IFS= read -r -s -n 1 -t 0.15 cursor && [[ "$cursor" == '[' || "$cursor" == O ]]; then
+          if IFS= read -r -s -n 1 -t 0.15 seq; then
+            case "$cursor$seq" in
+              '[A'|'OA'|'[Z') typed=""; selected=$(( (selected + ${#choices[@]} - 1) % ${#choices[@]} )) ;;
+              '[B'|'OB') typed=""; selected=$(( (selected + 1) % ${#choices[@]} )) ;;
+            esac
           fi
         fi
         ;;
@@ -2679,7 +2682,7 @@ baft_menu_read() {
         typed=""
         ;;
       [0-9]) [[ ${#typed} -ge 6 ]] || typed+="$key" ;;
-      *) printf '\n  Enter a listed number, or use Tab.\n' >&2 ;;
+      *) printf '\n  Enter a listed number, or use Up/Down or Tab.\n' >&2 ;;
     esac
   done
 }

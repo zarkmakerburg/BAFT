@@ -39,6 +39,10 @@ func TestMenuSelectionRealPTY(t *testing.T) {
 		signal                 bool
 	}{
 		{name: "tab enters real submenu", term: "xterm", keys: "\t\n0\n\n0\n", want: "Run doctor"},
+		{name: "down enters real submenu", term: "xterm", keys: "\x1b[B\n0\n\n0\n", want: "Run doctor"},
+		{name: "up wraps to exit", term: "xterm", keys: "\x1b[A\n", want: "Up/Down"},
+		{name: "application down enters submenu", term: "xterm", keys: "\x1bOB\n0\n\n0\n", want: "Run doctor"},
+		{name: "application up wraps exit", term: "xterm", keys: "\x1bOA\n", want: "Up/Down"},
 		{name: "shift tab wraps to exit", term: "xterm", keys: "\x1b[Z\n", want: "Tab/Shift+Tab"},
 		{name: "number and cooked pause", term: "xterm", keys: "1\n\n0\n", want: "baft: active"},
 		{name: "multidigit and back", term: "xterm", keys: "14\nback\n\n0\n", want: "Version / Build metadata"},

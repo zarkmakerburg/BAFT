@@ -53,6 +53,20 @@ class MenuNavigation(unittest.TestCase):
     def test_tab_enter(self):
         self.assertIn(b'RESULT:0:2', self.interact(b'\t\n'))
 
+    def test_arrow_navigation(self):
+        for keys, expected in [(b'\x1b[B\n', b'2'), (b'\x1b[A\n', b'0'),
+                               (b'\x1bOB\n', b'2'), (b'\x1bOA\n', b'0'),
+                               (b'\x1b[B' * 4 + b'\n', b'1'),
+                               (b'\x1b[A' * 4 + b'\n', b'1'),
+                               (b'12\x1b[B\n', b'2')]:
+            with self.subTest(keys=keys):
+                output = self.interact(keys)
+                self.assertIn(b'RESULT:0:' + expected, output)
+                self.assertIn(b'Up/Down', output)
+
+    def test_unused_cursor_sequence_never_dispatches(self):
+        self.assertIn(b'RESULT:0:1', self.interact(b'\x1b[D\n'))
+
     def test_shift_tab_wrap(self):
         self.assertIn(b'RESULT:0:0', self.interact(b'\x1b[Z\n'))
 

@@ -55,13 +55,22 @@ func (s *menuSelection) label(items []menuItem, back string) string {
 // cannot gain focus, and an invalid typed number never executes an action.
 func (s *menuSelection) feed(key byte) (string, bool) {
 	if s.escape != 0 {
-		if s.escape == 1 && key == '[' {
+		if s.escape == 1 && (key == '[' || key == 'O') {
 			s.escape = 2
+			if key == 'O' {
+				s.escape = 3
+			}
 			return "", false
 		}
-		if s.escape == 2 && key == 'Z' {
-			s.selected = (s.selected + len(s.choices) - 1) % len(s.choices)
-			s.typed = ""
+		if s.escape == 2 || s.escape == 3 {
+			switch {
+			case key == 'A' || (s.escape == 2 && key == 'Z'):
+				s.selected = (s.selected + len(s.choices) - 1) % len(s.choices)
+				s.typed = ""
+			case key == 'B':
+				s.selected = (s.selected + 1) % len(s.choices)
+				s.typed = ""
+			}
 		}
 		s.escape = 0
 		return "", false

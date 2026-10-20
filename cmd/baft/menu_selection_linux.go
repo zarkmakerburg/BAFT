@@ -29,7 +29,7 @@ func (m *menu) terminalChoice(items []menuItem, back string) (string, bool, bool
 	}
 	defer unix.IoctlSetTermios(fd, unix.TCSETS, old)
 	defer fmt.Fprintln(m.out)
-	fmt.Fprintln(m.out, "\nTab/Shift+Tab: select; number + Enter; 0: "+back)
+	fmt.Fprintln(m.out, "\nUp/Down or Tab/Shift+Tab: select; number + Enter; 0: "+back)
 	s := newMenuSelection(items)
 	m.drawSelection(s, items, back)
 	for {

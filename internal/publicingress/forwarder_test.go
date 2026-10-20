@@ -349,3 +349,46 @@ func TestForwarderAcceptFailureReleasesListener(t *testing.T) {
 	}
 	_ = replacement.Close()
 }
+
+func TestForwarderRejectsSecondServeWithoutClosingItsListener(t *testing.T) {
+ backend := echoBackend(t)
+ first := tcpListener(t)
+ address := first.Addr().String()
+ f, err := New(Config{Listen: address, Target: backend.Addr().String()})
+ if err != nil { t.Fatal(err) }
+ ctx, cancel := context.WithCancel(context.Background())
+ done := make(chan error, 1)
+ go func() { done <- f.Serve(ctx, first) }()
+ defer func() {
+  cancel()
+  select {
+  case err := <-done:
+   if err != nil { t.Errorf("first serve shutdown: %v", err) }
+  case <-time.After(3 * time.Second):
+   t.Error("first serve did not stop")
+  }
+ }()
+ // Wait until the first Serve is accepting rather than relying on timing.
+ deadline := time.Now().Add(3 * time.Second)
+ for {
+  c, err := net.DialTimeout("tcp4", address, 50*time.Millisecond)
+  if err == nil {
+   _ = c.Close()
+   break
+  }
+  if time.Now().After(deadline) { t.Fatalf("first serve did not start: %v", err) }
+  time.Sleep(time.Millisecond)
+ }
+ // A second Serve with the same already-owned listener must be refused,
+ // without closing the listener used by the first Serve.
+ if err := f.Serve(ctx, first); err == nil {
+  t.Fatal("concurrent Serve accepted")
+ }
+ c := connect(t, address)
+ defer c.Close()
+ if _, err := io.WriteString(c, "ok"); err != nil { t.Fatal(err) }
+ response := make([]byte, 2)
+ if _, err := io.ReadFull(c, response); err != nil || string(response) != "ok" {
+  t.Fatalf("rejected Serve disrupted active listener: %q, %v", response, err)
+ }
+}

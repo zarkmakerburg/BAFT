@@ -4,6 +4,8 @@ All notable changes to BAFT are listed here. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+- Read-only ingress preflight now expires from its persisted creation time across queue dispatch, signed payload and acknowledgement; expired dispatch writes a durable security-audit intent. TCP/2053 is governed by resource ownership and OS bind conflicts instead of a blanket port ban. Existing unrelated listeners remain owned by their services.
+
 Development target: **v0.4.0**, draft PR #270. Not released. See [readiness and upgrade gates](docs/release/v0.4.0-readiness.md).
 
 ### Added

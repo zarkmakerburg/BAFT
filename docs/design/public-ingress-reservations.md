@@ -21,7 +21,7 @@ Authenticated GET lists validated desired reservations. Responses explicitly rep
 
 ## Conflict protection
 
-Port 2053 is protected for the existing externally owned service; port 22 and recorded management/SSH migration ports are protected. Reservations also reject managed transport, loopback route, metrics and pending path-probe port conflicts. The reverse gates protect reservations when planning/creating tunnels, updating a node's management address, planning/starting SSH migration or creating explicit/automatic path probes. Unknown host listeners still require a later agent ownership/bind check; BCC bookkeeping cannot certify them absent.
+Port 2053 is eligible for planning only when BCC resource ownership checks permit it; the existing externally owned service on the inventoried production host must remain untouched. Port 22 and recorded management/SSH migration ports are protected. Reservations also reject managed transport, loopback route, metrics and pending path-probe port conflicts. The reverse gates protect reservations when planning/creating tunnels, updating a node's management address, planning/starting SSH migration or creating explicit/automatic path probes. Unknown host listeners still require a later agent ownership/bind check; BCC bookkeeping cannot certify them absent. An occupied OS socket must fail bind without adoption or shutdown of its owner.
 
 There is intentionally no edit/delete/release endpoint yet. Failed or removed tunnels do not silently free these desired ports. An orphaned reservation remains allocated during restore. This conservative behavior can retain an unused port; generation-bound agent ownership and recovery must exist before an operator can safely release it through the product.
 

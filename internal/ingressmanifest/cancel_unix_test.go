@@ -139,6 +139,71 @@ func TestUnseenIngressFenceFaultWindowsRemainRecoverable(t *testing.T) {
 	}
 }
 
+func TestUnseenIngressFenceCompetesWithPrepareAcrossStores(t *testing.T) {
+	for attempt := 0; attempt < 12; attempt++ {
+		first, dir := fixtureStore(t)
+		second, err := Open(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		spec := fixtureSpec()
+		type result struct {
+			action string
+			proof  Proof
+			err    error
+		}
+		start := make(chan struct{})
+		results := make(chan result, 2)
+		var wg sync.WaitGroup
+		wg.Go(func() {
+			<-start
+			proof, err := first.FenceUnseen(spec)
+			results <- result{action: "fence", proof: proof, err: err}
+		})
+		wg.Go(func() {
+			<-start
+			proof, err := second.Prepare(spec, nil)
+			results <- result{action: "prepare", proof: proof, err: err}
+		})
+		close(start)
+		wg.Wait()
+		close(results)
+		succeeded := 0
+		var winner result
+		for r := range results {
+			if r.err == nil {
+				succeeded++
+				winner = r
+			}
+		}
+		if succeeded != 1 {
+			t.Fatalf("attempt %d: %d operations succeeded", attempt, succeeded)
+		}
+		current, err := first.Inspect(winner.proof)
+		if err != nil || !current.ManifestBytesMatch || current.ReadyToApply || current.LiveOwnershipVerified {
+			t.Fatalf("attempt %d: incorrect committed proof: %+v %v", attempt, current, err)
+		}
+		if winner.action == "fence" {
+			if current.Manifest.Phase != PhaseCancelled || current.PreparedBytesMatch {
+				t.Fatalf("attempt %d: lost cancellation: %+v", attempt, current)
+			}
+			if _, err := first.Prepare(spec, nil); err == nil {
+				t.Fatal("delayed prepare bypassed winning fence")
+			}
+		} else {
+			if current.Manifest.Phase != PhasePrepared || !current.PreparedBytesMatch {
+				t.Fatalf("attempt %d: lost prepare: %+v", attempt, current)
+			}
+			if _, err := first.FenceUnseen(spec); err == nil {
+				t.Fatal("unseen fence overwrote a prepared manifest")
+			}
+		}
+		if err := second.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 func TestManifestCancelRetainsHighWaterAndBlocksReplay(t *testing.T) {
 	s, dir := fixtureStore(t)
 	spec := fixtureSpec()

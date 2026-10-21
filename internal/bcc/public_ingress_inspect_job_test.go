@@ -175,3 +175,16 @@ func TestPublicIngressInspectSessionRequiresCSRF(t *testing.T) {
 		t.Fatalf("write without CSRF status %d", rr.Code)
 	}
 }
+
+func TestPublicIngressInspectRejectsDriftedManifestProofBeforeJob(t *testing.T) {
+	s, spec, _ := inspectOperationStore(t)
+	tunnel := s.st.Tunnels[spec.TunnelID]
+	tunnel.InstanceID = "drifted-instance"
+	s.st.Tunnels[spec.TunnelID] = tunnel
+	if _, err := s.CreatePublicIngressInspect(spec.TunnelID, time.Now(), ingressAudit()); err == nil {
+		t.Fatal("drifted canonical manifest accepted")
+	}
+	if jobs := s.ListJobs(); len(jobs) != 0 {
+		t.Fatalf("rejected inspection persisted jobs: %+v", jobs)
+	}
+}

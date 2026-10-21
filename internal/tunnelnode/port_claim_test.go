@@ -104,3 +104,31 @@ func TestScopedPrepareEXDoesNotTouchExistingInstanceOnClaimConflict(t *testing.T
 		t.Fatal("claim conflict disturbed an existing service")
 	}
 }
+
+func TestMetricsClaimReleaseRejectsOtherOwner(t *testing.T) {
+	root := newNode(t)
+	a, err := root.Manager.ForInstance("alpha", "127.0.0.1:9301")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := root.Manager.ForInstance("beta", "127.0.0.1:9302")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path, err := a.ClaimMetricsPort(9321)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := b.ReleaseMetricsPort(9321); err == nil {
+		t.Fatal("another instance released claim")
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Fatal("claim disappeared after foreign release:", err)
+	}
+	if err := a.ReleaseMetricsPort(9321); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("owned claim remains: %v", err)
+	}
+}

@@ -67,3 +67,42 @@ func (m *Manager) ClaimMetricsPort(port int) (string, error) {
 	}
 	return path, nil
 }
+
+// ReleaseMetricsPort removes only a complete claim owned by this instance.
+// Ambiguous, altered or unreadable claims are retained for reconciliation.
+func (m *Manager) ReleaseMetricsPort(port int) error {
+	if m.Instance == "" || !validPort(port) {
+		return errors.New("invalid scoped metrics release")
+	}
+	path := filepath.Join(filepath.Dir(filepath.Dir(m.ConfigDir)), ".metrics-claims", strconv.Itoa(port))
+	info, err := os.Lstat(path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !info.Mode().IsRegular() || info.Size() > 128 {
+		return errors.New("unsafe metrics claim file")
+	}
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	if string(contents) != m.Instance+"\n" {
+		return errors.New("metrics claim is not owned by instance")
+	}
+	if err := os.Remove(path); err != nil {
+		return err
+	}
+	dir, err := os.Open(filepath.Dir(path))
+	if err != nil {
+		return err
+	}
+	err = dir.Sync()
+	closeErr := dir.Close()
+	if err != nil {
+		return err
+	}
+	return closeErr
+}

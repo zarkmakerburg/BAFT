@@ -832,6 +832,19 @@ func (m *Manager) rollbackTxn(ctx context.Context, t Txn) (string, error) {
 	if m.activeID() == t.ID {
 		m.clearActive()
 	}
+	if m.Instance != "" {
+		_, port, err := net.SplitHostPort(m.MetricsListen)
+		if err != nil {
+			return "rollback completed but metrics claim requires reconciliation", err
+		}
+		n, err := strconv.Atoi(port)
+		if err != nil {
+			return "rollback completed but metrics claim requires reconciliation", err
+		}
+		if err := m.ReleaseMetricsPort(n); err != nil {
+			return "rollback completed but metrics claim requires reconciliation", err
+		}
+	}
 	return "rolled back", nil
 }
 

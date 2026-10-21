@@ -2,7 +2,9 @@ package agent
 
 import (
 	"errors"
+	"github.com/zarkmakerburg/baft/internal/agentjob"
 	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
+	"strconv"
 )
 
 // ingressManifestEvidence is trusted-local, read-only evidence about prepared
@@ -26,4 +28,20 @@ func inspectPreparedIngressManifest(store *ingressmanifest.Store, expected ingre
 		return ingressManifestEvidence{}, errors.New("ingress manifest is not prepared and verified")
 	}
 	return ingressManifestEvidence{Prepared: true, BytesVerified: true}, nil
+}
+
+// inspectSignedIngressManifest requires an independently held expected proof.
+// Signed intent supplies correlation, not proof of stored bytes or host ownership.
+func inspectSignedIngressManifest(store *ingressmanifest.Store, job agentjob.Job, expected ingressmanifest.Proof) (ingressManifestEvidence, error) {
+	if job.Action != agentjob.ActionPublicIngressInspect {
+		return ingressManifestEvidence{}, errors.New("wrong ingress inspection action")
+	}
+	if err := job.Validate(); err != nil {
+		return ingressManifestEvidence{}, err
+	}
+	generation, err := strconv.ParseUint(job.Params["generation"], 10, 64)
+	if err != nil || expected.Generation != generation || expected.TunnelID != job.Params["tunnel_id"] || expected.ManifestSHA256 != job.Params["manifest_digest"] {
+		return ingressManifestEvidence{}, errors.New("signed ingress intent differs from independently retained manifest proof")
+	}
+	return inspectPreparedIngressManifest(store, expected)
 }

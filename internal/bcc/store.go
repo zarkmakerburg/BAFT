@@ -562,13 +562,17 @@ func (s *Store) pullJobs(nodeID,token string,prepare func([]Job)error) ([]Job,er
 	var out []Job
 	changed:=false
 	for id,j:=range s.st.Jobs{
-		if j.NodeID!=nodeID||j.Status!="queued"{continue}
-		changed=true
+		if j.NodeID!=nodeID || (j.Status!="queued" && j.Status!="dispatched"){continue}
 		if j.Type=="public_ingress_preflight" && !now.Before(publicIngressPreflightDeadline(j)) {
-			j.Status="failed";j.Message="read-only preflight expired before dispatch";j.UpdatedAt=now;s.st.Jobs[id]=j
+			changed=true
+			message:="read-only preflight expired before acknowledgement"
+			if j.Status=="queued"{message="read-only preflight expired before dispatch"}
+			j.Status="failed";j.Message=message;j.UpdatedAt=now;s.st.Jobs[id]=j
 			if _,err:=s.enqueueSecurityAuditLocked(AuditEntry{Timestamp:now,Actor:"bcc",Action:"public_ingress.preflight.expire",Target:j.Params["tunnel_id"],Outcome:"expired",Details:map[string]any{"job_id":j.ID,"ir_node":j.NodeID,"public_port":j.Params["public_port"]}});err!=nil{s.st=before;return nil,err}
 			continue
 		}
+		if j.Status!="queued"{continue}
+		changed=true
 		if j.Type==jobEnrollPeerLegacy{j.Status="failed";j.Message="retired job type: build tunnels with /api/tunnels";j.UpdatedAt=time.Now().UTC();s.st.Jobs[id]=j;continue}
 		j.Status="dispatched";j.UpdatedAt=time.Now().UTC();s.st.Jobs[id]=j;out=append(out,j)
 	}

@@ -148,3 +148,53 @@ func TestPublicIngressPreflightExpiresBeforeLatePullAndAck(t *testing.T) {
 		t.Fatal("late acknowledgement expiry lacks atomic audit intent")
 	}
 }
+
+func TestPublicIngressPreflightDispatchedJobExpiresOnNextPoll(t *testing.T) {
+	s, req := ingressPreflightStore(t)
+	job, err := s.CreatePublicIngressPreflight(req, time.Now().UTC(), ingressAudit())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.mu.Lock()
+	job.Status = "dispatched"
+	job.CreatedAt = time.Now().UTC().Add(-publicIngressPreflightPendingLifetime - time.Minute)
+	s.st.Jobs[job.ID] = job
+	err = s.saveLocked()
+	s.mu.Unlock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err := cloneState(s.st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := s.path
+	s.path = t.TempDir()
+	if _, err := s.PullJobs(req.IRNode, "tok-src"); err == nil {
+		t.Fatal("failed save accepted expired dispatched job")
+	}
+	if !reflect.DeepEqual(s.st, before) {
+		t.Fatal("failed save changed job or audit state")
+	}
+	s.path = path
+	jobs, err := s.PullJobs(req.IRNode, "tok-src")
+	if err != nil || len(jobs) != 0 {
+		t.Fatalf("expired job was redelivered: %+v %v", jobs, err)
+	}
+	s, err = OpenStore(path)
+	if err != nil || s.st.Jobs[job.ID].Status != "failed" {
+		t.Fatalf("expiration lost on restart: %v", err)
+	}
+	if err := s.AckJobOutput(req.IRNode, "tok-src", job.ID, "succeeded", "late", publicIngressReceiptFixture(req)); err == nil {
+		t.Fatal("expired dispatched job accepted late ACK")
+	}
+	found := false
+	for _, intent := range s.PendingSecurityAuditIntents() {
+		if intent.Action == "public_ingress.preflight.expire" && intent.Details["job_id"] == job.ID {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("expiration lacks atomic audit intent")
+	}
+}

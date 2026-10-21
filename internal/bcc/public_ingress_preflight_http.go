@@ -25,7 +25,7 @@ type PublicIngressPreflightRequest struct {
 const publicIngressPreflightPendingLifetime = 5 * time.Minute
 
 // The persisted creation time, rather than the time an agent polls, bounds
-// this read-only observation. A queued job cannot acquire a fresh lifetime.
+// this read-only observation (preflight or inspect). A queued job cannot acquire a fresh lifetime.
 func publicIngressPreflightDeadline(j Job) time.Time {
 	return j.CreatedAt.Add(publicIngressPreflightPendingLifetime)
 }

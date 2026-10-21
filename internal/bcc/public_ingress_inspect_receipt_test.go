@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestPublicIngressInspectSnapshotRejectsUnverifiedAndMismatchedIntent(t *testing.T) {
@@ -128,5 +129,36 @@ func TestInspectAckValidReadOnlySnapshotPersistsWithoutReadiness(t *testing.T) {
 	}
 	if err := validatePublicIngressInspectSnapshot(persisted.Output, job.ID, "ir-node", params); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestInspectAckExpiresFromPersistedCreationTime(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "bcc.db")
+	s, err := OpenStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UpsertNode(Node{ID: "ir-node", Address: "127.0.0.1:22000", Role: "foreign"}, "tok-ir"); err != nil {
+		t.Fatal(err)
+	}
+	s.mu.Lock()
+	job := s.newJobLocked(Job{Type: "public_ingress_inspect", NodeID: "ir-node", Params: map[string]string{"tunnel_id": "tun-test", "public_port": "54619"}})
+	job.CreatedAt = time.Now().Add(-6 * time.Minute)
+	s.st.Jobs[job.ID] = job
+	err = s.saveLocked()
+	s.mu.Unlock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AckJobOutput("ir-node", "tok-ir", job.ID, "succeeded", "late", "{}"); err == nil {
+		t.Fatal("expired inspect acknowledged")
+	}
+	reopened, err := OpenStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := reopened.st.Jobs[job.ID]
+	if got.Status != "failed" || got.Output != "" {
+		t.Fatalf("expiry not persisted safely: %+v", got)
 	}
 }

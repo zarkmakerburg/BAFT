@@ -38,7 +38,7 @@ func PlanPublicIngress(irNode, tunnelID string, publicPort int, localTarget stri
 	}
 	// Port 22 is reserved for emergency SSH access: never authorize a public ingress reservation on it.
 	if publicPort == 22 {
-		return PublicIngressSpec{}, fmt.Errorf("public ingress cannot reserve SSH recovery port 22")
+		return PublicIngressSpec{}, fmt.Errorf("port 22 is reserved for SSH management")
 	}
 	host, port, err := net.SplitHostPort(localTarget)
 	if err != nil {

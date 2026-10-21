@@ -345,7 +345,7 @@ func TestPublicIngressReservationsRestoreChecksMergedResources(t *testing.T) {
 	protected := reservation
 	protected.Spec.PublicPort = 22
 	isolated := state{PublicIngressReservations: map[string]PublicIngressReservation{spec.TunnelID: protected}}
-	if err := mergePublicIngressReservations(&isolated, state{}); err == nil || !strings.Contains(err.Error(), "protected") {
+	if err := mergePublicIngressReservations(&isolated, state{}); err == nil || !strings.Contains(err.Error(), "reserved for SSH management") {
 		t.Fatalf("SSH management reservation not specifically refused: %v", err)
 	}
 	orphan := state{}

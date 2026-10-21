@@ -110,7 +110,7 @@ func (m *menu) loop() int {
 	for {
 		m.printf("\n")
 		for i, it := range items {
-			m.printf("  %s %s\n", m.st.highlight(fmt.Sprintf("%2d", i+1)), m.itemLabel(it))
+			m.printf("  %s %s\n", m.itemNumber(i+1, it), m.itemLabel(it))
 		}
 		m.printf("  %s %s\n", m.st.highlight(" 0"), "Exit")
 		a, ok := m.ask(m.st.gold("\nbaft> "))
@@ -129,6 +129,10 @@ func (m *menu) loop() int {
 			m.printf("%s\n", m.st.dim("Unknown choice "+quote(a)+". Enter a number from the list, or 0 to exit."))
 			continue
 		}
+		if items[n-1].planned {
+			m.printf("That option is unavailable in this release; choose an enabled number.\n")
+			continue
+		}
 		m.printf("\n")
 		m.runItem(items[n-1])
 	}
@@ -136,9 +140,17 @@ func (m *menu) loop() int {
 
 func quote(s string) string { return "'" + clean(s) + "'" }
 
+// Planned actions have no selectable menu number; all numbered actions are real.
+func (m *menu) itemNumber(n int, it menuItem) string {
+	if it.planned {
+		return m.st.dim(" -")
+	}
+	return m.st.highlight(fmt.Sprintf("%2d", n))
+}
+
 func (m *menu) itemLabel(it menuItem) string {
 	if it.planned {
-		return it.label + " " + m.st.dim("(planned)")
+		return it.label + " " + m.st.dim("(unavailable)")
 	}
 	return it.label
 }
@@ -156,7 +168,7 @@ func (m *menu) submenu(title string, items []menuItem) {
 	for {
 		m.printf("\n%s\n", m.st.goldBold(title))
 		for i, it := range items {
-			m.printf("  %s %s\n", m.st.highlight(fmt.Sprintf("%2d", i+1)), m.itemLabel(it))
+			m.printf("  %s %s\n", m.itemNumber(i+1, it), m.itemLabel(it))
 		}
 		m.printf("  %s %s\n", m.st.highlight(" 0"), "Back")
 		a, ok := m.ask(m.st.gold("\nbaft> "))
@@ -166,6 +178,10 @@ func (m *menu) submenu(title string, items []menuItem) {
 		n, err := strconv.Atoi(a)
 		if err != nil || n < 1 || n > len(items) {
 			m.printf("%s\n", m.st.dim("Unknown choice "+quote(a)+"."))
+			continue
+		}
+		if items[n-1].planned {
+			m.printf("That option is unavailable in this release; choose an enabled number.\n")
 			continue
 		}
 		m.printf("\n")

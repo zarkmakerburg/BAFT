@@ -24,6 +24,14 @@ func (m *Manager) ClaimMetricsPort(port int) (string, error) {
 	if err := os.MkdirAll(claims, 0700); err != nil {
 		return "", err
 	}
+	// Existing claim directories must be private and must not be symlinks.
+	info, err := os.Lstat(claims)
+	if err != nil {
+		return "", err
+	}
+	if !info.IsDir() || info.Mode().Perm()&0077 != 0 {
+		return "", errors.New("metrics claims directory must be a private real directory")
+	}
 	path := filepath.Join(claims, strconv.Itoa(port))
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if os.IsExist(err) {
@@ -42,6 +50,20 @@ func (m *Manager) ClaimMetricsPort(port int) (string, error) {
 	}
 	if err = f.Close(); err != nil {
 		return "", err
+	}
+	// Sync the directory entry too: syncing the file alone does not ensure
+	// the exclusive claim survives a power loss.
+	dir, err := os.Open(claims)
+	if err != nil {
+		return "", err
+	}
+	err = dir.Sync()
+	closeErr := dir.Close()
+	if err != nil {
+		return "", err
+	}
+	if closeErr != nil {
+		return "", closeErr
 	}
 	return path, nil
 }

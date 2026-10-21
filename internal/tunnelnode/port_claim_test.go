@@ -2,6 +2,7 @@ package tunnelnode
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -59,5 +60,23 @@ func TestMetricsClaimRejectsDefaultAndInvalidPort(t *testing.T) {
 	data, err := os.ReadFile(path)
 	if err != nil || strings.TrimSpace(string(data)) != "alpha" {
 		t.Fatalf("claim owner mismatch: %q %v", data, err)
+	}
+}
+
+func TestMetricsClaimRejectsPublicClaimDirectory(t *testing.T) {
+	root := newNode(t)
+	scoped, err := root.Manager.ForInstance("alpha", "127.0.0.1:9301")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(root.Manager.ConfigDir, ".metrics-claims")
+	if err := os.MkdirAll(path, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(path, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := scoped.ClaimMetricsPort(9321); err == nil {
+		t.Fatal("world-readable claims directory accepted")
 	}
 }

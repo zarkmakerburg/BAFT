@@ -70,3 +70,24 @@ func TestP0IngressReconcileCanonicalObservedAndMalformed(t *testing.T) {
 		})
 	}
 }
+
+// Resource identities are durable authorization keys. Do not admit control
+// characters, paths, or unbounded strings into ownership comparisons.
+func TestP0IngressRejectsUnsafeResourceIDs(t *testing.T) {
+	spec, err := PlanPublicIngress("arno", "tun-a", 54619, "127.0.0.1:1444")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"", "../unit", "unit\nforge", "unit/a", " unit", "unit ", string(make([]byte, 129))} {
+		proof := testIngressProof
+		proof.ListenerID = id
+		if result, err := DecidePublicIngressReconcile(spec, proof, nil); result != PublicIngressBlocked || err == nil {
+			t.Errorf("unsafe listener ID accepted: %q", id)
+		}
+		proof = testIngressProof
+		proof.FirewallID = id
+		if err := CanRetirePublicIngress(spec, proof, PublicIngressRetireProof{Spec: spec, Proof: proof, OwnerVerified: true}); err == nil {
+			t.Errorf("unsafe firewall ID accepted for retire: %q", id)
+		}
+	}
+}

@@ -6,6 +6,7 @@ import (
 )
 
 var ingressDigestPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
+var ingressResourceIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
 
 // PublicIngressExpectedProof is retained by BCC independently of an agent
 // observation. It must come from a durable, authenticated operation cursor.
@@ -17,7 +18,7 @@ type PublicIngressExpectedProof struct {
 }
 
 func (p PublicIngressExpectedProof) valid() bool {
-	return p.Generation != 0 && ingressDigestPattern.MatchString(p.ManifestDigest) && p.ListenerID != "" && p.FirewallID != "" && p.ListenerID != p.FirewallID
+	return p.Generation != 0 && ingressDigestPattern.MatchString(p.ManifestDigest) && ingressResourceIDPattern.MatchString(p.ListenerID) && ingressResourceIDPattern.MatchString(p.FirewallID) && p.ListenerID != p.FirewallID
 }
 
 // PublicIngressObserved is agent-reported evidence, not BCC's desired state.

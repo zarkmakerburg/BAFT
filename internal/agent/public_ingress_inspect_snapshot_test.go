@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/zarkmakerburg/baft/internal/agentjob"
+	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -47,5 +50,43 @@ func TestPublicIngressInspectHandlerFailsClosedWithoutTrustedStore(t *testing.T)
 	result, err := a.publicIngressPreflight(context.Background(), j)
 	if err == nil || result != "" {
 		t.Fatalf("unverified inspection succeeded: %q %v", result, err)
+	}
+}
+
+func TestIngressInspectHandlerChecksTrustedManifestButNeverClaimsLiveOwner(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "private")
+	if err := os.Mkdir(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	store, err := ingressmanifest.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec := ingressmanifest.Spec{TunnelID: "tun-a", Generation: 1, Config: ingressmanifest.Config{Listen: "0.0.0.0:54619", Target: "127.0.0.1:1443"}}
+	proof, err := store.Prepare(spec, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	j := ingressPreflightJob()
+	j.Action = agentjob.ActionPublicIngressInspect
+	j.Params["tunnel_id"] = "tun-a"
+	j.Params["public_port"] = "54619"
+	j.Params["local_target"] = "127.0.0.1:1443"
+	j.Params["generation"] = "1"
+	j.Params["manifest_digest"] = proof.ManifestSHA256
+	j.Params["listener_id"] = "listener-1"
+	j.Params["firewall_id"] = "firewall-1"
+	a := &Agent{cfg: Config{IngressManifestDir: dir, IngressExpectedProof: func(string) (ingressmanifest.Proof, error) { return proof, nil }}}
+	output, err := a.publicIngressPreflight(context.Background(), j)
+	if err == nil || output != "" || !strings.Contains(err.Error(), "live listener") {
+		t.Fatalf("prepared bytes incorrectly accepted as host proof: %q %v", output, err)
+	}
+	j.Params["manifest_digest"] = strings.Repeat("b", 64)
+	output, err = a.publicIngressPreflight(context.Background(), j)
+	if err == nil || output != "" || strings.Contains(err.Error(), "live listener") {
+		t.Fatalf("mismatched proof did not fail early: %q %v", output, err)
 	}
 }

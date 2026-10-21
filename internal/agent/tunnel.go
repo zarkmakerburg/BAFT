@@ -45,7 +45,7 @@ func (a *Agent) sshMigration(ctx context.Context, j agentjob.Job) error {
 }
 
 func (a *Agent) executeFull(ctx context.Context, j agentjob.Job) (detail, output string, err error) {
-	if j.Action == agentjob.ActionPublicIngressPreflight {
+	if j.Action == agentjob.ActionPublicIngressPreflight || j.Action == agentjob.ActionPublicIngressInspect {
 		output, err = a.publicIngressPreflight(ctx, j)
 		return "read-only public ingress preflight recorded; application remains blocked", output, err
 	}

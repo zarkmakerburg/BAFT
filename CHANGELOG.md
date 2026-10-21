@@ -12,6 +12,7 @@ Development target: **v0.4.0**, draft PR #270. Not released. See [readiness and 
 
 - Read-only Public Ingress host preflight with signed BCC-to-Agent dispatch, strict receipt validation and authenticated result retrieval for an existing owned tunnel. It observes listeners without binding, connecting or changing host state; ingress apply remains unavailable.
 - Durable desired Public Ingress port reservations with authenticated API, concurrent conflict protection, atomic audit, restart persistence and allocator/restore guards. They do not bind ports or authorize host changes. SQLite schema 14 and encrypted backup schema 3 prevent older binaries from silently losing allocations; legacy schema 2 backups remain readable without reservation data. Retain a verified pre-upgrade snapshot for downgrade.
+- BCC now persists a pending Public Ingress operation proof bound to an exact reservation, generation, manifest digest and listener/firewall IDs. Conflicting retries and restore snapshots are refused. SQLite schema 15 and encrypted backup schema 4 protect this cursor; it does not run an agent action or prove a live resource.
 
 - **Tunnel Toolbox in the panel**: the engines a server can run are listed from the panel's own catalog; only the native BAFT engine can be selected. Other engines are shown as not available and every action on them is refused before a plan is made.
 - **Smart Tunnel Wizard**: create a tunnel in five steps, with port suggestions checked against the catalog (a suggested port is not a reservation) and a truthful mapping for x-ui/Xray ports.

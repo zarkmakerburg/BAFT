@@ -84,7 +84,7 @@ start_bcc "$work/old-bcc" "$work/old.log"
 post_node before-upgrade
 stop_bcc
 start_bcc "$work/new-bcc" "$work/new.log"
-[[ "$(schema)" == 14 ]] || fail "new binary did not migrate to schema 14"
+[[ "$(schema)" == 15 ]] || fail "new binary did not migrate to schema 15"
 post_node after-upgrade
 stop_bcc
 
@@ -100,6 +100,6 @@ grep -q 'newer than this build supports (5)' "$work/old-refusal.log" ||
 
 start_bcc "$work/new-bcc" "$work/recovered.log"
 assert_nodes before-upgrade after-upgrade
-[[ "$(schema)" == 14 ]] || fail "recovery changed schema unexpectedly"
+[[ "$(schema)" == 15 ]] || fail "recovery changed schema unexpectedly"
 stop_bcc
-echo "[bcc-schema-drill] PASS: v0.2.0 rejects schema 14; current binary recovers both writes"
+echo "[bcc-schema-drill] PASS: v0.2.0 rejects schema 15; current binary recovers both writes"

@@ -140,6 +140,7 @@ func (s *Server) restoreTransactional(path string,key []byte) error {
 	restored,err:=cloneState(payload.State);if err!=nil{return err}
 	mergeAntiRollback(&restored,current,header.CreatedAt)
 	if err:=mergePublicIngressReservations(&restored,current);err!=nil{return fmt.Errorf("restore public ingress reservations: %w",err)}
+	if err:=mergePublicIngressOperations(&restored,current);err!=nil{return fmt.Errorf("restore public ingress operations: %w",err)}
 	restored.ActiveAlerts=cloneAlerts(payload.Alerts.ActiveAlerts)
 
 	baseAudit:=payload.Audit

@@ -178,6 +178,7 @@ type state struct {
 	RetiredBootIDs  map[string]map[string]bool   `json:"retired_boot_ids,omitempty"`
 	Tunnels         map[string]Tunnel            `json:"tunnels,omitempty"`
 	PublicIngressReservations map[string]PublicIngressReservation `json:"public_ingress_reservations,omitempty"`
+	PublicIngressOperations map[string]PublicIngressOperation `json:"public_ingress_operations,omitempty"`
 	// Health is the layered health of each node (state machines + history).
 	Health          map[string]NodeHealthRecord  `json:"health,omitempty"`
 	// Discovery is the last report-only inventory of each node.

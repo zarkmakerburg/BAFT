@@ -72,5 +72,10 @@ func DecidePublicIngressReconcile(desired PublicIngressSpec, expected PublicIngr
 	if observed.ListenerReady && observed.FirewallReady {
 		return PublicIngressNoop, nil
 	}
+	// A partial deployment needs explicit recovery before any new apply.
+	// A blind retry could duplicate an existing listener or firewall rule.
+	if observed.ListenerReady || observed.FirewallReady {
+		return PublicIngressBlocked, fmt.Errorf("partial ingress resources require explicit recovery")
+	}
 	return PublicIngressNeedsApply, nil
 }

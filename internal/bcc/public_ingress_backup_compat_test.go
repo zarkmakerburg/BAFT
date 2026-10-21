@@ -92,7 +92,7 @@ func TestPublicIngressOperationBackupVersionCompatibility(t *testing.T) {
 	raw, _, err := app.CreateBackupBytes(backupTestKey(), time.Now())
 	if err != nil { t.Fatal(err) }
 	if _, _, err := decodeBackup(legacyReservationBackupFixture(t, raw, backupTestKey(), 3), backupTestKey()); err != nil { t.Fatalf("schema 3 reservation backup refused: %v", err) }
-	proof := PublicIngressExpectedProof{Generation: 1, ManifestDigest: strings.Repeat("a", 64), ListenerID: "listener-1", FirewallID: "firewall-1"}
+	proof := canonicalOperationProof(t, s, spec, 1)
 	if _, err := s.RecordPublicIngressOperationIntent(spec, proof, time.Now(), ingressAudit()); err != nil { t.Fatal(err) }
 	if err := app.FlushSecurityAuditIntents(); err != nil { t.Fatal(err) }
 	raw, _, err = app.CreateBackupBytes(backupTestKey(), time.Now())

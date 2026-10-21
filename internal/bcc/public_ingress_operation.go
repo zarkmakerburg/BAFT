@@ -2,8 +2,19 @@ package bcc
 
 import (
 	"errors"
+	"net"
+	"strconv"
 	"time"
+
+	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
 )
+
+func publicIngressManifestSpec(spec PublicIngressSpec, instance string, generation uint64) ingressmanifest.Spec {
+	return ingressmanifest.Spec{TunnelID: spec.TunnelID, InstanceID: instance, Generation: generation, Config: ingressmanifest.Config{
+		Listen: net.JoinHostPort("0.0.0.0", strconv.Itoa(spec.PublicPort)), Target: spec.LocalTarget,
+		MaxClients: 128, DialTimeoutMS: 3000,
+	}}
+}
 
 // PublicIngressOperation is BCC's durable expected proof for one reserved
 // ingress. PENDING does not authorize or prove any agent-side host change.
@@ -27,6 +38,14 @@ func (s *Store) RecordPublicIngressOperationIntent(spec PublicIngressSpec, proof
 	reservation, ok := s.st.PublicIngressReservations[spec.TunnelID]
 	if !ok || reservation.Spec != spec {
 		return PublicIngressOperation{}, errors.New("public ingress operation requires the exact reservation")
+	}
+	tunnel, ok := s.st.Tunnels[spec.TunnelID]
+	if !ok || tunnel.IRNode != spec.IRNode || tunnel.RouteListen != spec.LocalTarget || !tunnelKeepsPorts(tunnel) {
+		return PublicIngressOperation{}, errors.New("public ingress operation requires the current active tunnel")
+	}
+	manifestProof, err := ingressmanifest.Preview(publicIngressManifestSpec(spec, tunnel.InstanceID, proof.Generation))
+	if err != nil || manifestProof.ManifestSHA256 != proof.ManifestDigest {
+		return PublicIngressOperation{}, errors.New("public ingress manifest digest differs from canonical reserved configuration")
 	}
 	if existing, ok := s.st.PublicIngressOperations[spec.TunnelID]; ok {
 		if existing.Spec == spec && existing.Proof == proof && existing.Status == PublicIngressPending {

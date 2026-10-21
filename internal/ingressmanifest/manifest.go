@@ -110,6 +110,13 @@ func encode(spec Spec) ([]byte, Proof, error) {
 	return encodeRecord(Manifest{SchemaVersion: 2, Phase: PhasePrepared, Spec: spec})
 }
 
+// Preview computes the exact canonical prepared-file proof without writing a
+// file. A caller can retain this digest before authorizing a signed prepare.
+func Preview(spec Spec) (Proof, error) {
+	_, proof, err := encode(spec)
+	return proof, err
+}
+
 func encodeRecord(manifest Manifest) ([]byte, Proof, error) {
 	if manifest.SchemaVersion != 1 && manifest.SchemaVersion != 2 {
 		return nil, Proof{}, errors.New("unsupported ingress manifest schema")

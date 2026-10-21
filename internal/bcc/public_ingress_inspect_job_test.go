@@ -17,7 +17,7 @@ func inspectOperationStore(t *testing.T) (*Store, PublicIngressSpec, PublicIngre
 	if _, err := s.ReservePublicIngress(spec, time.Now(), ingressAudit()); err != nil {
 		t.Fatal(err)
 	}
-	proof := PublicIngressExpectedProof{Generation: 7, ManifestDigest: strings.Repeat("a", 64), ListenerID: "listener-7", FirewallID: "firewall-7"}
+	proof := canonicalOperationProof(t, s, spec, 7)
 	if _, err := s.RecordPublicIngressOperationIntent(spec, proof, time.Now(), ingressAudit()); err != nil {
 		t.Fatal(err)
 	}

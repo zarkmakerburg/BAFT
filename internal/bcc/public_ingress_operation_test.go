@@ -1,17 +1,29 @@
 package bcc
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
 )
+
+func canonicalOperationProof(t *testing.T, s *Store, spec PublicIngressSpec, generation uint64) PublicIngressExpectedProof {
+	t.Helper()
+	manifest, err := ingressmanifest.Preview(publicIngressManifestSpec(spec, s.st.Tunnels[spec.TunnelID].InstanceID, generation))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return PublicIngressExpectedProof{Generation: generation, ManifestDigest: manifest.ManifestSHA256, ListenerID: fmt.Sprintf("listener-%d", generation), FirewallID: fmt.Sprintf("firewall-%d", generation)}
+}
 
 func TestPublicIngressOperationIntentIsDurableAndFenced(t *testing.T) {
 	s, spec := reservationStore(t)
 	if _, err := s.ReservePublicIngress(spec, time.Now(), ingressAudit()); err != nil {
 		t.Fatal(err)
 	}
-	proof := PublicIngressExpectedProof{Generation: 1, ManifestDigest: strings.Repeat("a", 64), ListenerID: "listener-1", FirewallID: "firewall-1"}
+	proof := canonicalOperationProof(t, s, spec, 1)
 	if _, err := s.RecordPublicIngressOperationIntent(spec, proof, time.Now(), ingressAudit()); err != nil {
 		t.Fatal(err)
 	}
@@ -47,12 +59,17 @@ func TestPublicIngressOperationIntentIsDurableAndFenced(t *testing.T) {
 
 func TestPublicIngressOperationRequiresReservationAndProof(t *testing.T) {
 	s, spec := reservationStore(t)
-	proof := PublicIngressExpectedProof{Generation: 1, ManifestDigest: strings.Repeat("a", 64), ListenerID: "listener-1", FirewallID: "firewall-1"}
+	proof := canonicalOperationProof(t, s, spec, 1)
 	if _, err := s.RecordPublicIngressOperationIntent(spec, proof, time.Now(), ingressAudit()); err == nil {
 		t.Fatal("unreserved operation accepted")
 	}
 	if _, err := s.ReservePublicIngress(spec, time.Now(), ingressAudit()); err != nil {
 		t.Fatal(err)
+	}
+	wrong := proof
+	wrong.ManifestDigest = strings.Repeat("a", 64)
+	if _, err := s.RecordPublicIngressOperationIntent(spec, wrong, time.Now(), ingressAudit()); err == nil {
+		t.Fatal("noncanonical manifest digest accepted")
 	}
 	proof.FirewallID = proof.ListenerID
 	if _, err := s.RecordPublicIngressOperationIntent(spec, proof, time.Now(), ingressAudit()); err == nil {
@@ -68,7 +85,7 @@ func TestPublicIngressOperationSaveFailureRollsBackCursorAndAudit(t *testing.T) 
 	if _, err := s.ReservePublicIngress(spec, time.Now(), ingressAudit()); err != nil {
 		t.Fatal(err)
 	}
-	proof := PublicIngressExpectedProof{Generation: 1, ManifestDigest: strings.Repeat("a", 64), ListenerID: "listener-1", FirewallID: "firewall-1"}
+	proof := canonicalOperationProof(t, s, spec, 1)
 	before := len(s.PendingSecurityAuditIntents())
 	path := s.path
 	s.path = t.TempDir()

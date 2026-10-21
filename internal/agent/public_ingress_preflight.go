@@ -189,6 +189,40 @@ func (a *Agent) publicIngressPreflight(ctx context.Context, j agentjob.Job) (str
 	if err != nil {
 		return "", err
 	}
+	if j.Action == agentjob.ActionPublicIngressInspect {
+		// Echo signed intent for correlation only; no manifest, process or
+		// firewall owner verification has occurred. BCC MUST NOT use this
+		// snapshot to transition a resource into APPLIED.
+		return marshalPublicIngressInspectSnapshot(j, ev)
+	}
 	b, err := json.Marshal(ev)
+	return string(b), err
+}
+
+type publicIngressInspectSnapshot struct {
+	PublicIngressPreflight publicIngressPreflightEvidence `json:"preflight"`
+	JobID                  string                         `json:"job_id"`
+	NodeID                 string                         `json:"node_id"`
+	Generation             string                         `json:"generation"`
+	ManifestDigest         string                         `json:"manifest_digest"`
+	ListenerID             string                         `json:"listener_id"`
+	FirewallID             string                         `json:"firewall_id"`
+	LiveOwnershipVerified  bool                           `json:"live_ownership_verified"`
+	ReadyToApply           bool                           `json:"ready_to_apply"`
+}
+
+func marshalPublicIngressInspectSnapshot(j agentjob.Job, ev publicIngressPreflightEvidence) (string, error) {
+	if j.Action != agentjob.ActionPublicIngressInspect {
+		return "", fmt.Errorf("not an ingress inspection")
+	}
+	if err := j.Validate(); err != nil {
+		return "", err
+	}
+	snapshot := publicIngressInspectSnapshot{
+		PublicIngressPreflight: ev, JobID: j.JobID, NodeID: j.NodeID,
+		Generation: j.Params["generation"], ManifestDigest: j.Params["manifest_digest"],
+		ListenerID: j.Params["listener_id"], FirewallID: j.Params["firewall_id"],
+	}
+	b, err := json.Marshal(snapshot)
 	return string(b), err
 }

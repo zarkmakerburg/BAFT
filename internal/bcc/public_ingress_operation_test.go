@@ -47,7 +47,7 @@ func TestPublicIngressOperationIntentIsDurableAndFenced(t *testing.T) {
 	if got := reopened.st.PublicIngressOperations[spec.TunnelID]; got != first {
 		t.Fatalf("restart lost cursor: %+v", got)
 	}
-	backup := state{PublicIngressReservations: reopened.st.PublicIngressReservations, PublicIngressOperations: map[string]PublicIngressOperation{spec.TunnelID: {Spec: spec, Proof: other, Status: PublicIngressPending, CreatedAt: time.Now()}}}
+	backup := state{Tunnels: reopened.st.Tunnels, PublicIngressReservations: reopened.st.PublicIngressReservations, PublicIngressOperations: map[string]PublicIngressOperation{spec.TunnelID: {Spec: spec, Proof: other, Status: PublicIngressPending, CreatedAt: time.Now()}}}
 	if err := mergePublicIngressOperations(&backup, reopened.st); err == nil {
 		t.Fatal("restore replaced current generation")
 	}
@@ -95,5 +95,29 @@ func TestPublicIngressOperationSaveFailureRollsBackCursorAndAudit(t *testing.T) 
 	s.path = path
 	if len(s.st.PublicIngressOperations) != 0 || len(s.PendingSecurityAuditIntents()) != before {
 		t.Fatal("failed state save changed cursor or audit")
+	}
+}
+
+func TestPublicIngressRestoreRejectsNoncanonicalOperationProof(t *testing.T) {
+	s, spec := reservationStore(t)
+	if _, err := s.ReservePublicIngress(spec, time.Now(), ingressAudit()); err != nil {
+		t.Fatal(err)
+	}
+	proof := canonicalOperationProof(t, s, spec, 1)
+	if _, err := s.RecordPublicIngressOperationIntent(spec, proof, time.Now(), ingressAudit()); err != nil {
+		t.Fatal(err)
+	}
+	op := s.st.PublicIngressOperations[spec.TunnelID]
+	restored := state{Tunnels: s.st.Tunnels, PublicIngressReservations: s.st.PublicIngressReservations, PublicIngressOperations: map[string]PublicIngressOperation{spec.TunnelID: op}}
+	changed := op
+	changed.Proof.ManifestDigest = strings.Repeat("b", 64)
+	restored.PublicIngressOperations[spec.TunnelID] = changed
+	if err := mergePublicIngressOperations(&restored, state{}); err == nil {
+		t.Fatal("tampered digest accepted")
+	}
+	restored.PublicIngressOperations[spec.TunnelID] = op
+	delete(restored.Tunnels, spec.TunnelID)
+	if err := mergePublicIngressOperations(&restored, state{}); err == nil {
+		t.Fatal("missing owning tunnel accepted")
 	}
 }

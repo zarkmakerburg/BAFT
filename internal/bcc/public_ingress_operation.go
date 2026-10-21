@@ -93,6 +93,16 @@ func mergePublicIngressOperations(restored *state, current state) error {
 		if !ok || id != op.Spec.TunnelID || reservation.Spec != op.Spec || !op.Proof.valid() || op.Status != PublicIngressPending || op.CreatedAt.IsZero() {
 			return errors.New("invalid restored public ingress operation")
 		}
+		// The restored operation proof must still match the canonical manifest
+		// for the restored tunnel; a matching reservation alone is insufficient.
+		tunnel, exists := restored.Tunnels[id]
+		if !exists || tunnel.IRNode != op.Spec.IRNode || tunnel.RouteListen != op.Spec.LocalTarget || !tunnelKeepsPorts(tunnel) {
+			return errors.New("restored public ingress operation has no matching active tunnel")
+		}
+		preview, err := ingressmanifest.Preview(publicIngressManifestSpec(op.Spec, tunnel.InstanceID, op.Proof.Generation))
+		if err != nil || preview.ManifestSHA256 != op.Proof.ManifestDigest {
+			return errors.New("restored public ingress operation has noncanonical proof")
+		}
 	}
 	restored.PublicIngressOperations = merged
 	return nil

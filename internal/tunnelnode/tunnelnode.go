@@ -178,6 +178,19 @@ func (m *Manager) ForInstance(instance, metricsListen string) (*Manager, error) 
 	if metricsListen == "" || metricsListen == m.MetricsListen {
 		return nil, errors.New("tunnelnode: independent instance requires an explicit distinct metrics listener")
 	}
+	host, port, err := net.SplitHostPort(metricsListen)
+	ip := net.ParseIP(host)
+	if err != nil || ip == nil || !ip.IsLoopback() {
+		return nil, errors.New("tunnelnode: instance metrics listener must use a literal loopback IP")
+	}
+	portNum, err := strconv.Atoi(port)
+	if err != nil || !validPort(portNum) {
+		return nil, errors.New("tunnelnode: invalid instance metrics port")
+	}
+	_, primaryPort, primaryErr := net.SplitHostPort(m.MetricsListen)
+	if primaryErr == nil && primaryPort == port {
+		return nil, errors.New("tunnelnode: instance metrics port conflicts with primary metrics port")
+	}
 	env := m.Env
 	env.Instance = instance
 	env.MetricsListen = metricsListen

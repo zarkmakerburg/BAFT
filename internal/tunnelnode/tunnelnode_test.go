@@ -153,6 +153,11 @@ func TestInstanceManagerScopesHostOwnership(t *testing.T) {
 	if _, err := n.Manager.ForInstance("new-instance", n.Manager.MetricsListen); err == nil {
 		t.Fatal("sibling reused primary metrics listener")
 	}
+	for _, address := range []string{"0.0.0.0:9301", "192.0.2.9:9301", "127.0.0.1:9191", "127.0.0.2:9191", "127.0.0.1:0", "not-an-address"} {
+		if _, err := n.Manager.ForInstance("new-instance", address); err == nil {
+			t.Errorf("unsafe metrics listener %q accepted", address)
+		}
+	}
 }
 
 func TestScopedManagerCreatesTraversableInstanceNamespaces(t *testing.T) {

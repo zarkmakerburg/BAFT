@@ -2,6 +2,7 @@ package bcc
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -49,5 +50,41 @@ func TestInspectSnapshotRejectsDuplicateAndTrailingJSON(t *testing.T) {
 		if err := validatePublicIngressInspectSnapshot(output, "job-a", "ir-a", params); err == nil {
 			t.Fatal("ambiguous JSON accepted")
 		}
+	}
+}
+
+func TestInspectAckRejectsInvalidEvidenceWithoutCompletingJob(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "bcc.db")
+	s, err := OpenStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UpsertNode(Node{ID: "ir-node", Address: "127.0.0.1:22000", Role: "foreign"}, "tok-ir"); err != nil {
+		t.Fatal(err)
+	}
+	params := map[string]string{"tunnel_id": "tun-test", "public_port": "2053", "local_target": "127.0.0.1:1443", "generation": "7", "manifest_digest": strings.Repeat("a", 64), "listener_id": "baft-listener-7", "firewall_id": "baft-firewall-7"}
+	s.mu.Lock()
+	job := s.newJobLocked(Job{Type: "public_ingress_inspect", NodeID: "ir-node", Params: params})
+	if err := s.saveLocked(); err != nil {
+		s.mu.Unlock()
+		t.Fatal(err)
+	}
+	s.mu.Unlock()
+	bad := `{"job_id":"not-this-job"}`
+	if err := s.AckJobOutput("ir-node", "tok-ir", job.ID, "succeeded", "done", bad); err == nil {
+		t.Fatal("invalid ACK accepted")
+	}
+	got := s.st.Jobs[job.ID]
+	if got.Status != "queued" || got.Output != "" {
+		t.Fatalf("invalid ACK mutated job: %+v", got)
+	}
+	reopened, err := OpenStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	persisted := reopened.st.Jobs[job.ID]
+	if persisted.Status != "queued" || persisted.Output != "" {
+		t.Fatalf("invalid ACK persisted: %+v", persisted)
 	}
 }

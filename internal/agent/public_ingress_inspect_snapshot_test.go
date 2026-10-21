@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/zarkmakerburg/baft/internal/agentjob"
 	"strings"
@@ -32,5 +33,19 @@ func TestPublicIngressInspectSnapshotBindsSignedIntentWithoutReadiness(t *testin
 	j.Params["generation"] = "0"
 	if _, err := marshalPublicIngressInspectSnapshot(j, ev); err == nil {
 		t.Fatal("invalid job accepted")
+	}
+}
+
+func TestPublicIngressInspectHandlerFailsClosedWithoutTrustedStore(t *testing.T) {
+	j := ingressPreflightJob()
+	j.Action = agentjob.ActionPublicIngressInspect
+	j.Params["generation"] = "1"
+	j.Params["manifest_digest"] = strings.Repeat("a", 64)
+	j.Params["listener_id"] = "listener-1"
+	j.Params["firewall_id"] = "firewall-1"
+	a := &Agent{}
+	result, err := a.publicIngressPreflight(context.Background(), j)
+	if err == nil || result != "" {
+		t.Fatalf("unverified inspection succeeded: %q %v", result, err)
 	}
 }

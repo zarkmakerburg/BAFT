@@ -185,6 +185,12 @@ func collectPublicIngressPreflight(ctx context.Context, j agentjob.Job, readTabl
 }
 
 func (a *Agent) publicIngressPreflight(ctx context.Context, j agentjob.Job) (string, error) {
+	// An inspection receipt must never report success until a trusted
+	// independently held manifest proof has been checked against local bytes.
+	// This agent has no configured manifest store/owner ledger yet.
+	if j.Action == agentjob.ActionPublicIngressInspect {
+		return "", fmt.Errorf("ingress inspect unavailable: trusted manifest and live resource ownership verification not configured")
+	}
 	ev, err := collectPublicIngressPreflight(ctx, j, readIngressSocketTable, exec.LookPath)
 	if err != nil {
 		return "", err

@@ -21,7 +21,7 @@ func TestP0IngressReconcileDecision(t *testing.T) {
 		t.Fatalf("missing durable proof accepted: %s, %v", got, err)
 	}
 	check(&PublicIngressObserved{Spec: spec, Proof: testIngressProof, OwnerVerified: true, ListenerReady: true, FirewallReady: true}, PublicIngressNoop, false)
-	check(&PublicIngressObserved{Spec: spec, Proof: testIngressProof, OwnerVerified: true, ListenerReady: false, FirewallReady: true}, PublicIngressNeedsApply, false)
+	check(&PublicIngressObserved{Spec: spec, Proof: testIngressProof, OwnerVerified: true, ListenerReady: false, FirewallReady: true}, PublicIngressBlocked, true)
 	check(&PublicIngressObserved{Spec: spec, Proof: testIngressProof, OwnerVerified: false, ListenerReady: true, FirewallReady: true}, PublicIngressBlocked, true)
 	stale := testIngressProof
 	stale.Generation--
@@ -54,8 +54,8 @@ func TestP0IngressReconcileCanonicalObservedAndMalformed(t *testing.T) {
 	}{
 		{"canonical IPv4 port", PublicIngressSpec{IRNode: " ir-main ", TunnelID: " tun-a ", PublicPort: 2453, LocalTarget: "127.0.0.1:09000"}, true, true, true, PublicIngressNoop, false},
 		{"canonical IPv4 mapped", PublicIngressSpec{IRNode: "ir-main", TunnelID: "tun-a", PublicPort: 2453, LocalTarget: "[::ffff:127.0.0.1]:9000"}, true, true, true, PublicIngressNoop, false},
-		{"partial listener", desired, true, false, true, PublicIngressNeedsApply, false},
-		{"partial firewall", desired, true, true, false, PublicIngressNeedsApply, false},
+		{"partial listener", desired, true, false, true, PublicIngressBlocked, true},
+		{"partial firewall", desired, true, true, false, PublicIngressBlocked, true},
 		{"unverified owner", desired, false, true, true, PublicIngressBlocked, true},
 		{"malformed observed", PublicIngressSpec{IRNode: "ir-main", TunnelID: "tun-a", PublicPort: 2453, LocalTarget: "0.0.0.0:9000"}, true, true, true, PublicIngressBlocked, true},
 		{"different tunnel", PublicIngressSpec{IRNode: "ir-main", TunnelID: "tun-b", PublicPort: 2453, LocalTarget: "127.0.0.1:9000"}, true, true, true, PublicIngressBlocked, true},

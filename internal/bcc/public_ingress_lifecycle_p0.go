@@ -29,6 +29,9 @@ func TransitionPublicIngress(current PublicIngressLifecycle, owner PublicIngress
 	if err != nil {
 		return current, fmt.Errorf("invalid public ingress owner: %w", err)
 	}
+	if canonicalCurrent != current.Spec {
+		return current, fmt.Errorf("noncanonical public ingress resource")
+	}
 	if canonicalCurrent != canonicalOwner {
 		return current, fmt.Errorf("public ingress ownership mismatch")
 	}

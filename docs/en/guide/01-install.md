@@ -87,3 +87,11 @@ sudo bash install.sh --offline . --role ir --pairing-code 'BAFTPAIR1:...'
 Running the same line again is safe: it inspects the server, shows a plan, changes only what is listed and rolls back on failure. It never rotates keys or re-pairs on its own. See [Update, backup, uninstall](05-update-backup-uninstall.md) and [The rerunnable installer](../33-rerunnable-installer.md).
 
 More detail: [Running IR and EX](../06-running-ir-ex.md), [SSH bootstrap](../26-p1d-ssh-bootstrap.md).
+
+## Existing outside BAFT installation: adding another server without BCC
+
+The `baft` Servers screen is currently informational; it does not generate a pairing code for a **second independent instance**. Rerunning the installer against a valid existing configuration intentionally skips pairing. **Do not use `--re-pair` to add a second tunnel**: it replaces the existing instance's pairing and can interrupt current users.
+
+For a fresh independent instance, the `baft-pair` CLI exposes `ex-code`, `ir-apply`, and `ex-accept` without BCC, but its configuration, key/state paths, systemd service and listening ports must be isolated from every active instance. Check port/service ownership and back up the current configuration before adding anything. A safe, fully integrated non-disruptive `Add Tunnel` workflow is still an OPEN v0.4.0 P0 release gate.
+
+If EX cannot SSH into IR, one-time `BAFTPAIR1` and `BAFTREPLY1` exchange works for an unpaired instance when operators have local terminal access to both hosts.

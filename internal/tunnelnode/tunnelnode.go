@@ -401,6 +401,19 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 	if m.Instance != "" && p.MetricsListen != m.MetricsListen {
 		return "", errors.New("tunnelnode: instance metrics address differs from scoped allocation")
 	}
+	if m.Instance != "" {
+		_, metricsPort, err := net.SplitHostPort(p.MetricsListen)
+		if err != nil {
+			return "", err
+		}
+		n, err := strconv.Atoi(metricsPort)
+		if err != nil {
+			return "", err
+		}
+		if _, err := m.ClaimMetricsPort(n); err != nil {
+			return "", fmt.Errorf("tunnelnode: metrics reservation before prepare: %w", err)
+		}
+	}
 	t, err := m.begin(id, RoleEX)
 	if err != nil {
 		return "", err
@@ -456,6 +469,19 @@ func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (s
 	// through Prepare parameters after the initial instance preflight.
 	if m.Instance != "" && p.MetricsListen != m.MetricsListen {
 		return "", errors.New("tunnelnode: instance metrics address differs from scoped allocation")
+	}
+	if m.Instance != "" {
+		_, metricsPort, err := net.SplitHostPort(p.MetricsListen)
+		if err != nil {
+			return "", err
+		}
+		n, err := strconv.Atoi(metricsPort)
+		if err != nil {
+			return "", err
+		}
+		if _, err := m.ClaimMetricsPort(n); err != nil {
+			return "", fmt.Errorf("tunnelnode: metrics reservation before prepare: %w", err)
+		}
 	}
 	t, err := m.begin(id, RoleIR)
 	if err != nil {

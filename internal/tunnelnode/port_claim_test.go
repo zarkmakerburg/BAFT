@@ -1,6 +1,7 @@
 package tunnelnode
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -78,5 +79,28 @@ func TestMetricsClaimRejectsPublicClaimDirectory(t *testing.T) {
 	}
 	if _, err := scoped.ClaimMetricsPort(9321); err == nil {
 		t.Fatal("world-readable claims directory accepted")
+	}
+}
+
+func TestScopedPrepareEXDoesNotTouchExistingInstanceOnClaimConflict(t *testing.T) {
+	root := newNode(t)
+	scoped, err := root.Manager.ForInstance("alpha", "127.0.0.1:9301")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = scoped.ClaimMetricsPort(9301); err != nil {
+		t.Fatal(err)
+	}
+	_, err = scoped.PrepareEX(context.Background(), "new-pair", ExParams{
+		PublicAddress: "127.0.0.1", Port: 8443, Target: "127.0.0.1:1443", RouteID: "r1",
+	})
+	if err == nil {
+		t.Fatal("prepare reused already claimed metrics port")
+	}
+	if _, statErr := os.Stat(scoped.txnPath("new-pair")); !os.IsNotExist(statErr) {
+		t.Fatalf("transaction was created despite port conflict: %v", statErr)
+	}
+	if root.host.called("stop") || root.host.called("restart") {
+		t.Fatal("claim conflict disturbed an existing service")
 	}
 }

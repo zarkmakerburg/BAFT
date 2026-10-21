@@ -416,6 +416,16 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 	}
 	t, err := m.begin(id, RoleEX)
 	if err != nil {
+		if m.Instance != "" {
+			_, portText, splitErr := net.SplitHostPort(m.MetricsListen)
+			if splitErr == nil {
+				if port, parseErr := strconv.Atoi(portText); parseErr == nil {
+					if releaseErr := m.ReleaseMetricsPort(port); releaseErr != nil {
+						return "", fmt.Errorf("prepare begin failed: %w; metrics claim release failed: %v", err, releaseErr)
+					}
+				}
+			}
+		}
 		return "", err
 	}
 	t.Port = p.Port
@@ -485,6 +495,16 @@ func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (s
 	}
 	t, err := m.begin(id, RoleIR)
 	if err != nil {
+		if m.Instance != "" {
+			_, portText, splitErr := net.SplitHostPort(m.MetricsListen)
+			if splitErr == nil {
+				if port, parseErr := strconv.Atoi(portText); parseErr == nil {
+					if releaseErr := m.ReleaseMetricsPort(port); releaseErr != nil {
+						return "", fmt.Errorf("prepare begin failed: %w; metrics claim release failed: %v", err, releaseErr)
+					}
+				}
+			}
+		}
 		return "", err
 	}
 	t.RouteListen = p.RouteListen

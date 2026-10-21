@@ -132,3 +132,23 @@ func TestMetricsClaimReleaseRejectsOtherOwner(t *testing.T) {
 		t.Fatalf("owned claim remains: %v", err)
 	}
 }
+
+func TestFailedScopedBeginReleasesNewClaim(t *testing.T) {
+	root := newNode(t)
+	scoped, err := root.Manager.ForInstance("alpha", "127.0.0.1:9301")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = scoped.PrepareEX(context.Background(), "../invalid", ExParams{PublicAddress: "127.0.0.1", Port: 8443, Target: "127.0.0.1:1443", RouteID: "r1"})
+	if err == nil {
+		t.Fatal("unsafe transaction ID accepted")
+	}
+	path, err := scoped.ClaimMetricsPort(9301)
+	if err != nil {
+		t.Fatalf("failed begin stranded claim: %v", err)
+	}
+	if err := scoped.ReleaseMetricsPort(9301); err != nil {
+		t.Fatal(err)
+	}
+	_ = path
+}

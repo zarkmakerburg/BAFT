@@ -110,6 +110,13 @@ func TestInspectAckValidReadOnlySnapshotPersistsWithoutReadiness(t *testing.T) {
 		t.Fatal(err)
 	}
 	params := job.Params
+	if err := s.AckJobOutput(spec.IRNode, "tok-src", job.ID, "succeeded", "undispatched", "{}"); err == nil {
+		t.Fatal("queued inspect ACK accepted")
+	}
+	jobs, err := s.PullJobs(spec.IRNode, "tok-src")
+	if err != nil || len(jobs) != 1 || jobs[0].ID != job.ID {
+		t.Fatalf("inspect dispatch failed: %+v %v", jobs, err)
+	}
 
 	preflight := map[string]any{"schema_version": 1, "tunnel_id": spec.TunnelID, "public_port": spec.PublicPort, "local_target": spec.LocalTarget, "scope": "agent_network_namespace_snapshot", "socket_inventory_complete": true, "public_port_state": "not_observed", "public_listener_count": 0, "target_listener_observed": false, "ownership_verified": false, "firewall_tools": []string{}, "firewall_policy_verified": false, "ready_to_apply": false, "limitations": []string{"Ownership unverified"}}
 	envelope := map[string]any{"preflight": preflight, "job_id": job.ID, "node_id": spec.IRNode, "generation": params["generation"], "manifest_digest": params["manifest_digest"], "listener_id": params["listener_id"], "firewall_id": params["firewall_id"], "live_ownership_verified": false, "ready_to_apply": false}

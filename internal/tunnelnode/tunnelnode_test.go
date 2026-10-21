@@ -928,3 +928,14 @@ func TestInstancePreflightRejectsUnverifiableSibling(t *testing.T) {
 		t.Fatal("unverifiable sibling bypassed port conflict fence")
 	}
 }
+
+func TestInstancePreflightRejectsSiblingWithoutConfig(t *testing.T) {
+	n := newNode(t)
+	sibling := filepath.Join(n.Manager.ConfigDir, "instances", "unconfigured")
+	if err := os.MkdirAll(sibling, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := n.Manager.ForInstance("new-one", "127.0.0.1:9234"); err == nil {
+		t.Fatal("sibling with no config bypassed ownership preflight")
+	}
+}

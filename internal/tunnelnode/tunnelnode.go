@@ -209,7 +209,7 @@ func (m *Manager) ForInstance(instance, metricsListen string) (*Manager, error) 
 		path := filepath.Join(siblings, entry.Name(), "baft.yaml")
 		cfg, loadErr := config.LoadFile(path)
 		if os.IsNotExist(loadErr) {
-			continue
+			return nil, errors.New("tunnelnode: sibling instance has no verifiable config")
 		}
 		if loadErr != nil {
 			return nil, fmt.Errorf("tunnelnode: cannot verify sibling metrics ownership: %w", loadErr)

@@ -43,6 +43,18 @@ func TestPublicIngressInspectSnapshotRejectsUnverifiedAndMismatchedIntent(t *tes
 			}
 		})
 	}
+	for _, key := range []string{"preflight", "job_id", "node_id", "generation", "manifest_digest", "listener_id", "firewall_id", "live_ownership_verified", "ready_to_apply"} {
+		t.Run("null "+key, func(t *testing.T) {
+			e := map[string]any{}
+			for k, v := range envelope {
+				e[k] = v
+			}
+			e[key] = nil
+			if err := check(e); err == nil {
+				t.Fatal("null inspect field accepted")
+			}
+		})
+	}
 }
 
 func TestInspectSnapshotRejectsDuplicateAndTrailingJSON(t *testing.T) {

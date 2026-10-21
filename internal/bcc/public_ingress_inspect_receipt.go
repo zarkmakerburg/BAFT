@@ -50,7 +50,8 @@ func validatePublicIngressInspectSnapshot(output string, jobID, nodeID string, p
 		return errors.New("invalid inspect receipt fields")
 	}
 	for _, key := range expected {
-		if _, ok := raw[key]; !ok {
+		value, ok := raw[key]
+		if !ok || bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
 			return errors.New("missing inspect receipt field")
 		}
 	}

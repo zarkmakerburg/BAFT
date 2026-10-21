@@ -175,6 +175,9 @@ func collectPublicIngressPreflight(ctx context.Context, j agentjob.Job, readTabl
 			ev.FirewallTools = append(ev.FirewallTools, tool)
 		}
 	}
+	if err := ctx.Err(); err != nil {
+		return publicIngressPreflightEvidence{}, err
+	}
 	return ev, nil
 }
 

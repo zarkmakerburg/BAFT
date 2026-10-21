@@ -196,3 +196,21 @@ func TestPublicIngressSocketParserRejectsOversizedDirectInput(t *testing.T) {
 		t.Fatal("oversized direct parser input accepted")
 	}
 }
+
+func TestPublicIngressPreflightCancellationDuringFinalFirewallProbe(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	reads := 0
+	_, err := collectPublicIngressPreflight(ctx, ingressPreflightJob(), func(string) ([]byte, error) { reads++; return []byte(ingressSocketHeader), nil }, func(tool string) (string, error) {
+		if tool == "firewall-cmd" {
+			cancel()
+		}
+		return "", errors.New("not installed")
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancellation after final inspection returned %v", err)
+	}
+	if reads != 2 {
+		t.Fatalf("unexpected table reads: %d", reads)
+	}
+}

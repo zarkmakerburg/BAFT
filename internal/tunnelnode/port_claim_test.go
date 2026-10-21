@@ -1,0 +1,63 @@
+package tunnelnode
+
+import (
+	"os"
+	"strings"
+	"sync"
+	"testing"
+)
+
+func TestMetricsClaimConcurrentExclusiveAndPersistent(t *testing.T) {
+	root := newNode(t)
+	a, err := root.Manager.ForInstance("alpha", "127.0.0.1:9301")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := root.Manager.ForInstance("beta", "127.0.0.1:9302")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wg sync.WaitGroup
+	results := make(chan error, 2)
+	for _, manager := range []*Manager{a, b} {
+		wg.Add(1)
+		go func(m *Manager) { defer wg.Done(); _, err := m.ClaimMetricsPort(9321); results <- err }(manager)
+	}
+	wg.Wait()
+	close(results)
+	successes := 0
+	for err := range results {
+		if err == nil {
+			successes++
+		}
+	}
+	if successes != 1 {
+		t.Fatalf("expected exactly one successful exclusive claim, got %d", successes)
+	}
+	if _, err := a.ClaimMetricsPort(9321); err == nil {
+		t.Fatal("persistent claim reused")
+	}
+}
+func TestMetricsClaimRejectsDefaultAndInvalidPort(t *testing.T) {
+	root := newNode(t)
+	if _, err := root.Manager.ClaimMetricsPort(9321); err == nil {
+		t.Fatal("legacy manager acquired claim")
+	}
+	scoped, err := root.Manager.ForInstance("alpha", "127.0.0.1:9301")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, port := range []int{0, 65536, -1} {
+		if _, err := scoped.ClaimMetricsPort(port); err == nil {
+			t.Fatalf("invalid port %d accepted", port)
+		}
+	}
+	path, err := scoped.ClaimMetricsPort(9321)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil || strings.TrimSpace(string(data)) != "alpha" {
+		t.Fatalf("claim owner mismatch: %q %v", data, err)
+	}
+}

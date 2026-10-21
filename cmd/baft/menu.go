@@ -296,7 +296,7 @@ func (m *menu) logsMenu() {
 }
 
 func (m *menu) servers() {
-	m.printf("Servers are registered and managed in BCC (Servers, Bootstrap, Tunnels).\n\nThis server:\n")
+	m.printf("This server (read-only):\n")
 	cfg, err := m.loadConfig()
 	if err == nil {
 		m.printf("  node id     %s\n  role        %s\n", clean(cfg.Node.ID), roleLabel(cfg.Node.Role))
@@ -305,7 +305,13 @@ func (m *menu) servers() {
 	}
 	state, _ := m.env.serviceState(m.cfg.agentUnit)
 	m.printf("  agent       %s (%s)\n", m.st.status(strings.ToUpper(firstWord(state))), clean(m.cfg.agentUnit))
-	m.printf("\nEnrolling another server is done from BCC; the installer's --agent-only mode prepares it.\n")
+	m.printf("\nStandalone pairing is supported without BCC or EX-to-IR SSH for an unpaired instance.\n")
+	m.printf("  EX: use the installer with --role ex --no-panel to issue BAFTPAIR1.\n")
+	m.printf("  IR: run the installer locally with --role ir and paste BAFTPAIR1; return BAFTREPLY1 to EX.\n")
+	m.printf("  Manual CLI: baft-pair ex-code / ir-apply / ex-accept (separate instance files).\n")
+	m.printf("  IMPORTANT: an already-paired EX is NOT a fresh instance. --re-pair replaces its pairing\n")
+	m.printf("  and may interrupt users. Non-disruptive add-instance is not implemented here yet;\n")
+	m.printf("  do not re-pair or overwrite active configs. BCC is optional for manual standalone pairing.\n")
 }
 
 func firstWord(s string) string {

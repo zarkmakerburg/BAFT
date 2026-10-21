@@ -134,6 +134,9 @@ func collectPublicIngressPreflight(ctx context.Context, j agentjob.Job, readTabl
 		"Public ingress ownership and firewall policy are not verified.",
 		"Public ingress prepare, commit, reconcile and rollback are not implemented; application is blocked.",
 	}}
+	if err := ctx.Err(); err != nil {
+		return publicIngressPreflightEvidence{}, err
+	}
 	for _, table := range []struct {
 		path string
 		ipv6 bool

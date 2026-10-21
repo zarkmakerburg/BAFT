@@ -214,3 +214,12 @@ func TestPublicIngressPreflightCancellationDuringFinalFirewallProbe(t *testing.T
 		t.Fatalf("unexpected table reads: %d", reads)
 	}
 }
+
+func TestPublicIngressPreflightAlreadyCanceledDoesNotInspect(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := collectPublicIngressPreflight(ctx, ingressPreflightJob(), func(string) ([]byte, error) { t.Fatal("read after cancellation"); return nil, nil }, func(string) (string, error) { t.Fatal("probe after cancellation"); return "", nil })
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled preflight returned %v", err)
+	}
+}

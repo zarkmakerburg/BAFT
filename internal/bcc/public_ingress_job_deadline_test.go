@@ -53,6 +53,41 @@ func TestPublicIngressPreflightCannotRenewSignedLifetime(t *testing.T) {
 	}
 }
 
+func TestPublicIngressInspectSignedLifetimeUsesPersistedCreation(t *testing.T) {
+	pub, key, err := release.GenerateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	app := &Server{}
+	app.ConfigureJobSigning(key)
+	now := time.Now().UTC().Truncate(time.Second)
+	app.now = func() time.Time { return now }
+	job := Job{
+		ID: "ingress-inspect", Type: agentjob.ActionPublicIngressInspect, NodeID: "ir-node",
+		CreatedAt: now.Add(-4 * time.Minute),
+		Params: map[string]string{
+			"tunnel_id": "tun-a", "public_port": "54619", "local_target": "127.0.0.1:1443",
+			"generation": "7", "manifest_digest": strings.Repeat("a", 64),
+			"listener_id": "baft-listener-7", "firewall_id": "baft-firewall-7",
+		},
+	}
+	signed, err := app.signAgentJobs([]Job{job})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := (agentjob.Verifier{BCCKey: pub, NodeID: job.NodeID}).Verify(*signed[0].Signed, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Action != agentjob.ActionPublicIngressInspect || !got.ExpiresAt.Equal(publicIngressPreflightDeadline(job)) {
+		t.Fatalf("inspect action/deadline: %s %s", got.Action, got.ExpiresAt)
+	}
+	app.now = func() time.Time { return publicIngressPreflightDeadline(job) }
+	if _, err := app.signAgentJobs([]Job{job}); err == nil || !strings.Contains(err.Error(), "expired") {
+		t.Fatalf("expired inspect was re-signed: %v", err)
+	}
+}
+
 func TestPublicIngressPreflightExpiresBeforeLatePullAndAck(t *testing.T) {
 	s, req := ingressPreflightStore(t)
 	old := time.Now().UTC().Add(-publicIngressPreflightPendingLifetime - time.Minute)

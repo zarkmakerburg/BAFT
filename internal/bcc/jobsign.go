@@ -71,7 +71,7 @@ func agentAction(j Job) (string, map[string]string, error) {
 		return agentjob.ActionUpdateBAFT, map[string]string{"version": j.Version}, nil
 	case JobTunnelPrepareEX, JobTunnelPrepareIR, JobTunnelCommitEX, JobTunnelCommitIR, JobTunnelHealth, JobTunnelObserve, JobTunnelInspect, JobTunnelDiscover, JobTunnelFinalize, JobTunnelRollback, agentjob.ActionTunnelRetire,
 		agentjob.ActionPathProbeInventory, agentjob.ActionPathProbeListen, agentjob.ActionPathProbeRun, agentjob.ActionPathProbeStop,
-		agentjob.ActionPublicIngressPreflight,
+		agentjob.ActionPublicIngressPreflight, agentjob.ActionPublicIngressInspect,
 		agentjob.ActionCertPrepareEX, agentjob.ActionCertTrustIR, agentjob.ActionCertVerifyEX, agentjob.ActionCertVerifyIR,
 		agentjob.ActionCertActivateEX, agentjob.ActionCertConfirmIR, agentjob.ActionCertRetireIR, agentjob.ActionCertRetireEX,
 		agentjob.ActionCertRollback:
@@ -96,9 +96,9 @@ func (s *Server) signAgentJobs(jobs []Job) ([]AgentJob, error) {
 		aj := AgentJob{Job: j}
 		if s.jobKey != nil {
 			deadline := now.Add(jobValidity)
-			if j.Type == agentjob.ActionPublicIngressPreflight {
+			if j.Type == agentjob.ActionPublicIngressPreflight || j.Type == agentjob.ActionPublicIngressInspect {
 				if j.CreatedAt.IsZero() || !now.Before(publicIngressPreflightDeadline(j)) {
-					return nil, fmt.Errorf("preflight job %s expired before signing", j.ID)
+					return nil, fmt.Errorf("read-only ingress job %s expired before signing", j.ID)
 				}
 				if deadline.After(publicIngressPreflightDeadline(j)) {
 					deadline = publicIngressPreflightDeadline(j)

@@ -188,7 +188,8 @@ func (m *Manager) ForInstance(instance, metricsListen string) (*Manager, error) 
 		return nil, errors.New("tunnelnode: invalid instance metrics port")
 	}
 	_, primaryPort, primaryErr := net.SplitHostPort(m.MetricsListen)
-	if primaryErr == nil && primaryPort == port {
+	primaryNum, primaryParseErr := strconv.Atoi(primaryPort)
+	if primaryErr == nil && primaryParseErr == nil && primaryNum == portNum {
 		return nil, errors.New("tunnelnode: instance metrics port conflicts with primary metrics port")
 	}
 	// Check previously configured sibling instances before allocating an
@@ -214,7 +215,8 @@ func (m *Manager) ForInstance(instance, metricsListen string) (*Manager, error) 
 			return nil, fmt.Errorf("tunnelnode: cannot verify sibling metrics ownership: %w", loadErr)
 		}
 		_, usedPort, splitErr := net.SplitHostPort(cfg.Management.MetricsListen)
-		if splitErr != nil || usedPort == port {
+		usedNum, parseErr := strconv.Atoi(usedPort)
+		if splitErr != nil || parseErr != nil || !validPort(usedNum) || usedNum == portNum {
 			return nil, errors.New("tunnelnode: sibling instance metrics port conflict or invalid configuration")
 		}
 	}

@@ -73,6 +73,16 @@ func TestSignedIngressManifestInspectionRequiresIndependentProof(t *testing.T) {
 	if err != nil || !observed.Prepared || observed.LiveOwnershipVerified || observed.ReadyToApply {
 		t.Fatalf("invalid read-only inspection: %+v %v", observed, err)
 	}
+	job.Params["public_port"] = "2053"
+	if _, err := inspectSignedIngressManifest(store, job, proof); err == nil {
+		t.Fatal("signed port disagrees with prepared manifest")
+	}
+	job.Params["public_port"] = "54619"
+	job.Params["local_target"] = "127.0.0.1:7777"
+	if _, err := inspectSignedIngressManifest(store, job, proof); err == nil {
+		t.Fatal("signed target disagrees with prepared manifest")
+	}
+	job.Params["local_target"] = "127.0.0.1:1443"
 	job.Params["manifest_digest"] = strings.Repeat("b", 64)
 	if _, err := inspectSignedIngressManifest(store, job, proof); err == nil {
 		t.Fatal("mismatched signed intent accepted")

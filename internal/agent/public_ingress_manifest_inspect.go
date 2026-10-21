@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/zarkmakerburg/baft/internal/agentjob"
 	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
+	"net"
 	"strconv"
 )
 
@@ -43,5 +44,14 @@ func inspectSignedIngressManifest(store *ingressmanifest.Store, job agentjob.Job
 	if err != nil || expected.Generation != generation || expected.TunnelID != job.Params["tunnel_id"] || expected.ManifestSHA256 != job.Params["manifest_digest"] || expected.InstanceID == "default" {
 		return ingressManifestEvidence{}, errors.New("signed ingress intent differs from independently retained manifest proof")
 	}
-	return inspectPreparedIngressManifest(store, expected)
+	inspection, err := store.Inspect(expected)
+	if err != nil {
+		return ingressManifestEvidence{}, err
+	}
+	spec := inspection.Manifest.Spec
+	_, port, err := net.SplitHostPort(spec.Config.Listen)
+	if err != nil || port != job.Params["public_port"] || spec.Config.Target != job.Params["local_target"] || !inspection.ManifestBytesMatch || !inspection.PreparedBytesMatch || inspection.Manifest.Phase != ingressmanifest.PhasePrepared {
+		return ingressManifestEvidence{}, errors.New("signed ingress endpoint differs from verified prepared manifest")
+	}
+	return ingressManifestEvidence{Prepared: true, BytesVerified: true}, nil
 }

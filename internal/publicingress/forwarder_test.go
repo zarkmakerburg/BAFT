@@ -229,11 +229,20 @@ func TestForwarderCancellationClosesClientsAndListener(t *testing.T) {
 	} else if timeout, ok := err.(net.Error); ok && timeout.Timeout() {
 		t.Fatal("shutdown did not close client")
 	}
-	replacement, err := net.Listen("tcp4", address)
-	if err != nil {
-		t.Fatalf("shutdown kept ingress port bound: %v", err)
+	// A recently closed accepted TCP connection can briefly retain the
+	// address on Linux; the listener itself must become rebindable promptly.
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		replacement, err := net.Listen("tcp4", address)
+		if err == nil {
+			_ = replacement.Close()
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("shutdown kept ingress port bound: %v", err)
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
-	_ = replacement.Close()
 }
 
 func TestForwarderBindConflictPreservesUnrelatedListener(t *testing.T) {

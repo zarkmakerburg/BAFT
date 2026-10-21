@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/zarkmakerburg/baft/internal/agentjob"
+	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
 )
 
 const maxIngressSocketTable = 8 << 20
@@ -185,11 +186,25 @@ func collectPublicIngressPreflight(ctx context.Context, j agentjob.Job, readTabl
 }
 
 func (a *Agent) publicIngressPreflight(ctx context.Context, j agentjob.Job) (string, error) {
-	// An inspection receipt must never report success until a trusted
-	// independently held manifest proof has been checked against local bytes.
-	// This agent has no configured manifest store/owner ledger yet.
 	if j.Action == agentjob.ActionPublicIngressInspect {
-		return "", fmt.Errorf("ingress inspect unavailable: trusted manifest and live resource ownership verification not configured")
+		if a.cfg.IngressManifestDir == "" || a.cfg.IngressExpectedProof == nil {
+			return "", fmt.Errorf("ingress inspect unavailable: trusted manifest store and independent proof resolver not configured")
+		}
+		expected, err := a.cfg.IngressExpectedProof(j.Params["tunnel_id"])
+		if err != nil {
+			return "", err
+		}
+		store, err := ingressmanifest.Open(a.cfg.IngressManifestDir)
+		if err != nil {
+			return "", err
+		}
+		defer store.Close()
+		if _, err := inspectSignedIngressManifest(store, j, expected); err != nil {
+			return "", err
+		}
+		// Verified prepared bytes are not evidence of a live, owned listener or
+		// firewall policy. Keep this job failed until both can be inspected.
+		return "", fmt.Errorf("ingress inspect unavailable: live listener and firewall ownership not verified")
 	}
 	ev, err := collectPublicIngressPreflight(ctx, j, readIngressSocketTable, exec.LookPath)
 	if err != nil {

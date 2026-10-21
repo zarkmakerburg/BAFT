@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/zarkmakerburg/baft/internal/agentjob"
+	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
 	"github.com/zarkmakerburg/baft/internal/release"
 	"github.com/zarkmakerburg/baft/internal/sshmigrate"
 	"github.com/zarkmakerburg/baft/internal/tunnelnode"
@@ -39,12 +40,14 @@ type System interface {
 }
 
 type Config struct {
-	BCCURL    string // e.g. https://bcc.example.com
-	NodeID    string
-	Token     string            // agent bearer token
-	BCCJobKey ed25519.PublicKey // pinned at enrollment
-	StateDir  string            // seen-job log
-	Service   string            // systemd unit, e.g. "baft"
+	BCCURL               string // e.g. https://bcc.example.com
+	NodeID               string
+	Token                string                                      // agent bearer token
+	BCCJobKey            ed25519.PublicKey                           // pinned at enrollment
+	StateDir             string                                      // seen-job log
+	IngressManifestDir   string                                      // trusted, private prepared-manifest directory; optional
+	IngressExpectedProof func(string) (ingressmanifest.Proof, error) // independent persisted proof resolver; optional
+	Service              string                                      // systemd unit, e.g. "baft"
 
 	// Updates.
 	ReleaseRoot    ed25519.PublicKey // pinned release root

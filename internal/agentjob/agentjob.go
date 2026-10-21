@@ -73,6 +73,8 @@ const (
 	// P0 public ingress preflight is read-only. Mutating actions require a
 	// separate owned-resource implementation and are not enabled here.
 	ActionPublicIngressPreflight = "public_ingress_preflight"
+	// Read-only bounded host snapshot; this does not establish resource ownership.
+	ActionPublicIngressInspect = "public_ingress_inspect"
 
 	// Certificate rotation of a built tunnel (A4 Stage F). Only public
 	// certificates and digests travel in parameters; new private keys never
@@ -139,6 +141,7 @@ var paramRules = map[string]map[string]*regexp.Regexp{
 	ActionTunnelRollback:         {"tunnel_id": tunnelIDRe},
 	ActionTunnelRetire:           {"tunnel_id": tunnelIDRe, "generation": epochRe, "config_sha256": sha256Re, "unit_sha256": sha256Re, "marker_sha256": sha256Re},
 	ActionPublicIngressPreflight: {"tunnel_id": tunnelIDRe, "public_port": portRe, "local_target": loopbackListenR},
+	ActionPublicIngressInspect: {"tunnel_id": tunnelIDRe, "public_port": portRe, "local_target": loopbackListenR, "generation": epochRe, "manifest_digest": sha256Re, "listener_id": idRe, "firewall_id": idRe},
 
 	ActionCertPrepareEX:  {"tunnel_id": tunnelIDRe, "rotation_id": tunnelIDRe, "epoch": epochRe},
 	ActionCertTrustIR:    {"tunnel_id": tunnelIDRe, "rotation_id": tunnelIDRe, "epoch": epochRe, "ca_der": derB64Re, "ca_sha256": sha256Re},
@@ -242,7 +245,7 @@ func (j Job) Validate() error {
 			return fmt.Errorf("parameter route_listen: %w", err)
 		}
 	}
-	if j.Action == ActionPublicIngressPreflight {
+	if j.Action == ActionPublicIngressPreflight || j.Action == ActionPublicIngressInspect {
 		if !validTCPPort(j.Params["public_port"]) {
 			return errors.New("parameter public_port must be between 1 and 65535")
 		}

@@ -189,3 +189,10 @@ func TestSignedPublicIngressPreflightObservesRealListenerWithoutMutation(t *test
 		t.Fatalf("signed replay not refused: %+v %v", again, err)
 	}
 }
+
+func TestPublicIngressSocketParserRejectsOversizedDirectInput(t *testing.T) {
+	raw := make([]byte, maxIngressSocketTable+1)
+	if _, err := parseIngressSocketTable(raw, false); err == nil {
+		t.Fatal("oversized direct parser input accepted")
+	}
+}

@@ -60,6 +60,9 @@ type ingressSocket struct {
 }
 
 func parseIngressSocketTable(raw []byte, ipv6 bool) ([]ingressSocket, error) {
+	if len(raw) > maxIngressSocketTable {
+		return nil, fmt.Errorf("socket table exceeds inspection limit")
+	}
 	if len(raw) == 0 || raw[len(raw)-1] != '\n' {
 		return nil, fmt.Errorf("truncated socket table")
 	}

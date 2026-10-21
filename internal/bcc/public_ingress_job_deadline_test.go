@@ -116,10 +116,35 @@ func TestPublicIngressPreflightExpiresBeforeLatePullAndAck(t *testing.T) {
 	j.CreatedAt = old
 	reopened.st.Jobs[j.ID] = j
 	reopened.mu.Unlock()
+	before, err = cloneState(reopened.st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reopened.path = t.TempDir()
+	if err := reopened.AckJobOutput(req.IRNode, "tok-src", j.ID, "succeeded", "late", publicIngressReceiptFixture(req)); err == nil {
+		t.Fatal("failed expiry save accepted a late acknowledgement")
+	}
+	if !reflect.DeepEqual(reopened.st, before) {
+		t.Fatal("failed acknowledgement expiry changed job or audit state")
+	}
+	reopened.path = path
 	if err := reopened.AckJobOutput(req.IRNode, "tok-src", j.ID, "succeeded", "late", publicIngressReceiptFixture(req)); err == nil {
 		t.Fatal("late success changed an expired preflight")
 	}
-	if reopened.st.Jobs[j.ID].Status != "dispatched" {
-		t.Fatal("late acknowledgement changed job state")
+	if reopened.st.Jobs[j.ID].Status != "failed" {
+		t.Fatal("late acknowledgement did not durably expire job")
+	}
+	reopened, err = OpenStore(path)
+	if err != nil || reopened.st.Jobs[j.ID].Status != "failed" {
+		t.Fatalf("late acknowledgement expiry lost on restart: %v", err)
+	}
+	found = false
+	for _, intent := range reopened.PendingSecurityAuditIntents() {
+		if intent.Action == "public_ingress.preflight.expire" && intent.Details["job_id"] == j.ID {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("late acknowledgement expiry lacks atomic audit intent")
 	}
 }

@@ -594,6 +594,17 @@ func (s *Store) AckJobOutput(nodeID,token,jobID,status,message,output string) er
 	j,ok:=s.st.Jobs[jobID];if !ok||j.NodeID!=nodeID{return errors.New("job not found")}
 	if j.Status!="dispatched"&&j.Status!="queued"{return errors.New("job already completed")}
 	if j.Type=="public_ingress_preflight" && !time.Now().Before(publicIngressPreflightDeadline(j)) {
+		before, err := cloneState(s.st)
+		if err != nil { return err }
+		now := time.Now().UTC()
+		j.Status, j.Message, j.UpdatedAt = "failed", "read-only preflight expired before acknowledgement", now
+		s.st.Jobs[jobID] = j
+		if _, err := s.enqueueSecurityAuditLocked(AuditEntry{
+			Timestamp: now, Actor: "bcc", Action: "public_ingress.preflight.expire",
+			Target: j.Params["tunnel_id"], Outcome: "expired",
+			Details: map[string]any{"job_id": j.ID, "ir_node": j.NodeID, "public_port": j.Params["public_port"]},
+		}); err != nil { s.st = before; return err }
+		if err := s.saveLocked(); err != nil { s.st = before; return err }
 		return errors.New("read-only preflight expired before acknowledgement")
 	}
 	if status=="succeeded"&&j.Type=="public_ingress_preflight"{if err:=validatePublicIngressPreflightReceipt(output,j.Params);err!=nil{return err}}

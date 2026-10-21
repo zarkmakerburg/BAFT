@@ -1,8 +1,10 @@
 package bcc
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"strings"
 )
 
@@ -12,9 +14,36 @@ func validatePublicIngressInspectSnapshot(output string, jobID, nodeID string, p
 	if len(output) == 0 || len(output) > maxJobOutput {
 		return errors.New("invalid ingress inspect receipt size")
 	}
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal([]byte(output), &raw); err != nil {
-		return err
+	dec := json.NewDecoder(bytes.NewBufferString(output))
+	start, err := dec.Token()
+	if err != nil || start != json.Delim('{') {
+		return errors.New("inspect receipt must be a JSON object")
+	}
+	raw := make(map[string]json.RawMessage)
+	for dec.More() {
+		token, err := dec.Token()
+		if err != nil {
+			return errors.New("invalid inspect receipt key")
+		}
+		key, ok := token.(string)
+		if !ok {
+			return errors.New("invalid inspect receipt key")
+		}
+		if _, exists := raw[key]; exists {
+			return errors.New("duplicate inspect receipt key")
+		}
+		var value json.RawMessage
+		if err := dec.Decode(&value); err != nil {
+			return errors.New("invalid inspect receipt value")
+		}
+		raw[key] = value
+	}
+	if end, err := dec.Token(); err != nil || end != json.Delim('}') {
+		return errors.New("invalid inspect receipt end")
+	}
+	var trailing any
+	if err := dec.Decode(&trailing); err != io.EOF {
+		return errors.New("trailing inspect receipt data")
 	}
 	expected := []string{"preflight", "job_id", "node_id", "generation", "manifest_digest", "listener_id", "firewall_id", "live_ownership_verified", "ready_to_apply"}
 	if len(raw) != len(expected) {

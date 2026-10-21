@@ -42,3 +42,12 @@ func TestPublicIngressInspectSnapshotRejectsUnverifiedAndMismatchedIntent(t *tes
 		})
 	}
 }
+
+func TestInspectSnapshotRejectsDuplicateAndTrailingJSON(t *testing.T) {
+	params := map[string]string{"tunnel_id": "tun-a", "public_port": "54619", "local_target": "127.0.0.1:1443", "generation": "7", "manifest_digest": strings.Repeat("a", 64), "listener_id": "unit-a", "firewall_id": "rule-a"}
+	for _, output := range []string{`{"job_id":"job-a","job_id":"job-a"}`, `{"job_id":"job-a"} {}`} {
+		if err := validatePublicIngressInspectSnapshot(output, "job-a", "ir-a", params); err == nil {
+			t.Fatal("ambiguous JSON accepted")
+		}
+	}
+}

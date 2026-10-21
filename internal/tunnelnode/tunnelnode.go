@@ -396,6 +396,11 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 	if p.MetricsListen == "" {
 		p.MetricsListen = m.MetricsListen
 	}
+	// A scoped instance must never override its validated metrics allocation
+	// through Prepare parameters after the initial instance preflight.
+	if m.Instance != "" && p.MetricsListen != m.MetricsListen {
+		return "", errors.New("tunnelnode: instance metrics address differs from scoped allocation")
+	}
 	t, err := m.begin(id, RoleEX)
 	if err != nil {
 		return "", err
@@ -446,6 +451,11 @@ func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (s
 	}
 	if p.MetricsListen == "" {
 		p.MetricsListen = m.MetricsListen
+	}
+	// A scoped instance must never override its validated metrics allocation
+	// through Prepare parameters after the initial instance preflight.
+	if m.Instance != "" && p.MetricsListen != m.MetricsListen {
+		return "", errors.New("tunnelnode: instance metrics address differs from scoped allocation")
 	}
 	t, err := m.begin(id, RoleIR)
 	if err != nil {

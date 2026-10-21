@@ -191,6 +191,33 @@ func (m *Manager) ForInstance(instance, metricsListen string) (*Manager, error) 
 	if primaryErr == nil && primaryPort == port {
 		return nil, errors.New("tunnelnode: instance metrics port conflicts with primary metrics port")
 	}
+	// Check previously configured sibling instances before allocating an
+	// independent metrics socket. Unknown or unreadable sibling state fails closed.
+	siblings := filepath.Join(m.ConfigDir, "instances")
+	entries, readErr := os.ReadDir(siblings)
+	if readErr != nil && !os.IsNotExist(readErr) {
+		return nil, fmt.Errorf("tunnelnode: cannot inspect sibling instances: %w", readErr)
+	}
+	for _, entry := range entries {
+		if entry.Name() == instance {
+			continue
+		}
+		if !entry.IsDir() {
+			return nil, errors.New("tunnelnode: unexpected sibling instance entry")
+		}
+		path := filepath.Join(siblings, entry.Name(), "baft.yaml")
+		cfg, loadErr := config.LoadFile(path)
+		if os.IsNotExist(loadErr) {
+			continue
+		}
+		if loadErr != nil {
+			return nil, fmt.Errorf("tunnelnode: cannot verify sibling metrics ownership: %w", loadErr)
+		}
+		_, usedPort, splitErr := net.SplitHostPort(cfg.Management.MetricsListen)
+		if splitErr != nil || usedPort == port {
+			return nil, errors.New("tunnelnode: sibling instance metrics port conflict or invalid configuration")
+		}
+	}
 	env := m.Env
 	env.Instance = instance
 	env.MetricsListen = metricsListen

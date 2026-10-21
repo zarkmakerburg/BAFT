@@ -914,3 +914,17 @@ func TestInspectSeesWhatIsReallyThere(t *testing.T) {
 		t.Fatal("marker reported after deletion")
 	}
 }
+
+func TestInstancePreflightRejectsUnverifiableSibling(t *testing.T) {
+	n := newNode(t)
+	sibling := filepath.Join(n.Manager.ConfigDir, "instances", "sibling")
+	if err := os.MkdirAll(sibling, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sibling, "baft.yaml"), []byte("invalid config"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := n.Manager.ForInstance("new-one", "127.0.0.1:9234"); err == nil {
+		t.Fatal("unverifiable sibling bypassed port conflict fence")
+	}
+}

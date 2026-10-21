@@ -117,7 +117,7 @@ func parseIngressSocketTable(raw []byte, ipv6 bool) ([]ingressSocket, error) {
 }
 
 func collectPublicIngressPreflight(ctx context.Context, j agentjob.Job, readTable func(string) ([]byte, error), lookPath func(string) (string, error)) (publicIngressPreflightEvidence, error) {
-	if j.Action != agentjob.ActionPublicIngressPreflight {
+	if j.Action != agentjob.ActionPublicIngressPreflight && j.Action != agentjob.ActionPublicIngressInspect {
 		return publicIngressPreflightEvidence{}, fmt.Errorf("not a public ingress preflight action")
 	}
 	// Defense in depth for direct callers; production dispatch follows signed

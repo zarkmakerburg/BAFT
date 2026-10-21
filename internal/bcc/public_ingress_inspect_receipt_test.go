@@ -173,4 +173,50 @@ func TestInspectAckExpiresFromPersistedCreationTime(t *testing.T) {
 	if got.Status != "failed" || got.Output != "" {
 		t.Fatalf("expiry not persisted safely: %+v", got)
 	}
+	found := false
+	for _, intent := range reopened.PendingSecurityAuditIntents() {
+		if intent.Action == "public_ingress.inspect.expire" && intent.Details["job_id"] == job.ID {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("expired inspect job lacks its own audit action")
+	}
+}
+
+func TestInspectPollExpiresWithInspectAuditAction(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "bcc.db")
+	s, err := OpenStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UpsertNode(Node{ID: "ir-node", Address: "127.0.0.1:22000", Role: "foreign"}, "tok-ir"); err != nil {
+		t.Fatal(err)
+	}
+	s.mu.Lock()
+	job := s.newJobLocked(Job{Type: "public_ingress_inspect", NodeID: "ir-node", Params: map[string]string{"tunnel_id": "tun-test", "public_port": "54619"}})
+	job.CreatedAt = time.Now().Add(-6 * time.Minute)
+	s.st.Jobs[job.ID] = job
+	err = s.saveLocked()
+	s.mu.Unlock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	jobs, err := s.PullJobs("ir-node", "tok-ir")
+	if err != nil || len(jobs) != 0 {
+		t.Fatalf("expired inspect was delivered: %+v %v", jobs, err)
+	}
+	s, err = OpenStore(path)
+	if err != nil || s.st.Jobs[job.ID].Status != "failed" {
+		t.Fatalf("inspect expiration lost on restart: %v", err)
+	}
+	found := false
+	for _, intent := range s.PendingSecurityAuditIntents() {
+		if intent.Action == "public_ingress.inspect.expire" && intent.Details["job_id"] == job.ID {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("expired inspect poll lacks its own audit action")
+	}
 }

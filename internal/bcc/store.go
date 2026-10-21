@@ -568,7 +568,9 @@ func (s *Store) pullJobs(nodeID,token string,prepare func([]Job)error) ([]Job,er
 			message:="read-only ingress observation expired before acknowledgement"
 			if j.Status=="queued"{message="read-only ingress observation expired before dispatch"}
 			j.Status="failed";j.Message=message;j.UpdatedAt=now;s.st.Jobs[id]=j
-			if _,err:=s.enqueueSecurityAuditLocked(AuditEntry{Timestamp:now,Actor:"bcc",Action:"public_ingress.preflight.expire",Target:j.Params["tunnel_id"],Outcome:"expired",Details:map[string]any{"job_id":j.ID,"ir_node":j.NodeID,"public_port":j.Params["public_port"]}});err!=nil{s.st=before;return nil,err}
+			action:="public_ingress.preflight.expire"
+			if j.Type=="public_ingress_inspect"{action="public_ingress.inspect.expire"}
+			if _,err:=s.enqueueSecurityAuditLocked(AuditEntry{Timestamp:now,Actor:"bcc",Action:action,Target:j.Params["tunnel_id"],Outcome:"expired",Details:map[string]any{"job_id":j.ID,"ir_node":j.NodeID,"public_port":j.Params["public_port"]}});err!=nil{s.st=before;return nil,err}
 			continue
 		}
 		if j.Status!="queued"{continue}
@@ -603,13 +605,15 @@ func (s *Store) AckJobOutput(nodeID,token,jobID,status,message,output string) er
 		now := time.Now().UTC()
 		j.Status, j.Message, j.UpdatedAt = "failed", "read-only ingress observation expired before acknowledgement", now
 		s.st.Jobs[jobID] = j
+		action := "public_ingress.preflight.expire"
+		if j.Type == "public_ingress_inspect" { action = "public_ingress.inspect.expire" }
 		if _, err := s.enqueueSecurityAuditLocked(AuditEntry{
-			Timestamp: now, Actor: "bcc", Action: "public_ingress.preflight.expire",
+			Timestamp: now, Actor: "bcc", Action: action,
 			Target: j.Params["tunnel_id"], Outcome: "expired",
 			Details: map[string]any{"job_id": j.ID, "ir_node": j.NodeID, "public_port": j.Params["public_port"]},
 		}); err != nil { s.st = before; return err }
 		if err := s.saveLocked(); err != nil { s.st = before; return err }
-		return errors.New("read-only preflight expired before acknowledgement")
+		return errors.New("read-only ingress observation expired before acknowledgement")
 	}
 	if status=="succeeded"&&j.Type=="public_ingress_preflight"{if err:=validatePublicIngressPreflightReceipt(output,j.Params);err!=nil{return err}}
 	if status=="succeeded"&&j.Type=="public_ingress_inspect"{if err:=validatePublicIngressInspectSnapshot(output,j.ID,j.NodeID,j.Params);err!=nil{return err}}

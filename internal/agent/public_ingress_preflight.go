@@ -210,12 +210,6 @@ func (a *Agent) publicIngressPreflight(ctx context.Context, j agentjob.Job) (str
 	if err != nil {
 		return "", err
 	}
-	if j.Action == agentjob.ActionPublicIngressInspect {
-		// Echo signed intent for correlation only; no manifest, process or
-		// firewall owner verification has occurred. BCC MUST NOT use this
-		// snapshot to transition a resource into APPLIED.
-		return marshalPublicIngressInspectSnapshot(j, ev)
-	}
 	b, err := json.Marshal(ev)
 	return string(b), err
 }

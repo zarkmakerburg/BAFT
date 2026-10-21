@@ -40,7 +40,7 @@ func inspectSignedIngressManifest(store *ingressmanifest.Store, job agentjob.Job
 		return ingressManifestEvidence{}, err
 	}
 	generation, err := strconv.ParseUint(job.Params["generation"], 10, 64)
-	if err != nil || expected.Generation != generation || expected.TunnelID != job.Params["tunnel_id"] || expected.ManifestSHA256 != job.Params["manifest_digest"] {
+	if err != nil || expected.Generation != generation || expected.TunnelID != job.Params["tunnel_id"] || expected.ManifestSHA256 != job.Params["manifest_digest"] || expected.InstanceID == "default" {
 		return ingressManifestEvidence{}, errors.New("signed ingress intent differs from independently retained manifest proof")
 	}
 	return inspectPreparedIngressManifest(store, expected)

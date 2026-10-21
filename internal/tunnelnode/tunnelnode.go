@@ -173,11 +173,14 @@ func (m *Manager) ForInstance(instance, metricsListen string) (*Manager, error) 
 		}
 		return nil, errors.New("tunnelnode: cannot rescope an instance manager")
 	}
+	// A sibling must never silently inherit the primary metrics socket:
+	// doing so makes an otherwise isolated service fail to bind at startup.
+	if metricsListen == "" || metricsListen == m.MetricsListen {
+		return nil, errors.New("tunnelnode: independent instance requires an explicit distinct metrics listener")
+	}
 	env := m.Env
 	env.Instance = instance
-	if metricsListen != "" {
-		env.MetricsListen = metricsListen
-	}
+	env.MetricsListen = metricsListen
 	return New(env)
 }
 

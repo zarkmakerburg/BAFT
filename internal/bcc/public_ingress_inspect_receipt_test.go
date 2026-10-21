@@ -103,29 +103,21 @@ func TestInspectAckRejectsInvalidEvidenceWithoutCompletingJob(t *testing.T) {
 }
 
 func TestInspectAckValidReadOnlySnapshotPersistsWithoutReadiness(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "bcc.db")
-	s, err := OpenStore(path)
+	s, spec, _ := inspectOperationStore(t)
+	path := s.Path()
+	job, err := s.CreatePublicIngressInspect(spec.TunnelID, time.Now(), ingressAudit())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.UpsertNode(Node{ID: "ir-node", Address: "127.0.0.1:22000", Role: "foreign"}, "tok-ir"); err != nil {
-		t.Fatal(err)
-	}
-	params := map[string]string{"tunnel_id": "tun-test", "public_port": "2053", "local_target": "127.0.0.1:1443", "generation": "7", "manifest_digest": strings.Repeat("a", 64), "listener_id": "baft-listener-7", "firewall_id": "baft-firewall-7"}
-	s.mu.Lock()
-	job := s.newJobLocked(Job{Type: "public_ingress_inspect", NodeID: "ir-node", Params: params})
-	err = s.saveLocked()
-	s.mu.Unlock()
-	if err != nil {
-		t.Fatal(err)
-	}
-	preflight := map[string]any{"schema_version": 1, "tunnel_id": "tun-test", "public_port": 2053, "local_target": "127.0.0.1:1443", "scope": "agent_network_namespace_snapshot", "socket_inventory_complete": true, "public_port_state": "not_observed", "public_listener_count": 0, "target_listener_observed": false, "ownership_verified": false, "firewall_tools": []string{}, "firewall_policy_verified": false, "ready_to_apply": false, "limitations": []string{"Ownership unverified"}}
-	envelope := map[string]any{"preflight": preflight, "job_id": job.ID, "node_id": "ir-node", "generation": "7", "manifest_digest": params["manifest_digest"], "listener_id": params["listener_id"], "firewall_id": params["firewall_id"], "live_ownership_verified": false, "ready_to_apply": false}
+	params := job.Params
+
+	preflight := map[string]any{"schema_version": 1, "tunnel_id": spec.TunnelID, "public_port": spec.PublicPort, "local_target": spec.LocalTarget, "scope": "agent_network_namespace_snapshot", "socket_inventory_complete": true, "public_port_state": "not_observed", "public_listener_count": 0, "target_listener_observed": false, "ownership_verified": false, "firewall_tools": []string{}, "firewall_policy_verified": false, "ready_to_apply": false, "limitations": []string{"Ownership unverified"}}
+	envelope := map[string]any{"preflight": preflight, "job_id": job.ID, "node_id": spec.IRNode, "generation": params["generation"], "manifest_digest": params["manifest_digest"], "listener_id": params["listener_id"], "firewall_id": params["firewall_id"], "live_ownership_verified": false, "ready_to_apply": false}
 	raw, err := json.Marshal(envelope)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.AckJobOutput("ir-node", "tok-ir", job.ID, "succeeded", "read-only inspect", string(raw)); err != nil {
+	if err := s.AckJobOutput(spec.IRNode, "tok-src", job.ID, "succeeded", "read-only inspect", string(raw)); err != nil {
 		t.Fatal(err)
 	}
 	reopened, err := OpenStore(path)
@@ -136,10 +128,10 @@ func TestInspectAckValidReadOnlySnapshotPersistsWithoutReadiness(t *testing.T) {
 	if persisted.Status != "succeeded" || persisted.Output != string(raw) {
 		t.Fatalf("receipt not persisted: %+v", persisted)
 	}
-	if err := reopened.AckJobOutput("ir-node", "tok-ir", job.ID, "succeeded", "replay", string(raw)); err == nil {
+	if err := reopened.AckJobOutput(spec.IRNode, "tok-src", job.ID, "succeeded", "replay", string(raw)); err == nil {
 		t.Fatal("duplicate ACK accepted")
 	}
-	if err := validatePublicIngressInspectSnapshot(persisted.Output, job.ID, "ir-node", params); err != nil {
+	if err := validatePublicIngressInspectSnapshot(persisted.Output, job.ID, spec.IRNode, params); err != nil {
 		t.Fatal(err)
 	}
 }

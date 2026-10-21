@@ -188,3 +188,17 @@ func TestPublicIngressInspectRejectsDriftedManifestProofBeforeJob(t *testing.T) 
 		t.Fatalf("rejected inspection persisted jobs: %+v", jobs)
 	}
 }
+
+func TestPublicIngressInspectAckRejectsDriftedOperation(t *testing.T) {
+	s, spec, _ := inspectOperationStore(t)
+	job, err := s.CreatePublicIngressInspect(spec.TunnelID, time.Now(), ingressAudit())
+	if err != nil {
+		t.Fatal(err)
+	}
+	op := s.st.PublicIngressOperations[spec.TunnelID]
+	op.Proof.Generation++
+	s.st.PublicIngressOperations[spec.TunnelID] = op
+	if err := validateCurrentPublicIngressInspectIntent(s.st, job); err == nil {
+		t.Fatal("changed operation generation accepted")
+	}
+}

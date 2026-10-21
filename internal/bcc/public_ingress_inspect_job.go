@@ -82,3 +82,25 @@ func (s *Store) CreatePublicIngressInspect(tunnelID string, now time.Time, audit
 	}
 	return job, nil
 }
+
+// validateCurrentPublicIngressInspectIntent fences late ACKs against a changed
+// durable operation. Receipt echo alone cannot establish current authority.
+func validateCurrentPublicIngressInspectIntent(st state, j Job) error {
+	op, ok := st.PublicIngressOperations[j.Params["tunnel_id"]]
+	if !ok || op.Status != PublicIngressPending || op.Spec.IRNode != j.NodeID || op.Spec.TunnelID != j.Params["tunnel_id"] || strconv.Itoa(op.Spec.PublicPort) != j.Params["public_port"] || op.Spec.LocalTarget != j.Params["local_target"] || strconv.FormatUint(op.Proof.Generation, 10) != j.Params["generation"] || op.Proof.ManifestDigest != j.Params["manifest_digest"] || op.Proof.ListenerID != j.Params["listener_id"] || op.Proof.FirewallID != j.Params["firewall_id"] {
+		return errors.New("ingress inspection ACK no longer matches durable operation")
+	}
+	reservation, ok := st.PublicIngressReservations[op.Spec.TunnelID]
+	if !ok || reservation.Spec != op.Spec {
+		return errors.New("ingress inspection ACK no longer matches reservation")
+	}
+	tunnel, ok := st.Tunnels[op.Spec.TunnelID]
+	if !ok || tunnel.IRNode != op.Spec.IRNode || tunnel.RouteListen != op.Spec.LocalTarget || !tunnelKeepsPorts(tunnel) {
+		return errors.New("ingress inspection ACK no longer matches tunnel")
+	}
+	preview, err := ingressmanifest.Preview(publicIngressManifestSpec(op.Spec, tunnel.InstanceID, op.Proof.Generation))
+	if err != nil || preview.ManifestSHA256 != op.Proof.ManifestDigest {
+		return errors.New("ingress inspection ACK uses stale canonical manifest")
+	}
+	return nil
+}

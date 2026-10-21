@@ -618,6 +618,7 @@ func (s *Store) AckJobOutput(nodeID,token,jobID,status,message,output string) er
 	}
 	if status=="succeeded"&&j.Type=="public_ingress_preflight"{if err:=validatePublicIngressPreflightReceipt(output,j.Params);err!=nil{return err}}
 	if status=="succeeded"&&j.Type=="public_ingress_inspect"{if err:=validatePublicIngressInspectSnapshot(output,j.ID,j.NodeID,j.Params);err!=nil{return err}}
+	if status=="succeeded"&&j.Type=="public_ingress_inspect"{if err:=validateCurrentPublicIngressInspectIntent(s.st,j);err!=nil{return err}}
 	previous:=j
 	j.Status=status;j.Message=message;j.UpdatedAt=time.Now().UTC()
 	if status=="succeeded"{j.Output=output}

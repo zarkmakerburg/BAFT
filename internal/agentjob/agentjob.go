@@ -141,7 +141,7 @@ var paramRules = map[string]map[string]*regexp.Regexp{
 	ActionTunnelRollback:         {"tunnel_id": tunnelIDRe},
 	ActionTunnelRetire:           {"tunnel_id": tunnelIDRe, "generation": epochRe, "config_sha256": sha256Re, "unit_sha256": sha256Re, "marker_sha256": sha256Re},
 	ActionPublicIngressPreflight: {"tunnel_id": tunnelIDRe, "public_port": portRe, "local_target": loopbackListenR},
-	ActionPublicIngressInspect: {"tunnel_id": tunnelIDRe, "public_port": portRe, "local_target": loopbackListenR, "generation": epochRe, "manifest_digest": sha256Re, "listener_id": idRe, "firewall_id": idRe},
+	ActionPublicIngressInspect:   {"tunnel_id": tunnelIDRe, "public_port": portRe, "local_target": loopbackListenR, "generation": epochRe, "manifest_digest": sha256Re, "listener_id": idRe, "firewall_id": idRe},
 
 	ActionCertPrepareEX:  {"tunnel_id": tunnelIDRe, "rotation_id": tunnelIDRe, "epoch": epochRe},
 	ActionCertTrustIR:    {"tunnel_id": tunnelIDRe, "rotation_id": tunnelIDRe, "epoch": epochRe, "ca_der": derB64Re, "ca_sha256": sha256Re},

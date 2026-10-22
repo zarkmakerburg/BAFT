@@ -260,3 +260,23 @@ func TestBeginRejectsMalformedActiveMarker(t *testing.T) {
 		}
 	}
 }
+
+func TestBeginRefusesUnfinishedTxnAfterActiveMarkerLoss(t *testing.T) {
+	n := newNode(t)
+	scoped, err := n.Manager.ForInstance("alpha", "127.0.0.1:9301")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, phase := range []string{PhasePrepared, PhaseCommitted} {
+		txn := Txn{Version: 1, ID: "old-pair", Role: RoleEX, Phase: phase}
+		if err := scoped.writeTxn(txn); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := scoped.begin("fresh-pair", RoleIR); err == nil {
+			t.Fatalf("accepted new transaction after lost marker with %s transaction", phase)
+		}
+		if _, err := os.Stat(scoped.txnPath("fresh-pair")); !os.IsNotExist(err) {
+			t.Fatalf("new transaction created despite stale state: %v", err)
+		}
+	}
+}

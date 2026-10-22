@@ -393,6 +393,27 @@ func (m *Manager) begin(id, role string) (Txn, error) {
 			return Txn{}, fmt.Errorf("tunnel change %s is still in progress on this node", cur)
 		}
 	}
+	// After a crash the active marker can be lost while a prepared or
+	// committed transaction survives. Refuse a second change until the old
+	// transaction is reconciled, even when its ID differs from the new ID.
+	if cur == "" {
+		entries, err := os.ReadDir(filepath.Join(m.StateDir, "tunnels"))
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return Txn{}, fmt.Errorf("inspect stored tunnel transactions: %w", err)
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() || !idRe.MatchString(entry.Name()) {
+				continue
+			}
+			old, err := m.readTxn(entry.Name())
+			if err != nil {
+				return Txn{}, fmt.Errorf("stale or unreadable transaction %s needs reconciliation: %w", entry.Name(), err)
+			}
+			if old.Phase == PhasePrepared || old.Phase == PhaseCommitted {
+				return Txn{}, fmt.Errorf("unfinished tunnel change %s needs reconciliation", old.ID)
+			}
+		}
+	}
 	if rid := m.rotationInProgress(); rid != "" {
 		return Txn{}, fmt.Errorf("certificate rotation %s is in progress on this node", rid)
 	}

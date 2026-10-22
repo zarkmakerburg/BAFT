@@ -18,7 +18,7 @@ func TestLABJournalPortOwnershipAcrossInstances(t *testing.T) {
 	if _, _, err := RecoverLabJournal([]MutationRecord{a, b}); !errors.Is(err, ErrConflict) {
 		t.Fatalf("restart collision accepted: %v", err)
 	}
-	for _, phase := range []MutationPhase{PhaseListenerBound, PhaseFirewallInstalled, PhaseVerified, PhaseRetired} {
+	for _, phase := range []MutationPhase{PhaseListenerBound, PhaseFirewallInstalled, PhaseVerified, PhaseRetireIntent, PhaseRetired} {
 		a.Phase = phase
 		if err := j.Advance(a); err != nil {
 			t.Fatal(err)

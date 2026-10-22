@@ -202,7 +202,7 @@ func (t *LabTransaction) Retire(endpoint string, proof ingressmanifest.Proof) er
 		if err != nil {
 			return err
 		}
-		if !found || current.Port != uint16(n) || current.Owner != proof || current.Phase != PhaseVerified {
+		if !found || current.Port != uint16(n) || current.Owner != proof || (current.Phase != PhaseVerified && current.Phase != PhaseRetireIntent) {
 			return ErrUnverified
 		}
 	}
@@ -212,6 +212,11 @@ func (t *LabTransaction) Retire(endpoint string, proof ingressmanifest.Proof) er
 	}
 	if !ok {
 		return ErrFirewallUnverified
+	}
+	if t.Journal != nil {
+		if err := t.Journal.Advance(MutationRecord{Port: uint16(n), Owner: proof, Phase: PhaseRetireIntent}); err != nil {
+			return err
+		}
 	}
 	// Fail closed: never remove a firewall rule until exact-owner socket retire succeeds.
 	if err := t.Runtime.Retire(endpoint, proof); err != nil {

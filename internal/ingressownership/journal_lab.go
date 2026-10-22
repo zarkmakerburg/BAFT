@@ -16,6 +16,7 @@ const (
 	PhaseListenerBound     MutationPhase = "listener_bound"
 	PhaseFirewallInstalled MutationPhase = "firewall_installed"
 	PhaseVerified          MutationPhase = "verified"
+	PhaseRetireIntent      MutationPhase = "retire_intent"
 	PhaseRetired           MutationPhase = "retired"
 )
 
@@ -84,7 +85,7 @@ func (j *LabJournal) Advance(next MutationRecord) error {
 	if next.Phase == old.Phase {
 		return nil
 	}
-	allowed := map[MutationPhase]MutationPhase{PhaseIntent: PhaseListenerBound, PhaseListenerBound: PhaseFirewallInstalled, PhaseFirewallInstalled: PhaseVerified, PhaseVerified: PhaseRetired}
+	allowed := map[MutationPhase]MutationPhase{PhaseIntent: PhaseListenerBound, PhaseListenerBound: PhaseFirewallInstalled, PhaseFirewallInstalled: PhaseVerified, PhaseVerified: PhaseRetireIntent, PhaseRetireIntent: PhaseRetired}
 	if allowed[old.Phase] != next.Phase {
 		return errors.Join(ErrInvalid, ErrUnverified)
 	}

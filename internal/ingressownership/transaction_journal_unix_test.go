@@ -52,6 +52,19 @@ func TestJournaledLabTransactionPersistsBeforeMutation(t *testing.T) {
 	if err != nil || len(got.NeedsReconciliation) != 1 || got.NeedsReconciliation[0].Phase != PhaseVerified {
 		t.Fatalf("active record was adopted or lost: %+v %v", got, err)
 	}
+	j.fault = func(point string) error {
+		if point == "before_record" {
+			return errors.New("injected retire-intent failure")
+		}
+		return nil
+	}
+	if err := tx.Retire(spec.Config.Listen, owner); err == nil {
+		t.Fatal("retired without durable retire intent")
+	}
+	if err := tx.Apply(context.Background(), spec, owner); err != nil {
+		t.Fatalf("failed retire intent disrupted live owner: %v", err)
+	}
+	j.fault = nil
 	if err := tx.Retire(spec.Config.Listen, owner); err != nil {
 		t.Fatal(err)
 	}

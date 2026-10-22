@@ -37,7 +37,7 @@ func RecoverLabJournal(records []MutationRecord) (*LabJournal, JournalRecovery, 
 			ports[r.Port] = k
 		}
 		switch r.Phase {
-		case PhaseIntent, PhaseListenerBound, PhaseFirewallInstalled, PhaseVerified, PhaseRetired:
+		case PhaseIntent, PhaseListenerBound, PhaseFirewallInstalled, PhaseVerified, PhaseRetireIntent, PhaseRetired:
 		default:
 			return nil, JournalRecovery{}, ErrInvalid
 		}

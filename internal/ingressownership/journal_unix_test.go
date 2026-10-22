@@ -91,7 +91,7 @@ func TestDurableJournalConcurrentWritersAndFences(t *testing.T) {
 	if err := a.Advance(MutationRecord{Port: 54619, Owner: proof("durable", 2), Phase: PhaseIntent}); !errors.Is(err, ErrConflict) {
 		t.Fatalf("accepted generation jump before retirement: %v", err)
 	}
-	for _, phase := range []MutationPhase{PhaseListenerBound, PhaseFirewallInstalled, PhaseVerified, PhaseRetired} {
+	for _, phase := range []MutationPhase{PhaseListenerBound, PhaseFirewallInstalled, PhaseVerified, PhaseRetireIntent, PhaseRetired} {
 		record.Phase = phase
 		if err := a.Advance(record); err != nil {
 			t.Fatalf("phase %s: %v", phase, err)

@@ -21,7 +21,7 @@ func TestLABJournalTransitionsAndGenerationFence(t *testing.T) {
 	if err := j.Advance(MutationRecord{Port: 443, Owner: p, Phase: PhaseVerified}); err == nil {
 		t.Fatal("skipped verification phases")
 	}
-	for _, phase := range []MutationPhase{PhaseListenerBound, PhaseFirewallInstalled, PhaseVerified, PhaseRetired} {
+	for _, phase := range []MutationPhase{PhaseListenerBound, PhaseFirewallInstalled, PhaseVerified, PhaseRetireIntent, PhaseRetired} {
 		record.Phase = phase
 		if err := j.Advance(record); err != nil {
 			t.Fatalf("%s: %v", phase, err)

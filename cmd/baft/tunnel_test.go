@@ -59,6 +59,27 @@ func TestTerminalPairingCodeRoundTripWithoutBCC(t *testing.T) {
 		status := runTunnelCLI(ctx, args, &out, &errors)
 		return strings.TrimSpace(out.String()), status, errors.String()
 	}
+	// Simulate an installed primary transport on both hosts. Scoped CLI
+	// operations must preserve all primary files byte-for-byte.
+	primaries := map[string][]byte{}
+	for _, role := range []string{"ex", "ir"} {
+		home := filepath.Join(dir, role)
+		for rel, body := range map[string]string{
+			"etc/baft.yaml":       "primary-live-config\n",
+			"etc/noise-key.json":  "primary-private-key\n",
+			"units/baft.service":  "primary-systemd-unit\n",
+			"state/primary-state": "primary-live-state\n",
+		} {
+			path := filepath.Join(home, rel)
+			if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, []byte(body), 0600); err != nil {
+				t.Fatal(err)
+			}
+			primaries[path] = []byte(body)
+		}
+	}
 	code, status, detail := invoke("ex", "ex-code", "--address", "127.0.0.1", "--port", "8443", "--target", "127.0.0.1:1443", "--route-id", "route-1")
 	if status != 0 || !strings.HasPrefix(code, "BAFTPAIR1:") {
 		t.Fatalf("EX code status=%d detail=%s", status, detail)
@@ -80,6 +101,12 @@ func TestTerminalPairingCodeRoundTripWithoutBCC(t *testing.T) {
 		claim := filepath.Join(dir, role, "etc", ".metrics-claims", "9321")
 		if _, err := os.Stat(claim); !os.IsNotExist(err) {
 			t.Fatalf("%s rollback did not release owned metrics claim: %v", role, err)
+		}
+	}
+	for path, want := range primaries {
+		got, err := os.ReadFile(path)
+		if err != nil || !bytes.Equal(got, want) {
+			t.Fatalf("primary transport mutated: %s (%v)", path, err)
 		}
 	}
 	calls, err := os.ReadFile(serviceLog)

@@ -110,6 +110,12 @@ func (t *LabTransaction) Apply(ctx context.Context, spec ingressmanifest.Spec, p
 		retireErr := t.Runtime.Retire(spec.Config.Listen, proof)
 		return errors.Join(ErrStopped, removeErr, retireErr)
 	}
+	// Fence a cancellation that raced with the final listener-health check.
+	if err := ctx.Err(); err != nil {
+		removeErr := t.Firewall.Remove(uint16(n), proof)
+		retireErr := t.Runtime.Retire(spec.Config.Listen, proof)
+		return errors.Join(err, removeErr, retireErr)
+	}
 	return nil
 }
 func (t *LabTransaction) Retire(endpoint string, proof ingressmanifest.Proof) error {

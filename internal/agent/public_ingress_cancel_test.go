@@ -90,3 +90,52 @@ func TestIngressCancelRejectsWrongProofBeforeWriting(t *testing.T) {
 		t.Fatalf("wrong digest wrote files: %+v %v", entries, err)
 	}
 }
+
+// A cancellation received before the corresponding prepare must permanently
+// fence that signed generation, even when the delayed prepare is replayed.
+func TestIngressCancelBeforeDelayedSignedPrepareCannotResurrect(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Chmod(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	prepare, expected := prepareJob(t)
+	cancel := prepare
+	cancel.JobID = "cancel-before-prepare"
+	cancel.Action = agentjob.ActionPublicIngressCancel
+	pub, key, err := release.GenerateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := &Agent{cfg: Config{IngressManifestDir: dir}}
+	for _, j := range []agentjob.Job{cancel, prepare, cancel} {
+		env, err := agentjob.Sign(key, j)
+		if err != nil {
+			t.Fatal(err)
+		}
+		verified, err := (agentjob.Verifier{BCCKey: pub, NodeID: j.NodeID}).Verify(env, time.Now())
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _, err = a.executeFull(context.Background(), verified)
+		if j.Action == agentjob.ActionPublicIngressPrepare {
+			if err == nil {
+				t.Fatal("delayed signed prepare resurrected cancelled generation")
+			}
+		} else if err != nil {
+			t.Fatalf("cancellation failed: %v", err)
+		}
+	}
+	store, err := ingressmanifest.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	proof, err := ingressmanifest.PreviewCancellation(ingressmanifest.Spec{TunnelID: "tun-a", Generation: 1, Config: ingressmanifest.Config{Listen: "0.0.0.0:54619", Target: "127.0.0.1:1443", MaxClients: 128, DialTimeoutMS: 3000}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	inspection, err := store.Inspect(proof)
+	if err != nil || inspection.PreparedBytesMatch || inspection.Manifest.Phase != ingressmanifest.PhaseCancelled {
+		t.Fatalf("fence not durable: %+v %v (original %+v)", inspection, err, expected)
+	}
+}

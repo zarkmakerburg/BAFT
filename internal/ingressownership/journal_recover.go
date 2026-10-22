@@ -18,6 +18,7 @@ type JournalRecovery struct {
 func RecoverLabJournal(records []MutationRecord) (*LabJournal, JournalRecovery, error) {
 	journal := new(LabJournal)
 	seen := make(map[string]bool, len(records))
+	ports := make(map[uint16]string, len(records))
 	result := JournalRecovery{}
 	for _, r := range records {
 		if _, err := PlanIngressRule(r.Port, r.Owner); err != nil {
@@ -28,6 +29,12 @@ func RecoverLabJournal(records []MutationRecord) (*LabJournal, JournalRecovery, 
 			return nil, JournalRecovery{}, ErrConflict
 		}
 		seen[k] = true
+		if r.Phase != PhaseRetired {
+			if prior, exists := ports[r.Port]; exists && prior != k {
+				return nil, JournalRecovery{}, ErrConflict
+			}
+			ports[r.Port] = k
+		}
 		switch r.Phase {
 		case PhaseIntent, PhaseListenerBound, PhaseFirewallInstalled, PhaseVerified, PhaseRetired:
 		default:

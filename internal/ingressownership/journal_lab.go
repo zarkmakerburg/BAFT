@@ -45,6 +45,13 @@ func (j *LabJournal) Advance(next MutationRecord) error {
 		j.entries = make(map[string]MutationRecord)
 	}
 	key := journalKey(next.Owner)
+	// A different owner may not claim a live or uncertain public port.
+	// Retired entries no longer reserve the port.
+	for otherKey, entry := range j.entries {
+		if otherKey != key && entry.Port == next.Port && entry.Phase != PhaseRetired {
+			return ErrConflict
+		}
+	}
 	old, ok := j.entries[key]
 	if !ok {
 		if next.Phase != PhaseIntent {

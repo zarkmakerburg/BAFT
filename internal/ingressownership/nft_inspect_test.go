@@ -76,3 +76,16 @@ func TestNFTRejectsInjectedMatchExpressions(t *testing.T) {
 		}
 	}
 }
+
+func TestNFTRejectsOwnedTagOutsideManagedChain(t *testing.T) {
+	plan, err := PlanIngressRule(54619, proof("spoofed-location", 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, location := range []string{`"table":"unrelated","chain":"ingress"`, `"table":"baft","chain":"other"`, `"family":"ip","table":"baft","chain":"ingress"`} {
+		raw := `{"nftables":[{"rule":{` + location + `,"handle":27,"comment":"` + plan.Tag + `"}}]}`
+		if _, err := ParseNFTIngressRules([]byte(raw)); !errors.Is(err, ErrFirewallUnverified) {
+			t.Fatalf("accepted owner tag outside managed chain: %s %v", location, err)
+		}
+	}
+}

@@ -52,6 +52,11 @@ func ParseNFTIngressRules(raw []byte) ([]FirewallObservation, error) {
 			return nil, ErrFirewallUnverified
 		}
 		if rule.Family != "inet" || rule.Table != "baft" || rule.Chain != "ingress" {
+			// An owner tag outside the sole managed chain is ambiguous
+			// ownership, not an unrelated rule to silently ignore.
+			if strings.HasPrefix(rule.Comment, "baft-ingress-") {
+				return nil, ErrFirewallUnverified
+			}
 			continue
 		}
 		// Only the exact, minimal nft JSON shape is supported: a TCP dport

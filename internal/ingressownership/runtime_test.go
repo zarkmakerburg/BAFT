@@ -280,3 +280,24 @@ func TestRuntimeCancelledReplayCannotAcknowledgeExistingSession(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestRuntimeZeroValueExactOwnerLifecycle(t *testing.T) {
+	var r Runtime
+	spec := testSpec(t, "zero-runtime")
+	owner, err := ingressmanifest.Preview(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Apply(context.Background(), spec, owner); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Retire(spec.Config.Listen, proof("foreign", 1)); !errors.Is(err, ErrUnknown) {
+		t.Fatalf("foreign retire: %v", err)
+	}
+	if err := r.Retire(spec.Config.Listen, owner); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Apply(context.Background(), spec, owner); !errors.Is(err, ErrStale) {
+		t.Fatalf("stale replay: %v", err)
+	}
+}

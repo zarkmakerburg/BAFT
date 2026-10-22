@@ -72,6 +72,13 @@ func (r *Runtime) Apply(parent context.Context, spec ingressmanifest.Spec, proof
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	// A zero-value LAB runtime must retain exact-owner generation fences.
+	if r.registry == nil {
+		r.registry = New()
+	}
+	if r.sessions == nil {
+		r.sessions = make(map[string]*session)
+	}
 	if s, ok := r.sessions[spec.Config.Listen]; ok {
 		if s.proof == proof && !s.retiring {
 			select {

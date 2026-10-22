@@ -2,8 +2,9 @@ package ingressownership
 
 import (
 	"errors"
-	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
 	"sync"
+
+	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
 )
 
 // MutationPhase is the LAB journal state machine. A phase alone never

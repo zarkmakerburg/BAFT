@@ -1,8 +1,9 @@
 package ingressownership
 
 import (
-	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
 	"sort"
+
+	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
 )
 
 // JournalRecovery is a fail-closed, data-only restart assessment. An active

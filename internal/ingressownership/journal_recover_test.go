@@ -26,3 +26,12 @@ func TestLABJournalRestartRequiresIndependentReconciliation(t *testing.T) {
 		t.Fatalf("invalid phase accepted: %v", err)
 	}
 }
+
+func TestRecoveryRejectsPrematureFirewallHandle(t *testing.T) {
+	for _, phase := range []MutationPhase{PhaseIntent, PhaseListenerBound} {
+		record := MutationRecord{Port: 443, Owner: proof("premature-handle", 1), Phase: phase, FirewallHandle: 42}
+		if _, _, err := RecoverLabJournal([]MutationRecord{record}); !errors.Is(err, ErrInvalid) {
+			t.Fatalf("phase %s accepted impossible handle: %v", phase, err)
+		}
+	}
+}

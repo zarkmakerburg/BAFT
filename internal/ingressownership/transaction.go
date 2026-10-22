@@ -65,6 +65,11 @@ func (t *LabTransaction) Apply(ctx context.Context, spec ingressmanifest.Spec, p
 	if err := t.Runtime.Apply(ctx, spec, proof); err != nil {
 		return err
 	}
+	// A cancelled parent must never result in a success ACK after firewall setup.
+	if err := ctx.Err(); err != nil {
+		retireErr := t.Runtime.Retire(spec.Config.Listen, proof)
+		return errors.Join(err, retireErr)
+	}
 	if err := t.Firewall.Install(uint16(n), proof); err != nil {
 		retireErr := t.Runtime.Retire(spec.Config.Listen, proof)
 		if retireErr != nil {
@@ -77,6 +82,28 @@ func (t *LabTransaction) Apply(ctx context.Context, spec ingressmanifest.Spec, p
 		removeErr := t.Firewall.Remove(uint16(n), proof)
 		retireErr := t.Runtime.Retire(spec.Config.Listen, proof)
 		return errors.Join(ErrFirewallUnverified, err, removeErr, retireErr)
+	}
+	if err := ctx.Err(); err != nil {
+		removeErr := t.Firewall.Remove(uint16(n), proof)
+		retireErr := t.Runtime.Retire(spec.Config.Listen, proof)
+		return errors.Join(err, removeErr, retireErr)
+	}
+	// Detect a listener that stopped while the firewall rule was installed.
+	t.Runtime.mu.Lock()
+	session := t.Runtime.sessions[spec.Config.Listen]
+	stopped := false
+	if session != nil {
+		select {
+		case <-session.done:
+			stopped = true
+		default:
+		}
+	}
+	t.Runtime.mu.Unlock()
+	if stopped {
+		removeErr := t.Firewall.Remove(uint16(n), proof)
+		retireErr := t.Runtime.Retire(spec.Config.Listen, proof)
+		return errors.Join(ErrStopped, removeErr, retireErr)
 	}
 	return nil
 }

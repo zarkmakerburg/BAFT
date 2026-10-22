@@ -90,3 +90,26 @@ func TestLabTransactionCanonicalAlias(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestLabTransactionCancelledParentDoesNotLeaveFirewall(t *testing.T) {
+	tx := &LabTransaction{Runtime: NewRuntime(), Firewall: NewMemoryFirewall()}
+	s := testSpec(t, "tx-cancel")
+	p, err := ingressmanifest.Preview(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err = tx.Apply(ctx, s, p); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancel accepted: %v", err)
+	}
+	if len(tx.Runtime.sessions) != 0 {
+		t.Fatal("cancelled session leaked")
+	}
+	_, port, _ := net.SplitHostPort(s.Config.Listen)
+	n, _ := strconv.Atoi(port)
+	ok, err := tx.Firewall.Verify(uint16(n), p)
+	if err != nil || ok {
+		t.Fatalf("cancelled firewall leaked: %v %v", ok, err)
+	}
+}

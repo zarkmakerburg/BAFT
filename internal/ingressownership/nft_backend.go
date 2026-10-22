@@ -105,6 +105,9 @@ func (b *NFTLabBackend) inspect(ctx context.Context) ([]FirewallObservation, err
 	if b == nil || b.Runner == nil {
 		return nil, ErrFirewallUnverified
 	}
+	if err := ctx.Err(); err != nil {
+		return nil, errors.Join(ErrFirewallUnverified, err)
+	}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	raw, err := b.Runner.ReadRuleset(ctx)
@@ -152,6 +155,9 @@ func (b *NFTLabBackend) Install(ctx context.Context, plan RulePlan) (FirewallObs
 			return ReconcileRuleObservation(plan, before)
 		}
 	}
+	if err := ctx.Err(); err != nil {
+		return FirewallObservation{}, errors.Join(ErrFirewallUnverified, err)
+	}
 	if err := b.Runner.Run(ctx, "add", "rule", "inet", "baft", "ingress", "tcp", "dport", strconv.Itoa(int(plan.Port)), "accept", "comment", plan.Tag); err != nil {
 		return FirewallObservation{}, err
 	}
@@ -183,6 +189,9 @@ func (b *NFTLabBackend) Remove(ctx context.Context, plan RulePlan, expectedHandl
 		if err != nil || match.Handle != expectedHandle {
 			return ErrFirewallUnverified
 		}
+	}
+	if err := ctx.Err(); err != nil {
+		return errors.Join(ErrFirewallUnverified, err)
 	}
 	if err := b.Runner.Run(ctx, "delete", "rule", "inet", "baft", "ingress", "handle", strconv.FormatUint(expectedHandle, 10)); err != nil {
 		return err

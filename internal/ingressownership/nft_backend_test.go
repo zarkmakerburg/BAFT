@@ -18,6 +18,8 @@ type nftLabFake struct {
 	commands    []string
 	failRead    bool
 	failCommand bool
+	partialAdd  bool
+	partialDel  bool
 	swapOnRead  int
 }
 
@@ -49,12 +51,53 @@ func (f *nftLabFake) Run(_ context.Context, args ...string) error {
 		f.port = uint16(port)
 		f.tag = args[10]
 		f.ruleHandle = 42
+		if f.partialAdd {
+			f.partialAdd = false
+			return errors.New("connection lost after kernel accepted add")
+		}
 	} else if len(args) > 1 && args[0] == "delete" {
 		f.ruleHandle = 0
+		if f.partialDel {
+			return errors.New("connection lost after kernel accepted delete")
+		}
 	} else {
 		return errors.New("unexpected nft operation")
 	}
 	return nil
+}
+
+func TestNFTLabBackendPartialCommandRetryDoesNotDuplicateOrClaimRemoval(t *testing.T) {
+	plan, _ := PlanIngressRule(54619, proof("nft-partial", 1))
+	fake := &nftLabFake{chainHandle: 7, partialAdd: true}
+	backend := &NFTLabBackend{Runner: fake, ExpectedChainHandle: 7}
+	if _, err := backend.Install(context.Background(), plan); err == nil || fake.ruleHandle == 0 {
+		t.Fatalf("lost partial add uncertainty: %v", err)
+	}
+	if observed, err := backend.Install(context.Background(), plan); err != nil || observed.Handle != 42 || len(fake.commands) != 1 {
+		t.Fatalf("partial add retry duplicated rule: %+v %v %v", observed, err, fake.commands)
+	}
+	fake.partialDel = true
+	if err := backend.Remove(context.Background(), plan, 42); err == nil {
+		t.Fatal("partial delete reported success")
+	}
+	if err := backend.Remove(context.Background(), plan, 42); !errors.Is(err, ErrFirewallUnverified) {
+		t.Fatalf("partial delete retry adopted absent rule: %v", err)
+	}
+}
+
+func TestNFTLabBackendCancelledContextNeverMutates(t *testing.T) {
+	plan, _ := PlanIngressRule(54619, proof("nft-cancel", 1))
+	fake := &nftLabFake{chainHandle: 7}
+	backend := &NFTLabBackend{Runner: fake, ExpectedChainHandle: 7}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := backend.Install(ctx, plan); !errors.Is(err, context.Canceled) || len(fake.commands) != 0 {
+		t.Fatalf("cancelled install mutated: %v %v", err, fake.commands)
+	}
+	fake.port, fake.tag, fake.ruleHandle = plan.Port, plan.Tag, 42
+	if err := backend.Remove(ctx, plan, 42); !errors.Is(err, context.Canceled) || len(fake.commands) != 0 {
+		t.Fatalf("cancelled remove mutated: %v %v", err, fake.commands)
+	}
 }
 
 func TestNFTLabBackendExactOwnerInstallAndRemove(t *testing.T) {

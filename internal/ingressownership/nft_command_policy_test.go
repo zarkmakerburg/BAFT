@@ -23,3 +23,19 @@ func TestNFTMutationCommandAllowlist(t *testing.T) {
 		t.Fatal("invalid ownership tag validation")
 	}
 }
+
+func TestNFTMutationRejectsNoncanonicalArguments(t *testing.T) {
+	plan, err := PlanIngressRule(443, proof("nft-canonical", 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{
+		{"add", "rule", "inet", "baft", "ingress", "tcp", "dport", "0443", "accept", "comment", plan.Tag},
+		{"delete", "rule", "inet", "baft", "ingress", "handle", "042"},
+		{"delete", "rule", "inet", "baft", "ingress", "handle", "42", ""},
+	} {
+		if allowedNFTMutation(args) {
+			t.Fatalf("accepted noncanonical command: %v", args)
+		}
+	}
+}

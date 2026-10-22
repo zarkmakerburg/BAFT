@@ -218,15 +218,11 @@ func (b *NFTLabBackend) Remove(ctx context.Context, plan RulePlan, expectedHandl
 func allowedNFTMutation(args []string) bool {
 	if len(args) == 11 && args[0] == "add" && args[1] == "rule" && args[2] == "inet" && args[3] == "baft" && args[4] == "ingress" && args[5] == "tcp" && args[6] == "dport" && args[8] == "accept" && args[9] == "comment" {
 		port, err := strconv.ParseUint(args[7], 10, 16)
-		return err == nil && port != 0 && port != 22 && validNFTTag(args[10])
-	}
-	if len(args) == 8 && args[0] == "delete" && args[1] == "rule" && args[2] == "inet" && args[3] == "baft" && args[4] == "ingress" && args[5] == "handle" {
-		handle, err := strconv.ParseUint(args[6], 10, 64)
-		return err == nil && handle > 0 && args[7] == ""
+		return err == nil && port != 0 && port != 22 && strconv.FormatUint(port, 10) == args[7] && validNFTTag(args[10])
 	}
 	if len(args) == 7 && args[0] == "delete" && args[1] == "rule" && args[2] == "inet" && args[3] == "baft" && args[4] == "ingress" && args[5] == "handle" {
 		handle, err := strconv.ParseUint(args[6], 10, 64)
-		return err == nil && handle > 0
+		return err == nil && handle > 0 && strconv.FormatUint(handle, 10) == args[6]
 	}
 	return false
 }

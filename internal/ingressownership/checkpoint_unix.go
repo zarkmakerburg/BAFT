@@ -45,6 +45,12 @@ func SaveCheckpoint(dir string, s FenceSnapshot) error {
 		return err
 	}
 	defer d.Close()
+	// Serialize writers across processes before reading the previous high-water
+	// checkpoint. Atomic rename alone does not prevent concurrent rollback.
+	if err := syscall.Flock(int(d.Fd()), syscall.LOCK_EX); err != nil {
+		return err
+	}
+	defer syscall.Flock(int(d.Fd()), syscall.LOCK_UN)
 	info, err := d.Stat()
 	if err != nil {
 		return err

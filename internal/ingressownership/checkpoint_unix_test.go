@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 )
 
@@ -167,5 +168,54 @@ func TestLABCheckpointRejectsGenerationRollback(t *testing.T) {
 	}
 	if err := restored.Claim("127.0.0.1:443", next); !errors.Is(err, ErrStale) {
 		t.Fatalf("latest generation replayed: %v", err)
+	}
+}
+
+func TestLABCheckpointConcurrentSavesNeverRegress(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "private")
+	if err := os.Mkdir(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	r := New()
+	p1 := proof("concurrent", 1)
+	if err := r.Claim("127.0.0.1:443", p1); err != nil {
+		t.Fatal(err)
+	}
+	older, err := r.Snapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Release("127.0.0.1:443", p1); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Claim("127.0.0.1:443", proof("concurrent", 2)); err != nil {
+		t.Fatal(err)
+	}
+	newer, err := r.Snapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wg sync.WaitGroup
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			s := older
+			if i%2 == 0 {
+				s = newer
+			}
+			err := SaveCheckpoint(dir, s)
+			if err != nil && !errors.Is(err, ErrStale) {
+				t.Errorf("unexpected save: %v", err)
+			}
+		}(i)
+	}
+	wg.Wait()
+	restored, err := LoadCheckpoint(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := restored.Claim("127.0.0.1:443", p1); !errors.Is(err, ErrStale) {
+		t.Fatalf("generation 1 replayed: %v", err)
 	}
 }

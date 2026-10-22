@@ -152,3 +152,23 @@ func TestFailedScopedBeginReleasesNewClaim(t *testing.T) {
 	}
 	_ = path
 }
+
+func TestRollbackFailsClosedOnOrphanedActiveTransaction(t *testing.T) {
+	root := newNode(t)
+	scoped, err := root.Manager.ForInstance("alpha", "127.0.0.1:9301")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(scoped.activePath()), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(scoped.activePath(), []byte("pair-orphan\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := scoped.Rollback(context.Background(), "pair-orphan"); err == nil {
+		t.Fatal("orphaned active txn falsely reported successful rollback")
+	}
+	if data, err := os.ReadFile(scoped.activePath()); err != nil || string(data) != "pair-orphan\n" {
+		t.Fatalf("orphan marker altered: %q %v", data, err)
+	}
+}

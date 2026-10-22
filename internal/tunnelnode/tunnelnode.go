@@ -762,6 +762,12 @@ func (m *Manager) Rollback(ctx context.Context, id string) (string, error) {
 	defer m.mu.Unlock()
 	t, err := m.readTxn(id)
 	if err != nil {
+		// A crash between writing the active marker and transaction state
+		// leaves an ambiguous change. Never report a successful rollback:
+		// doing so could invite reuse of an allocated port or live service.
+		if m.activeID() == id {
+			return "", fmt.Errorf("tunnel change %s has an active marker but no readable transaction; manual reconciliation required: %w", id, err)
+		}
 		return "nothing to roll back", nil
 	}
 	switch t.Phase {

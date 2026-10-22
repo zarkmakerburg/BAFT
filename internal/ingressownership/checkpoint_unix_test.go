@@ -61,3 +61,46 @@ func TestLABCheckpointTamperFailsClosed(t *testing.T) {
 		t.Fatalf("tamper accepted: %v", err)
 	}
 }
+
+func TestLABCheckpointRejectsSymlinkDestination(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "private")
+	if err := os.Mkdir(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(t.TempDir(), "outside")
+	if err := os.WriteFile(outside, []byte("unchanged"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(dir, "fences.json")); err != nil {
+		t.Fatal(err)
+	}
+	snap, _ := New().Snapshot()
+	if err := SaveCheckpoint(dir, snap); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("symlink accepted: %v", err)
+	}
+	content, err := os.ReadFile(outside)
+	if err != nil || string(content) != "unchanged" {
+		t.Fatalf("outside changed: %q %v", content, err)
+	}
+}
+func TestLABCheckpointRejectsNoncanonicalJSON(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "private")
+	if err := os.Mkdir(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	snap, _ := New().Snapshot()
+	if err := SaveCheckpoint(dir, snap); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "fences.json")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, append(raw, ' '), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadCheckpoint(dir); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("noncanonical checkpoint accepted: %v", err)
+	}
+}

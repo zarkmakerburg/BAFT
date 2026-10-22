@@ -3,6 +3,7 @@
 package ingressownership
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
@@ -76,7 +77,18 @@ func SaveCheckpoint(dir string, s FenceSnapshot) error {
 	if err = f.Close(); err != nil {
 		return err
 	}
-	if err = os.Rename(name, filepath.Join(dir, "fences.json")); err != nil {
+	// Never overwrite an unsafe pre-existing destination (symlink, hardlink,
+	// wrong owner or permissions), even though rename itself is atomic.
+	destination := filepath.Join(dir, "fences.json")
+	if existing, statErr := os.Lstat(destination); statErr == nil {
+		st, ok := existing.Sys().(*syscall.Stat_t)
+		if !ok || !existing.Mode().IsRegular() || existing.Mode().Perm() != 0600 || st.Nlink != 1 || int(st.Uid) != os.Geteuid() {
+			return ErrInvalid
+		}
+	} else if !errors.Is(statErr, os.ErrNotExist) {
+		return statErr
+	}
+	if err = os.Rename(name, destination); err != nil {
 		return err
 	}
 	return d.Sync()
@@ -120,6 +132,11 @@ func LoadCheckpoint(dir string) (*Registry, error) {
 	var rec checkpointRecord
 	if err = json.Unmarshal(raw, &rec); err != nil {
 		return nil, fmt.Errorf("invalid LAB checkpoint: %w", err)
+	}
+	// Reject unknown/duplicate/noncanonical JSON before trusting its digest.
+	encoded, err := json.Marshal(rec)
+	if err != nil || !bytes.Equal(raw, encoded) {
+		return nil, ErrInvalid
 	}
 	if rec.Version != 1 {
 		return nil, ErrInvalid

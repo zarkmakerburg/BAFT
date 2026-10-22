@@ -436,7 +436,18 @@ DHASH="$(printf '%s' "$DPLAN" | jfield '["hash"]')"
 api -d "{\"id\":\"$SA\",\"plan_hash\":\"$DHASH\"}" "$BCC/api/tunnels/decommission" >/dev/null
 phase="$(wait_tunnel "$SA" 240 decommissioned decommission_failed)" || true
 [[ "$phase" == "decommissioned" ]] || fail "slot-a decommission ended as '$phase'"
-[[ "$(api "$BCC/api/tunnels?id=$SB" | jfield '["phase"]')" == "active" ]] || fail "slot-b lost active state"
+# The admin API can briefly rate-limit after decommission polling. Treat 429 as
+# inconclusive, not as proof the sibling stopped; require a fresh active state.
+sibling_phase=""
+for attempt in $(seq 1 12); do
+  sibling_json="$(api "$BCC/api/tunnels?id=$SB" 2>/dev/null)" || sibling_json=""
+  if [[ -n "$sibling_json" ]]; then
+    sibling_phase="$(printf '%s' "$sibling_json" | jfield '["phase"]')" || fail "slot-b returned invalid state JSON"
+    break
+  fi
+  sleep 2
+done
+[[ "$sibling_phase" == "active" ]] || fail "slot-b not confirmed active after decommission (phase='$sibling_phase')"
 
 python3 - <<'PY' || fail "slot-a endpoints remain reachable or slot-b endpoints disappeared"
 import socket

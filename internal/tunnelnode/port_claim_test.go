@@ -245,3 +245,18 @@ func TestReadTxnRejectsSwappedOrInvalidState(t *testing.T) {
 		})
 	}
 }
+
+func TestBeginRejectsMalformedActiveMarker(t *testing.T) {
+	n := newNode(t)
+	for _, bad := range []string{"", "../../other\n", "one\ntwo\n"} {
+		if err := os.MkdirAll(filepath.Dir(n.activePath()), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(n.activePath(), []byte(bad), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := n.begin("fresh", RoleEX); err == nil {
+			t.Fatalf("accepted active marker %q", bad)
+		}
+	}
+}

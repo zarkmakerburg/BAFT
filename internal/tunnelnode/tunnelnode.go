@@ -360,6 +360,16 @@ func (m *Manager) begin(id, role string) (Txn, error) {
 	if !idRe.MatchString(id) {
 		return Txn{}, errors.New("invalid tunnel id")
 	}
+	// Missing and unreadable active markers are different states. Never
+	// interpret an I/O failure or malformed marker as an empty lock.
+	if b, err := os.ReadFile(m.activePath()); err == nil {
+		cur := strings.TrimSpace(string(b))
+		if !idRe.MatchString(cur) || string(b) != cur+"\n" {
+			return Txn{}, errors.New("invalid active transaction marker; manual reconciliation required")
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return Txn{}, fmt.Errorf("cannot inspect active transaction marker: %w", err)
+	}
 	if cur := m.activeID(); cur != "" {
 		if cur == id {
 			return Txn{}, fmt.Errorf("tunnel change %s already holds the active marker; reconcile before retrying", id)

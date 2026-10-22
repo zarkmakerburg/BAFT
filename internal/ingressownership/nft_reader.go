@@ -1,8 +1,10 @@
 package ingressownership
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"os/exec"
 	"time"
 )
@@ -20,11 +22,15 @@ func (r NFTCommandReader) ReadRuleset(ctx context.Context) ([]byte, error) {
 		return nil, ErrFirewallUnverified
 	}
 	cmd := exec.CommandContext(ctx, r.Binary, "-j", "-a", "list", "ruleset")
-	output, err := cmd.Output()
-	if err != nil {
+	// Cap output during execution, not only when parsing, so a compromised
+	// nft process cannot force unbounded allocations before validation.
+	var output bytes.Buffer
+	cmd.Stdout = &limitedNFTWriter{dst: &output, remaining: 4 << 20}
+	cmd.Stderr = io.Discard
+	if err := cmd.Run(); err != nil {
 		return nil, errors.Join(ErrFirewallUnverified, err)
 	}
-	return output, nil
+	return output.Bytes(), nil
 }
 
 // InspectNFTIngress requires fresh, complete read-only evidence. A timeout,
@@ -44,4 +50,19 @@ func InspectNFTIngress(ctx context.Context, runner NFTRunner, plan RulePlan) (Fi
 		return FirewallObservation{}, err
 	}
 	return ReconcileRuleObservation(plan, observations)
+}
+
+// limitedNFTWriter refuses oversized snapshots without retaining extra bytes.
+type limitedNFTWriter struct {
+	dst       *bytes.Buffer
+	remaining int
+}
+
+func (w *limitedNFTWriter) Write(p []byte) (int, error) {
+	if len(p) > w.remaining {
+		return 0, ErrFirewallUnverified
+	}
+	n, err := w.dst.Write(p)
+	w.remaining -= n
+	return n, err
 }

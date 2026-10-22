@@ -1,6 +1,7 @@
 package ingressownership
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"testing"
@@ -29,5 +30,19 @@ func TestNFTReadOnlyInspection(t *testing.T) {
 	}
 	if _, err := (NFTCommandReader{Binary: "/bin/sh"}).ReadRuleset(context.Background()); !errors.Is(err, ErrFirewallUnverified) {
 		t.Fatalf("arbitrary command accepted: %v", err)
+	}
+}
+
+func TestNFTReaderBoundsOutputBeforeParsing(t *testing.T) {
+	var output bytes.Buffer
+	writer := &limitedNFTWriter{dst: &output, remaining: 5}
+	if n, err := writer.Write([]byte("abc")); n != 3 || err != nil {
+		t.Fatalf("first write: %d %v", n, err)
+	}
+	if n, err := writer.Write([]byte("def")); n != 0 || !errors.Is(err, ErrFirewallUnverified) {
+		t.Fatalf("overflow: %d %v", n, err)
+	}
+	if output.String() != "abc" {
+		t.Fatalf("overflow changed buffer: %q", output.String())
 	}
 }

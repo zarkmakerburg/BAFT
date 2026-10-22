@@ -1,0 +1,35 @@
+name: P0 Public Ingress LAB
+on:
+  pull_request:
+    paths:
+      - 'internal/ingressownership/**'
+      - 'internal/ingressmanifest/**'
+      - 'internal/publicingress/**'
+      - 'internal/agentjob/**'
+      - 'internal/agent/**'
+      - 'internal/bcc/**'
+      - '.github/workflows/p0-ingress-lab.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  lab-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          check-latest: false
+          cache: false
+      - name: Verify P0 safety fences
+        run: |
+          go test ./internal/agentjob -run '^TestP0PublicIngressMutationActionsRemainDisabled$' -count=1
+          go test ./internal/ingressownership -run 'TestRestartPreparedManifestDoesNotAuthorizeSocket|TestRegistryPort443OwnershipWithoutSocket|TestCanonicalEndpointAllows443WithoutBinding' -count=1
+      - name: LAB ingress ownership and manifest race acceptance
+        run: go test -race ./internal/ingressownership ./internal/ingressmanifest ./internal/publicingress -count=3 -timeout=15m
+      - name: Signed prepare/cancel and BCC ingress tests
+        run: |
+          go test ./internal/agentjob ./internal/agent -run 'PublicIngress' -count=1 -timeout=10m
+          go test ./internal/bcc -run 'PublicIngress' -count=1 -timeout=10m

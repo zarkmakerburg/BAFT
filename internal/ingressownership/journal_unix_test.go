@@ -10,8 +10,21 @@ import (
 	"testing"
 )
 
+func newJournalTestDir(t *testing.T) string {
+	t.Helper()
+	parent, err := filepath.Abs(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(parent, "private-journal")
+	if err := os.Mkdir(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
 func TestDurableJournalCrashReplayAndRecovery(t *testing.T) {
-	dir := t.TempDir()
+	dir := newJournalTestDir(t)
 	j, err := OpenDurableJournal(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -58,7 +71,7 @@ func TestDurableJournalCrashReplayAndRecovery(t *testing.T) {
 }
 
 func TestDurableJournalConcurrentWritersAndFences(t *testing.T) {
-	dir := t.TempDir()
+	dir := newJournalTestDir(t)
 	a, _ := OpenDurableJournal(dir)
 	b, _ := OpenDurableJournal(dir)
 	record := MutationRecord{Port: 54619, Owner: proof("durable", 1), Phase: PhaseIntent}
@@ -106,7 +119,7 @@ func TestDurableJournalConcurrentWritersAndFences(t *testing.T) {
 }
 
 func TestDurableJournalRejectsCorruptionAndSymlink(t *testing.T) {
-	dir := t.TempDir()
+	dir := newJournalTestDir(t)
 	j, _ := OpenDurableJournal(dir)
 	record := MutationRecord{Port: 54619, Owner: proof("durable", 1), Phase: PhaseIntent}
 	if err := j.Advance(record); err != nil {
@@ -134,7 +147,10 @@ func TestDurableJournalRejectsCorruptionAndSymlink(t *testing.T) {
 }
 
 func TestDurableJournalAnchorsDirectoryAcrossPathSwap(t *testing.T) {
-	parent := t.TempDir()
+	parent, err := filepath.Abs(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	dir := filepath.Join(parent, "journal")
 	if err := os.Mkdir(dir, 0700); err != nil {
 		t.Fatal(err)

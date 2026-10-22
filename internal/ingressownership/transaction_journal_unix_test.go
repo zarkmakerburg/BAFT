@@ -13,7 +13,7 @@ import (
 )
 
 func TestJournaledLabTransactionPersistsBeforeMutation(t *testing.T) {
-	j, err := OpenDurableJournal(t.TempDir())
+	j, err := OpenDurableJournal(newJournalTestDir(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func TestJournaledLabTransactionPersistsBeforeMutation(t *testing.T) {
 }
 
 func TestJournaledLabTransactionFailureLeavesUnverifiedIntent(t *testing.T) {
-	j, err := OpenDurableJournal(t.TempDir())
+	j, err := OpenDurableJournal(newJournalTestDir(t))
 	if err != nil {
 		t.Fatal(err)
 	}

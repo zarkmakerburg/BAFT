@@ -1,6 +1,8 @@
 package ingressownership
 
 import (
+	"context"
+	"errors"
 	"strconv"
 	"testing"
 )
@@ -37,5 +39,24 @@ func TestNFTMutationRejectsNoncanonicalArguments(t *testing.T) {
 		if allowedNFTMutation(args) {
 			t.Fatalf("accepted noncanonical command: %v", args)
 		}
+	}
+}
+
+func TestNFTCommandRunnerRejectsNilContext(t *testing.T) {
+	plan, err := PlanIngressRule(443, proof("nft-nil-run", 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	runner := NFTCommandRunner{Binary: "/usr/sbin/nft"}
+	if err := runner.Run(nil, "add", "rule", "inet", "baft", "ingress", "tcp", "dport", "443", "accept", "comment", plan.Tag); !errors.Is(err, ErrFirewallUnverified) {
+		t.Fatalf("nil context accepted: %v", err)
+	}
+	if _, err := (&NFTLabBackend{Runner: &nftLabFake{chainHandle: 7}, ExpectedChainHandle: 7}).inspect(nil); !errors.Is(err, ErrFirewallUnverified) {
+		t.Fatalf("nil inspection accepted: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := runner.Run(ctx, "add", "rule", "inet", "baft", "ingress", "tcp", "dport", "443", "accept", "comment", plan.Tag); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled context accepted: %v", err)
 	}
 }

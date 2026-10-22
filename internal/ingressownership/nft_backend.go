@@ -28,6 +28,9 @@ func (r NFTCommandRunner) ReadRuleset(ctx context.Context) ([]byte, error) {
 }
 
 func (r NFTCommandRunner) Run(ctx context.Context, args ...string) error {
+	if ctx == nil {
+		return ErrFirewallUnverified
+	}
 	if r.Binary != "/usr/sbin/nft" && r.Binary != "/sbin/nft" {
 		return ErrFirewallUnverified
 	}
@@ -109,6 +112,9 @@ func verifyNFTLabChain(raw []byte, expectedHandle uint64) error {
 }
 
 func (b *NFTLabBackend) inspect(ctx context.Context) ([]FirewallObservation, error) {
+	if ctx == nil {
+		return nil, ErrFirewallUnverified
+	}
 	if b == nil || b.Runner == nil {
 		return nil, ErrFirewallUnverified
 	}

@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"github.com/zarkmakerburg/baft/internal/agentjob"
 	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
 	"os"
@@ -88,5 +89,26 @@ func TestIngressInspectHandlerChecksTrustedManifestButNeverClaimsLiveOwner(t *te
 	output, err = a.publicIngressPreflight(context.Background(), j)
 	if err == nil || output != "" || strings.Contains(err.Error(), "live listener") {
 		t.Fatalf("mismatched proof did not fail early: %q %v", output, err)
+	}
+}
+
+func TestIngressInspectCancellationDuringProofResolutionDoesNotOpenStore(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	j := ingressPreflightJob()
+	j.Action = agentjob.ActionPublicIngressInspect
+	j.Params["generation"] = "1"
+	j.Params["manifest_digest"] = strings.Repeat("a", 64)
+	j.Params["listener_id"] = "listener-1"
+	j.Params["firewall_id"] = "firewall-1"
+	// A nonexistent directory must not be opened once the trusted resolver
+	// cancels the request. The cancellation is the authoritative failure.
+	a := &Agent{cfg: Config{IngressManifestDir: filepath.Join(t.TempDir(), "missing"), IngressExpectedProof: func(string) (ingressmanifest.Proof, error) {
+		cancel()
+		return ingressmanifest.Proof{}, nil
+	}}}
+	output, err := a.publicIngressPreflight(ctx, j)
+	if !errors.Is(err, context.Canceled) || output != "" {
+		t.Fatalf("cancelled inspection continued to store: output=%q err=%v", output, err)
 	}
 }

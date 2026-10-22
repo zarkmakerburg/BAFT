@@ -1,0 +1,135 @@
+//go:build unix
+
+package ingressownership
+
+import (
+	"crypto/sha256"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"syscall"
+)
+
+// Checkpoint is an offline LAB-only high-water backup. It does not journal
+// resource mutations or authorize adopting host listeners or firewall rules.
+type checkpointRecord struct {
+	Version  int           `json:"version"`
+	Snapshot FenceSnapshot `json:"snapshot"`
+	Digest   [32]byte      `json:"digest"`
+}
+
+func encodeCheckpoint(s FenceSnapshot) ([]byte, error) {
+	if _, err := RecoverFences(s); err != nil {
+		return nil, err
+	}
+	raw, err := json.Marshal(s)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(checkpointRecord{Version: 1, Snapshot: s, Digest: sha256.Sum256(raw)})
+}
+
+// SaveCheckpoint requires a trusted pre-existing private directory. It writes
+// an atomic, fsynced checkpoint; no production service uses this entry point.
+func SaveCheckpoint(dir string, s FenceSnapshot) error {
+	raw, err := encodeCheckpoint(s)
+	if err != nil {
+		return err
+	}
+	d, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	defer d.Close()
+	info, err := d.Stat()
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() || info.Mode().Perm() != 0700 {
+		return ErrInvalid
+	}
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || int(stat.Uid) != os.Geteuid() {
+		return ErrInvalid
+	}
+	f, err := os.CreateTemp(dir, ".fence-*")
+	if err != nil {
+		return err
+	}
+	name := f.Name()
+	defer os.Remove(name)
+	if err = f.Chmod(0600); err != nil {
+		f.Close()
+		return err
+	}
+	if _, err = f.Write(raw); err != nil {
+		f.Close()
+		return err
+	}
+	if err = f.Sync(); err != nil {
+		f.Close()
+		return err
+	}
+	if err = f.Close(); err != nil {
+		return err
+	}
+	if err = os.Rename(name, filepath.Join(dir, "fences.json")); err != nil {
+		return err
+	}
+	return d.Sync()
+}
+
+// LoadCheckpoint fails closed on missing, tampered, oversized or unsafe files.
+func LoadCheckpoint(dir string) (*Registry, error) {
+	d, err := os.Open(dir)
+	if err != nil {
+		return nil, err
+	}
+	defer d.Close()
+	info, err := d.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if !info.IsDir() || info.Mode().Perm() != 0700 {
+		return nil, ErrInvalid
+	}
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || int(stat.Uid) != os.Geteuid() {
+		return nil, ErrInvalid
+	}
+	f, err := os.OpenFile(filepath.Join(dir, "fences.json"), os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	fi, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	fs, ok := fi.Sys().(*syscall.Stat_t)
+	if !ok || int(fs.Uid) != os.Geteuid() || fs.Nlink != 1 || !fi.Mode().IsRegular() || fi.Mode().Perm() != 0600 || fi.Size() > 1<<20 {
+		return nil, ErrInvalid
+	}
+	raw, err := io.ReadAll(io.LimitReader(f, 1<<20+1))
+	if err != nil {
+		return nil, err
+	}
+	var rec checkpointRecord
+	if err = json.Unmarshal(raw, &rec); err != nil {
+		return nil, fmt.Errorf("invalid LAB checkpoint: %w", err)
+	}
+	if rec.Version != 1 {
+		return nil, ErrInvalid
+	}
+	canonical, err := json.Marshal(rec.Snapshot)
+	if err != nil {
+		return nil, err
+	}
+	if sha256.Sum256(canonical) != rec.Digest {
+		return nil, errors.Join(ErrInvalid, errors.New("checkpoint digest mismatch"))
+	}
+	return RecoverFences(rec.Snapshot)
+}

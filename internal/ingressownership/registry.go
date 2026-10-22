@@ -23,10 +23,11 @@ type Registry struct {
 	mu          sync.Mutex
 	owners      map[string]ingressmanifest.Proof
 	generations map[string]uint64
+	active      map[string]string
 }
 
 func New() *Registry {
-	return &Registry{owners: make(map[string]ingressmanifest.Proof), generations: make(map[string]uint64)}
+	return &Registry{owners: make(map[string]ingressmanifest.Proof), generations: make(map[string]uint64), active: make(map[string]string)}
 }
 
 func key(p ingressmanifest.Proof) string { return p.TunnelID + "\x00" + p.InstanceID }
@@ -64,6 +65,9 @@ func (r *Registry) Claim(endpoint string, p ingressmanifest.Proof) error {
 	if p.Generation < r.generations[key(p)] {
 		return ErrStale
 	}
+	if current, ok := r.active[key(p)]; ok && current != resource {
+		return ErrConflict
+	}
 	if old, ok := r.owners[resource]; ok {
 		if old == p {
 			return nil
@@ -74,6 +78,7 @@ func (r *Registry) Claim(endpoint string, p ingressmanifest.Proof) error {
 		return ErrStale
 	}
 	r.owners[resource] = p
+	r.active[key(p)] = resource
 	r.generations[key(p)] = p.Generation
 	return nil
 }
@@ -99,5 +104,6 @@ func (r *Registry) Release(endpoint string, p ingressmanifest.Proof) error {
 		return ErrUnknown
 	}
 	delete(r.owners, resource)
+	delete(r.active, key(p))
 	return nil
 }

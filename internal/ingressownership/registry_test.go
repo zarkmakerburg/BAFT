@@ -68,3 +68,23 @@ func TestStaleGenerationAndConcurrentClaim(t *testing.T) {
 		t.Fatalf("concurrent winners=%d", count)
 	}
 }
+
+func TestSameOwnerCannotClaimTwoPortsOrRebindGeneration(t *testing.T) {
+	r := New()
+	a := proof("a", 1)
+	if err := r.Claim("127.0.0.1:2053", a); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Claim("127.0.0.1:2054", a); !errors.Is(err, ErrConflict) {
+		t.Fatalf("same owner second port: %v", err)
+	}
+	if err := r.Release("127.0.0.1:2053", a); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Claim("127.0.0.1:2054", a); !errors.Is(err, ErrStale) {
+		t.Fatalf("released generation rebound: %v", err)
+	}
+	if err := r.Claim("127.0.0.1:2054", proof("a", 2)); err != nil {
+		t.Fatal(err)
+	}
+}

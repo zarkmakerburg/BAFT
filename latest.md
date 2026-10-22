@@ -1,6 +1,6 @@
 # BAFT Adversarial Resilience & Intrusion Report
 
-**Verdict: ✅ PASS** · generated 2026-10-21 08:53 UTC · commit `94c55dccf5af` · profile `bounded`
+**Verdict: ✅ PASS** · generated 2026-10-22 08:56 UTC · commit `94c55dccf5af` · profile `bounded`
 
 This report is produced automatically by the periodic resilience tester (`tests/adversary/`). It launches a real BAFT EX/IR pair on loopback and, acting as a censor / DoS attacker and as an on-path intruder, tries to break or penetrate it with real traffic. All scenarios are loopback only and never target any third-party host.
 
@@ -8,18 +8,18 @@ This report is produced automatically by the periodic resilience tester (`tests/
 
 | scenario | result | heal | EX rss MB | IR rss MB | EX fd | IR fd | note |
 |---|---|---|---|---|---|---|---|
-| connflood | ✅ | ok | 22 | 20 | 14 | 14 | — |
-| garbage | ✅ | ok | 22 | 20 | 14 | 14 | — |
-| slowloris | ✅ | ok | 23 | 20 | 14 | 14 | — |
-| probe | ✅ | ok | 21 | 23 | 14 | 14 | — |
-| manyflows | ✅ | ok | 47 | 43 | 188 | 188 | — |
+| connflood | ✅ | ok | 20 | 23 | 14 | 14 | — |
+| garbage | ✅ | ok | 22 | 21 | 14 | 14 | — |
+| slowloris | ✅ | ok | 23 | 22 | 14 | 14 | — |
+| probe | ✅ | ok | 23 | 22 | 14 | 14 | — |
+| manyflows | ✅ | ok | 43 | 43 | 214 | 214 | — |
 
 ## 2. Intrusion / penetration attempts
 
 | intrusion | boundary held | detail |
 |---|---|---|
 | pairing_replay | ✅ | replayed one-time pairing reply rejected |
-| rogue_key | ✅ | rogue carrier rejected; legit traffic intact: node stopped: open shard 0: h2: OpenNoise failed phase=h2_request_write_error elapsed=2ms trace=connection_acquire@0ms,tcp_connect_start@0ms,tcp_connect_complete@0ms,tls_handshake_start@0ms,noise_ik_msg1_write@0ms,tls_handshake_complete@1ms(alpn=h2),connection_ready@1ms,h2_headers_sent@1ms,noise_ik_msg1_written@1ms,noise_ik_msg2_read@1ms,h2_first_response_byte@2ms,h2_request_write_error@2ms: h2: endpoint did not accept Noise carrier |
+| rogue_key | ✅ | rogue carrier rejected; legit traffic intact: node stopped: open shard 0: h2: OpenNoise failed phase=h2_first_response_byte elapsed=2ms trace=connection_acquire@0ms,tcp_connect_start@0ms,tcp_connect_complete@0ms,tls_handshake_start@0ms,noise_ik_msg1_write@0ms,tls_handshake_complete@1ms(alpn=h2),connection_ready@1ms,h2_headers_sent@1ms,noise_ik_msg1_written@1ms,noise_ik_msg2_read@1ms,h2_first_response_byte@2ms: h2: endpoint did not accept Noise carrier |
 | onpath_tamper | ✅ | on-path tamper detected and failed closed (no corrupted delivery) |
 
 ## 3. Findings
@@ -33,7 +33,7 @@ profile=bounded seconds_per=6 workers=16 conns=300 slowloris=200 noise=1
 sha=94c55dccf5af7cd126089374d991463931413121
 go version go1.27.1 linux/amd64
 Linux runnervm8k3b6 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
-baseline rss: ex=22MB ir=20MB limit=512MB fd_limit=1024
+baseline rss: ex=20MB ir=23MB limit=512MB fd_limit=1024
 probe fingerprints (evidence): {'http_get': (352, False), 'random_256': (0, False), 'empty': (0, False), 'baft_hello_prefix': (0, False)}
 probe deterministic: identical input gave the same response (103, True)
 ```

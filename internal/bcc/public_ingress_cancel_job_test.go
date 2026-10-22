@@ -42,6 +42,20 @@ func TestIngressCancelIsSignedAndFencesLatePrepareAcknowledgement(t *testing.T) 
 	if cancel.ID == "" {
 		t.Fatal("cancel job not dispatched")
 	}
+	// Once cancellation is issued, a racing prepare ACK must be refused
+	// even before the cancellation receipt arrives from the agent.
+	manifestSpec := publicIngressManifestSpec(spec, "", 1)
+	prepared, err := ingressmanifest.Preview(manifestSpec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prepareReceipt, err := json.Marshal(publicIngressPrepareEvidence{JobID: prepare.ID, NodeID: prepare.NodeID, Proof: prepared, ListenerID: proof.ListenerID, FirewallID: proof.FirewallID, PreparedBytesMatch: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AckJobOutput(spec.IRNode, "tok-src", prepare.ID, "succeeded", "racing", string(prepareReceipt)); err == nil {
+		t.Fatal("prepare ACK accepted while cancellation was issued but not yet acknowledged")
+	}
 	app, err := NewServer(s, "admin")
 	if err != nil {
 		t.Fatal(err)
@@ -62,7 +76,6 @@ func TestIngressCancelIsSignedAndFencesLatePrepareAcknowledgement(t *testing.T) 
 	if !verified.ExpiresAt.Equal(publicIngressPreflightDeadline(cancel).UTC().Truncate(time.Second)) {
 		t.Fatalf("cancel signed lifetime escaped persisted deadline: %s", verified.ExpiresAt)
 	}
-	manifestSpec := publicIngressManifestSpec(spec, "", 1)
 	tombstone, err := ingressmanifest.PreviewCancellation(manifestSpec)
 	if err != nil {
 		t.Fatal(err)
@@ -77,14 +90,6 @@ func TestIngressCancelIsSignedAndFencesLatePrepareAcknowledgement(t *testing.T) 
 		t.Fatal("wrong tombstone receipt accepted")
 	}
 	if err := s.AckJobOutput(spec.IRNode, "tok-src", cancel.ID, "succeeded", "cancelled", string(raw)); err != nil {
-		t.Fatal(err)
-	}
-	prepared, err := ingressmanifest.Preview(manifestSpec)
-	if err != nil {
-		t.Fatal(err)
-	}
-	prepareReceipt, err := json.Marshal(publicIngressPrepareEvidence{JobID: prepare.ID, NodeID: prepare.NodeID, Proof: prepared, ListenerID: proof.ListenerID, FirewallID: proof.FirewallID, PreparedBytesMatch: true})
-	if err != nil {
 		t.Fatal(err)
 	}
 	if err := s.AckJobOutput(spec.IRNode, "tok-src", prepare.ID, "succeeded", "late", string(prepareReceipt)); err == nil {

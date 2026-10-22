@@ -49,11 +49,17 @@ func SaveCheckpoint(dir string, s FenceSnapshot) error {
 	if err != nil {
 		return err
 	}
-	if !info.IsDir() || info.Mode().Perm() != 0700 {
+	if !info.IsDir() || info.Mode().Perm() != 0700 || info.Mode()&(os.ModeSetuid|os.ModeSetgid|os.ModeSticky) != 0 {
 		return ErrInvalid
 	}
 	stat, ok := info.Sys().(*syscall.Stat_t)
 	if !ok || int(stat.Uid) != os.Geteuid() {
+		return ErrInvalid
+	}
+	// Refuse a replaced directory path; otherwise a rename could write into
+	// an untrusted location while the open directory handle remains private.
+	pathInfo, err := os.Lstat(dir)
+	if err != nil || !os.SameFile(info, pathInfo) {
 		return ErrInvalid
 	}
 	f, err := os.CreateTemp(dir, ".fence-*")
@@ -105,11 +111,15 @@ func LoadCheckpoint(dir string) (*Registry, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !info.IsDir() || info.Mode().Perm() != 0700 {
+	if !info.IsDir() || info.Mode().Perm() != 0700 || info.Mode()&(os.ModeSetuid|os.ModeSetgid|os.ModeSticky) != 0 {
 		return nil, ErrInvalid
 	}
 	stat, ok := info.Sys().(*syscall.Stat_t)
 	if !ok || int(stat.Uid) != os.Geteuid() {
+		return nil, ErrInvalid
+	}
+	pathInfo, err := os.Lstat(dir)
+	if err != nil || !os.SameFile(info, pathInfo) {
 		return nil, ErrInvalid
 	}
 	f, err := os.OpenFile(filepath.Join(dir, "fences.json"), os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)

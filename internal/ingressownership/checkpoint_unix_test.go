@@ -104,3 +104,25 @@ func TestLABCheckpointRejectsNoncanonicalJSON(t *testing.T) {
 		t.Fatalf("noncanonical checkpoint accepted: %v", err)
 	}
 }
+
+func TestLABCheckpointRejectsDirectorySymlink(t *testing.T) {
+	root := t.TempDir()
+	private := filepath.Join(root, "private")
+	if err := os.Mkdir(private, 0700); err != nil {
+		t.Fatal(err)
+	}
+	alias := filepath.Join(root, "alias")
+	if err := os.Symlink(private, alias); err != nil {
+		t.Fatal(err)
+	}
+	snap, _ := New().Snapshot()
+	if err := SaveCheckpoint(alias, snap); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("saved through directory symlink: %v", err)
+	}
+	if err := SaveCheckpoint(private, snap); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadCheckpoint(alias); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("loaded through directory symlink: %v", err)
+	}
+}

@@ -402,6 +402,19 @@ for port in 15443 15444; do
   [[ "$ok" == true ]] || fail "scoped route $port carries no verified traffic"
 done
 
+# A prior automatic drift probe may have observed slot-b while its scoped
+# config was still being installed. Wait for that probe to finish, then demand
+# a fresh verified baseline for both fully deployed sibling instances.
+for id in "$SA" "$SB"; do
+  for _ in $(seq 1 60); do
+    pending="$(api "$BCC/api/tunnels?id=$id" | python3 -c 'import json,sys;print(len(json.load(sys.stdin).get("drift_jobs",[])))')"
+    [[ "$pending" == 0 ]] && break
+    sleep 2
+  done
+  [[ "$pending" == 0 ]] || fail "scoped tunnel $id has unfinished initial drift inspection"
+  [[ "$(drift_check "$id")" == "IN_SYNC" ]] || fail "scoped tunnel $id is not IN_SYNC after both siblings committed"
+done
+
 log "M-018C: external edit must fail closed before any retirement"
 cp /etc/baft-ir/instances/slot-a/baft.yaml "$WORK/slot-a-ir.keep"
 printf '\n# M-018C external edit\n' >> /etc/baft-ir/instances/slot-a/baft.yaml

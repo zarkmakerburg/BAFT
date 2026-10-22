@@ -84,14 +84,21 @@ func (t *LabTransaction) Apply(ctx context.Context, spec ingressmanifest.Spec, p
 	}
 	ok, err := t.Firewall.Verify(uint16(n), proof)
 	if err != nil || !ok {
-		removeErr := t.Firewall.Remove(uint16(n), proof)
+		// Never remove policy before the owned listener has stopped.
 		retireErr := t.Runtime.Retire(spec.Config.Listen, proof)
-		return errors.Join(ErrFirewallUnverified, err, removeErr, retireErr)
+		if retireErr != nil {
+			return errors.Join(ErrFirewallUnverified, err, retireErr)
+		}
+		removeErr := t.Firewall.Remove(uint16(n), proof)
+		return errors.Join(ErrFirewallUnverified, err, removeErr)
 	}
 	if err := ctx.Err(); err != nil {
-		removeErr := t.Firewall.Remove(uint16(n), proof)
 		retireErr := t.Runtime.Retire(spec.Config.Listen, proof)
-		return errors.Join(err, removeErr, retireErr)
+		if retireErr != nil {
+			return errors.Join(err, retireErr)
+		}
+		removeErr := t.Firewall.Remove(uint16(n), proof)
+		return errors.Join(err, removeErr)
 	}
 	// Detect a listener that stopped while the firewall rule was installed.
 	t.Runtime.mu.Lock()
@@ -106,15 +113,21 @@ func (t *LabTransaction) Apply(ctx context.Context, spec ingressmanifest.Spec, p
 	}
 	t.Runtime.mu.Unlock()
 	if stopped {
-		removeErr := t.Firewall.Remove(uint16(n), proof)
 		retireErr := t.Runtime.Retire(spec.Config.Listen, proof)
-		return errors.Join(ErrStopped, removeErr, retireErr)
+		if retireErr != nil {
+			return errors.Join(ErrStopped, retireErr)
+		}
+		removeErr := t.Firewall.Remove(uint16(n), proof)
+		return errors.Join(ErrStopped, removeErr)
 	}
 	// Fence a cancellation that raced with the final listener-health check.
 	if err := ctx.Err(); err != nil {
-		removeErr := t.Firewall.Remove(uint16(n), proof)
 		retireErr := t.Runtime.Retire(spec.Config.Listen, proof)
-		return errors.Join(err, removeErr, retireErr)
+		if retireErr != nil {
+			return errors.Join(err, retireErr)
+		}
+		removeErr := t.Firewall.Remove(uint16(n), proof)
+		return errors.Join(err, removeErr)
 	}
 	return nil
 }

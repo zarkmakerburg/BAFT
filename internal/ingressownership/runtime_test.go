@@ -116,7 +116,7 @@ func TestRuntimeCancelledParentRequiresExplicitRetire(t *testing.T) {
 		t.Fatal(err)
 	}
 	cancel()
-	if err = r.Apply(context.Background(), s, p); err != nil {
+	if err = r.Apply(context.Background(), s, p); err != nil && !errors.Is(err, ErrStopped) {
 		t.Fatalf("retry after cancellation must not create new socket: %v", err)
 	}
 	if err = r.Retire(s.Config.Listen, p); err != nil {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 )
 
 // ParseNFTIngressRules consumes an untrusted nft -j list ruleset snapshot.
@@ -53,9 +54,37 @@ func ParseNFTIngressRules(raw []byte) ([]FirewallObservation, error) {
 		if rule.Family != "inet" || rule.Table != "baft" || rule.Chain != "ingress" {
 			continue
 		}
-		// A comment alone cannot prove a rule's TCP destination port. Do not
-		// fabricate an observation from opaque nft expression structures.
-		return nil, ErrFirewallUnverified
+		// Only the exact, minimal nft JSON shape is supported: a TCP dport
+		// equality followed by an accept verdict. Anything else is opaque.
+		if rule.Handle == 0 || !strings.HasPrefix(rule.Comment, "baft-ingress-") || len(rule.Expr) != 2 {
+			return nil, ErrFirewallUnverified
+		}
+		var portMatch struct {
+			Match struct {
+				Op   string `json:"op"`
+				Left struct {
+					Payload struct {
+						Protocol string `json:"protocol"`
+						Field    string `json:"field"`
+					} `json:"payload"`
+				} `json:"left"`
+				Right uint16 `json:"right"`
+			} `json:"match"`
+		}
+		if err := json.Unmarshal(rule.Expr[0], &portMatch); err != nil || portMatch.Match.Op != "==" || portMatch.Match.Left.Payload.Protocol != "tcp" || portMatch.Match.Left.Payload.Field != "dport" || portMatch.Match.Right == 0 {
+			return nil, ErrFirewallUnverified
+		}
+		var verdict map[string]json.RawMessage
+		if err := json.Unmarshal(rule.Expr[1], &verdict); err != nil || len(verdict) != 1 {
+			return nil, ErrFirewallUnverified
+		}
+		if _, ok := verdict["accept"]; !ok {
+			return nil, ErrFirewallUnverified
+		}
+		if string(verdict["accept"]) != "null" {
+			return nil, ErrFirewallUnverified
+		}
+		out = append(out, FirewallObservation{Port: portMatch.Match.Right, Tag: rule.Comment, Handle: rule.Handle, Family: rule.Family, Table: rule.Table, Chain: rule.Chain})
 	}
 	return out, nil
 }

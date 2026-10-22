@@ -2,6 +2,7 @@ package ingressownership
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -24,6 +25,36 @@ func TestNFTSnapshotRejectsTrailingDocuments(t *testing.T) {
 	for _, suffix := range []string{` {"nftables":[]}`, ` true`, ` []`, ` garbage`} {
 		if _, err := ParseNFTIngressRules([]byte(valid + suffix)); !errors.Is(err, ErrFirewallUnverified) {
 			t.Fatalf("trailing document accepted: %q %v", suffix, err)
+		}
+	}
+}
+
+func TestNFTExactTCPRuleCanBeReconciled(t *testing.T) {
+	plan, err := PlanIngressRule(443, proof("nft", 3))
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := `{"nftables":[{"rule":{"family":"inet","table":"baft","chain":"ingress","handle":27,"comment":"` + plan.Tag + `","expr":[{"match":{"op":"==","left":{"payload":{"protocol":"tcp","field":"dport"}},"right":443}},{"accept":null}]}}]}`
+	observed, err := ParseNFTIngressRules([]byte(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := ReconcileRuleObservation(plan, observed)
+	if err != nil || got.Handle != 27 {
+		t.Fatalf("exact rule not reconciled: %+v %v", got, err)
+	}
+	for _, broken := range []string{
+		strings.Replace(raw, `"right":443`, `"right":22`, 1),
+		strings.Replace(raw, `"field":"dport"`, `"field":"sport"`, 1),
+		strings.Replace(raw, `{"accept":null}`, `{"drop":null}`, 1),
+		strings.Replace(raw, `"handle":27`, `"handle":0`, 1),
+	} {
+		obs, parseErr := ParseNFTIngressRules([]byte(broken))
+		if parseErr == nil {
+			_, parseErr = ReconcileRuleObservation(plan, obs)
+		}
+		if !errors.Is(parseErr, ErrFirewallUnverified) {
+			t.Fatalf("unsafe rule accepted: %v", parseErr)
 		}
 	}
 }

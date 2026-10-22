@@ -117,6 +117,18 @@ func Preview(spec Spec) (Proof, error) {
 	return proof, err
 }
 
+// PreviewCancellation computes the generation's durable tombstone proof
+// without changing the store. It is the same proof produced whether a
+// prepared file is cancelled or an unseen generation is fenced.
+func PreviewCancellation(spec Spec) (Proof, error) {
+	_, prepared, err := encode(spec)
+	if err != nil {
+		return Proof{}, err
+	}
+	_, cancelled, err := encodeRecord(Manifest{SchemaVersion: 2, Phase: PhaseCancelled, Spec: spec, CancelledFromSHA256: prepared.ManifestSHA256})
+	return cancelled, err
+}
+
 func encodeRecord(manifest Manifest) ([]byte, Proof, error) {
 	if manifest.SchemaVersion != 1 && manifest.SchemaVersion != 2 {
 		return nil, Proof{}, errors.New("unsupported ingress manifest schema")

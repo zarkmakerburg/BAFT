@@ -59,7 +59,7 @@ type Alert struct {
 type Server struct {
 	store                   *Store
 	version                 string
-	verifiedCatalog *VerifiedReleaseCatalog
+	verifiedCatalog         *VerifiedReleaseCatalog
 	adminToken              string
 	audit                   *AuditLog
 	guard                   *IPGuard
@@ -255,6 +255,7 @@ func (s *Server) Handler() http.Handler {
 	m.HandleFunc("/api/ingress/preflight", s.publicIngressPreflightAPI)
 	m.HandleFunc("/api/ingress/inspect", s.publicIngressInspectAPI)
 	m.HandleFunc("/api/ingress/prepare", s.publicIngressPrepareAPI)
+	m.HandleFunc("/api/ingress/cancel", s.publicIngressCancelAPI)
 	m.HandleFunc("/api/ingress/reservations", s.publicIngressReservationsAPI)
 	m.HandleFunc("/api/ingress/evaluate", s.ingressEvaluateAPI)
 	m.HandleFunc("/api/ingress/distribution", s.distributionAPI)

@@ -77,6 +77,8 @@ const (
 	ActionPublicIngressInspect = "public_ingress_inspect"
 	// Writes only a private prepared manifest; it does not bind or open firewall.
 	ActionPublicIngressPrepare = "public_ingress_prepare"
+	// Fences generation 1 in the private manifest store; no host listener or firewall changes.
+	ActionPublicIngressCancel = "public_ingress_cancel"
 
 	// Certificate rotation of a built tunnel (A4 Stage F). Only public
 	// certificates and digests travel in parameters; new private keys never
@@ -145,6 +147,7 @@ var paramRules = map[string]map[string]*regexp.Regexp{
 	ActionPublicIngressPreflight: {"tunnel_id": tunnelIDRe, "public_port": portRe, "local_target": loopbackListenR},
 	ActionPublicIngressInspect:   {"tunnel_id": tunnelIDRe, "public_port": portRe, "local_target": loopbackListenR, "generation": epochRe, "manifest_digest": sha256Re, "listener_id": idRe, "firewall_id": idRe},
 	ActionPublicIngressPrepare:   {"tunnel_id": tunnelIDRe, "public_port": portRe, "local_target": loopbackListenR, "generation": epochRe, "manifest_digest": sha256Re, "listener_id": idRe, "firewall_id": idRe},
+	ActionPublicIngressCancel:    {"tunnel_id": tunnelIDRe, "public_port": portRe, "local_target": loopbackListenR, "generation": epochRe, "manifest_digest": sha256Re, "listener_id": idRe, "firewall_id": idRe},
 
 	ActionCertPrepareEX:  {"tunnel_id": tunnelIDRe, "rotation_id": tunnelIDRe, "epoch": epochRe},
 	ActionCertTrustIR:    {"tunnel_id": tunnelIDRe, "rotation_id": tunnelIDRe, "epoch": epochRe, "ca_der": derB64Re, "ca_sha256": sha256Re},
@@ -172,6 +175,7 @@ var optionalParamRules = map[string]map[string]*regexp.Regexp{
 	ActionTunnelRollback:       {"instance_id": instanceIDRe},
 	ActionTunnelRetire:         {"instance_id": instanceIDRe},
 	ActionPublicIngressPrepare: {"instance_id": instanceIDRe},
+	ActionPublicIngressCancel:  {"instance_id": instanceIDRe},
 	ActionCertPrepareEX:        {"instance_id": instanceIDRe},
 	ActionCertTrustIR:          {"instance_id": instanceIDRe},
 	ActionCertVerifyEX:         {"instance_id": instanceIDRe},
@@ -249,7 +253,7 @@ func (j Job) Validate() error {
 			return fmt.Errorf("parameter route_listen: %w", err)
 		}
 	}
-	if j.Action == ActionPublicIngressPreflight || j.Action == ActionPublicIngressInspect || j.Action == ActionPublicIngressPrepare {
+	if j.Action == ActionPublicIngressPreflight || j.Action == ActionPublicIngressInspect || j.Action == ActionPublicIngressPrepare || j.Action == ActionPublicIngressCancel {
 		if !validTCPPort(j.Params["public_port"]) {
 			return errors.New("parameter public_port must be between 1 and 65535")
 		}

@@ -81,26 +81,35 @@ func TestSignedAgentJobRejectsTrailingJSONValues(t *testing.T) {
 	}
 }
 
-func TestPublicIngressPreflightRejectsSelfForwarding(t *testing.T) {
+func TestAllPublicIngressActionsRejectSelfForwarding(t *testing.T) {
 	pub, key, err := release.GenerateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, target := range []string{"127.0.0.1:54619", "127.0.0.2:54619", "[::1]:54619"} {
-		t.Run(target, func(t *testing.T) {
-			j := job(ActionPublicIngressPreflight, map[string]string{"tunnel_id": "tun-test", "public_port": "54619", "local_target": target})
-			j.SchemaVersion = SchemaVersion
-			if _, err := Sign(key, j); err == nil {
-				t.Fatal("self-forwarding signed")
-			}
-			raw, err := json.Marshal(j)
-			if err != nil {
-				t.Fatal(err)
-			}
-			env := release.Sign(PayloadType, raw, key)
-			if _, err := (Verifier{BCCKey: pub, NodeID: j.NodeID}).Verify(env, now.Add(time.Minute)); err == nil {
-				t.Fatal("self-forwarding accepted by agent")
-			}
-		})
+	for _, action := range []string{ActionPublicIngressPreflight, ActionPublicIngressInspect, ActionPublicIngressPrepare, ActionPublicIngressCancel} {
+		for _, target := range []string{"127.0.0.1:54619", "127.0.0.2:54619", "[::1]:54619"} {
+			t.Run(action+"/"+target, func(t *testing.T) {
+				params := map[string]string{"tunnel_id": "tun-test", "public_port": "54619", "local_target": target}
+				if action != ActionPublicIngressPreflight {
+					params["generation"] = "1"
+					params["manifest_digest"] = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+					params["listener_id"] = "listener-test"
+					params["firewall_id"] = "firewall-test"
+				}
+				j := job(action, params)
+				j.SchemaVersion = SchemaVersion
+				if _, err := Sign(key, j); err == nil {
+					t.Fatal("self-forwarding signed")
+				}
+				raw, err := json.Marshal(j)
+				if err != nil {
+					t.Fatal(err)
+				}
+				env := release.Sign(PayloadType, raw, key)
+				if _, err := (Verifier{BCCKey: pub, NodeID: j.NodeID}).Verify(env, now.Add(time.Minute)); err == nil {
+					t.Fatal("self-forwarding accepted by agent")
+				}
+			})
+		}
 	}
 }

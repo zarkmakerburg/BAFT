@@ -186,6 +186,12 @@ func collectPublicIngressPreflight(ctx context.Context, j agentjob.Job, readTabl
 }
 
 func (a *Agent) publicIngressPreflight(ctx context.Context, j agentjob.Job) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	if err := j.Validate(); err != nil {
+		return "", err
+	}
 	if j.Action == agentjob.ActionPublicIngressInspect {
 		if a.cfg.IngressManifestDir == "" || a.cfg.IngressExpectedProof == nil {
 			return "", fmt.Errorf("ingress inspect unavailable: trusted manifest store and independent proof resolver not configured")

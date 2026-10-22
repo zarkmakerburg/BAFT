@@ -170,7 +170,7 @@ var optionalParamRules = map[string]map[string]*regexp.Regexp{
 	ActionTunnelCommitIR:       {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
 	ActionTunnelHealth:         {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
 	ActionTunnelObserve:        {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
-	ActionTunnelInspect:        {"instance_id": instanceIDRe},
+	ActionTunnelInspect:        {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
 	ActionTunnelFinalize:       {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
 	ActionTunnelRollback:       {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
 	ActionTunnelRetire:         {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},

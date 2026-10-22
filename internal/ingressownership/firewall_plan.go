@@ -53,3 +53,31 @@ func VerifyRuleObservation(plan RulePlan, observed FirewallObservation) error {
 	}
 	return nil
 }
+
+// ReconcileRuleObservation accepts exactly one matching rule and rejects any
+// competing claim on the same port or owner tag. This is LAB-only.
+func ReconcileRuleObservation(plan RulePlan, observations []FirewallObservation) (FirewallObservation, error) {
+	expected, err := PlanIngressRule(plan.Port, plan.Owner)
+	if err != nil || expected.Tag != plan.Tag {
+		return FirewallObservation{}, ErrInvalid
+	}
+	var match FirewallObservation
+	count := 0
+	for _, o := range observations {
+		if o.Port != plan.Port && o.Tag != plan.Tag {
+			continue
+		}
+		if VerifyRuleObservation(plan, o) != nil {
+			return FirewallObservation{}, ErrFirewallUnverified
+		}
+		count++
+		if count > 1 {
+			return FirewallObservation{}, ErrFirewallUnverified
+		}
+		match = o
+	}
+	if count != 1 {
+		return FirewallObservation{}, ErrFirewallUnverified
+	}
+	return match, nil
+}

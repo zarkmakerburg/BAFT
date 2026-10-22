@@ -3,8 +3,10 @@ package tunnelnode
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -302,5 +304,26 @@ func TestRollbackRefusesAnotherActiveTransaction(t *testing.T) {
 	}
 	if scoped.activeID() != "another" {
 		t.Fatal("rollback modified active owner")
+	}
+}
+
+func TestMetricsClaimRejectsOccupiedRealLoopbackSocket(t *testing.T) {
+	root := newNode(t)
+	scoped, err := root.Manager.ForInstance("alpha", "127.0.0.1:9301")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	port := ln.Addr().(*net.TCPAddr).Port
+	if _, err := scoped.ClaimMetricsPort(port); err == nil {
+		t.Fatal("occupied socket was claimed")
+	}
+	claim := filepath.Join(filepath.Dir(filepath.Dir(scoped.ConfigDir)), ".metrics-claims", strconv.Itoa(port))
+	if _, err := os.Lstat(claim); !os.IsNotExist(err) {
+		t.Fatalf("occupied socket created a persistent claim: %v", err)
 	}
 }

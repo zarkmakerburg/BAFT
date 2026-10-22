@@ -3,6 +3,7 @@ package tunnelnode
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -18,6 +19,16 @@ func (m *Manager) ClaimMetricsPort(port int) (string, error) {
 	}
 	if !validPort(port) {
 		return "", errors.New("invalid metrics port")
+	}
+	// Persistent claims only coordinate BAFT instances. Also reject a port
+	// already bound by an unrelated process before reserving it on disk.
+	// This is a preflight, not an atomic lifetime socket reservation.
+	probe, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
+	if err != nil {
+		return "", fmt.Errorf("metrics port %d is not available on loopback: %w", port, err)
+	}
+	if err := probe.Close(); err != nil {
+		return "", fmt.Errorf("metrics port %d availability probe cleanup: %w", port, err)
 	}
 	root := filepath.Dir(filepath.Dir(m.ConfigDir))
 	claims := filepath.Join(root, ".metrics-claims")

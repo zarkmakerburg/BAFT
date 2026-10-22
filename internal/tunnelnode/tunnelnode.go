@@ -838,7 +838,10 @@ func (m *Manager) Rollback(ctx context.Context, id string) (string, error) {
 		if m.activeID() == id {
 			return "", fmt.Errorf("tunnel change %s has an active marker but no readable transaction; manual reconciliation required: %w", id, err)
 		}
-		return "nothing to roll back", nil
+		if errors.Is(err, os.ErrNotExist) {
+			return "nothing to roll back", nil
+		}
+		return "", fmt.Errorf("tunnel change %s has unreadable transaction state; reconciliation required: %w", id, err)
 	}
 	if cur != "" && cur != id {
 		return "", fmt.Errorf("rollback %s refused: active transaction %s owns this node", id, cur)

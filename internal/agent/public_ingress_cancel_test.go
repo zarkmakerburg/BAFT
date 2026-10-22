@@ -107,7 +107,18 @@ func TestIngressCancelBeforeDelayedSignedPrepareCannotResurrect(t *testing.T) {
 		t.Fatal(err)
 	}
 	a := &Agent{cfg: Config{IngressManifestDir: dir}}
-	for _, j := range []agentjob.Job{cancel, prepare, cancel} {
+	for i, j := range []agentjob.Job{cancel, prepare, cancel} {
+		if i == 1 {
+			// Reopen the durable store between cancellation and the late
+			// signed prepare, simulating an agent restart.
+			store, err := ingressmanifest.Open(dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := store.Close(); err != nil {
+				t.Fatal(err)
+			}
+		}
 		env, err := agentjob.Sign(key, j)
 		if err != nil {
 			t.Fatal(err)

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -120,5 +121,20 @@ func TestTerminalPairingCodeRoundTripWithoutBCC(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(dir, role, "etc", "instances", "standalone-1", "noise-key.json")); err != nil {
 			t.Fatal(err)
 		}
+	}
+}
+
+func TestTerminalTunnelInspectReadOnlyWithoutTransactionID(t *testing.T) {
+	dir := t.TempDir()
+	args := []string{"inspect", "--instance", "isolated", "--metrics-listen", "127.0.0.1:9421", "--config-dir", filepath.Join(dir, "etc"), "--state-dir", filepath.Join(dir, "state"), "--unit-dir", filepath.Join(dir, "units")}
+	var out, stderr bytes.Buffer
+	if status := runTunnelCLI(context.Background(), args, &out, &stderr); status != 0 {
+		t.Fatalf("inspect failed: %d %s", status, stderr.String())
+	}
+	if !json.Valid(out.Bytes()) {
+		t.Fatalf("inspect output not JSON: %s", out.String())
+	}
+	if _, err := os.Stat(filepath.Join(dir, "etc", ".metrics-claims")); !os.IsNotExist(err) {
+		t.Fatalf("inspect unexpectedly reserved a port: %v", err)
 	}
 }

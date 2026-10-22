@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -28,12 +29,12 @@ func (terminalSystem) Run(ctx context.Context, name string, args ...string) (str
 // default BAFT service can never be modified by an accidental terminal command.
 func runTunnelCLI(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: baft tunnel <ex-code|ir-apply|ex-accept|ir-start|health|rollback> --instance ID --metrics-listen 127.0.0.1:PORT --id TXN [flags]")
+		fmt.Fprintln(stderr, "usage: baft tunnel <ex-code|ir-apply|ex-accept|ir-start|health|inspect|finalize|rollback> --instance ID --metrics-listen 127.0.0.1:PORT --id TXN [flags]")
 		return 2
 	}
 	action := args[0]
 	switch action {
-	case "ex-code", "ir-apply", "ex-accept", "ir-start", "health", "rollback":
+	case "ex-code", "ir-apply", "ex-accept", "ir-start", "health", "inspect", "finalize", "rollback":
 	default:
 		fmt.Fprintln(stderr, "unknown tunnel action")
 		return 2
@@ -58,7 +59,7 @@ func runTunnelCLI(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	if err := fs.Parse(args[1:]); err != nil {
 		return 2
 	}
-	if fs.NArg() != 0 || *instance == "" || *instance == "default" || *metrics == "" || *id == "" {
+	if fs.NArg() != 0 || *instance == "" || *instance == "default" || *metrics == "" || (*id == "" && action != "inspect") {
 		fmt.Fprintln(stderr, "explicit non-default --instance, --metrics-listen and --id are required")
 		return 2
 	}
@@ -104,6 +105,12 @@ func runTunnelCLI(ctx context.Context, args []string, stdout, stderr io.Writer) 
 		result, err = scoped.Health(ctx, *id)
 	case "rollback":
 		result, err = scoped.Rollback(ctx, *id)
+	case "finalize":
+		result, err = scoped.Finalize(ctx, *id)
+	case "inspect":
+		var raw []byte
+		raw, err = json.MarshalIndent(scoped.Inspect(ctx), "", "  ")
+		result = string(raw)
 	}
 	if err != nil {
 		fmt.Fprintln(stderr, "tunnel:", err)

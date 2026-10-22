@@ -199,7 +199,7 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w, "  baft config validate --file <config.yaml>")
 	fmt.Fprintln(w, "  baft config stealth-pro --file <config.yaml> [padding/jitter flags]")
 	fmt.Fprintln(w, "  baft run --file <config.yaml>")
-	fmt.Fprintln(w, "  baft tunnel <ex-code|ir-apply|ex-accept|ir-start|health|rollback> --instance ID --metrics-listen IP:PORT --id TXN [flags]")
+	fmt.Fprintln(w, "  baft tunnel <ex-code|ir-apply|ex-accept|ir-start|health|inspect|finalize|rollback> --instance ID --metrics-listen IP:PORT --id TXN [flags]")
 	fmt.Fprintln(w, "  baft ingress run --listen IP:PORT --target LOOPBACK_IP:PORT   # foreground TCP runtime; no firewall changes")
 	fmt.Fprintln(w, "  baft status [--file /etc/baft/baft.yaml] [--service baft] [--json]")
 	fmt.Fprintln(w, "  baft doctor [--file /etc/baft/baft.yaml] [--service baft] [--json] [--preview-fixes]")

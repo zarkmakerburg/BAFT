@@ -1,7 +1,6 @@
 package ingressownership
 
 import (
-	"errors"
 	"sort"
 	"strconv"
 
@@ -48,6 +47,9 @@ func (r *Registry) Snapshot() (FenceSnapshot, error) {
 		out.Generations = append(out.Generations, GenerationFence{k[:index], k[index+1:], g})
 	}
 	for port, p := range r.owners {
+		if r.generations[key(p)] != p.Generation || r.active[key(p)] != port {
+			return FenceSnapshot{}, ErrInvalid
+		}
 		n, err := strconv.Atoi(port)
 		if err != nil || n < 1 || n > 65535 {
 			return FenceSnapshot{}, ErrInvalid
@@ -85,12 +87,6 @@ func RecoverFences(snapshot FenceSnapshot) (*Registry, error) {
 		}
 		seenPorts[a.Port] = true
 		seenOwners[key(a.Proof)] = true
-	}
-	// Refuse incomplete checkpoints that would permit replay of an active proof.
-	for _, a := range snapshot.Active {
-		if r.generations[key(a.Proof)] == 0 {
-			return nil, errors.Join(ErrInvalid, ErrUnknown)
-		}
 	}
 	return r, nil
 }

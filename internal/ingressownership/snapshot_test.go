@@ -83,3 +83,17 @@ func TestFenceSnapshotReleasedGenerationSurvivesRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestSnapshotRejectsInconsistentInternalOwnership(t *testing.T) {
+	r := New()
+	owner := proof("consistent", 1)
+	if err := r.Claim("127.0.0.1:443", owner); err != nil {
+		t.Fatal(err)
+	}
+	r.mu.Lock()
+	delete(r.active, key(owner))
+	r.mu.Unlock()
+	if _, err := r.Snapshot(); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("accepted inconsistent active index: %v", err)
+	}
+}

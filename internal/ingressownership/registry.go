@@ -62,6 +62,16 @@ func (r *Registry) Claim(endpoint string, p ingressmanifest.Proof) error {
 	resource := strconv.Itoa(n)
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	// Zero-value registries must fail safely rather than panic on Claim.
+	if r.owners == nil {
+		r.owners = make(map[string]ingressmanifest.Proof)
+	}
+	if r.generations == nil {
+		r.generations = make(map[string]uint64)
+	}
+	if r.active == nil {
+		r.active = make(map[string]string)
+	}
 	if p.Generation < r.generations[key(p)] {
 		return ErrStale
 	}

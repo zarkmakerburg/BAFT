@@ -127,3 +127,20 @@ func TestRegistryReleaseRejectsHostnameAliasWithoutLosingOwner(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestRegistryZeroValueClaimReleaseAndStaleFence(t *testing.T) {
+	var r Registry
+	owner := proof("zero-registry", 1)
+	if err := r.Claim("127.0.0.1:443", owner); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Claim("[::]:443", proof("foreign", 1)); !errors.Is(err, ErrConflict) {
+		t.Fatalf("foreign claim: %v", err)
+	}
+	if err := r.Release("127.0.0.1:443", owner); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Claim("127.0.0.1:443", owner); !errors.Is(err, ErrStale) {
+		t.Fatalf("ABA replay: %v", err)
+	}
+}

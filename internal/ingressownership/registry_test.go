@@ -167,3 +167,19 @@ func TestRegistryRejectsOwnerTupleSeparatorCollision(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestRegistryRejectsManifestInvalidOwnerIDs(t *testing.T) {
+	for _, tc := range []struct{ tunnel, instance string }{
+		{"invalid/path", ""}, {"ok", "bad space"}, {"ok", "default"}, {strings.Repeat("a", 65), ""}, {"ok", strings.Repeat("b", 41)},
+	} {
+		p := proof(tc.tunnel, 1)
+		p.InstanceID = tc.instance
+		r := New()
+		if err := r.Claim("127.0.0.1:443", p); !errors.Is(err, ErrInvalid) {
+			t.Fatalf("accepted owner %q/%q: %v", tc.tunnel, tc.instance, err)
+		}
+		if err := r.Release("127.0.0.1:443", p); !errors.Is(err, ErrInvalid) {
+			t.Fatalf("released invalid owner %q/%q: %v", tc.tunnel, tc.instance, err)
+		}
+	}
+}

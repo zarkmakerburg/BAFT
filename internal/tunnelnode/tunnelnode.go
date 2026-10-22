@@ -922,8 +922,17 @@ func (m *Manager) rollbackTxn(ctx context.Context, t Txn) (string, error) {
 		_ = os.Remove(filepath.Join(m.stage(t.ID), f))
 	}
 	t.Phase = PhaseRolledBack
-	_ = m.writeTxn(t)
-	if m.activeID() == t.ID {
+	if err := m.writeTxn(t); err != nil {
+		return "rollback restored live files but could not persist recovery state", err
+	}
+	cur, err := m.checkedActiveID()
+	if err != nil {
+		return "rollback persisted but active marker needs reconciliation", err
+	}
+	if cur != "" && cur != t.ID {
+		return "rollback persisted but another active owner needs reconciliation", fmt.Errorf("active transaction %s does not match %s", cur, t.ID)
+	}
+	if cur == t.ID {
 		m.clearActive()
 	}
 	if m.Instance != "" {

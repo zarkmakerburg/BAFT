@@ -46,3 +46,19 @@ func TestNFTReaderBoundsOutputBeforeParsing(t *testing.T) {
 		t.Fatalf("overflow changed buffer: %q", output.String())
 	}
 }
+
+func TestNFTReadOnlyInspectionRejectsNilContextAndOversizeSnapshot(t *testing.T) {
+	plan, err := PlanIngressRule(443, proof("read-limit", 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := InspectNFTIngress(nil, nftFakeReader{}, plan); !errors.Is(err, ErrFirewallUnverified) {
+		t.Fatalf("nil context: %v", err)
+	}
+	if _, err := (NFTCommandReader{Binary: "/usr/sbin/nft"}).ReadRuleset(nil); !errors.Is(err, ErrFirewallUnverified) {
+		t.Fatalf("nil command context: %v", err)
+	}
+	if _, err := InspectNFTIngress(context.Background(), nftFakeReader{raw: make([]byte, (4<<20)+1)}, plan); !errors.Is(err, ErrFirewallUnverified) {
+		t.Fatalf("oversized snapshot: %v", err)
+	}
+}

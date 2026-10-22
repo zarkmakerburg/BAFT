@@ -327,3 +327,39 @@ func TestMetricsClaimRejectsOccupiedRealLoopbackSocket(t *testing.T) {
 		t.Fatalf("occupied socket created a persistent claim: %v", err)
 	}
 }
+
+func TestFinalizeDoesNotDestroyRollbackProofOfForeignOwner(t *testing.T) {
+	root := newNode(t)
+	scoped, err := root.Manager.ForInstance("alpha", "127.0.0.1:9301")
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := "old-pair"
+	txn := Txn{Version: 1, ID: id, Role: RoleEX, Phase: PhaseCommitted}
+	if err := scoped.writeTxn(txn); err != nil {
+		t.Fatal(err)
+	}
+	backup := filepath.Join(scoped.stage(id), "backup", "original")
+	if err := os.MkdirAll(filepath.Dir(backup), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(backup, []byte("recovery-proof"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := scoped.setActive("new-pair"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := scoped.Finalize(context.Background(), id); err == nil {
+		t.Fatal("finalized transaction owned by another active change")
+	}
+	actual, err := scoped.readTxn(id)
+	if err != nil || actual.Phase != PhaseCommitted {
+		t.Fatalf("transaction phase changed: %+v %v", actual, err)
+	}
+	if b, err := os.ReadFile(backup); err != nil || string(b) != "recovery-proof" {
+		t.Fatalf("rollback proof destroyed: %q %v", b, err)
+	}
+	if cur, err := scoped.checkedActiveID(); err != nil || cur != "new-pair" {
+		t.Fatalf("other owner's marker changed: %s %v", cur, err)
+	}
+}

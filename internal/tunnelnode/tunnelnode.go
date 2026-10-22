@@ -789,6 +789,11 @@ func (m *Manager) Finalize(ctx context.Context, id string) (string, error) {
 	if t.Phase != PhaseCommitted {
 		return "", fmt.Errorf("tunnel change %s is %s, not committed", id, t.Phase)
 	}
+	// Finalization destroys rollback evidence. Only the current transaction
+	// owner may finalize; a lost, corrupt or foreign marker must fail closed.
+	cur, err := m.checkedActiveID()
+	if err != nil { return "", fmt.Errorf("finalize active owner: %w", err) }
+	if cur != id { return "", fmt.Errorf("finalize %s refused: active transaction is %q", id, cur) }
 	t.Phase = PhaseFinalized
 	if err := m.writeTxn(t); err != nil {
 		return "", err

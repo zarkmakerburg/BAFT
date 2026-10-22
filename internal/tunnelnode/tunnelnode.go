@@ -819,6 +819,12 @@ func (m *Manager) Finalize(ctx context.Context, id string) (string, error) {
 func (m *Manager) Rollback(ctx context.Context, id string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	// A rollback must never act while another transaction owns the node.
+	// This also catches corrupt markers rather than treating them as absent.
+	cur, activeErr := m.checkedActiveID()
+	if activeErr != nil {
+		return "", activeErr
+	}
 	t, err := m.readTxn(id)
 	if err != nil {
 		// A crash between writing the active marker and transaction state
@@ -828,6 +834,9 @@ func (m *Manager) Rollback(ctx context.Context, id string) (string, error) {
 			return "", fmt.Errorf("tunnel change %s has an active marker but no readable transaction; manual reconciliation required: %w", id, err)
 		}
 		return "nothing to roll back", nil
+	}
+	if cur != "" && cur != id {
+		return "", fmt.Errorf("rollback %s refused: active transaction %s owns this node", id, cur)
 	}
 	switch t.Phase {
 	case PhaseRolledBack:

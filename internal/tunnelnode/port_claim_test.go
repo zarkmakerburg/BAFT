@@ -280,3 +280,27 @@ func TestBeginRefusesUnfinishedTxnAfterActiveMarkerLoss(t *testing.T) {
 		}
 	}
 }
+
+func TestRollbackRefusesAnotherActiveTransaction(t *testing.T) {
+	n := newNode(t)
+	scoped, err := n.Manager.ForInstance("alpha", "127.0.0.1:9301")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := scoped.writeTxn(Txn{Version: 1, ID: "old", Role: RoleEX, Phase: PhasePrepared}); err != nil {
+		t.Fatal(err)
+	}
+	if err := scoped.setActive("another"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := scoped.Rollback(context.Background(), "old"); err == nil {
+		t.Fatal("rollback ignored another active transaction")
+	}
+	old, err := scoped.readTxn("old")
+	if err != nil || old.Phase != PhasePrepared {
+		t.Fatalf("rollback modified old transaction: %+v %v", old, err)
+	}
+	if scoped.activeID() != "another" {
+		t.Fatal("rollback modified active owner")
+	}
+}

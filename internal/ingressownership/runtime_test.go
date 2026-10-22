@@ -3,11 +3,12 @@ package ingressownership
 import (
 	"context"
 	"errors"
-	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
 	"net"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
 )
 
 func testSpec(t *testing.T, owner string) ingressmanifest.Spec {
@@ -153,5 +154,36 @@ func TestRuntimeConcurrentRetireCannotReleaseNewOwner(t *testing.T) {
 	}
 	if success != 1 {
 		t.Fatalf("successful retires=%d", success)
+	}
+}
+
+func TestRuntimeStoppedSessionCannotReportHealthyIdempotentApply(t *testing.T) {
+	r := NewRuntime()
+	s := testSpec(t, "stopped-health")
+	p, err := ingressmanifest.Preview(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	if err = r.Apply(ctx, s, p); err != nil {
+		t.Fatal(err)
+	}
+	cancel()
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		err = r.Apply(context.Background(), s, p)
+		if errors.Is(err, ErrStopped) {
+			break
+		}
+		if err != nil {
+			t.Fatalf("unexpected stopped retry error: %v", err)
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("stopped session still reported healthy")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if err = r.Retire(s.Config.Listen, p); err != nil {
+		t.Fatal(err)
 	}
 }

@@ -14,6 +14,8 @@ import (
 
 // Runtime owns only sockets it bound itself. This lab-only executor never
 // changes host firewall policy and must not be wired to signed deploy jobs.
+var ErrStopped = errors.New("ingress session has stopped; explicit retire required")
+
 type Runtime struct {
 	mu       sync.Mutex
 	registry *Registry
@@ -52,7 +54,12 @@ func (r *Runtime) Apply(parent context.Context, spec ingressmanifest.Spec, proof
 	defer r.mu.Unlock()
 	if s, ok := r.sessions[spec.Config.Listen]; ok {
 		if s.proof == proof && !s.retiring {
-			return nil
+			select {
+			case <-s.done:
+				return ErrStopped
+			default:
+				return nil
+			}
 		}
 		return ErrConflict
 	}

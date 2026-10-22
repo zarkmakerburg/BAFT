@@ -440,3 +440,13 @@ func TestForwarderDoesNotTakeOwnershipOfMismatchedListener(t *testing.T) {
 		t.Fatalf("rejected listener was altered: %q %v", data, err)
 	}
 }
+
+func TestNewAllowsPrivileged443WithoutBinding(t *testing.T) {
+	f, err := New(Config{Listen: "127.0.0.1:443", Target: "127.0.0.1:1443"})
+	if err != nil || f == nil {
+		t.Fatalf("port 443 validation: %v", err)
+	}
+	if _, err := New(Config{Listen: "127.0.0.1:0", Target: "127.0.0.1:1443"}); err == nil {
+		t.Fatal("zero port accepted")
+	}
+}

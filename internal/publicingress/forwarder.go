@@ -54,8 +54,11 @@ func New(cfg Config) (*Forwarder, error) {
 	if err != nil {
 		return nil, fmt.Errorf("listen: %w", err)
 	}
-	if port < 1024 {
-		return nil, errors.New("listen port must be at least 1024")
+	// Port 443 is an explicitly approved LAB ingress exception. Other
+	// privileged ports remain fenced (including SSH management port 22).
+	// The OS independently enforces permission to bind port 443.
+	if port < 1024 && port != 443 {
+		return nil, errors.New("privileged listen port is not allowed (except 443)")
 	}
 	if !ip.IsUnspecified() && !ip.IsGlobalUnicast() && !ip.IsLoopback() {
 		return nil, errors.New("listen IP must be unicast, loopback or wildcard")

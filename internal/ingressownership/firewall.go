@@ -25,7 +25,7 @@ func NewMemoryFirewall() *MemoryFirewall {
 	return &MemoryFirewall{rules: make(map[uint16]ingressmanifest.Proof)}
 }
 func (f *MemoryFirewall) Install(port uint16, owner ingressmanifest.Proof) error {
-	if f == nil || port < 1024 || !valid(owner) {
+	if f == nil || port == 0 || !valid(owner) {
 		return ErrInvalid
 	}
 	f.mu.Lock()
@@ -37,7 +37,7 @@ func (f *MemoryFirewall) Install(port uint16, owner ingressmanifest.Proof) error
 	return nil
 }
 func (f *MemoryFirewall) Remove(port uint16, owner ingressmanifest.Proof) error {
-	if f == nil || port < 1024 || !valid(owner) {
+	if f == nil || port == 0 || !valid(owner) {
 		return ErrInvalid
 	}
 	f.mu.Lock()
@@ -49,7 +49,7 @@ func (f *MemoryFirewall) Remove(port uint16, owner ingressmanifest.Proof) error 
 	return nil
 }
 func (f *MemoryFirewall) Verify(port uint16, owner ingressmanifest.Proof) (bool, error) {
-	if f == nil || port < 1024 || !valid(owner) {
+	if f == nil || port == 0 || !valid(owner) {
 		return false, ErrInvalid
 	}
 	f.mu.Lock()

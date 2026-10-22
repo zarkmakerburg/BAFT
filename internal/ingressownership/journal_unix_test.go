@@ -5,6 +5,7 @@ package ingressownership
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -115,6 +116,58 @@ func TestDurableJournalConcurrentWritersAndFences(t *testing.T) {
 	}
 	if err := b.Advance(record); !errors.Is(err, ErrStale) {
 		t.Fatalf("accepted stale generation: %v", err)
+	}
+}
+
+func TestDurableJournalProcessWriter(t *testing.T) {
+	dir := os.Getenv("BAFT_JOURNAL_TEST_DIR")
+	if dir == "" {
+		return
+	}
+	j, err := OpenDurableJournal(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := j.Advance(MutationRecord{Port: 54619, Owner: proof("process-writer", 1), Phase: PhaseIntent}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDurableJournalInterprocessLock(t *testing.T) {
+	dir := newJournalTestDir(t)
+	binary, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	const writers = 6
+	results := make(chan error, writers)
+	for i := 0; i < writers; i++ {
+		go func() {
+			cmd := exec.Command(binary, "-test.run=^TestDurableJournalProcessWriter$")
+			cmd.Env = append(os.Environ(), "BAFT_JOURNAL_TEST_DIR="+dir)
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				results <- errors.Join(err, errors.New(string(output)))
+				return
+			}
+			results <- nil
+		}()
+	}
+	for i := 0; i < writers; i++ {
+		if err := <-results; err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, journalFilename(2))); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("interprocess replay created duplicate record: %v", err)
+	}
+	j, err := OpenDurableJournal(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := j.Recover()
+	if err != nil || len(got.Records) != 1 || got.Records[0].Phase != PhaseIntent {
+		t.Fatalf("interprocess recovery: %+v %v", got, err)
 	}
 }
 

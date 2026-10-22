@@ -54,7 +54,7 @@ func OpenDurableJournal(dir string) (*DurableJournal, error) {
 
 func (j *DurableJournal) withLock(run func(*os.File, *os.Root) error) error {
 	if j == nil || !filepath.IsAbs(j.dir) || filepath.Clean(j.dir) != j.dir {
-		return ErrInvalid
+		return fmt.Errorf("journal requires a clean absolute directory: %w", ErrInvalid)
 	}
 	d, err := os.Open(j.dir)
 	if err != nil {
@@ -71,11 +71,14 @@ func (j *DurableJournal) withLock(run func(*os.File, *os.Root) error) error {
 	}
 	pathInfo, err := os.Lstat(j.dir)
 	if err != nil || !os.SameFile(info, pathInfo) {
-		return ErrInvalid
+		return fmt.Errorf("journal directory path differs from locked inode: %w", ErrInvalid)
 	}
 	stat, ok := info.Sys().(*syscall.Stat_t)
-	if !ok || !info.IsDir() || info.Mode().Perm() != 0700 || int(stat.Uid) != os.Geteuid() || info.Mode()&(os.ModeSetuid|os.ModeSetgid|os.ModeSticky) != 0 {
-		return ErrInvalid
+	if !ok {
+		return fmt.Errorf("journal directory lacks Unix ownership metadata: %w", ErrInvalid)
+	}
+	if !info.IsDir() || info.Mode().Perm() != 0700 || int(stat.Uid) != os.Geteuid() || info.Mode()&(os.ModeSetuid|os.ModeSetgid|os.ModeSticky) != 0 {
+		return fmt.Errorf("journal directory ownership or mode invalid (uid=%d euid=%d mode=%v): %w", stat.Uid, os.Geteuid(), info.Mode(), ErrInvalid)
 	}
 	root, err := os.OpenRoot(j.dir)
 	if err != nil {
@@ -84,14 +87,14 @@ func (j *DurableJournal) withLock(run func(*os.File, *os.Root) error) error {
 	defer root.Close()
 	rootInfo, err := root.Stat(".")
 	if err != nil || !os.SameFile(info, rootInfo) {
-		return ErrInvalid
+		return fmt.Errorf("journal root differs from locked inode: %w", ErrInvalid)
 	}
 	if err := run(d, root); err != nil {
 		return err
 	}
 	pathInfo, err = os.Lstat(j.dir)
 	if err != nil || !os.SameFile(info, pathInfo) {
-		return ErrInvalid
+		return fmt.Errorf("journal directory moved during operation: %w", ErrInvalid)
 	}
 	return nil
 }

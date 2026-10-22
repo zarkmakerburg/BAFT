@@ -32,6 +32,16 @@ func TestRenderRequiresExactManifestAndDoesNotAdoptChangedUnit(t *testing.T) {
 	if same, err := Render(spec, proof, "listener-1", "/usr/local/bin/baft", "baft"); err != nil || same.Name != unit.Name || same.SHA256 != unit.SHA256 {
 		t.Fatalf("candidate is not deterministic: %+v %v", same, err)
 	}
+	other, err := Render(spec, proof, "listener-2", "/usr/local/bin/baft", "baft")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if other.Name == unit.Name {
+		t.Fatal("distinct listeners share an owned systemd unit filename")
+	}
+	if other.SHA256 == unit.SHA256 {
+		t.Fatal("distinct listener candidates must have different content")
+	}
 	wrong := proof
 	wrong.ManifestSHA256 = strings.Repeat("a", 64)
 	if _, err := Render(spec, wrong, "listener-1", "/usr/local/bin/baft", "baft"); err == nil {

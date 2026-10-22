@@ -72,7 +72,10 @@ func Render(spec ingressmanifest.Spec, proof ingressmanifest.Proof, listenerID, 
 	if dialMS == 0 {
 		dialMS = 3000
 	}
-	owner := sha256.Sum256([]byte(proof.TunnelID + "\x00" + proof.InstanceID + "\x00" + strconv.FormatUint(proof.Generation, 10)))
+	// Different listeners in one tunnel generation must never resolve to
+	// the same systemd unit path: that would allow one listener to replace
+	// another even when both carry valid proofs.
+	owner := sha256.Sum256([]byte(proof.TunnelID + "\x00" + proof.InstanceID + "\x00" + strconv.FormatUint(proof.Generation, 10) + "\x00" + listenerID))
 	name := "baft-ingress-" + hex.EncodeToString(owner[:16]) + ".service"
 	content := fmt.Sprintf(`# baft-ingress-schema: 1
 # baft-ingress-tunnel: %s

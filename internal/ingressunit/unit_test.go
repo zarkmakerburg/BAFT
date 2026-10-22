@@ -42,6 +42,19 @@ func TestRenderRequiresExactManifestAndDoesNotAdoptChangedUnit(t *testing.T) {
 	if other.SHA256 == unit.SHA256 {
 		t.Fatal("distinct listener candidates must have different content")
 	}
+	changed := spec
+	changed.Config.Target = "127.0.0.1:1444"
+	changedProof, err := ingressmanifest.Preview(changed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changedUnit, err := Render(changed, changedProof, "listener-1", "/usr/local/bin/baft", "baft")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if changedUnit.Name == unit.Name {
+		t.Fatal("different manifest replaced same-generation owned listener path")
+	}
 	wrong := proof
 	wrong.ManifestSHA256 = strings.Repeat("a", 64)
 	if _, err := Render(spec, wrong, "listener-1", "/usr/local/bin/baft", "baft"); err == nil {

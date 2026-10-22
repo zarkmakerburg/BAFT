@@ -80,7 +80,9 @@ func Render(spec ingressmanifest.Spec, proof ingressmanifest.Proof, listenerID, 
 	// Different listeners in one tunnel generation must never resolve to
 	// the same systemd unit path: that would allow one listener to replace
 	// another even when both carry valid proofs.
-	owner := sha256.Sum256([]byte(proof.TunnelID + "\x00" + proof.InstanceID + "\x00" + strconv.FormatUint(proof.Generation, 10) + "\x00" + listenerID))
+	// Bind the unit path to the exact manifest too: a changed configuration
+	// must not overwrite an earlier candidate with the same owner tuple.
+	owner := sha256.Sum256([]byte(proof.TunnelID + "\x00" + proof.InstanceID + "\x00" + strconv.FormatUint(proof.Generation, 10) + "\x00" + listenerID + "\x00" + proof.ManifestSHA256))
 	name := "baft-ingress-" + hex.EncodeToString(owner[:16]) + ".service"
 	content := fmt.Sprintf(`# baft-ingress-schema: 1
 # baft-ingress-tunnel: %s

@@ -55,3 +55,31 @@ func TestFenceSnapshotRejectsCorruptAndMissingHighwater(t *testing.T) {
 		t.Fatalf("duplicate generation: %v", err)
 	}
 }
+
+func TestFenceSnapshotReleasedGenerationSurvivesRestart(t *testing.T) {
+	r := New()
+	old := proof("released", 2)
+	if err := r.Claim("127.0.0.1:443", old); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Release("127.0.0.1:443", old); err != nil {
+		t.Fatal(err)
+	}
+	snap, err := r.Snapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snap.Active) != 0 || len(snap.Generations) != 1 {
+		t.Fatalf("unexpected checkpoint: %+v", snap)
+	}
+	next, err := RecoverFences(snap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := next.Claim("127.0.0.1:443", old); !errors.Is(err, ErrStale) {
+		t.Fatalf("released proof replay: %v", err)
+	}
+	if err := next.Claim("127.0.0.1:443", proof("released", 3)); err != nil {
+		t.Fatal(err)
+	}
+}

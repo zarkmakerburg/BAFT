@@ -73,6 +73,15 @@ func TestTerminalPairingCodeRoundTripWithoutBCC(t *testing.T) {
 	if output, status, detail := invoke("ir", "ir-start"); status != 0 {
 		t.Fatalf("IR start: %d %s %s", status, detail, output)
 	}
+	for _, role := range []string{"ex", "ir"} {
+		if output, status, detail := invoke(role, "rollback"); status != 0 {
+			t.Fatalf("%s rollback: status=%d output=%s detail=%s", role, status, output, detail)
+		}
+		claim := filepath.Join(dir, role, "etc", ".metrics-claims", "9321")
+		if _, err := os.Stat(claim); !os.IsNotExist(err) {
+			t.Fatalf("%s rollback did not release owned metrics claim: %v", role, err)
+		}
+	}
 	calls, err := os.ReadFile(serviceLog)
 	if err != nil {
 		t.Fatal(err)

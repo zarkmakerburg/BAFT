@@ -10,6 +10,8 @@ import (
 	"os"
 	"os/exec"
 	"testing"
+
+	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
 )
 
 func unrelatedRules(raw []byte) ([]json.RawMessage, error) {
@@ -123,6 +125,39 @@ func TestNFTKernelLAB(t *testing.T) {
 	raw, err = (NFTCommandRunner{Binary: binary}).ReadRuleset(ctx)
 	if err != nil || !bytes.Contains(raw, []byte(plan.Tag)) {
 		t.Fatalf("reinstalled kernel rule missing: %v", err)
+	}
+	last, err := backend.Inspect(ctx, plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := backend.Remove(ctx, plan, last.Handle); err != nil {
+		t.Fatal(err)
+	}
+	journal, err := OpenDurableJournal(newJournalTestDir(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec := ingressmanifest.Spec{TunnelID: "kernel-transaction", InstanceID: "lab-ir", Generation: 1, Config: ingressmanifest.Config{
+		Listen: "127.0.0.1:54619", Target: "127.0.0.1:1443", MaxClients: 16, DialTimeoutMS: 3000,
+	}}
+	owner, err := ingressmanifest.Preview(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx := &NFTLabTransaction{Runtime: NewRuntime(), Firewall: backend, Journal: journal}
+	if err := tx.Apply(ctx, spec, owner); err != nil {
+		t.Fatalf("journaled kernel apply: %v", err)
+	}
+	if err := tx.Retire(ctx, spec, owner); err != nil {
+		t.Fatalf("journaled kernel retire: %v", err)
+	}
+	recovery, err := journal.Recover()
+	if err != nil || len(recovery.NeedsReconciliation) != 0 || len(recovery.Records) != 1 || recovery.Records[0].Phase != PhaseRetired {
+		t.Fatalf("kernel transaction journal: %+v %v", recovery, err)
+	}
+	raw, err = (NFTCommandRunner{Binary: binary}).ReadRuleset(ctx)
+	if err != nil {
+		t.Fatal(err)
 	}
 	after, err := unrelatedRules(raw)
 	if err != nil || len(after) != 1 || !bytes.Equal(baseline[0], after[0]) {

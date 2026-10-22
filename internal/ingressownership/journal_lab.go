@@ -21,9 +21,10 @@ const (
 )
 
 type MutationRecord struct {
-	Port  uint16
-	Owner ingressmanifest.Proof
-	Phase MutationPhase
+	Port           uint16
+	Owner          ingressmanifest.Proof
+	Phase          MutationPhase
+	FirewallHandle uint64 // zero for the memory firewall; pinned for nft LAB
 }
 
 // MutationJournal exposes phase persistence to the isolated transaction.
@@ -80,6 +81,9 @@ func (j *LabJournal) Advance(next MutationRecord) error {
 		return nil
 	}
 	if next.Port != old.Port || next.Owner != old.Owner {
+		return ErrConflict
+	}
+	if (old.FirewallHandle != 0 && next.FirewallHandle != old.FirewallHandle) || (old.FirewallHandle == 0 && next.FirewallHandle != 0 && (old.Phase != PhaseListenerBound || next.Phase != PhaseFirewallInstalled)) {
 		return ErrConflict
 	}
 	if next.Phase == old.Phase {

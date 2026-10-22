@@ -114,6 +114,20 @@ func (b *NFTLabBackend) inspect(ctx context.Context) ([]FirewallObservation, err
 	return ParseNFTIngressRules(raw)
 }
 
+// Inspect returns a fresh exact-owner observation without mutating policy.
+func (b *NFTLabBackend) Inspect(ctx context.Context, plan RulePlan) (FirewallObservation, error) {
+	if b == nil || ctx == nil {
+		return FirewallObservation{}, ErrFirewallUnverified
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	observations, err := b.inspect(ctx)
+	if err != nil {
+		return FirewallObservation{}, err
+	}
+	return ReconcileRuleObservation(plan, observations)
+}
+
 // Install never removes a foreign rule after a partial command failure. A
 // later retry must independently reobserve the exact owner rule.
 func (b *NFTLabBackend) Install(ctx context.Context, plan RulePlan) (FirewallObservation, error) {

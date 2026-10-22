@@ -214,3 +214,34 @@ func TestRuntimeCanonicalAliasCannotBypassOwner(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestRuntimeCancelledParentNeverLeavesUnretirableClaim(t *testing.T) {
+	for i := 0; i < 100; i++ {
+		r := NewRuntime()
+		s := testSpec(t, "cancel-race")
+		p, err := ingressmanifest.Preview(s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan error, 1)
+		go func() { done <- r.Apply(ctx, s, p) }()
+		cancel()
+		err = <-done
+		if errors.Is(err, context.Canceled) {
+			if len(r.sessions) != 0 {
+				t.Fatal("cancel returned but session exists")
+			}
+			if len(r.registry.owners) != 0 {
+				t.Fatal("cancel returned with unretirable owner")
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatalf("unexpected apply error: %v", err)
+		}
+		if err = r.Retire(s.Config.Listen, p); err != nil {
+			t.Fatal(err)
+		}
+	}
+}

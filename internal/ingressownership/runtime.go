@@ -93,11 +93,10 @@ func (r *Runtime) Apply(parent context.Context, spec ingressmanifest.Spec, proof
 		_ = ln.Close()
 		return err
 	}
-	if err := parent.Err(); err != nil {
-		_ = ln.Close()
-		_ = r.registry.Release(spec.Config.Listen, proof)
-		return err
-	}
+	// After claiming a generation, never roll it back as if unused:
+	// doing so would consume the high-water mark without a session to retire.
+	// A concurrently cancelled parent is represented by a stopped session,
+	// which can only be retired with its exact proof.
 	ctx, cancel := context.WithCancel(parent)
 	s := &session{proof: proof, cancel: cancel, done: make(chan error, 1)}
 	r.sessions[spec.Config.Listen] = s

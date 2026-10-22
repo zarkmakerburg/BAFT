@@ -70,11 +70,13 @@ const (
 	// BCC-provided generation and live file digests still match.
 	ActionTunnelRetire = "tunnel_retire"
 
-	// P0 public ingress preflight is read-only. Mutating actions require a
-	// separate owned-resource implementation and are not enabled here.
+	// P0 host observation is read-only. Prepare writes only private manifest
+	// bytes; listener/firewall application needs a separate owned-resource path.
 	ActionPublicIngressPreflight = "public_ingress_preflight"
 	// Read-only bounded host snapshot; this does not establish resource ownership.
 	ActionPublicIngressInspect = "public_ingress_inspect"
+	// Writes only a private prepared manifest; it does not bind or open firewall.
+	ActionPublicIngressPrepare = "public_ingress_prepare"
 
 	// Certificate rotation of a built tunnel (A4 Stage F). Only public
 	// certificates and digests travel in parameters; new private keys never
@@ -142,6 +144,7 @@ var paramRules = map[string]map[string]*regexp.Regexp{
 	ActionTunnelRetire:           {"tunnel_id": tunnelIDRe, "generation": epochRe, "config_sha256": sha256Re, "unit_sha256": sha256Re, "marker_sha256": sha256Re},
 	ActionPublicIngressPreflight: {"tunnel_id": tunnelIDRe, "public_port": portRe, "local_target": loopbackListenR},
 	ActionPublicIngressInspect:   {"tunnel_id": tunnelIDRe, "public_port": portRe, "local_target": loopbackListenR, "generation": epochRe, "manifest_digest": sha256Re, "listener_id": idRe, "firewall_id": idRe},
+	ActionPublicIngressPrepare:   {"tunnel_id": tunnelIDRe, "public_port": portRe, "local_target": loopbackListenR, "generation": epochRe, "manifest_digest": sha256Re, "listener_id": idRe, "firewall_id": idRe},
 
 	ActionCertPrepareEX:  {"tunnel_id": tunnelIDRe, "rotation_id": tunnelIDRe, "epoch": epochRe},
 	ActionCertTrustIR:    {"tunnel_id": tunnelIDRe, "rotation_id": tunnelIDRe, "epoch": epochRe, "ca_der": derB64Re, "ca_sha256": sha256Re},
@@ -158,25 +161,26 @@ var paramRules = map[string]map[string]*regexp.Regexp{
 // Legacy BCCs may omit these fields; new BCCs use them for multi-instance
 // tunnel isolation.
 var optionalParamRules = map[string]map[string]*regexp.Regexp{
-	ActionTunnelPrepareEX: {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
-	ActionTunnelPrepareIR: {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
-	ActionTunnelCommitEX:  {"instance_id": instanceIDRe},
-	ActionTunnelCommitIR:  {"instance_id": instanceIDRe},
-	ActionTunnelHealth:    {"instance_id": instanceIDRe},
-	ActionTunnelObserve:   {"instance_id": instanceIDRe},
-	ActionTunnelInspect:   {"instance_id": instanceIDRe},
-	ActionTunnelFinalize:  {"instance_id": instanceIDRe},
-	ActionTunnelRollback:  {"instance_id": instanceIDRe},
-	ActionTunnelRetire:    {"instance_id": instanceIDRe},
-	ActionCertPrepareEX:   {"instance_id": instanceIDRe},
-	ActionCertTrustIR:     {"instance_id": instanceIDRe},
-	ActionCertVerifyEX:    {"instance_id": instanceIDRe},
-	ActionCertVerifyIR:    {"instance_id": instanceIDRe},
-	ActionCertActivateEX:  {"instance_id": instanceIDRe},
-	ActionCertConfirmIR:   {"instance_id": instanceIDRe},
-	ActionCertRetireIR:    {"instance_id": instanceIDRe},
-	ActionCertRetireEX:    {"instance_id": instanceIDRe},
-	ActionCertRollback:    {"instance_id": instanceIDRe},
+	ActionTunnelPrepareEX:      {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
+	ActionTunnelPrepareIR:      {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
+	ActionTunnelCommitEX:       {"instance_id": instanceIDRe},
+	ActionTunnelCommitIR:       {"instance_id": instanceIDRe},
+	ActionTunnelHealth:         {"instance_id": instanceIDRe},
+	ActionTunnelObserve:        {"instance_id": instanceIDRe},
+	ActionTunnelInspect:        {"instance_id": instanceIDRe},
+	ActionTunnelFinalize:       {"instance_id": instanceIDRe},
+	ActionTunnelRollback:       {"instance_id": instanceIDRe},
+	ActionTunnelRetire:         {"instance_id": instanceIDRe},
+	ActionPublicIngressPrepare: {"instance_id": instanceIDRe},
+	ActionCertPrepareEX:        {"instance_id": instanceIDRe},
+	ActionCertTrustIR:          {"instance_id": instanceIDRe},
+	ActionCertVerifyEX:         {"instance_id": instanceIDRe},
+	ActionCertVerifyIR:         {"instance_id": instanceIDRe},
+	ActionCertActivateEX:       {"instance_id": instanceIDRe},
+	ActionCertConfirmIR:        {"instance_id": instanceIDRe},
+	ActionCertRetireIR:         {"instance_id": instanceIDRe},
+	ActionCertRetireEX:         {"instance_id": instanceIDRe},
+	ActionCertRollback:         {"instance_id": instanceIDRe},
 }
 
 // Actions returns the allowlist, sorted.
@@ -245,7 +249,7 @@ func (j Job) Validate() error {
 			return fmt.Errorf("parameter route_listen: %w", err)
 		}
 	}
-	if j.Action == ActionPublicIngressPreflight || j.Action == ActionPublicIngressInspect {
+	if j.Action == ActionPublicIngressPreflight || j.Action == ActionPublicIngressInspect || j.Action == ActionPublicIngressPrepare {
 		if !validTCPPort(j.Params["public_port"]) {
 			return errors.New("parameter public_port must be between 1 and 65535")
 		}

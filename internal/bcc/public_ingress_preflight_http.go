@@ -24,8 +24,9 @@ type PublicIngressPreflightRequest struct {
 // is not a retry lease for mutating jobs and conveys no host resource ownership.
 const publicIngressPreflightPendingLifetime = 5 * time.Minute
 
-// The persisted creation time, rather than the time an agent polls, bounds
-// this read-only observation (preflight or inspect). A queued job cannot acquire a fresh lifetime.
+// The persisted creation time, rather than agent poll time, bounds ingress
+// preflight, inspect and private-manifest prepare. A queued job cannot gain
+// a fresh lifetime by waiting for dispatch.
 func publicIngressPreflightDeadline(j Job) time.Time {
 	return j.CreatedAt.Add(publicIngressPreflightPendingLifetime)
 }

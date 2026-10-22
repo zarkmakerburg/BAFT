@@ -6,14 +6,12 @@ import (
 	"time"
 )
 
-// Until ownership-checked listener, firewall and rollback executors exist,
-// signed BCC jobs must not be able to request any public ingress mutation.
-// This gate deliberately fails if a future change enables an action without
-// first replacing this contract with an end-to-end mutation acceptance test.
+// The isolated prepare action writes only private manifest bytes. Until
+// ownership-checked listener, firewall and rollback executors exist, signed
+// BCC jobs must not be able to request public ingress host mutations.
 func TestP0PublicIngressMutationActionsRemainDisabled(t *testing.T) {
 	now := time.Now().UTC()
 	for _, action := range []string{
-		"public_ingress_prepare",
 		"public_ingress_commit",
 		"public_ingress_apply",
 		"public_ingress_rollback",

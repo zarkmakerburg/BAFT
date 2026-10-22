@@ -194,7 +194,7 @@ ui_cols() {
   [[ "$c" =~ ^[0-9]+$ ]] || c="$(stty size 2>/dev/null <&2 | awk '{print $2}' || true)"
   [[ "$c" =~ ^[0-9]+$ && "$c" -gt 0 ]] || c=100
   ((c > 132)) && c=132
-  ((c < 64)) && c=64
+  ((c < 20)) && c=20
   printf '%s' "$c"
 }
 
@@ -229,7 +229,25 @@ ui_table() {
   done
   local used=0
   for ((i = 0; i < n - 1; i++)); do used=$((used + widths[i] + 3)); done
-  max=$(($(ui_cols) - used - 6))
+  local available
+  available="$(ui_cols)"
+  # Box cells use display width that Bash cannot reliably measure for mixed
+  # Unicode. On a narrow terminal, emit wrapped facts instead of a box that
+  # can spill past the right edge.
+  if ((available < 64 || used + 26 > available)); then
+    local plain_width=$((available - 4))
+    for row in "$@"; do
+      IFS='|' read -r -a cells <<<"$row"
+      printf '%s\n' "${cells[0]:-}" | fold -s -w "$plain_width" | sed 's/^/    /' >&2
+      for ((i = 1; i < n; i++)); do
+        text="${cells[i]:-}"; text="${text#@*:}"
+        printf '%s: %s\n' "${heads[i]}" "$text" | fold -s -w "$plain_width" | sed 's/^/    /' >&2
+      done
+      printf '\n' >&2
+    done
+    return 0
+  fi
+  max=$((available - used - 6))
   ((max < 20)) && max=20
   widths[n - 1]=$max
   local longest=${#heads[n - 1]}
@@ -2172,7 +2190,7 @@ StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-ExecStart=$BAFT_AGENT_BIN --bcc-url $BAFT_BCC_URL --node-id $BAFT_NODE_ID --token-file $BAFT_AGENT_DIR/token --bcc-job-key $BAFT_AGENT_DIR/bcc-job.pub $root_flag --state-dir $BAFT_AGENT_STATE_DIR --release-state $BAFT_RELEASE_STATE --bin-dir $bindir --service $BAFT_SERVICE --config-dir $BAFT_CONFIG_DIR --baft-state-dir $BAFT_STATE_DIR --service-user $BAFT_USER --metrics-listen $BAFT_METRICS_LISTEN --interval $BAFT_AGENT_INTERVAL $http_flag
+ExecStart=$BAFT_AGENT_BIN --bcc-url $BAFT_BCC_URL --node-id $BAFT_NODE_ID --token-file $BAFT_AGENT_DIR/token --bcc-job-key $BAFT_AGENT_DIR/bcc-job.pub $root_flag --state-dir $BAFT_AGENT_STATE_DIR --ingress-manifest-dir $BAFT_AGENT_STATE_DIR --release-state $BAFT_RELEASE_STATE --bin-dir $bindir --service $BAFT_SERVICE --config-dir $BAFT_CONFIG_DIR --baft-state-dir $BAFT_STATE_DIR --service-user $BAFT_USER --metrics-listen $BAFT_METRICS_LISTEN --interval $BAFT_AGENT_INTERVAL $http_flag
 Restart=always
 RestartSec=10s
 NoNewPrivileges=true
@@ -2602,6 +2620,10 @@ finalize_apply() {
 install_agent() {
   [[ -d "$BAFT_AGENT_DIR" ]] || install -d -m 0700 -o root -g root "$BAFT_AGENT_DIR"
   [[ -d "$BAFT_AGENT_STATE_DIR" ]] || install -d -m 0700 -o root -g root "$BAFT_AGENT_STATE_DIR"
+  # The prepared-manifest store shares this root-owned private state directory.
+  # Refuse an old permissive or redirected directory instead of weakening the
+  # manifest store's ownership checks or silently changing existing ownership.
+  [[ ! -L "$BAFT_AGENT_STATE_DIR" && "$(stat -c '%u:%a' -- "$BAFT_AGENT_STATE_DIR")" == '0:700' ]] || die "agent state directory must be root-owned, private (0700), and not a symlink: $BAFT_AGENT_STATE_DIR"
   if [[ "$DO_TOKEN" == 1 ]]; then
     backup_file "$BAFT_AGENT_DIR/token"
     install -m 0600 -o root -g root "$AGENT_TOKEN_TMP" "$BAFT_AGENT_DIR/token"

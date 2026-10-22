@@ -564,13 +564,15 @@ func (s *Store) pullJobs(nodeID,token string,prepare func([]Job)error) ([]Job,er
 	changed:=false
 	for id,j:=range s.st.Jobs{
 		if j.NodeID!=nodeID || (j.Status!="queued" && j.Status!="dispatched"){continue}
-		if (j.Type=="public_ingress_preflight" || j.Type=="public_ingress_inspect") && !now.Before(publicIngressPreflightDeadline(j)) {
+		if (j.Type=="public_ingress_preflight" || j.Type=="public_ingress_inspect" || j.Type=="public_ingress_prepare") && !now.Before(publicIngressPreflightDeadline(j)) {
 			changed=true
+			wasQueued:=j.Status=="queued"
 			message:="read-only ingress observation expired before acknowledgement"
-			if j.Status=="queued"{message="read-only ingress observation expired before dispatch"}
-			j.Status="failed";j.Message=message;j.UpdatedAt=now;s.st.Jobs[id]=j
+			if wasQueued{message="read-only ingress observation expired before dispatch"}
 			action:="public_ingress.preflight.expire"
 			if j.Type=="public_ingress_inspect"{action="public_ingress.inspect.expire"}
+			if j.Type=="public_ingress_prepare"{action="public_ingress.prepare.expire";message="ingress prepare expired before acknowledgement";if wasQueued{message="ingress prepare expired before dispatch"}}
+			j.Status="failed";j.Message=message;j.UpdatedAt=now;s.st.Jobs[id]=j
 			if _,err:=s.enqueueSecurityAuditLocked(AuditEntry{Timestamp:now,Actor:"bcc",Action:action,Target:j.Params["tunnel_id"],Outcome:"expired",Details:map[string]any{"job_id":j.ID,"ir_node":j.NodeID,"public_port":j.Params["public_port"]}});err!=nil{s.st=before;return nil,err}
 			continue
 		}
@@ -600,7 +602,7 @@ func (s *Store) AckJobOutput(nodeID,token,jobID,status,message,output string) er
 	if !s.authorizedLocked(nodeID,token){return ErrAgentAuthentication}
 	j,ok:=s.st.Jobs[jobID];if !ok||j.NodeID!=nodeID{return errors.New("job not found")}
 	if j.Status!="dispatched"&&j.Status!="queued"{return errors.New("job already completed")}
-	if (j.Type=="public_ingress_preflight" || j.Type=="public_ingress_inspect") && !time.Now().Before(publicIngressPreflightDeadline(j)) {
+	if (j.Type=="public_ingress_preflight" || j.Type=="public_ingress_inspect" || j.Type=="public_ingress_prepare") && !time.Now().Before(publicIngressPreflightDeadline(j)) {
 		before, err := cloneState(s.st)
 		if err != nil { return err }
 		now := time.Now().UTC()
@@ -608,18 +610,20 @@ func (s *Store) AckJobOutput(nodeID,token,jobID,status,message,output string) er
 		s.st.Jobs[jobID] = j
 		action := "public_ingress.preflight.expire"
 		if j.Type == "public_ingress_inspect" { action = "public_ingress.inspect.expire" }
+		if j.Type == "public_ingress_prepare" { action = "public_ingress.prepare.expire"; j.Message = "ingress prepare expired before acknowledgement"; s.st.Jobs[jobID] = j }
 		if _, err := s.enqueueSecurityAuditLocked(AuditEntry{
 			Timestamp: now, Actor: "bcc", Action: action,
 			Target: j.Params["tunnel_id"], Outcome: "expired",
 			Details: map[string]any{"job_id": j.ID, "ir_node": j.NodeID, "public_port": j.Params["public_port"]},
 		}); err != nil { s.st = before; return err }
 		if err := s.saveLocked(); err != nil { s.st = before; return err }
-		return errors.New("read-only ingress observation expired before acknowledgement")
+		return errors.New(j.Message)
 	}
-		if j.Type=="public_ingress_inspect" && j.Status!="dispatched" {return errors.New("ingress inspection acknowledgement requires dispatched job")}
+	if (j.Type=="public_ingress_inspect" || j.Type=="public_ingress_prepare") && j.Status!="dispatched" {return errors.New("ingress acknowledgement requires dispatched job")}
 	if status=="succeeded"&&j.Type=="public_ingress_preflight"{if err:=validatePublicIngressPreflightReceipt(output,j.Params);err!=nil{return err}}
 	if status=="succeeded"&&j.Type=="public_ingress_inspect"{if err:=validatePublicIngressInspectSnapshot(output,j.ID,j.NodeID,j.Params);err!=nil{return err}}
 	if status=="succeeded"&&j.Type=="public_ingress_inspect"{if err:=validateCurrentPublicIngressInspectIntent(s.st,j);err!=nil{return err}}
+	if status=="succeeded"&&j.Type=="public_ingress_prepare"{op,ok:=s.st.PublicIngressOperations[j.Params["tunnel_id"]];if !ok{return errors.New("ingress prepare operation missing")};if err:=validatePublicIngressPrepareReceipt(output,j,op);err!=nil{return err}}
 	previous:=j
 	j.Status=status;j.Message=message;j.UpdatedAt=time.Now().UTC()
 	if status=="succeeded"{j.Output=output}

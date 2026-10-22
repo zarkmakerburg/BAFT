@@ -49,6 +49,10 @@ func (a *Agent) executeFull(ctx context.Context, j agentjob.Job) (detail, output
 		output, err = a.publicIngressPreflight(ctx, j)
 		return "read-only public ingress preflight recorded; application remains blocked", output, err
 	}
+	if j.Action == agentjob.ActionPublicIngressPrepare {
+		output, err = a.publicIngressPrepare(ctx, j)
+		return "private ingress manifest prepared; listener and firewall unchanged", output, err
+	}
 	if strings.HasPrefix(j.Action, "ssh_migrate_") {
 		if e := a.sshMigration(ctx, j); e != nil {
 			return "", "", e

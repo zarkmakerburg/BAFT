@@ -104,6 +104,10 @@ func TestAgentUnitMatchesInstaller(t *testing.T) {
 			if got := renderAgentUnit(p); got != want {
 				t.Fatalf("Go render differs:\n--- go\n%s\n--- sh\n%s", got, want)
 			}
+			legacy := strings.Replace(want, " --ingress-manifest-dir /var/lib/baft-agent", "", 1)
+			if old, ok := installerAgentParams(legacy); !ok || old.IngressManifest || renderAgentUnit(old) != legacy {
+				t.Fatal("previous installer agent unit lost ownership recognition")
+			}
 			if p.NodeID != "ex-1" || p.AgentDir != "/etc/baft-agent" || p.ReleaseState != "/opt/baft/release-state.json" {
 				t.Fatalf("params %+v", p)
 			}

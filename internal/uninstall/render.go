@@ -62,6 +62,7 @@ type agentParams struct {
 	AgentBin, BCCURL, NodeID, AgentDir  string
 	ReleaseRoot                         bool
 	AgentStateDir, ReleaseState, BinDir string
+	IngressManifest                     bool
 	Service, ConfigDir, BaftStateDir    string
 	User, MetricsListen, Interval       string
 	AllowHTTP                           bool
@@ -84,6 +85,10 @@ func renderAgentUnit(p agentParams) string {
 	if p.RevocationsURL != "" {
 		httpFlag += " --revocations-url " + p.RevocationsURL
 	}
+	ingressFlag := ""
+	if p.IngressManifest {
+		ingressFlag = " --ingress-manifest-dir " + p.AgentStateDir
+	}
 	return `[Unit]
 Description=BAFT agent (signed BCC jobs)
 After=network-online.target
@@ -92,7 +97,7 @@ StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-ExecStart=` + p.AgentBin + ` --bcc-url ` + p.BCCURL + ` --node-id ` + p.NodeID + ` --token-file ` + p.AgentDir + `/token --bcc-job-key ` + p.AgentDir + `/bcc-job.pub ` + rootFlag + ` --state-dir ` + p.AgentStateDir + ` --release-state ` + p.ReleaseState + ` --bin-dir ` + p.BinDir + ` --service ` + p.Service + ` --config-dir ` + p.ConfigDir + ` --baft-state-dir ` + p.BaftStateDir + ` --service-user ` + p.User + ` --metrics-listen ` + p.MetricsListen + ` --interval ` + p.Interval + ` ` + httpFlag + `
+ExecStart=` + p.AgentBin + ` --bcc-url ` + p.BCCURL + ` --node-id ` + p.NodeID + ` --token-file ` + p.AgentDir + `/token --bcc-job-key ` + p.AgentDir + `/bcc-job.pub ` + rootFlag + ` --state-dir ` + p.AgentStateDir + ingressFlag + ` --release-state ` + p.ReleaseState + ` --bin-dir ` + p.BinDir + ` --service ` + p.Service + ` --config-dir ` + p.ConfigDir + ` --baft-state-dir ` + p.BaftStateDir + ` --service-user ` + p.User + ` --metrics-listen ` + p.MetricsListen + ` --interval ` + p.Interval + ` ` + httpFlag + `
 Restart=always
 RestartSec=10s
 NoNewPrivileges=true
@@ -179,6 +184,12 @@ func installerAgentParams(unit string) (agentParams, bool) {
 	}
 	p.BCCURL, p.NodeID = val["--bcc-url"], val["--node-id"]
 	p.AgentStateDir, p.ReleaseState, p.BinDir = val["--state-dir"], val["--release-state"], val["--bin-dir"]
+	if manifestDir, present := val["--ingress-manifest-dir"]; present {
+		if manifestDir != p.AgentStateDir {
+			return agentParams{}, false
+		}
+		p.IngressManifest = true
+	}
 	p.Service, p.ConfigDir, p.BaftStateDir = val["--service"], val["--config-dir"], val["--baft-state-dir"]
 	p.User, p.MetricsListen, p.Interval = val["--service-user"], val["--metrics-listen"], val["--interval"]
 	p.ReleaseBaseURL, p.RevocationsURL = val["--release-base-url"], val["--revocations-url"]

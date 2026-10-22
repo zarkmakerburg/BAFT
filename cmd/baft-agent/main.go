@@ -75,6 +75,7 @@ func run(ctx context.Context, args []string, stderr io.Writer) int {
 	releaseBase := fs.String("release-base-url", "https://github.com/zarkmakerburg/baft/releases/download", "release assets at <base>/<version>/<file>")
 	revocations := fs.String("revocations-url", "https://raw.githubusercontent.com/zarkmakerburg/baft/main/release/keys/revocations.json", "current release revocation list")
 	stateDir := fs.String("state-dir", "/var/lib/baft-agent", "agent state (seen jobs)")
+	ingressManifestDir := fs.String("ingress-manifest-dir", "", "pre-existing private ingress manifest directory (empty disables prepare)")
 	releaseState := fs.String("release-state", "/opt/baft/release-state.json", "installer release trust state")
 	binDir := fs.String("bin-dir", "/usr/local/bin", "where baft and baft-pair are installed")
 	service := fs.String("service", "baft", "BAFT systemd unit")
@@ -109,7 +110,8 @@ func run(ctx context.Context, args []string, stderr io.Writer) int {
 	}
 	cfg := agent.Config{
 		BCCURL: *bccURL, NodeID: *nodeID, Token: token, BCCJobKey: jobKey, StateDir: *stateDir,
-		Service: *service, ReleaseBaseURL: *releaseBase, RevocationsURL: *revocations,
+		IngressManifestDir: *ingressManifestDir,
+		Service:            *service, ReleaseBaseURL: *releaseBase, RevocationsURL: *revocations,
 		ReleaseState: *releaseState, BinDir: *binDir, System: hostSystem{},
 	}
 	tn, err := tunnelnode.New(tunnelnode.Env{

@@ -3,14 +3,39 @@
 package ingressownership
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"os"
 	"os/exec"
-	"strings"
 	"testing"
 )
+
+func unrelatedRules(raw []byte) ([]json.RawMessage, error) {
+	var root struct {
+		NFTables []json.RawMessage `json:"nftables"`
+	}
+	if err := json.Unmarshal(raw, &root); err != nil {
+		return nil, err
+	}
+	var rules []json.RawMessage
+	for _, item := range root.NFTables {
+		var wrapper map[string]json.RawMessage
+		if err := json.Unmarshal(item, &wrapper); err != nil {
+			return nil, err
+		}
+		var rule struct {
+			Family string `json:"family"`
+			Table  string `json:"table"`
+			Chain  string `json:"chain"`
+		}
+		if err := json.Unmarshal(wrapper["rule"], &rule); err == nil && rule.Family == "inet" && rule.Table == "unrelated" && rule.Chain == "keep" {
+			rules = append(rules, wrapper["rule"])
+		}
+	}
+	return rules, nil
+}
 
 func TestNFTKernelLAB(t *testing.T) {
 	if os.Getenv("BAFT_NFT_KERNEL_LAB") != "1" {
@@ -46,6 +71,10 @@ func TestNFTKernelLAB(t *testing.T) {
 	raw, err := (NFTCommandRunner{Binary: binary}).ReadRuleset(ctx)
 	if err != nil {
 		t.Fatal(err)
+	}
+	baseline, err := unrelatedRules(raw)
+	if err != nil || len(baseline) != 1 {
+		t.Fatalf("unrelated baseline missing: %v", err)
 	}
 	var snapshot struct {
 		NFTables []struct {
@@ -92,10 +121,11 @@ func TestNFTKernelLAB(t *testing.T) {
 		t.Fatalf("kernel reinstall: %v", err)
 	}
 	raw, err = (NFTCommandRunner{Binary: binary}).ReadRuleset(ctx)
-	if err != nil || !strings.Contains(string(raw), plan.Tag) {
+	if err != nil || !bytes.Contains(raw, []byte(plan.Tag)) {
 		t.Fatalf("reinstalled kernel rule missing: %v", err)
 	}
-	if !strings.Contains(string(raw), `"table":"unrelated"`) || !strings.Contains(string(raw), `"right":2053`) {
+	after, err := unrelatedRules(raw)
+	if err != nil || len(after) != 1 || !bytes.Equal(baseline[0], after[0]) {
 		t.Fatal("unrelated 2053 rule changed during BAFT rule lifecycle")
 	}
 }

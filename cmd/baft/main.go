@@ -69,6 +69,8 @@ func runContext(ctx context.Context, args []string, stdout, stderr io.Writer) in
 		return runConfig(args[1:], stdout, stderr)
 	case "run":
 		return runNode(ctx, args[1:], stdout, stderr)
+	case "tunnel":
+		return runTunnelCLI(ctx, args[1:], stdout, stderr)
 	case "ingress":
 		return runIngress(ctx, args[1:], stderr)
 	case "status":
@@ -197,6 +199,7 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w, "  baft config validate --file <config.yaml>")
 	fmt.Fprintln(w, "  baft config stealth-pro --file <config.yaml> [padding/jitter flags]")
 	fmt.Fprintln(w, "  baft run --file <config.yaml>")
+	fmt.Fprintln(w, "  baft tunnel <ex-code|ir-apply|ex-accept|ir-start|health|rollback> --instance ID --metrics-listen IP:PORT --id TXN [flags]")
 	fmt.Fprintln(w, "  baft ingress run --listen IP:PORT --target LOOPBACK_IP:PORT   # foreground TCP runtime; no firewall changes")
 	fmt.Fprintln(w, "  baft status [--file /etc/baft/baft.yaml] [--service baft] [--json]")
 	fmt.Fprintln(w, "  baft doctor [--file /etc/baft/baft.yaml] [--service baft] [--json] [--preview-fixes]")

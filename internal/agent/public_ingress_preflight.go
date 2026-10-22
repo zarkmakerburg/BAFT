@@ -200,11 +200,17 @@ func (a *Agent) publicIngressPreflight(ctx context.Context, j agentjob.Job) (str
 		if err != nil {
 			return "", err
 		}
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
 		store, err := ingressmanifest.Open(a.cfg.IngressManifestDir)
 		if err != nil {
 			return "", err
 		}
 		defer store.Close()
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
 		if _, err := inspectSignedIngressManifest(store, j, expected); err != nil {
 			return "", err
 		}

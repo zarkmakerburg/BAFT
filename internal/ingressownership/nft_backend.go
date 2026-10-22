@@ -33,9 +33,16 @@ func (r NFTCommandRunner) Run(ctx context.Context, args ...string) error {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	output, err := exec.CommandContext(ctx, r.Binary, args...).CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("nft mutation failed: %w: %s", err, string(bytes.TrimSpace(output)))
+	// Restrict the command surface: callers must not turn this LAB runner
+	// into a generic nft command executor.
+	if !allowedNFTMutation(args) {
+		return ErrFirewallUnverified
+	}
+	cmd := exec.CommandContext(ctx, r.Binary, args...)
+	cmd.Stdout = io.Discard
+	cmd.Stderr = io.Discard
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("nft mutation failed: %w", err)
 	}
 	return nil
 }
@@ -206,4 +213,33 @@ func (b *NFTLabBackend) Remove(ctx context.Context, plan RulePlan, expectedHandl
 		}
 	}
 	return nil
+}
+
+func allowedNFTMutation(args []string) bool {
+	if len(args) == 11 && args[0] == "add" && args[1] == "rule" && args[2] == "inet" && args[3] == "baft" && args[4] == "ingress" && args[5] == "tcp" && args[6] == "dport" && args[8] == "accept" && args[9] == "comment" {
+		port, err := strconv.ParseUint(args[7], 10, 16)
+		return err == nil && port != 0 && port != 22 && validNFTTag(args[10])
+	}
+	if len(args) == 8 && args[0] == "delete" && args[1] == "rule" && args[2] == "inet" && args[3] == "baft" && args[4] == "ingress" && args[5] == "handle" {
+		handle, err := strconv.ParseUint(args[6], 10, 64)
+		return err == nil && handle > 0 && args[7] == ""
+	}
+	if len(args) == 7 && args[0] == "delete" && args[1] == "rule" && args[2] == "inet" && args[3] == "baft" && args[4] == "ingress" && args[5] == "handle" {
+		handle, err := strconv.ParseUint(args[6], 10, 64)
+		return err == nil && handle > 0
+	}
+	return false
+}
+func validNFTTag(tag string) bool {
+	if len(tag) != len("baft-ingress-")+32 || tag[:len("baft-ingress-")] != "baft-ingress-" {
+		return false
+	}
+	for _, c := range tag[len("baft-ingress-"):] {
+		if c < '0' || c > '9' {
+			if c < 'a' || c > 'f' {
+				return false
+			}
+		}
+	}
+	return true
 }

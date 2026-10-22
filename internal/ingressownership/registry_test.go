@@ -144,3 +144,26 @@ func TestRegistryZeroValueClaimReleaseAndStaleFence(t *testing.T) {
 		t.Fatalf("ABA replay: %v", err)
 	}
 }
+
+func TestRegistryRejectsOwnerTupleSeparatorCollision(t *testing.T) {
+	r := New()
+	for _, bad := range []ingressmanifest.Proof{
+		{TunnelID: "alpha\x00beta", Generation: 1, ConfigSHA256: strings.Repeat("a", 64), ManifestSHA256: strings.Repeat("b", 64)},
+		{TunnelID: "alpha", InstanceID: "beta\x00gamma", Generation: 1, ConfigSHA256: strings.Repeat("a", 64), ManifestSHA256: strings.Repeat("b", 64)},
+		{TunnelID: "alpha", InstanceID: "default", Generation: 1, ConfigSHA256: strings.Repeat("a", 64), ManifestSHA256: strings.Repeat("b", 64)},
+	} {
+		if err := r.Claim("127.0.0.1:2053", bad); !errors.Is(err, ErrInvalid) {
+			t.Fatalf("invalid owner accepted: %v", err)
+		}
+		if err := r.Release("127.0.0.1:2053", bad); !errors.Is(err, ErrInvalid) {
+			t.Fatalf("invalid release accepted: %v", err)
+		}
+	}
+	owner := proof("alpha", 1)
+	if err := r.Claim("127.0.0.1:2053", owner); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Release("127.0.0.1:2053", owner); err != nil {
+		t.Fatal(err)
+	}
+}

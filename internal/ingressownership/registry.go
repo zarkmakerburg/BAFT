@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
@@ -32,7 +33,9 @@ func New() *Registry {
 
 func key(p ingressmanifest.Proof) string { return p.TunnelID + "\x00" + p.InstanceID }
 func valid(p ingressmanifest.Proof) bool {
-	if p.TunnelID == "" || p.Generation == 0 || len(p.ManifestSHA256) != 64 || len(p.ConfigSHA256) != 64 {
+	// The key uses a NUL separator: untrusted IDs containing NUL can alias
+	// another tunnel/instance tuple and bypass generation ownership fences.
+	if p.TunnelID == "" || strings.ContainsRune(p.TunnelID, 0) || strings.ContainsRune(p.InstanceID, 0) || p.InstanceID == "default" || p.Generation == 0 || len(p.ManifestSHA256) != 64 || len(p.ConfigSHA256) != 64 {
 		return false
 	}
 	for _, d := range []string{p.ManifestSHA256, p.ConfigSHA256} {

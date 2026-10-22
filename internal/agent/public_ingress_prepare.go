@@ -27,6 +27,9 @@ type publicIngressPrepareReceipt struct {
 // the trusted directory are necessary; this never starts a listener or alters
 // firewall policy. Generation advancement needs a separate prior-proof flow.
 func (a *Agent) publicIngressPrepare(ctx context.Context, j agentjob.Job) (string, error) {
+	if ctx == nil {
+		return "", errors.New("ingress job requires a non-nil context")
+	}
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}

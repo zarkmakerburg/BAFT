@@ -25,6 +25,9 @@ type publicIngressCancelReceipt struct {
 // publicIngressCancel permanently fences an initial prepared generation,
 // including one whose prepare ACK was lost. It never touches live resources.
 func (a *Agent) publicIngressCancel(ctx context.Context, j agentjob.Job) (string, error) {
+	if ctx == nil {
+		return "", errors.New("ingress job requires a non-nil context")
+	}
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}

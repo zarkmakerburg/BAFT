@@ -62,6 +62,10 @@ func (a *Agent) publicIngressPrepare(ctx context.Context, j agentjob.Job) (strin
 		return "", fmt.Errorf("open private ingress manifest store: %w", err)
 	}
 	defer store.Close()
+	// Opening the store may block on filesystem I/O; do not mutate after cancellation.
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	proof, err := store.Prepare(spec, nil)
 	if err != nil {
 		return "", err

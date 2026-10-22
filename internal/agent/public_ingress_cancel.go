@@ -61,6 +61,10 @@ func (a *Agent) publicIngressCancel(ctx context.Context, j agentjob.Job) (string
 		return "", fmt.Errorf("open private ingress manifest store: %w", err)
 	}
 	defer store.Close()
+	// Opening the store may block on filesystem I/O; do not mutate after cancellation.
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	proof, err := store.Cancel(expected)
 	if errors.Is(err, ingressmanifest.ErrNotPrepared) {
 		proof, err = store.FenceUnseen(spec)

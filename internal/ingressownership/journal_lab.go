@@ -25,6 +25,13 @@ type MutationRecord struct {
 	Phase MutationPhase
 }
 
+// MutationJournal exposes phase persistence to the isolated transaction.
+// A current phase is never proof that a host resource is still owned.
+type MutationJournal interface {
+	Advance(MutationRecord) error
+	Current(ingressmanifest.Proof) (MutationRecord, bool, error)
+}
+
 // LabJournal tracks monotonic transitions and rejects ambiguous replays.
 // It is deliberately memory-only until a durable transactional store exists.
 type LabJournal struct {
@@ -95,4 +102,14 @@ func (j *LabJournal) Snapshot() []MutationRecord {
 		out = append(out, v)
 	}
 	return out
+}
+
+func (j *LabJournal) Current(owner ingressmanifest.Proof) (MutationRecord, bool, error) {
+	if j == nil {
+		return MutationRecord{}, false, ErrInvalid
+	}
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	r, ok := j.entries[journalKey(owner)]
+	return r, ok, nil
 }

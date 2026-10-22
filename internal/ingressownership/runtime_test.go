@@ -187,3 +187,30 @@ func TestRuntimeStoppedSessionCannotReportHealthyIdempotentApply(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestRuntimeCanonicalAliasCannotBypassOwner(t *testing.T) {
+	r := NewRuntime()
+	s := testSpec(t, "canonical")
+	p, err := ingressmanifest.Preview(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, port, err := net.SplitHostPort(s.Config.Listen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	alias := s
+	alias.Config.Listen = "127.0.0.1:0" + port
+	if err = r.Apply(context.Background(), s, p); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Apply(context.Background(), alias, p); err != nil {
+		t.Fatalf("same canonical proof alias: %v", err)
+	}
+	if len(r.sessions) != 1 {
+		t.Fatalf("alias created %d sessions", len(r.sessions))
+	}
+	if err = r.Retire(alias.Config.Listen, p); err != nil {
+		t.Fatal(err)
+	}
+}

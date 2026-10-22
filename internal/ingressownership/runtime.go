@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -30,6 +31,20 @@ type session struct {
 
 func NewRuntime() *Runtime { return &Runtime{registry: New(), sessions: make(map[string]*session)} }
 
+// canonicalEndpoint matches the manifest's canonical IP and decimal port.
+func canonicalEndpoint(endpoint string) (string, error) {
+	host, port, err := net.SplitHostPort(endpoint)
+	if err != nil {
+		return "", ErrInvalid
+	}
+	ip := net.ParseIP(host)
+	n, err := strconv.Atoi(port)
+	if ip == nil || err != nil || n < 1024 || n > 65535 {
+		return "", ErrInvalid
+	}
+	return net.JoinHostPort(ip.String(), strconv.Itoa(n)), nil
+}
+
 // Apply binds before recording ownership; a bind conflict never touches the
 // existing service. All session transitions are serialized.
 func (r *Runtime) Apply(parent context.Context, spec ingressmanifest.Spec, proof ingressmanifest.Proof) error {
@@ -46,6 +61,11 @@ func (r *Runtime) Apply(parent context.Context, spec ingressmanifest.Spec, proof
 	if expected != proof {
 		return ErrInvalid
 	}
+	canonical, err := canonicalEndpoint(spec.Config.Listen)
+	if err != nil {
+		return err
+	}
+	spec.Config.Listen = canonical
 	f, err := publicingress.New(publicingress.Config{Listen: spec.Config.Listen, Target: spec.Config.Target, MaxClients: spec.Config.MaxClients, DialTimeout: time.Duration(spec.Config.DialTimeoutMS) * time.Millisecond})
 	if err != nil {
 		return err
@@ -98,6 +118,11 @@ func (r *Runtime) Retire(endpoint string, proof ingressmanifest.Proof) error {
 	if r == nil {
 		return ErrInvalid
 	}
+	canonical, err := canonicalEndpoint(endpoint)
+	if err != nil {
+		return err
+	}
+	endpoint = canonical
 	r.mu.Lock()
 	s, ok := r.sessions[endpoint]
 	if !ok || s.proof != proof {
@@ -111,7 +136,7 @@ func (r *Runtime) Retire(endpoint string, proof ingressmanifest.Proof) error {
 	s.retiring = true
 	s.cancel()
 	r.mu.Unlock()
-	err := <-s.done
+	err = <-s.done
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if releaseErr := r.registry.Release(endpoint, proof); releaseErr != nil {

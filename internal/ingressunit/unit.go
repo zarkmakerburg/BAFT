@@ -50,7 +50,7 @@ func Render(spec ingressmanifest.Spec, proof ingressmanifest.Proof, listenerID, 
 	if err != nil || expected != proof {
 		return Candidate{}, errors.New("ingress unit requires exact prepared manifest proof")
 	}
-	if !listenerIDPattern.MatchString(listenerID) || !serviceUserPattern.MatchString(serviceUser) {
+	if !listenerIDPattern.MatchString(listenerID) || !serviceUserPattern.MatchString(serviceUser) || serviceUser == "root" {
 		return Candidate{}, errors.New("invalid ingress listener identity or service user")
 	}
 	if !filepath.IsAbs(baftBinary) || filepath.Clean(baftBinary) != baftBinary || !binaryPathPattern.MatchString(baftBinary) {

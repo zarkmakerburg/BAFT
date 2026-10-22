@@ -52,6 +52,7 @@ func TestRenderRequiresExactManifestAndDoesNotAdoptChangedUnit(t *testing.T) {
 		{"listener-1", "/usr/local/bin/baft %n", "baft"},
 		{"listener-1", "baft", "baft"},
 		{"listener-1", "/usr/local/bin/baft", "root\nExecStart=/bin/sh"},
+		{"listener-1", "/usr/local/bin/baft", "root"},
 	} {
 		if _, err := Render(spec, proof, tc.listener, tc.bin, tc.user); err == nil {
 			t.Fatalf("unsafe unit input accepted: %+v", tc)

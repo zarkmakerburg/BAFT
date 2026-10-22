@@ -354,8 +354,15 @@ func (m *Manager) begin(id, role string) (Txn, error) {
 	if !idRe.MatchString(id) {
 		return Txn{}, errors.New("invalid tunnel id")
 	}
-	if cur := m.activeID(); cur != "" && cur != id {
-		if t, err := m.readTxn(cur); err == nil && (t.Phase == PhasePrepared || t.Phase == PhaseCommitted) {
+	if cur := m.activeID(); cur != "" {
+		if cur == id {
+			return Txn{}, fmt.Errorf("tunnel change %s already holds the active marker; reconcile before retrying", id)
+		}
+		t, err := m.readTxn(cur)
+		if err != nil {
+			return Txn{}, fmt.Errorf("unreadable active tunnel change %s; manual reconciliation required: %w", cur, err)
+		}
+		if t.Phase == PhasePrepared || t.Phase == PhaseCommitted {
 			return Txn{}, fmt.Errorf("tunnel change %s is still in progress on this node", cur)
 		}
 	}

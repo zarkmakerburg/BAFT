@@ -172,3 +172,23 @@ func TestRollbackFailsClosedOnOrphanedActiveTransaction(t *testing.T) {
 		t.Fatalf("orphan marker altered: %q %v", data, err)
 	}
 }
+
+func TestBeginRefusesOrphanedActiveMarkerFromDifferentChange(t *testing.T) {
+	root := newNode(t)
+	scoped, err := root.Manager.ForInstance("alpha", "127.0.0.1:9301")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(scoped.activePath()), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(scoped.activePath(), []byte("orphan-one\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := scoped.begin("new-pair", RoleEX); err == nil {
+		t.Fatal("orphaned active marker was ignored")
+	}
+	if _, err := os.Stat(scoped.stage("new-pair")); !os.IsNotExist(err) {
+		t.Fatalf("new transaction touched state: %v", err)
+	}
+}

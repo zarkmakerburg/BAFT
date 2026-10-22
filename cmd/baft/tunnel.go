@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -54,8 +55,11 @@ func runTunnelCLI(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	target := fs.String("target", "", "EX local target literal IP:port")
 	routeID := fs.String("route-id", "", "route identifier")
 	routeListen := fs.String("route-listen", "", "IR local route listener")
-	code := fs.String("code", "", "EX pairing descriptor on IR")
-	reply := fs.String("reply", "", "IR response on EX")
+	code := fs.String("code", "", "EX pairing descriptor on IR (visible in process arguments)")
+	codeFile := fs.String("code-file", "", "read EX pairing descriptor from a private file")
+	reply := fs.String("reply", "", "IR response on EX (visible in process arguments)")
+	replyFile := fs.String("reply-file", "", "read IR response from a private file")
+	outputFile := fs.String("output-file", "", "write generated EX/IR secret to a new private file (0600)")
 	if err := fs.Parse(args[1:]); err != nil {
 		return 2
 	}
@@ -78,6 +82,45 @@ func runTunnelCLI(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
+	}
+	if (*code != "" && *codeFile != "") || (*reply != "" && *replyFile != "") {
+		fmt.Fprintln(stderr, "use either direct code/reply or its file, not both")
+		return 2
+	}
+	readSecret := func(path string) (string, error) {
+		info, err := os.Lstat(path)
+		if err != nil {
+			return "", err
+		}
+		if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
+			return "", fmt.Errorf("secret file must be a regular private file (0600 or stricter)")
+		}
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return "", err
+		}
+		if len(b) == 0 || len(b) > 65536 {
+			return "", fmt.Errorf("invalid secret file size")
+		}
+		return strings.TrimSpace(string(b)), nil
+	}
+	if *codeFile != "" {
+		*code, err = readSecret(*codeFile)
+		if err != nil {
+			fmt.Fprintln(stderr, "invalid --code-file:", err)
+			return 2
+		}
+	}
+	if *replyFile != "" {
+		*reply, err = readSecret(*replyFile)
+		if err != nil {
+			fmt.Fprintln(stderr, "invalid --reply-file:", err)
+			return 2
+		}
+	}
+	if *outputFile != "" && action != "ex-code" && action != "ir-apply" {
+		fmt.Fprintln(stderr, "--output-file is only supported for ex-code and ir-apply")
+		return 2
 	}
 	var result string
 	switch action {
@@ -119,7 +162,22 @@ func runTunnelCLI(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	// Pairing descriptors and replies are secrets. Only the caller's terminal
 	// receives them; never print them through an error or structured log.
 	if action == "ex-code" || action == "ir-apply" {
-		fmt.Fprintln(stdout, result)
+		if *outputFile != "" {
+			f, err := os.OpenFile(*outputFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+			if err != nil {
+				fmt.Fprintln(stderr, "cannot create secret output file:", err)
+				return 1
+			}
+			_, writeErr := io.WriteString(f, result+"\n")
+			closeErr := f.Close()
+			if writeErr != nil || closeErr != nil {
+				fmt.Fprintln(stderr, "cannot save secret output file")
+				return 1
+			}
+			fmt.Fprintln(stdout, "pairing secret saved to private file")
+		} else {
+			fmt.Fprintln(stdout, result)
+		}
 	} else {
 		fmt.Fprintln(stdout, strings.TrimSpace(result))
 	}

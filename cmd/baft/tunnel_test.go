@@ -81,15 +81,31 @@ func TestTerminalPairingCodeRoundTripWithoutBCC(t *testing.T) {
 			primaries[path] = []byte(body)
 		}
 	}
-	code, status, detail := invoke("ex", "ex-code", "--address", "127.0.0.1", "--port", "8443", "--target", "127.0.0.1:1443", "--route-id", "route-1")
-	if status != 0 || !strings.HasPrefix(code, "BAFTPAIR1:") {
-		t.Fatalf("EX code status=%d detail=%s", status, detail)
+	codePath := filepath.Join(dir, "ex-pairing-code")
+	replyPath := filepath.Join(dir, "ir-pairing-reply")
+	codeOut, status, detail := invoke("ex", "ex-code", "--address", "127.0.0.1", "--port", "8443", "--target", "127.0.0.1:1443", "--route-id", "route-1", "--output-file", codePath)
+	if status != 0 || strings.Contains(codeOut, "BAFTPAIR1:") {
+		t.Fatalf("EX code status=%d output=%s detail=%s", status, codeOut, detail)
 	}
-	reply, status, detail := invoke("ir", "ir-apply", "--code", code, "--route-id", "route-1", "--route-listen", "127.0.0.1:15443")
-	if status != 0 || !strings.HasPrefix(reply, "BAFTREPLY1:") {
-		t.Fatalf("IR apply status=%d detail=%s", status, detail)
+	code, err := os.ReadFile(codePath)
+	if err != nil || !strings.HasPrefix(string(code), "BAFTPAIR1:") {
+		t.Fatalf("bad stored code: %v", err)
 	}
-	if output, status, detail := invoke("ex", "ex-accept", "--reply", reply); status != 0 {
+	replyOut, status, detail := invoke("ir", "ir-apply", "--code-file", codePath, "--route-id", "route-1", "--route-listen", "127.0.0.1:15443", "--output-file", replyPath)
+	if status != 0 || strings.Contains(replyOut, "BAFTREPLY1:") {
+		t.Fatalf("IR apply status=%d output=%s detail=%s", status, replyOut, detail)
+	}
+	reply, err := os.ReadFile(replyPath)
+	if err != nil || !strings.HasPrefix(string(reply), "BAFTREPLY1:") {
+		t.Fatalf("bad stored reply: %v", err)
+	}
+	for _, secret := range []string{codePath, replyPath} {
+		info, err := os.Stat(secret)
+		if err != nil || info.Mode().Perm() != 0o600 {
+			t.Fatalf("insecure secret permissions: %s %v", secret, err)
+		}
+	}
+	if output, status, detail := invoke("ex", "ex-accept", "--reply-file", replyPath); status != 0 {
 		t.Fatalf("EX accept: %d %s %s", status, detail, output)
 	}
 	if output, status, detail := invoke("ir", "ir-start"); status != 0 {

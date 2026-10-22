@@ -50,3 +50,24 @@ func TestMemoryFirewallSupportsPrivileged443WithoutHostMutation(t *testing.T) {
 		t.Fatalf("port zero: %v", err)
 	}
 }
+
+func TestMemoryFirewallZeroValuePreservesExactOwnership(t *testing.T) {
+	var f MemoryFirewall
+	owner := proof("zero-value", 1)
+	foreign := proof("foreign", 1)
+	if err := f.Install(443, owner); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Install(443, foreign); !errors.Is(err, ErrConflict) {
+		t.Fatalf("foreign overwrite: %v", err)
+	}
+	if err := f.Remove(443, foreign); !errors.Is(err, ErrUnknown) {
+		t.Fatalf("foreign removal: %v", err)
+	}
+	if ok, err := f.Verify(443, owner); err != nil || !ok {
+		t.Fatalf("owner lost: %v %v", ok, err)
+	}
+	if err := f.Remove(443, owner); err != nil {
+		t.Fatal(err)
+	}
+}

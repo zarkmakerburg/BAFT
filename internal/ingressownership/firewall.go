@@ -30,6 +30,9 @@ func (f *MemoryFirewall) Install(port uint16, owner ingressmanifest.Proof) error
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.rules == nil {
+		f.rules = make(map[uint16]ingressmanifest.Proof)
+	}
 	if old, ok := f.rules[port]; ok && old != owner {
 		return ErrConflict
 	}

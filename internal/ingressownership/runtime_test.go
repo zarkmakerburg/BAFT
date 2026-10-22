@@ -76,3 +76,28 @@ func TestRuntimeBindConflictPreservesForeignSocket(t *testing.T) {
 	}
 	c.Close()
 }
+
+func TestRuntimeBindFailureDoesNotConsumeGeneration(t *testing.T) {
+	r := NewRuntime()
+	s := testSpec(t, "bind-retry")
+	p, err := ingressmanifest.Preview(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreign, err := net.Listen("tcp", s.Config.Listen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Apply(context.Background(), s, p); err == nil {
+		t.Fatal("foreign bind unexpectedly succeeded")
+	}
+	if err = foreign.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Apply(context.Background(), s, p); err != nil {
+		t.Fatalf("failed bind consumed generation: %v", err)
+	}
+	if err = r.Retire(s.Config.Listen, p); err != nil {
+		t.Fatal(err)
+	}
+}

@@ -55,14 +55,15 @@ func (r *Runtime) Apply(parent context.Context, spec ingressmanifest.Spec, proof
 		}
 		return ErrConflict
 	}
-	if err := r.registry.Claim(spec.Config.Listen, proof); err != nil {
-		return err
-	}
-	// Listener is not exposed until the reservation and OS bind both succeed.
+	// Bind before claiming: an unrelated process holding the port must not
+	// consume the owner's generation or leave a false reservation.
 	ln, err := net.Listen("tcp", spec.Config.Listen)
 	if err != nil {
-		_ = r.registry.Release(spec.Config.Listen, proof)
 		return fmt.Errorf("ingress bind: %w", err)
+	}
+	if err := r.registry.Claim(spec.Config.Listen, proof); err != nil {
+		_ = ln.Close()
+		return err
 	}
 	if err := parent.Err(); err != nil {
 		_ = ln.Close()

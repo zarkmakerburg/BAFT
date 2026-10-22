@@ -32,6 +32,11 @@ func (t *LabTransaction) Apply(ctx context.Context, spec ingressmanifest.Spec, p
 	if expected != proof {
 		return ErrInvalid
 	}
+	canonical, err := canonicalEndpoint(spec.Config.Listen)
+	if err != nil {
+		return err
+	}
+	spec.Config.Listen = canonical
 	_, p, err := net.SplitHostPort(spec.Config.Listen)
 	if err != nil {
 		return err
@@ -81,6 +86,11 @@ func (t *LabTransaction) Retire(endpoint string, proof ingressmanifest.Proof) er
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	canonical, err := canonicalEndpoint(endpoint)
+	if err != nil {
+		return err
+	}
+	endpoint = canonical
 	_, p, err := net.SplitHostPort(endpoint)
 	if err != nil {
 		return err

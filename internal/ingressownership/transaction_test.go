@@ -66,3 +66,27 @@ func TestLabTransactionForeignFirewallRollback(t *testing.T) {
 	}
 	ln.Close()
 }
+
+func TestLabTransactionCanonicalAlias(t *testing.T) {
+	tx := &LabTransaction{Runtime: NewRuntime(), Firewall: NewMemoryFirewall()}
+	s := testSpec(t, "tx-alias")
+	p, err := ingressmanifest.Preview(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, port, err := net.SplitHostPort(s.Config.Listen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	alias := s
+	alias.Config.Listen = "127.0.0.1:0" + port
+	if err = tx.Apply(context.Background(), s, p); err != nil {
+		t.Fatal(err)
+	}
+	if err = tx.Apply(context.Background(), alias, p); err != nil {
+		t.Fatal(err)
+	}
+	if err = tx.Retire(alias.Config.Listen, p); err != nil {
+		t.Fatal(err)
+	}
+}

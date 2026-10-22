@@ -192,3 +192,25 @@ func TestBeginRefusesOrphanedActiveMarkerFromDifferentChange(t *testing.T) {
 		t.Fatalf("new transaction touched state: %v", err)
 	}
 }
+
+func TestBeginRejectsCorruptExistingTransactionWithoutActiveMarker(t *testing.T) {
+	root := newNode(t)
+	scoped, err := root.Manager.ForInstance("alpha", "127.0.0.1:9301")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := scoped.txnPath("damaged")
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("{invalid-json"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := scoped.begin("damaged", RoleEX); err == nil {
+		t.Fatal("corrupt txn was overwritten")
+	}
+	got, err := os.ReadFile(path)
+	if err != nil || string(got) != "{invalid-json" {
+		t.Fatalf("corrupt state overwritten: %q %v", got, err)
+	}
+}

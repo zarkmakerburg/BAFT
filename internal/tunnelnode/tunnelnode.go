@@ -371,6 +371,10 @@ func (m *Manager) begin(id, role string) (Txn, error) {
 	}
 	if _, err := m.readTxn(id); err == nil {
 		return Txn{}, fmt.Errorf("tunnel change %s already exists on this node", id)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		// A corrupt or unreadable transaction must not be overwritten by a new
+		// one with the same ID, even if its active marker disappeared in a crash.
+		return Txn{}, fmt.Errorf("tunnel change %s has unreadable state; reconciliation required: %w", id, err)
 	}
 	t := Txn{Version: 1, ID: id, Role: role, Phase: PhasePrepared, Created: m.Now().UTC()}
 	if err := m.ensureScopedDirs(); err != nil {

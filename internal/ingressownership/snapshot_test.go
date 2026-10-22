@@ -97,3 +97,17 @@ func TestSnapshotRejectsInconsistentInternalOwnership(t *testing.T) {
 		t.Fatalf("accepted inconsistent active index: %v", err)
 	}
 }
+
+func TestSnapshotRejectsOrphanActiveIndex(t *testing.T) {
+	r := New()
+	owner := proof("orphan", 1)
+	if err := r.Claim("127.0.0.1:443", owner); err != nil {
+		t.Fatal(err)
+	}
+	r.mu.Lock()
+	r.active["foreign\x00"] = "443"
+	r.mu.Unlock()
+	if _, err := r.Snapshot(); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("accepted orphan active index: %v", err)
+	}
+}

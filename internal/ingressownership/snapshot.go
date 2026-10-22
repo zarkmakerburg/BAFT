@@ -46,8 +46,11 @@ func (r *Registry) Snapshot() (FenceSnapshot, error) {
 		}
 		out.Generations = append(out.Generations, GenerationFence{k[:index], k[index+1:], g})
 	}
+	if len(r.active) != len(r.owners) {
+		return FenceSnapshot{}, ErrInvalid
+	}
 	for port, p := range r.owners {
-		if r.generations[key(p)] != p.Generation || r.active[key(p)] != port {
+		if !valid(p) || r.generations[key(p)] != p.Generation || r.active[key(p)] != port {
 			return FenceSnapshot{}, ErrInvalid
 		}
 		n, err := strconv.Atoi(port)

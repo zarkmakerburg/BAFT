@@ -18,3 +18,12 @@ func TestNFTSnapshotFailsClosedOnUnverifiedIngress(t *testing.T) {
 		t.Fatalf("unrelated rule: %+v %v", observations, err)
 	}
 }
+
+func TestNFTSnapshotRejectsTrailingDocuments(t *testing.T) {
+	valid := `{"nftables":[{"metainfo":{"version":"1.0"}}]}`
+	for _, suffix := range []string{` {"nftables":[]}`, ` true`, ` []`, ` garbage`} {
+		if _, err := ParseNFTIngressRules([]byte(valid + suffix)); !errors.Is(err, ErrFirewallUnverified) {
+			t.Fatalf("trailing document accepted: %q %v", suffix, err)
+		}
+	}
+}

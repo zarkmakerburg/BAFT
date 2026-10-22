@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 )
 
 // ParseNFTIngressRules consumes an untrusted nft -j list ruleset snapshot.
@@ -20,6 +21,10 @@ func ParseNFTIngressRules(raw []byte) ([]FirewallObservation, error) {
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&root); err != nil {
 		return nil, fmt.Errorf("nft snapshot: %w", ErrFirewallUnverified)
+	}
+	var trailing any
+	if err := dec.Decode(&trailing); err != io.EOF {
+		return nil, ErrFirewallUnverified
 	}
 	if len(root.NFTables) == 0 {
 		return nil, ErrFirewallUnverified

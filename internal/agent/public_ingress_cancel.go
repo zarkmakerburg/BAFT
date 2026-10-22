@@ -67,6 +67,11 @@ func (a *Agent) publicIngressCancel(ctx context.Context, j agentjob.Job) (string
 	}
 	proof, err := store.Cancel(expected)
 	if errors.Is(err, ingressmanifest.ErrNotPrepared) {
+		// The fallback writes a durable tombstone: respect cancellation even
+		// if the request was cancelled during the first store operation.
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return "", ctxErr
+		}
 		proof, err = store.FenceUnseen(spec)
 	}
 	if err != nil {

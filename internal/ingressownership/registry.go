@@ -6,8 +6,8 @@ package ingressownership
 import (
 	"errors"
 	"net"
+	"regexp"
 	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
@@ -31,11 +31,14 @@ func New() *Registry {
 	return &Registry{owners: make(map[string]ingressmanifest.Proof), generations: make(map[string]uint64), active: make(map[string]string)}
 }
 
+var ownerTunnelPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
+var ownerInstancePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$`)
+
 func key(p ingressmanifest.Proof) string { return p.TunnelID + "\x00" + p.InstanceID }
 func valid(p ingressmanifest.Proof) bool {
 	// The key uses a NUL separator: untrusted IDs containing NUL can alias
 	// another tunnel/instance tuple and bypass generation ownership fences.
-	if p.TunnelID == "" || strings.ContainsRune(p.TunnelID, 0) || strings.ContainsRune(p.InstanceID, 0) || p.InstanceID == "default" || p.Generation == 0 || len(p.ManifestSHA256) != 64 || len(p.ConfigSHA256) != 64 {
+	if !ownerTunnelPattern.MatchString(p.TunnelID) || (p.InstanceID != "" && !ownerInstancePattern.MatchString(p.InstanceID)) || p.InstanceID == "default" || p.Generation == 0 || len(p.ManifestSHA256) != 64 || len(p.ConfigSHA256) != 64 {
 		return false
 	}
 	for _, d := range []string{p.ManifestSHA256, p.ConfigSHA256} {

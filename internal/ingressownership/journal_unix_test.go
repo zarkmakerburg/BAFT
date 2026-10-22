@@ -132,3 +132,38 @@ func TestDurableJournalRejectsCorruptionAndSymlink(t *testing.T) {
 		t.Fatal("accepted truncated journal entry")
 	}
 }
+
+func TestDurableJournalAnchorsDirectoryAcrossPathSwap(t *testing.T) {
+	parent := t.TempDir()
+	dir := filepath.Join(parent, "journal")
+	if err := os.Mkdir(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	victim := filepath.Join(parent, "victim")
+	if err := os.Mkdir(victim, 0700); err != nil {
+		t.Fatal(err)
+	}
+	j, err := OpenDurableJournal(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	moved := filepath.Join(parent, "moved")
+	j.fault = func(point string) error {
+		if point != "before_record" {
+			return nil
+		}
+		if err := os.Rename(dir, moved); err != nil {
+			return err
+		}
+		return os.Symlink(victim, dir)
+	}
+	if err := j.Advance(MutationRecord{Port: 54619, Owner: proof("path-swap", 1), Phase: PhaseIntent}); err == nil {
+		t.Fatal("acknowledged a journal whose trusted path was replaced")
+	}
+	if _, err := os.Stat(filepath.Join(victim, journalFilename(1))); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("wrote through replaced directory path: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(moved, journalFilename(1))); err != nil {
+		t.Fatalf("anchored write missing: %v", err)
+	}
+}

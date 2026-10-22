@@ -4,6 +4,7 @@ package ingressownership
 
 import (
 	"bytes"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -45,13 +46,13 @@ const maxJournalEntries = 10000
 
 func OpenDurableJournal(dir string) (*DurableJournal, error) {
 	j := &DurableJournal{dir: dir}
-	if err := j.withLock(func(*os.File) error { return nil }); err != nil {
+	if err := j.withLock(func(*os.File, *os.Root) error { return nil }); err != nil {
 		return nil, err
 	}
 	return j, nil
 }
 
-func (j *DurableJournal) withLock(run func(*os.File) error) error {
+func (j *DurableJournal) withLock(run func(*os.File, *os.Root) error) error {
 	if j == nil || !filepath.IsAbs(j.dir) || filepath.Clean(j.dir) != j.dir {
 		return ErrInvalid
 	}
@@ -76,7 +77,23 @@ func (j *DurableJournal) withLock(run func(*os.File) error) error {
 	if !ok || !info.IsDir() || info.Mode().Perm() != 0700 || int(stat.Uid) != os.Geteuid() || info.Mode()&(os.ModeSetuid|os.ModeSetgid|os.ModeSticky) != 0 {
 		return ErrInvalid
 	}
-	return run(d)
+	root, err := os.OpenRoot(j.dir)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	rootInfo, err := root.Stat(".")
+	if err != nil || !os.SameFile(info, rootInfo) {
+		return ErrInvalid
+	}
+	if err := run(d, root); err != nil {
+		return err
+	}
+	pathInfo, err = os.Lstat(j.dir)
+	if err != nil || !os.SameFile(info, pathInfo) {
+		return ErrInvalid
+	}
+	return nil
 }
 
 func journalFilename(sequence uint64) string { return fmt.Sprintf("%020d.json", sequence) }
@@ -91,8 +108,8 @@ func entryDigest(entry journalEntry) (string, error) {
 	return hex.EncodeToString(sum[:]), nil
 }
 
-func readJournalFile(path string, limit int64, result any) error {
-	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+func readJournalFile(root *os.Root, name string, limit int64, result any) error {
+	f, err := root.OpenFile(name, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
 	if err != nil {
 		return err
 	}
@@ -119,8 +136,13 @@ func readJournalFile(path string, limit int64, result any) error {
 	return nil
 }
 
-func (j *DurableJournal) loadLocked() (*LabJournal, []journalEntry, error) {
-	names, err := os.ReadDir(j.dir)
+func (j *DurableJournal) loadLocked(root *os.Root) (*LabJournal, []journalEntry, error) {
+	d, err := root.Open(".")
+	if err != nil {
+		return nil, nil, err
+	}
+	names, err := d.ReadDir(-1)
+	d.Close()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -151,7 +173,7 @@ func (j *DurableJournal) loadLocked() (*LabJournal, []journalEntry, error) {
 			return nil, nil, ErrInvalid
 		}
 		var entry journalEntry
-		if err := readJournalFile(filepath.Join(j.dir, journalFilename(seq)), 4096, &entry); err != nil {
+		if err := readJournalFile(root, journalFilename(seq), 4096, &entry); err != nil {
 			return nil, nil, err
 		}
 		digest, err := entryDigest(entry)
@@ -165,7 +187,7 @@ func (j *DurableJournal) loadLocked() (*LabJournal, []journalEntry, error) {
 		entries = append(entries, entry)
 	}
 	var head journalHead
-	if err := readJournalFile(filepath.Join(j.dir, "head.json"), 512, &head); err == nil {
+	if err := readJournalFile(root, "head.json", 512, &head); err == nil {
 		if head.Sequence > uint64(len(entries)) || (head.Sequence != 0 && entries[head.Sequence-1].Digest != head.Digest) || (head.Sequence == 0 && head.Digest != "") {
 			return nil, nil, ErrInvalid
 		}
@@ -175,12 +197,17 @@ func (j *DurableJournal) loadLocked() (*LabJournal, []journalEntry, error) {
 	return journal, entries, nil
 }
 
-func (j *DurableJournal) writeAtomic(d *os.File, name string, raw []byte, replace bool) error {
-	f, err := os.CreateTemp(j.dir, ".journal-*")
+func (j *DurableJournal) writeAtomic(d *os.File, root *os.Root, name string, raw []byte, replace bool) error {
+	var nonce [16]byte
+	if _, err := rand.Read(nonce[:]); err != nil {
+		return err
+	}
+	tmpName := ".journal-" + hex.EncodeToString(nonce[:])
+	f, err := root.OpenFile(tmpName, os.O_CREATE|os.O_EXCL|os.O_WRONLY|syscall.O_NOFOLLOW, 0600)
 	if err != nil {
 		return err
 	}
-	defer os.Remove(f.Name())
+	defer root.Remove(tmpName)
 	if err := f.Chmod(0600); err != nil {
 		f.Close()
 		return err
@@ -196,17 +223,16 @@ func (j *DurableJournal) writeAtomic(d *os.File, name string, raw []byte, replac
 	if err := f.Close(); err != nil {
 		return err
 	}
-	path := filepath.Join(j.dir, name)
 	if replace {
 		var existing journalHead
-		if err := readJournalFile(path, 512, &existing); err != nil && !errors.Is(err, os.ErrNotExist) {
+		if err := readJournalFile(root, name, 512, &existing); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
-		err = os.Rename(f.Name(), path)
+		err = root.Rename(tmpName, name)
 	} else {
-		err = os.Link(f.Name(), path)
+		err = root.Link(tmpName, name)
 		if err == nil {
-			err = os.Remove(f.Name())
+			err = root.Remove(tmpName)
 		}
 	}
 	if err != nil {
@@ -218,8 +244,8 @@ func (j *DurableJournal) writeAtomic(d *os.File, name string, raw []byte, replac
 // Advance persists one validated phase before its corresponding host action.
 // Replaying the current record is idempotent, but never skips an earlier step.
 func (j *DurableJournal) Advance(next MutationRecord) error {
-	return j.withLock(func(d *os.File) error {
-		lab, entries, err := j.loadLocked()
+	return j.withLock(func(d *os.File, root *os.Root) error {
+		lab, entries, err := j.loadLocked(root)
 		if err != nil {
 			return err
 		}
@@ -233,7 +259,7 @@ func (j *DurableJournal) Advance(next MutationRecord) error {
 				}
 				last := entries[len(entries)-1]
 				head, _ := json.Marshal(journalHead{Sequence: last.Sequence, Digest: last.Digest})
-				return j.writeAtomic(d, "head.json", head, true)
+				return j.writeAtomic(d, root, "head.json", head, true)
 			}
 		}
 		if err := lab.Advance(next); err != nil {
@@ -256,7 +282,7 @@ func (j *DurableJournal) Advance(next MutationRecord) error {
 				return err
 			}
 		}
-		if err := j.writeAtomic(d, journalFilename(entry.Sequence), raw, false); err != nil {
+		if err := j.writeAtomic(d, root, journalFilename(entry.Sequence), raw, false); err != nil {
 			return err
 		}
 		if j.fault != nil {
@@ -265,7 +291,7 @@ func (j *DurableJournal) Advance(next MutationRecord) error {
 			}
 		}
 		head, _ := json.Marshal(journalHead{Sequence: entry.Sequence, Digest: entry.Digest})
-		return j.writeAtomic(d, "head.json", head, true)
+		return j.writeAtomic(d, root, "head.json", head, true)
 	})
 }
 
@@ -273,8 +299,8 @@ func (j *DurableJournal) Advance(next MutationRecord) error {
 // No live socket or kernel rule is adopted from journal bytes.
 func (j *DurableJournal) Recover() (JournalRecovery, error) {
 	var result JournalRecovery
-	err := j.withLock(func(_ *os.File) error {
-		lab, _, err := j.loadLocked()
+	err := j.withLock(func(_ *os.File, root *os.Root) error {
+		lab, _, err := j.loadLocked(root)
 		if err != nil {
 			return err
 		}
@@ -287,8 +313,8 @@ func (j *DurableJournal) Recover() (JournalRecovery, error) {
 func (j *DurableJournal) Current(owner ingressmanifest.Proof) (MutationRecord, bool, error) {
 	var record MutationRecord
 	var found bool
-	err := j.withLock(func(_ *os.File) error {
-		lab, _, err := j.loadLocked()
+	err := j.withLock(func(_ *os.File, root *os.Root) error {
+		lab, _, err := j.loadLocked(root)
 		if err != nil {
 			return err
 		}

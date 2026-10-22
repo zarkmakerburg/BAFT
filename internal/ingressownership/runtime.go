@@ -20,9 +20,10 @@ type Runtime struct {
 	sessions map[string]*session
 }
 type session struct {
-	proof  ingressmanifest.Proof
-	cancel context.CancelFunc
-	done   chan error
+	proof    ingressmanifest.Proof
+	cancel   context.CancelFunc
+	done     chan error
+	retiring bool
 }
 
 func NewRuntime() *Runtime { return &Runtime{registry: New(), sessions: make(map[string]*session)} }
@@ -50,7 +51,7 @@ func (r *Runtime) Apply(parent context.Context, spec ingressmanifest.Spec, proof
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if s, ok := r.sessions[spec.Config.Listen]; ok {
-		if s.proof == proof {
+		if s.proof == proof && !s.retiring {
 			return nil
 		}
 		return ErrConflict
@@ -73,7 +74,15 @@ func (r *Runtime) Apply(parent context.Context, spec ingressmanifest.Spec, proof
 	ctx, cancel := context.WithCancel(parent)
 	s := &session{proof: proof, cancel: cancel, done: make(chan error, 1)}
 	r.sessions[spec.Config.Listen] = s
-	go func() { s.done <- f.Serve(ctx, ln); close(s.done) }()
+	go func() {
+		err := f.Serve(ctx, ln)
+		r.mu.Lock()
+		// Retain a completed session until explicit exact-owner retirement.
+		// Otherwise an unexpected exit could allow a stale same-proof retry.
+		s.done <- err
+		close(s.done)
+		r.mu.Unlock()
+	}()
 	return nil
 }
 
@@ -88,13 +97,20 @@ func (r *Runtime) Retire(endpoint string, proof ingressmanifest.Proof) error {
 		r.mu.Unlock()
 		return ErrUnknown
 	}
-	delete(r.sessions, endpoint)
+	if s.retiring {
+		r.mu.Unlock()
+		return ErrConflict
+	}
+	s.retiring = true
 	s.cancel()
 	r.mu.Unlock()
 	err := <-s.done
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	if releaseErr := r.registry.Release(endpoint, proof); releaseErr != nil {
 		return releaseErr
 	}
+	delete(r.sessions, endpoint)
 	if err != nil && !errors.Is(err, net.ErrClosed) {
 		return err
 	}

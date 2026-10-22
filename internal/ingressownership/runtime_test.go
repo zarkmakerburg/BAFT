@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
 	"net"
+	"sync"
 	"testing"
 	"time"
 )
@@ -99,5 +100,58 @@ func TestRuntimeBindFailureDoesNotConsumeGeneration(t *testing.T) {
 	}
 	if err = r.Retire(s.Config.Listen, p); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestRuntimeCancelledParentRequiresExplicitRetire(t *testing.T) {
+	r := NewRuntime()
+	s := testSpec(t, "cancel-parent")
+	p, err := ingressmanifest.Preview(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	if err = r.Apply(ctx, s, p); err != nil {
+		t.Fatal(err)
+	}
+	cancel()
+	if err = r.Apply(context.Background(), s, p); err != nil {
+		t.Fatalf("retry after cancellation must not create new socket: %v", err)
+	}
+	if err = r.Retire(s.Config.Listen, p); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Apply(context.Background(), s, p); !errors.Is(err, ErrStale) {
+		t.Fatalf("cancelled generation replay: %v", err)
+	}
+}
+func TestRuntimeConcurrentRetireCannotReleaseNewOwner(t *testing.T) {
+	r := NewRuntime()
+	s := testSpec(t, "retire-race")
+	p, err := ingressmanifest.Preview(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Apply(context.Background(), s, p); err != nil {
+		t.Fatal(err)
+	}
+	var wg sync.WaitGroup
+	results := make(chan error, 20)
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func() { defer wg.Done(); results <- r.Retire(s.Config.Listen, p) }()
+	}
+	wg.Wait()
+	close(results)
+	success := 0
+	for err := range results {
+		if err == nil {
+			success++
+		} else if !errors.Is(err, ErrUnknown) && !errors.Is(err, ErrConflict) {
+			t.Fatalf("unexpected retire result: %v", err)
+		}
+	}
+	if success != 1 {
+		t.Fatalf("successful retires=%d", success)
 	}
 }

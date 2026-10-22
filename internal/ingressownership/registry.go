@@ -56,7 +56,7 @@ func (r *Registry) Claim(endpoint string, p ingressmanifest.Proof) error {
 		return ErrInvalid
 	}
 	n, err := strconv.Atoi(port)
-	if err != nil || n < 1024 || n > 65535 {
+	if err != nil || n < 1 || n > 65535 {
 		return ErrInvalid
 	}
 	resource := strconv.Itoa(n)
@@ -94,7 +94,7 @@ func (r *Registry) Release(endpoint string, p ingressmanifest.Proof) error {
 		return ErrInvalid
 	}
 	n, err := strconv.Atoi(port)
-	if err != nil || n < 1024 || n > 65535 {
+	if err != nil || n < 1 || n > 65535 {
 		return ErrInvalid
 	}
 	r.mu.Lock()

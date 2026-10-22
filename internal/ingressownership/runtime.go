@@ -39,7 +39,7 @@ func canonicalEndpoint(endpoint string) (string, error) {
 	}
 	ip := net.ParseIP(host)
 	n, err := strconv.Atoi(port)
-	if ip == nil || err != nil || n < 1024 || n > 65535 {
+	if ip == nil || err != nil || n < 1 || n > 65535 {
 		return "", ErrInvalid
 	}
 	return net.JoinHostPort(ip.String(), strconv.Itoa(n)), nil

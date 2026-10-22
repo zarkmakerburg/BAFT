@@ -42,7 +42,7 @@ func (t *LabTransaction) Apply(ctx context.Context, spec ingressmanifest.Spec, p
 		return err
 	}
 	n, err := strconv.Atoi(p)
-	if err != nil || n < 1024 || n > 65535 {
+	if err != nil || n < 1 || n > 65535 {
 		return ErrInvalid
 	}
 	// A live session must not be acknowledged unless its firewall proof matches.
@@ -123,7 +123,7 @@ func (t *LabTransaction) Retire(endpoint string, proof ingressmanifest.Proof) er
 		return err
 	}
 	n, err := strconv.Atoi(p)
-	if err != nil || n < 1024 || n > 65535 {
+	if err != nil || n < 1 || n > 65535 {
 		return ErrInvalid
 	}
 	ok, err := t.Firewall.Verify(uint16(n), proof)

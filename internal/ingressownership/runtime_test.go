@@ -245,3 +245,13 @@ func TestRuntimeCancelledParentNeverLeavesUnretirableClaim(t *testing.T) {
 		}
 	}
 }
+
+func TestCanonicalEndpointAllows443WithoutBinding(t *testing.T) {
+	got, err := canonicalEndpoint("127.0.0.1:0443")
+	if err != nil || got != "127.0.0.1:443" {
+		t.Fatalf("canonical 443: %q %v", got, err)
+	}
+	if _, err := canonicalEndpoint("127.0.0.1:0"); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("zero port: %v", err)
+	}
+}

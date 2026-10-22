@@ -88,3 +88,23 @@ func TestSameOwnerCannotClaimTwoPortsOrRebindGeneration(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestRegistryPort443OwnershipWithoutSocket(t *testing.T) {
+	r := New()
+	p := proof("https", 1)
+	if err := r.Claim("0.0.0.0:443", p); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Claim("[::]:443", proof("foreign", 1)); !errors.Is(err, ErrConflict) {
+		t.Fatalf("dual-stack 443 conflict: %v", err)
+	}
+	if err := r.Release("127.0.0.1:443", p); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Claim("127.0.0.1:443", p); !errors.Is(err, ErrStale) {
+		t.Fatalf("443 replay: %v", err)
+	}
+	if err := r.Claim("127.0.0.1:0", p); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("port zero: %v", err)
+	}
+}

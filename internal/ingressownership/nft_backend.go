@@ -1,0 +1,186 @@
+package ingressownership
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"os/exec"
+	"strconv"
+	"sync"
+	"time"
+)
+
+// NFTMutationRunner is injectable so the adapter can be tested without host
+// privileges. Production admission still requires trusted chain provisioning
+// and Linux kernel LAB acceptance.
+type NFTMutationRunner interface {
+	NFTRunner
+	Run(context.Context, ...string) error
+}
+
+type NFTCommandRunner struct{ Binary string }
+
+func (r NFTCommandRunner) ReadRuleset(ctx context.Context) ([]byte, error) {
+	return NFTCommandReader{Binary: r.Binary}.ReadRuleset(ctx)
+}
+
+func (r NFTCommandRunner) Run(ctx context.Context, args ...string) error {
+	if r.Binary != "/usr/sbin/nft" && r.Binary != "/sbin/nft" {
+		return ErrFirewallUnverified
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	output, err := exec.CommandContext(ctx, r.Binary, args...).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("nft mutation failed: %w: %s", err, string(bytes.TrimSpace(output)))
+	}
+	return nil
+}
+
+// NFTLabBackend may mutate only an already provisioned chain whose handle and
+// base-chain layout are independently pinned by the caller. It never creates
+// or flushes a table, chain, or unrelated rule.
+type NFTLabBackend struct {
+	mu                  sync.Mutex
+	Runner              NFTMutationRunner
+	ExpectedChainHandle uint64
+}
+
+func verifyNFTLabChain(raw []byte, expectedHandle uint64) error {
+	if expectedHandle == 0 || len(raw) == 0 || len(raw) > 4<<20 {
+		return ErrFirewallUnverified
+	}
+	var root struct {
+		NFTables []json.RawMessage `json:"nftables"`
+	}
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&root); err != nil {
+		return ErrFirewallUnverified
+	}
+	var trailing any
+	if err := dec.Decode(&trailing); err != io.EOF {
+		return ErrFirewallUnverified
+	}
+	count := 0
+	for _, item := range root.NFTables {
+		var wrapper map[string]json.RawMessage
+		if err := json.Unmarshal(item, &wrapper); err != nil {
+			return ErrFirewallUnverified
+		}
+		chainRaw, ok := wrapper["chain"]
+		if !ok {
+			continue
+		}
+		var chain struct {
+			Family string `json:"family"`
+			Table  string `json:"table"`
+			Name   string `json:"name"`
+			Handle uint64 `json:"handle"`
+			Type   string `json:"type"`
+			Hook   string `json:"hook"`
+			Prio   int    `json:"prio"`
+			Policy string `json:"policy"`
+		}
+		if err := json.Unmarshal(chainRaw, &chain); err != nil {
+			return ErrFirewallUnverified
+		}
+		if chain.Family == "inet" && chain.Table == "baft" && chain.Name == "ingress" {
+			count++
+			if chain.Handle != expectedHandle || chain.Type != "filter" || chain.Hook != "input" || chain.Prio != -100 || chain.Policy != "accept" {
+				return ErrFirewallUnverified
+			}
+		}
+	}
+	if count != 1 {
+		return ErrFirewallUnverified
+	}
+	return nil
+}
+
+func (b *NFTLabBackend) inspect(ctx context.Context) ([]FirewallObservation, error) {
+	if b == nil || b.Runner == nil {
+		return nil, ErrFirewallUnverified
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	raw, err := b.Runner.ReadRuleset(ctx)
+	if err != nil || verifyNFTLabChain(raw, b.ExpectedChainHandle) != nil {
+		return nil, errors.Join(ErrFirewallUnverified, err)
+	}
+	return ParseNFTIngressRules(raw)
+}
+
+// Install never removes a foreign rule after a partial command failure. A
+// later retry must independently reobserve the exact owner rule.
+func (b *NFTLabBackend) Install(ctx context.Context, plan RulePlan) (FirewallObservation, error) {
+	if b == nil || ctx == nil {
+		return FirewallObservation{}, ErrFirewallUnverified
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	expected, err := PlanIngressRule(plan.Port, plan.Owner)
+	if err != nil || expected != plan {
+		return FirewallObservation{}, ErrInvalid
+	}
+	before, err := b.inspect(ctx)
+	if err != nil {
+		return FirewallObservation{}, err
+	}
+	for _, observation := range before {
+		if observation.Port == plan.Port || observation.Tag == plan.Tag {
+			if err := VerifyRuleObservation(plan, observation); err != nil {
+				return FirewallObservation{}, ErrConflict
+			}
+			return ReconcileRuleObservation(plan, before)
+		}
+	}
+	if err := b.Runner.Run(ctx, "add", "rule", "inet", "baft", "ingress", "tcp", "dport", strconv.Itoa(int(plan.Port)), "accept", "comment", plan.Tag); err != nil {
+		return FirewallObservation{}, err
+	}
+	after, err := b.inspect(ctx)
+	if err != nil {
+		return FirewallObservation{}, err
+	}
+	return ReconcileRuleObservation(plan, after)
+}
+
+// Remove rechecks exact owner, port, and kernel handle immediately before
+// deletion. A handle swap or ambiguous snapshot refuses destructive cleanup.
+func (b *NFTLabBackend) Remove(ctx context.Context, plan RulePlan, expectedHandle uint64) error {
+	if b == nil || ctx == nil || expectedHandle == 0 {
+		return ErrFirewallUnverified
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	expected, err := PlanIngressRule(plan.Port, plan.Owner)
+	if err != nil || expected != plan {
+		return ErrInvalid
+	}
+	for i := 0; i < 2; i++ {
+		observations, err := b.inspect(ctx)
+		if err != nil {
+			return err
+		}
+		match, err := ReconcileRuleObservation(plan, observations)
+		if err != nil || match.Handle != expectedHandle {
+			return ErrFirewallUnverified
+		}
+	}
+	if err := b.Runner.Run(ctx, "delete", "rule", "inet", "baft", "ingress", "handle", strconv.FormatUint(expectedHandle, 10)); err != nil {
+		return err
+	}
+	after, err := b.inspect(ctx)
+	if err != nil {
+		return err
+	}
+	for _, observation := range after {
+		if observation.Port == plan.Port || observation.Tag == plan.Tag {
+			return ErrFirewallUnverified
+		}
+	}
+	return nil
+}

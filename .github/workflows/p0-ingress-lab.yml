@@ -29,6 +29,15 @@ jobs:
           go test ./internal/ingressownership -run 'TestRestartPreparedManifestDoesNotAuthorizeSocket|TestRegistryPort443OwnershipWithoutSocket|TestCanonicalEndpointAllows443WithoutBinding' -count=1
       - name: LAB ingress ownership and manifest race acceptance
         run: go test -race ./internal/ingressownership ./internal/ingressmanifest ./internal/publicingress -count=3 -timeout=15m
+      - name: Isolated Linux nftables kernel LAB
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq nftables iproute2
+          go test -c -o /tmp/baft-nft-lab.test ./internal/ingressownership
+          namespace="baft-p0-${GITHUB_RUN_ID}"
+          sudo ip netns add "$namespace"
+          trap 'sudo ip netns del "$namespace"' EXIT
+          sudo ip netns exec "$namespace" env BAFT_NFT_KERNEL_LAB=1 /tmp/baft-nft-lab.test -test.run '^TestNFTKernelLAB$' -test.v
       - name: Signed prepare/cancel and BCC ingress tests
         run: |
           go test ./internal/agentjob ./internal/agent -run 'PublicIngress' -count=1 -timeout=10m

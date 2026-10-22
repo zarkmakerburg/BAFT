@@ -62,3 +62,12 @@ func TestNFTReadOnlyInspectionRejectsNilContextAndOversizeSnapshot(t *testing.T)
 		t.Fatalf("oversized snapshot: %v", err)
 	}
 }
+
+func TestNFTReaderRejectsCancelledContextWithoutExecution(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := (NFTCommandReader{Binary: "/usr/sbin/nft"}).ReadRuleset(ctx)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled nft read: %v", err)
+	}
+}

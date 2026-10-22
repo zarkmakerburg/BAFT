@@ -24,6 +24,10 @@ func (r NFTCommandReader) ReadRuleset(ctx context.Context) ([]byte, error) {
 	if r.Binary != "/usr/sbin/nft" && r.Binary != "/sbin/nft" {
 		return nil, ErrFirewallUnverified
 	}
+	// Bound direct reader calls too; callers must not rely on the wrapper
+	// to provide the subprocess deadline.
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 	cmd := exec.CommandContext(ctx, r.Binary, "-j", "-a", "list", "ruleset")
 	// Cap output during execution, not only when parsing, so a compromised
 	// nft process cannot force unbounded allocations before validation.

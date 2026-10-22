@@ -20,7 +20,7 @@ type LabTransaction struct {
 }
 
 func (t *LabTransaction) Apply(ctx context.Context, spec ingressmanifest.Spec, proof ingressmanifest.Proof) error {
-	if t == nil || t.Runtime == nil || t.Firewall == nil {
+	if t == nil || t.Runtime == nil || t.Firewall == nil || ctx == nil {
 		return ErrInvalid
 	}
 	t.mu.Lock()

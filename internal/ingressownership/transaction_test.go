@@ -113,3 +113,18 @@ func TestLabTransactionCancelledParentDoesNotLeaveFirewall(t *testing.T) {
 		t.Fatalf("cancelled firewall leaked: %v %v", ok, err)
 	}
 }
+
+func TestLabTransactionRejectsNilContextWithoutMutation(t *testing.T) {
+	tx := &LabTransaction{Runtime: NewRuntime(), Firewall: NewMemoryFirewall()}
+	spec := testSpec(t, "tx-nil-context")
+	owner, err := ingressmanifest.Preview(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Apply(nil, spec, owner); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("nil context: %v", err)
+	}
+	if len(tx.Runtime.sessions) != 0 {
+		t.Fatal("nil context left session")
+	}
+}

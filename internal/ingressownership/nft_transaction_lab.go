@@ -6,6 +6,7 @@ import (
 	"net"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
 )
@@ -96,7 +97,11 @@ func (t *NFTLabTransaction) Apply(ctx context.Context, spec ingressmanifest.Spec
 		if stopErr := t.Runtime.Retire(endpoint, proof); stopErr != nil {
 			return errors.Join(cause, stopErr)
 		}
-		return errors.Join(cause, t.Firewall.Remove(context.Background(), plan, observed.Handle))
+		// Cleanup must outlive a cancelled apply, but must not block the
+		// transaction lock indefinitely if the kernel backend is unresponsive.
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		return errors.Join(cause, t.Firewall.Remove(cleanupCtx, plan, observed.Handle))
 	}
 	record.Phase = PhaseFirewallInstalled
 	if err := t.Journal.Advance(record); err != nil {

@@ -25,8 +25,9 @@ import (
 // Its records are evidence of intent and progress, never evidence that a
 // listener or kernel rule still belongs to BAFT after restart.
 type DurableJournal struct {
-	dir   string
-	fault func(string) error // test-only crash injection
+	dir      string
+	identity os.FileInfo
+	fault    func(string) error // test-only crash injection
 }
 
 type journalEntry struct {
@@ -46,7 +47,11 @@ const maxJournalEntries = 10000
 
 func OpenDurableJournal(dir string) (*DurableJournal, error) {
 	j := &DurableJournal{dir: dir}
-	if err := j.withLock(func(*os.File, *os.Root) error { return nil }); err != nil {
+	if err := j.withLock(func(d *os.File, _ *os.Root) error {
+		info, err := d.Stat()
+		j.identity = info
+		return err
+	}); err != nil {
 		return nil, err
 	}
 	return j, nil
@@ -68,6 +73,9 @@ func (j *DurableJournal) withLock(run func(*os.File, *os.Root) error) error {
 	info, err := d.Stat()
 	if err != nil {
 		return err
+	}
+	if j.identity != nil && !os.SameFile(j.identity, info) {
+		return fmt.Errorf("journal directory identity changed since open: %w", ErrInvalid)
 	}
 	pathInfo, err := os.Lstat(j.dir)
 	if err != nil || !os.SameFile(info, pathInfo) {

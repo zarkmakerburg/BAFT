@@ -236,3 +236,23 @@ func TestDurableJournalAnchorsDirectoryAcrossPathSwap(t *testing.T) {
 		t.Fatalf("anchored write missing: %v", err)
 	}
 }
+
+func TestDurableJournalRejectsDirectoryReplacementBetweenOperations(t *testing.T) {
+	dir := newJournalTestDir(t)
+	j, err := OpenDurableJournal(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(dir, dir+"-old"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := j.Advance(MutationRecord{Port: 54619, Owner: proof("replaced", 1), Phase: PhaseIntent}); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("accepted replacement journal directory: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, journalFilename(1))); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("wrote into replacement directory: %v", err)
+	}
+}

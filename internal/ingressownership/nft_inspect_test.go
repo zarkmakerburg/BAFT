@@ -58,3 +58,21 @@ func TestNFTExactTCPRuleCanBeReconciled(t *testing.T) {
 		}
 	}
 }
+
+func TestNFTRejectsInjectedMatchExpressions(t *testing.T) {
+	plan, err := PlanIngressRule(443, proof("strict-nft", 5))
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := `{"nftables":[{"rule":{"family":"inet","table":"baft","chain":"ingress","handle":27,"comment":"` + plan.Tag + `","expr":[{"match":{"op":"==","left":{"payload":{"protocol":"tcp","field":"dport"}},"right":443}},{"accept":null}]}}]}`
+	for _, injected := range []string{
+		strings.Replace(base, `"right":443`, `"right":443,"extra":true`, 1),
+		strings.Replace(base, `"field":"dport"`, `"field":"dport","offset":1`, 1),
+		strings.Replace(base, `"op":"=="`, `"op":"==","invert":true`, 1),
+		strings.Replace(base, `"right":443`, `"right":443},"counter":{},"match":{"op":"==","left":{"payload":{"protocol":"tcp","field":"dport"}},"right":443`, 1),
+	} {
+		if _, err := ParseNFTIngressRules([]byte(injected)); !errors.Is(err, ErrFirewallUnverified) {
+			t.Fatalf("injected expression accepted: %v", err)
+		}
+	}
+}

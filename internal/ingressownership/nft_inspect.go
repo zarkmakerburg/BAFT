@@ -71,7 +71,7 @@ func ParseNFTIngressRules(raw []byte) ([]FirewallObservation, error) {
 				Right uint16 `json:"right"`
 			} `json:"match"`
 		}
-		if err := json.Unmarshal(rule.Expr[0], &portMatch); err != nil || portMatch.Match.Op != "==" || portMatch.Match.Left.Payload.Protocol != "tcp" || portMatch.Match.Left.Payload.Field != "dport" || portMatch.Match.Right == 0 {
+		if err := decodeExactNFTMatch(rule.Expr[0], &portMatch); err != nil || portMatch.Match.Op != "==" || portMatch.Match.Left.Payload.Protocol != "tcp" || portMatch.Match.Left.Payload.Field != "dport" || portMatch.Match.Right == 0 {
 			return nil, ErrFirewallUnverified
 		}
 		var verdict map[string]json.RawMessage
@@ -87,4 +87,50 @@ func ParseNFTIngressRules(raw []byte) ([]FirewallObservation, error) {
 		out = append(out, FirewallObservation{Port: portMatch.Match.Right, Tag: rule.Comment, Handle: rule.Handle, Family: rule.Family, Table: rule.Table, Chain: rule.Chain})
 	}
 	return out, nil
+}
+
+// decodeExactNFTMatch rejects unknown or injected expressions rather than
+// silently ignoring extra fields in a firewall ownership proof.
+func decodeExactNFTMatch(raw []byte, target any) error {
+	var outer map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &outer); err != nil {
+		return err
+	}
+	if len(outer) != 1 {
+		return ErrFirewallUnverified
+	}
+	match, ok := outer["match"]
+	if !ok {
+		return ErrFirewallUnverified
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(match, &fields); err != nil || len(fields) != 3 {
+		return ErrFirewallUnverified
+	}
+	for _, key := range []string{"op", "left", "right"} {
+		if _, ok := fields[key]; !ok {
+			return ErrFirewallUnverified
+		}
+	}
+	var left map[string]json.RawMessage
+	if err := json.Unmarshal(fields["left"], &left); err != nil || len(left) != 1 {
+		return ErrFirewallUnverified
+	}
+	payload, ok := left["payload"]
+	if !ok {
+		return ErrFirewallUnverified
+	}
+	var payloadFields map[string]json.RawMessage
+	if err := json.Unmarshal(payload, &payloadFields); err != nil || len(payloadFields) != 2 {
+		return ErrFirewallUnverified
+	}
+	if _, ok := payloadFields["protocol"]; !ok {
+		return ErrFirewallUnverified
+	}
+	if _, ok := payloadFields["field"]; !ok {
+		return ErrFirewallUnverified
+	}
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.DisallowUnknownFields()
+	return dec.Decode(target)
 }

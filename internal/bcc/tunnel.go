@@ -286,6 +286,11 @@ func (s *Store) tunnelJobLocked(t *Tunnel, node, typ string, params map[string]s
 	params["tunnel_id"] = t.ID
 	if t.InstanceID != "" {
 		params["instance_id"] = t.InstanceID
+		if node == t.EXNode {
+			params["metrics_listen"] = t.EXMetricsListen
+		} else if node == t.IRNode {
+			params["metrics_listen"] = t.IRMetricsListen
+		}
 	}
 	j := s.newJobLocked(Job{Type: typ, NodeID: node, Params: params})
 	t.Jobs = append(t.Jobs, j.ID)
@@ -615,6 +620,11 @@ func (s *Store) startRollbackLocked(t *Tunnel, now time.Time) {
 		params := map[string]string{"tunnel_id": t.ID}
 		if t.InstanceID != "" {
 			params["instance_id"] = t.InstanceID
+			if node == t.EXNode {
+				params["metrics_listen"] = t.EXMetricsListen
+			} else if node == t.IRNode {
+				params["metrics_listen"] = t.IRMetricsListen
+			}
 		}
 		j := s.newJobLocked(Job{Type: JobTunnelRollback, NodeID: node, Params: params})
 		t.Jobs = append(t.Jobs, j.ID)

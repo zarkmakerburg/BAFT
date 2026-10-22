@@ -89,8 +89,8 @@ func (r *Registry) Release(endpoint string, p ingressmanifest.Proof) error {
 	if r == nil || !valid(p) {
 		return ErrInvalid
 	}
-	_, port, err := net.SplitHostPort(endpoint)
-	if err != nil {
+	host, port, err := net.SplitHostPort(endpoint)
+	if err != nil || net.ParseIP(host) == nil {
 		return ErrInvalid
 	}
 	n, err := strconv.Atoi(port)

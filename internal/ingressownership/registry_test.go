@@ -108,3 +108,22 @@ func TestRegistryPort443OwnershipWithoutSocket(t *testing.T) {
 		t.Fatalf("port zero: %v", err)
 	}
 }
+
+func TestRegistryReleaseRejectsHostnameAliasWithoutLosingOwner(t *testing.T) {
+	r := New()
+	owner := proof("host-fence", 1)
+	if err := r.Claim("127.0.0.1:2053", owner); err != nil {
+		t.Fatal(err)
+	}
+	for _, bad := range []string{"localhost:2053", "example.org:2053", "127.0.0.1:0", "not-an-endpoint"} {
+		if err := r.Release(bad, owner); !errors.Is(err, ErrInvalid) {
+			t.Fatalf("%q release: %v", bad, err)
+		}
+	}
+	if err := r.Claim("[::]:2053", proof("foreign", 1)); !errors.Is(err, ErrConflict) {
+		t.Fatalf("owner was lost: %v", err)
+	}
+	if err := r.Release("127.0.0.1:2053", owner); err != nil {
+		t.Fatal(err)
+	}
+}

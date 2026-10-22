@@ -113,3 +113,32 @@ func TestAllPublicIngressActionsRejectSelfForwarding(t *testing.T) {
 		}
 	}
 }
+
+func TestPublicIngressSignedLiveActionsRequireCanonicalParameters(t *testing.T) {
+	for _, action := range []string{"public_ingress_apply", "public_ingress_retire"} {
+		t.Run(action, func(t *testing.T) {
+			params := map[string]string{"tunnel_id": "tun-test", "public_port": "54619", "local_target": "127.0.0.1:1443", "generation": "1", "manifest_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "listener_id": "listener-test", "firewall_id": "firewall-test"}
+			j := job(action, params)
+			j.SchemaVersion = SchemaVersion
+			if err := j.Validate(); err != nil {
+				t.Fatalf("valid live job rejected: %v", err)
+			}
+			for _, field := range []string{"manifest_digest", "listener_id", "firewall_id", "generation"} {
+				bad := job(action, params)
+				bad.SchemaVersion = SchemaVersion
+				bad.Params = make(map[string]string, len(params))
+				for k, v := range params {
+					bad.Params[k] = v
+				}
+				delete(bad.Params, field)
+				if err := bad.Validate(); err == nil {
+					t.Fatalf("missing %s accepted", field)
+				}
+			}
+			j.Params["local_target"] = "127.0.0.1:54619"
+			if err := j.Validate(); err == nil {
+				t.Fatal("self-forwarding accepted")
+			}
+		})
+	}
+}

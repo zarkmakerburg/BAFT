@@ -6,16 +6,13 @@ import (
 	"time"
 )
 
-// The isolated prepare action writes only private manifest bytes. Until
-// ownership-checked listener, firewall and rollback executors exist, signed
-// BCC jobs must not be able to request public ingress host mutations.
+// Legacy mutation aliases must remain rejected. Explicit signed Apply/Retire
+// contracts are separately validated and require a disabled-by-default LAB executor.
 func TestP0PublicIngressMutationActionsRemainDisabled(t *testing.T) {
 	now := time.Now().UTC()
 	for _, action := range []string{
 		"public_ingress_commit",
-		"public_ingress_apply",
 		"public_ingress_rollback",
-		"public_ingress_retire",
 		"public_ingress_remove",
 		"public_ingress_reconcile",
 	} {

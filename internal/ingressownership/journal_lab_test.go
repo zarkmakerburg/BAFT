@@ -41,3 +41,18 @@ func TestLABJournalTransitionsAndGenerationFence(t *testing.T) {
 		t.Fatal("unexpected journal entries")
 	}
 }
+
+func TestLABJournalAdvanceRejectsPrematureFirewallHandle(t *testing.T) {
+	for _, phase := range []MutationPhase{PhaseIntent, PhaseListenerBound} {
+		j := new(LabJournal)
+		record := MutationRecord{Port: 443, Owner: proof("journal-handle-fence", 1), Phase: phase, FirewallHandle: 42}
+		if phase == PhaseListenerBound {
+			if err := j.Advance(MutationRecord{Port: 443, Owner: record.Owner, Phase: PhaseIntent}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := j.Advance(record); !errors.Is(err, ErrInvalid) {
+			t.Fatalf("phase %s accepted premature handle: %v", phase, err)
+		}
+	}
+}

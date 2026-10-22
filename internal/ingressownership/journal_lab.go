@@ -49,6 +49,9 @@ func (j *LabJournal) Advance(next MutationRecord) error {
 	if _, err := PlanIngressRule(next.Port, next.Owner); err != nil {
 		return err
 	}
+	if (next.Phase == PhaseIntent || next.Phase == PhaseListenerBound) && next.FirewallHandle != 0 {
+		return ErrInvalid
+	}
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	if j.entries == nil {

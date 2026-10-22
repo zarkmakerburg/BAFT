@@ -78,6 +78,11 @@ func (r *Runtime) Apply(parent context.Context, spec ingressmanifest.Spec, proof
 			case <-s.done:
 				return ErrStopped
 			default:
+				// Cancellation may race with the initial check. Never ACK
+				// a cancelled replay as an active, healthy listener.
+				if err := parent.Err(); err != nil {
+					return err
+				}
 				return nil
 			}
 		}

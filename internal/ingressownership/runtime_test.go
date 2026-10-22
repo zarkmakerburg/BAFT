@@ -255,3 +255,28 @@ func TestCanonicalEndpointAllows443WithoutBinding(t *testing.T) {
 		t.Fatalf("zero port: %v", err)
 	}
 }
+
+func TestRuntimeCancelledReplayCannotAcknowledgeExistingSession(t *testing.T) {
+	r := NewRuntime()
+	s := testSpec(t, "cancel-replay")
+	p, err := ingressmanifest.Preview(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Apply(context.Background(), s, p); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := r.Apply(ctx, s, p); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled replay acknowledged: %v", err)
+	}
+	c, err := net.DialTimeout("tcp", s.Config.Listen, time.Second)
+	if err != nil {
+		t.Fatalf("cancelled replay mutated active listener: %v", err)
+	}
+	c.Close()
+	if err := r.Retire(s.Config.Listen, p); err != nil {
+		t.Fatal(err)
+	}
+}

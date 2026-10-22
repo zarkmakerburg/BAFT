@@ -349,6 +349,23 @@ func (m *Manager) activeID() string {
 	return strings.TrimSpace(string(b))
 }
 
+// checkedActiveID distinguishes no active transaction from an unreadable or
+// malformed marker. Mutation preflights must use it instead of activeID.
+func (m *Manager) checkedActiveID() (string, error) {
+	b, err := os.ReadFile(m.activePath())
+	if errors.Is(err, os.ErrNotExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("read active transaction: %w", err)
+	}
+	id := strings.TrimSpace(string(b))
+	if !idRe.MatchString(id) || string(b) != id+"\n" {
+		return "", errors.New("invalid active transaction marker; reconciliation required")
+	}
+	return id, nil
+}
+
 func (m *Manager) setActive(id string) error {
 	return writeFile(m.activePath(), []byte(id+"\n"), 0o600)
 }
@@ -360,17 +377,11 @@ func (m *Manager) begin(id, role string) (Txn, error) {
 	if !idRe.MatchString(id) {
 		return Txn{}, errors.New("invalid tunnel id")
 	}
-	// Missing and unreadable active markers are different states. Never
-	// interpret an I/O failure or malformed marker as an empty lock.
-	if b, err := os.ReadFile(m.activePath()); err == nil {
-		cur := strings.TrimSpace(string(b))
-		if !idRe.MatchString(cur) || string(b) != cur+"\n" {
-			return Txn{}, errors.New("invalid active transaction marker; manual reconciliation required")
-		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return Txn{}, fmt.Errorf("cannot inspect active transaction marker: %w", err)
+	cur, activeErr := m.checkedActiveID()
+	if activeErr != nil {
+		return Txn{}, activeErr
 	}
-	if cur := m.activeID(); cur != "" {
+	if cur != "" {
 		if cur == id {
 			return Txn{}, fmt.Errorf("tunnel change %s already holds the active marker; reconcile before retrying", id)
 		}

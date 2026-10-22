@@ -297,8 +297,16 @@ func (m *Manager) rotationTarget(tunnelID, role string) (config.Config, error) {
 	if !idRe.MatchString(tunnelID) {
 		return cfg, errors.New("invalid tunnel id")
 	}
-	if cur := m.activeID(); cur != "" {
-		if t, err := m.readTxn(cur); err == nil && (t.Phase == PhasePrepared || t.Phase == PhaseCommitted) {
+	cur, err := m.checkedActiveID()
+	if err != nil {
+		return cfg, err
+	}
+	if cur != "" {
+		t, err := m.readTxn(cur)
+		if err != nil {
+			return cfg, fmt.Errorf("active tunnel state needs reconciliation: %w", err)
+		}
+		if t.Phase == PhasePrepared || t.Phase == PhaseCommitted {
 			return cfg, fmt.Errorf("tunnel change %s is in progress on this node", cur)
 		}
 	}

@@ -112,6 +112,9 @@ func (t *NFTLabTransaction) Apply(ctx context.Context, spec ingressmanifest.Spec
 	if err := t.Journal.Advance(record); err != nil {
 		return rollback(err)
 	}
+	if err := ctx.Err(); err != nil {
+		return rollback(err)
+	}
 	return nil
 }
 
@@ -145,6 +148,9 @@ func (t *NFTLabTransaction) Retire(ctx context.Context, spec ingressmanifest.Spe
 	record.Phase = PhaseRetireIntent
 	record.FirewallHandle = current.FirewallHandle
 	if err := t.Journal.Advance(record); err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
 		return err
 	}
 	if err := t.Runtime.Retire(spec.Config.Listen, proof); err != nil {

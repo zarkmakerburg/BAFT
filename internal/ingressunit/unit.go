@@ -56,6 +56,11 @@ func Render(spec ingressmanifest.Spec, proof ingressmanifest.Proof, listenerID, 
 	if !filepath.IsAbs(baftBinary) || filepath.Clean(baftBinary) != baftBinary || !binaryPathPattern.MatchString(baftBinary) {
 		return Candidate{}, errors.New("ingress unit requires a safe absolute BAFT binary path")
 	}
+	// Identity values are copied into systemd comment and description lines.
+	// Reject control characters even when the manifest proof matches.
+	if !listenerIDPattern.MatchString(proof.TunnelID) || !listenerIDPattern.MatchString(proof.InstanceID) {
+		return Candidate{}, errors.New("ingress manifest contains unsafe unit metadata identity")
+	}
 	listen, err := canonicalEndpoint(spec.Config.Listen)
 	if err != nil {
 		return Candidate{}, err

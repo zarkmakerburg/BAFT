@@ -58,3 +58,17 @@ func TestRenderRequiresExactManifestAndDoesNotAdoptChangedUnit(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderRejectsUnsafeManifestIdentityInSystemdMetadata(t *testing.T) {
+	for _, id := range []string{"bad\n[Service]\nExecStart=/bin/false", "bad\runit", "bad\x00id"} {
+		spec := candidateSpec()
+		spec.TunnelID = id
+		proof, err := ingressmanifest.Preview(spec)
+		if err != nil {
+			continue
+		} // The manifest validator may reject it sooner.
+		if _, err := Render(spec, proof, "listener-1", "/usr/local/bin/baft", "baft"); err == nil {
+			t.Fatalf("accepted unsafe tunnel identity %q", id)
+		}
+	}
+}

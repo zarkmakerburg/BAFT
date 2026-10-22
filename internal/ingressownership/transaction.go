@@ -50,6 +50,11 @@ func (t *LabTransaction) Apply(ctx context.Context, spec ingressmanifest.Spec, p
 	existing := t.Runtime.sessions[spec.Config.Listen]
 	t.Runtime.mu.Unlock()
 	if existing != nil {
+		// A replay cannot re-authorize a session with a cancelled parent,
+		// even if its existing firewall ownership is still valid.
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if existing.proof != proof {
 			return ErrConflict
 		}

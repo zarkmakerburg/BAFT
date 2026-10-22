@@ -128,3 +128,28 @@ func TestLabTransactionRejectsNilContextWithoutMutation(t *testing.T) {
 		t.Fatal("nil context left session")
 	}
 }
+
+func TestLabTransactionCancelledReplayPreservesLiveOwner(t *testing.T) {
+	tx := &LabTransaction{Runtime: NewRuntime(), Firewall: NewMemoryFirewall()}
+	spec := testSpec(t, "tx-cancel-replay")
+	owner, err := ingressmanifest.Preview(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Apply(context.Background(), spec, owner); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := tx.Apply(ctx, spec, owner); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled replay: %v", err)
+	}
+	_, port, _ := net.SplitHostPort(spec.Config.Listen)
+	n, _ := strconv.Atoi(port)
+	if ok, err := tx.Firewall.Verify(uint16(n), owner); err != nil || !ok {
+		t.Fatalf("cancelled replay changed firewall: %v %v", ok, err)
+	}
+	if err := tx.Retire(spec.Config.Listen, owner); err != nil {
+		t.Fatal(err)
+	}
+}

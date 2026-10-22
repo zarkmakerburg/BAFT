@@ -126,3 +126,46 @@ func TestLABCheckpointRejectsDirectorySymlink(t *testing.T) {
 		t.Fatalf("loaded through directory symlink: %v", err)
 	}
 }
+
+func TestLABCheckpointRejectsGenerationRollback(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "private")
+	if err := os.Mkdir(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	r := New()
+	old := proof("monotonic", 2)
+	if err := r.Claim("127.0.0.1:443", old); err != nil {
+		t.Fatal(err)
+	}
+	first, err := r.Snapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := SaveCheckpoint(dir, first); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Release("127.0.0.1:443", old); err != nil {
+		t.Fatal(err)
+	}
+	next := proof("monotonic", 3)
+	if err := r.Claim("127.0.0.1:443", next); err != nil {
+		t.Fatal(err)
+	}
+	latest, err := r.Snapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := SaveCheckpoint(dir, latest); err != nil {
+		t.Fatal(err)
+	}
+	if err := SaveCheckpoint(dir, first); !errors.Is(err, ErrStale) {
+		t.Fatalf("checkpoint rollback accepted: %v", err)
+	}
+	restored, err := LoadCheckpoint(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := restored.Claim("127.0.0.1:443", next); !errors.Is(err, ErrStale) {
+		t.Fatalf("latest generation replayed: %v", err)
+	}
+}

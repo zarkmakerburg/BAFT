@@ -94,6 +94,29 @@ func SaveCheckpoint(dir string, s FenceSnapshot) error {
 	} else if !errors.Is(statErr, os.ErrNotExist) {
 		return statErr
 	}
+	// Checkpoints must never lower a persisted generation high-water mark.
+	// This is an offline LAB guard, not a concurrent transaction journal.
+	if _, statErr := os.Lstat(destination); statErr == nil {
+		previous, loadErr := LoadCheckpoint(dir)
+		if loadErr != nil {
+			return loadErr
+		}
+		previousSnapshot, snapshotErr := previous.Snapshot()
+		if snapshotErr != nil {
+			return snapshotErr
+		}
+		current := make(map[string]uint64, len(s.Generations))
+		for _, g := range s.Generations {
+			current[g.TunnelID+"\x00"+g.InstanceID] = g.Generation
+		}
+		for _, g := range previousSnapshot.Generations {
+			if current[g.TunnelID+"\x00"+g.InstanceID] < g.Generation {
+				return ErrStale
+			}
+		}
+	} else if !errors.Is(statErr, os.ErrNotExist) {
+		return statErr
+	}
 	if err = os.Rename(name, destination); err != nil {
 		return err
 	}

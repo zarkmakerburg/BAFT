@@ -2,6 +2,7 @@ package tunnelnode
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -212,5 +213,35 @@ func TestBeginRejectsCorruptExistingTransactionWithoutActiveMarker(t *testing.T)
 	got, err := os.ReadFile(path)
 	if err != nil || string(got) != "{invalid-json" {
 		t.Fatalf("corrupt state overwritten: %q %v", got, err)
+	}
+}
+
+func TestReadTxnRejectsSwappedOrInvalidState(t *testing.T) {
+	n := newNode(t)
+	for _, tc := range []struct {
+		name string
+		tx   Txn
+	}{
+		{"swapped-id", Txn{Version: 1, ID: "somebody-else", Role: RoleEX, Phase: PhasePrepared}},
+		{"unknown-phase", Txn{Version: 1, ID: "pair-1", Role: RoleIR, Phase: "unknown"}},
+		{"wrong-version", Txn{Version: 8, ID: "pair-1", Role: RoleEX, Phase: PhaseCommitted}},
+		{"invalid-role", Txn{Version: 1, ID: "pair-1", Role: "admin", Phase: PhaseFinalized}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := n.txnPath("pair-1")
+			if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+				t.Fatal(err)
+			}
+			raw, err := json.Marshal(tc.tx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, raw, 0600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := n.readTxn("pair-1"); err == nil {
+				t.Fatal("accepted invalid transaction state")
+			}
+		})
 	}
 }

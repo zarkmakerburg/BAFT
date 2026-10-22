@@ -302,7 +302,13 @@ func (m *Manager) readTxn(id string) (Txn, error) {
 		return t, err
 	}
 	if err := json.Unmarshal(b, &t); err != nil {
-		return t, fmt.Errorf("corrupt state for %s: %w", id, err)
+		return Txn{}, fmt.Errorf("corrupt state for %s: %w", id, err)
+	}
+	// The on-disk path is not evidence of ownership: never let stale, swapped
+	// or partially restored transaction contents name a different change.
+	if !idRe.MatchString(id) || t.Version != 1 || t.ID != id || (t.Role != RoleEX && t.Role != RoleIR) ||
+		(t.Phase != PhasePrepared && t.Phase != PhaseCommitted && t.Phase != PhaseFinalized && t.Phase != PhaseRolledBack) {
+		return Txn{}, fmt.Errorf("corrupt transaction identity or phase for %s", id)
 	}
 	return t, nil
 }

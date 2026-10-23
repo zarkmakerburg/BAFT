@@ -79,6 +79,12 @@ func (a *Agent) publicIngressLAB(ctx context.Context, j agentjob.Job) (string, e
 		return "", err
 	}
 	if j.Action == agentjob.ActionPublicIngressApply {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			retireErr := a.cfg.IngressLABExecutor.Retire(cleanupCtx, spec, proof)
+			return "", errors.Join(ctxErr, retireErr)
+		}
 		// Cancellation may have fenced the manifest while the LAB executor was
 		// binding the listener. A successful executor result is insufficient
 		// until the prepared bytes still match after mutation.

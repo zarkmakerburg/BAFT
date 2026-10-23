@@ -171,3 +171,28 @@ func TestPublicIngressLABCancelDuringApplyRollsBack(t *testing.T) {
 		t.Fatalf("cancelled apply escaped rollback: %q %v %+v", output, err, fake)
 	}
 }
+
+func TestPublicIngressLABCancelContextDuringApplyRollsBack(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Chmod(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	j, proof := prepareJob(t)
+	store, err := ingressmanifest.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec := ingressmanifest.Spec{TunnelID: "tun-a", Generation: 1, Config: ingressmanifest.Config{Listen: "0.0.0.0:54619", Target: "127.0.0.1:1443", MaxClients: 128, DialTimeoutMS: 3000}}
+	if _, err := store.Prepare(spec, nil); err != nil {
+		t.Fatal(err)
+	}
+	store.Close()
+	j.Action = agentjob.ActionPublicIngressApply
+	ctx, cancel := context.WithCancel(context.Background())
+	fake := &fakeIngressLAB{onApply: cancel}
+	a := &Agent{cfg: Config{NodeID: j.NodeID, IngressManifestDir: dir, IngressLABExecutor: fake}}
+	output, err := a.publicIngressLAB(ctx, j)
+	if err == nil || output != "" || fake.apply != 1 || fake.retire != 1 {
+		t.Fatalf("cancelled Apply returned live ownership: output=%q err=%v apply=%d retire=%d proof=%+v", output, err, fake.apply, fake.retire, proof)
+	}
+}

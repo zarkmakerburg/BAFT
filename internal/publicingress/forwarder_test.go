@@ -441,8 +441,7 @@ func TestForwarderDoesNotTakeOwnershipOfMismatchedListener(t *testing.T) {
 	}
 }
 
-// A temporarily stopped Imperial Crown instance must retain its dedicated
-// public port; admission cannot treat an unoccupied 2053 as available.
+// Idle clients must not hold the bounded capacity of an ingress indefinitely.
 func TestForwarderIdleClientsReleaseCapacity(t *testing.T) {
 	backend := echoBackend(t)
 	ln := tcpListener(t)

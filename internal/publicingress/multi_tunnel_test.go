@@ -2,6 +2,7 @@ package publicingress
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net"
 	"testing"
@@ -60,5 +61,63 @@ func TestIndependentTunnelLifecyclePreservesSiblingTraffic(t *testing.T) {
 	stopB()
 	if second.ActiveConnections() != 0 {
 		t.Fatal("sibling shutdown leaked an active client")
+	}
+}
+
+// IPv6 is an independently supported family, not an alias for IPv4. Verify
+// actual end-to-end bytes through a native IPv6 loopback listener/backend.
+func TestIPv6DedicatedIngressBinaryRoundtrip(t *testing.T) {
+	backend, err := net.Listen("tcp6", "[::1]:0")
+	if err != nil {
+		t.Skipf("IPv6 loopback unavailable: %v", err)
+	}
+	defer backend.Close()
+	backendDone := make(chan struct{})
+	go func() {
+		defer close(backendDone)
+		for {
+			conn, err := backend.Accept()
+			if err != nil {
+				return
+			}
+			go func() { defer conn.Close(); _, _ = io.Copy(conn, conn) }()
+		}
+	}()
+	ingress, err := net.Listen("tcp6", "[::1]:0")
+	if err != nil {
+		t.Fatalf("IPv6 listener: %v", err)
+	}
+	defer ingress.Close()
+	f, err := New(Config{Listen: ingress.Addr().String(), Target: backend.Addr().String(), MaxClients: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- f.Serve(ctx, ingress) }()
+	defer func() {
+		cancel()
+		if err := <-done; err != nil {
+			t.Errorf("IPv6 shutdown: %v", err)
+		}
+	}()
+	client, err := net.DialTimeout("tcp6", ingress.Addr().String(), time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	if err := client.SetDeadline(time.Now().Add(3 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	payload := bytes.Repeat([]byte{0, 1, 255, 128, 10}, 8192)
+	if _, err := client.Write(payload); err != nil {
+		t.Fatal(err)
+	}
+	got := make([]byte, len(payload))
+	if _, err := io.ReadFull(client, got); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, payload) {
+		t.Fatal("IPv6 ingress altered binary payload")
 	}
 }

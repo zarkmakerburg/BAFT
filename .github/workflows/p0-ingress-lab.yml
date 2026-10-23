@@ -37,7 +37,10 @@ jobs:
           namespace="baft-p0-${GITHUB_RUN_ID}"
           sudo ip netns add "$namespace"
           trap 'sudo ip netns del "$namespace"' EXIT
+          sudo ip netns exec "$namespace" ip link set lo up
           sudo ip netns exec "$namespace" env BAFT_NFT_KERNEL_LAB=1 /tmp/baft-nft-lab.test -test.run '^TestNFTKernelLAB$' -test.v
+          go test -c -o /tmp/baft-agent-kernel-lab.test ./internal/agent
+          sudo ip netns exec "$namespace" env BAFT_NFT_KERNEL_LAB=1 /tmp/baft-agent-kernel-lab.test -test.run '^TestPublicIngressLABKernelSignedLifecycle$' -test.v
       - name: Signed Agent LAB lifecycle and race acceptance
         run: |
           go test -race ./internal/agent -run 'TestPublicIngressLAB' -count=2 -timeout=10m

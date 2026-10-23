@@ -71,6 +71,29 @@ func TestDurableJournalCrashReplayAndRecovery(t *testing.T) {
 	}
 }
 
+func TestDurableJournalRetiredGenerationReplayFence(t *testing.T) {
+	dir := newJournalTestDir(t)
+	j, err := OpenDurableJournal(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	record := MutationRecord{Port: 54619, Owner: proof("durable-retired-replay", 1)}
+	for _, phase := range []MutationPhase{PhaseIntent, PhaseListenerBound, PhaseFirewallInstalled, PhaseVerified, PhaseRetireIntent, PhaseRetired} {
+		record.Phase = phase
+		if err := j.Advance(record); err != nil {
+			t.Fatalf("advance %s: %v", phase, err)
+		}
+	}
+	record.Phase = PhaseIntent
+	if err := j.Advance(record); !errors.Is(err, ErrConflict) {
+		t.Fatalf("retired generation reopened: %v", err)
+	}
+	got, err := j.Recover()
+	if err != nil || len(got.Records) != 1 || got.Records[0].Phase != PhaseRetired || len(got.NeedsReconciliation) != 0 {
+		t.Fatalf("retired durable journal changed: %+v %v", got, err)
+	}
+}
+
 func TestDurableJournalConcurrentWritersAndFences(t *testing.T) {
 	dir := newJournalTestDir(t)
 	a, _ := OpenDurableJournal(dir)

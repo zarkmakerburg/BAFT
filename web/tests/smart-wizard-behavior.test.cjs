@@ -8,7 +8,7 @@ const src=fs.readFileSync(path.resolve(__dirname,'../../internal/bcc/dashboard.g
 const js=src.slice(src.indexOf('<script>')+8,src.indexOf('</script>'));
 function fn(from,to){const start=js.indexOf(from),end=js.indexOf(to,start);assert.ok(start>=0&&end>start);return js.slice(start,end)}
 function context(fields,prelude){
- const c={q:selector=>({get value(){return fields[selector.slice(1)]},set value(v){fields[selector.slice(1)]=v},get checked(){return fields[selector.slice(1)]},set checked(v){fields[selector.slice(1)]=v},get textContent(){return fields[selector.slice(1)]},set textContent(v){fields[selector.slice(1)]=v},scrollIntoView(){}}),document:{documentElement:{lang:'fa'}},alert(){},tnClearPlan(){},console};
+ const c={q:selector=>({get value(){return fields[selector.slice(1)]},set value(v){fields[selector.slice(1)]=v},get checked(){return fields[selector.slice(1)]},set checked(v){fields[selector.slice(1)]=v},get textContent(){return fields[selector.slice(1)]},set textContent(v){fields[selector.slice(1)]=v},get innerHTML(){return fields[selector.slice(1)]},set innerHTML(v){fields[selector.slice(1)]=v},scrollIntoView(){}}),document:{documentElement:{lang:'fa'}},alert(){},tnClearPlan(){},console};
  vm.createContext(c);vm.runInContext(fn('function tnWizardTargetChanged()','function tnWizardGenerateServicePort()')+prelude,c);return c;
 }
 const req=fn('function tnReq()','function tnModeChanged()');
@@ -40,7 +40,7 @@ for(const target of ['127.0.0.1:30000','192.0.2.15:5432','[2001:db8::15]:8443'])
 for(const instance of ['', 'existing-managed'])test('editing '+(instance?'managed':'legacy')+' tunnel keeps non-loopback IPv6 target reviewable',async()=>{
  const fields={...defaults};
  const old={instance_id:instance,ex_node:'ex-de-1',ir_node:'ir-arno-1',public_address:'203.0.113.5',port:2053,target:'[2001:db8::15]:5432',route_id:'service-main',route_listen:'127.0.0.1:1443'};
- const c=context(fields,'let tnEditBase=null;const tnWizardText=(en,fa)=>fa;'+req+fn('async function tnEdit(id)','function tnEditEnd()')+fn('function tnWizardValidateStep(i)','function tnWizardStep(i)'));
+ const c=context(fields,'let tnEditBase=null,tnPlanEpoch=0;const tnWizardText=(en,fa)=>fa;'+req+fn('async function tnEdit(id)','function tnEditEnd()')+fn('function tnWizardValidateStep(i)','function tnWizardStep(i)'));
  c.fetch=async()=>({ok:true,json:async()=>old});c.ah=()=>({});c.esc=String;c.tnModeChanged=()=>{};c.tnWizardStep=()=>{};
  await vm.runInContext('tnEdit("tun-existing")',c);
  assert.equal(fields.tnTarget,old.target);
@@ -191,4 +191,86 @@ test('stale deploy conflict response cannot resurrect plan after form change',as
  await pending;
  assert.equal(vm.runInContext('tnPlanHash',c),'');
  assert.equal(vm.runInContext('tnPlanReq',c),null);
+});
+
+test('Stop editing discards the reviewed replacement plan and its credentials',()=>{
+ const fields={...defaults,tnPlan:'reviewed replacement'};
+ const c=context(fields,'let tnEditBase={instance_id:"old"},tnPlanHash="replacement",tnPlanReq={instance_id:"old"},tnPlanReplaces="tun-old",tnPlanEpoch=0;'+fn('function tnEditEnd()','function tnShowPlan(p)')+fn('function tnClearPlan()','async function tnPlan()'));
+ vm.runInContext('tnEditEnd()',c);
+ assert.equal(vm.runInContext('tnEditBase',c),null);
+ assert.equal(fields.tnTarget,'');
+ assert.equal(vm.runInContext('tnPlanHash',c),'');
+ assert.equal(vm.runInContext('tnPlanReq',c),null);
+ assert.equal(vm.runInContext('tnPlanReplaces',c),'');
+});
+
+test('choosing Edit invalidates previous deployable plan before detail request returns',async()=>{
+ const fields={...defaults,tnPlan:'previous plan'};
+ let resolveFetch;
+ const c=context(fields,'let tnEditBase=null,tnPlanHash="old-plan",tnPlanReq={old:true},tnPlanReplaces="",tnPlanEpoch=0;'+fn('async function tnEdit(id)','function tnEditEnd()')+fn('function tnClearPlan()','async function tnPlan()'));
+ c.ah=()=>({});c.fetch=()=>new Promise(resolve=>{resolveFetch=resolve});
+ const pending=vm.runInContext('tnEdit("tun-selected")',c);
+ assert.equal(vm.runInContext('tnPlanHash',c),'');
+ assert.equal(vm.runInContext('tnPlanReq',c),null);
+ resolveFetch({ok:false,text:async()=> 'unable to load'});
+ await pending;
+});
+
+test('late Edit response never overwrites a newer selected tunnel',async()=>{
+ const fields={...defaults,tnTarget:'not yet edited'};
+ const inflight=new Map();
+ const c=context(fields,'let tnEditBase=null,tnPlanHash="",tnPlanReq=null,tnPlanReplaces="",tnPlanEpoch=0;const esc=String;'+fn('async function tnEdit(id)','function tnEditEnd()')+fn('function tnClearPlan()','async function tnPlan()'));
+ c.ah=()=>({});c.tnModeChanged=()=>{};c.tnWizardStep=()=>{};
+ c.fetch=url=>new Promise(resolve=>inflight.set(decodeURIComponent(url.split('id=')[1]),resolve));
+ const older=vm.runInContext('tnEdit("tun-old")',c);
+ const newer=vm.runInContext('tnEdit("tun-new")',c);
+ const tunnel=(id,target)=>({instance_id:id,ex_node:'ex-de-1',ir_node:'ir-arno-1',port:8443,target});
+ inflight.get('tun-new')({ok:true,json:async()=>tunnel('new','192.0.2.20:4000')});
+ await newer;
+ inflight.get('tun-old')({ok:true,json:async()=>tunnel('old','192.0.2.20:3000')});
+ await older;
+ assert.equal(fields.tnTarget,'192.0.2.20:4000');
+ assert.equal(vm.runInContext('tnEditBase.instance_id',c),'new');
+});
+
+test('new independent Wizard plan cannot replace a tunnel unless Edit explicitly selected it',()=>{
+ const fields={tnPlan:''};
+ const c=context(fields,'let tnEditBase=null,tnEditSelectedID="",tnPlanHash="",tnPlanReq=null,tnPlanReplaces="";const esc=String;'+fn('function tnShowPlan(p)','function tnClearPlan()'));
+ const p={ok:true,hash:'backend-ready',request:{instance_id:'reused'},replaces:'tun-active',gates:[],nodes:[],steps:[],verify:[],rollback:[]};
+ vm.runInContext('tnShowPlan('+JSON.stringify(p)+')',c);
+ assert.equal(vm.runInContext('tnPlanHash',c),'');
+ assert.equal(vm.runInContext('tnPlanReq',c),null);
+ assert.match(fields.tnPlan,/disabled onclick="tnDeploy\(\)"/);
+ assert.match(fields.tnPlan,/Choose Edit on that exact tunnel/);
+});
+
+test('review may replace only the precise selected Edit tunnel, not a different active tunnel',()=>{
+ const fields={tnPlan:''};
+ const c=context(fields,'let tnEditBase={instance_id:"managed"},tnEditSelectedID="tun-first",tnPlanHash="",tnPlanReq=null,tnPlanReplaces="";const esc=String;'+fn('function tnShowPlan(p)','function tnClearPlan()'));
+ const p={ok:true,hash:'valid',request:{instance_id:'managed'},replaces:'tun-other',gates:[],nodes:[],steps:[],verify:[],rollback:[]};
+ vm.runInContext('tnShowPlan('+JSON.stringify(p)+')',c);
+ assert.equal(vm.runInContext('tnPlanHash',c),'');
+ p.replaces='tun-first';vm.runInContext('tnShowPlan('+JSON.stringify(p)+')',c);
+ assert.equal(vm.runInContext('tnPlanHash',c),'valid');
+ assert.equal(vm.runInContext('tnPlanReplaces',c),'tun-first');
+ assert.doesNotMatch(fields.tnPlan,/disabled onclick="tnDeploy\(\)"/);
+});
+
+test('changing from Edit to new mode revokes replacement selection',()=>{
+ const fields={...defaults,tnMode:'replace'};
+ const c=context(fields,'let tnEditBase={instance_id:"managed"},tnEditSelectedID="tun-first";'+fn('function tnModeChanged()','function tnNew()'));
+ vm.runInContext('tnModeChanged()',c);
+ assert.equal(vm.runInContext('tnEditBase',c),null);
+ assert.equal(vm.runInContext('tnEditSelectedID',c),'');
+});
+
+test('Edit review refuses a plan that no longer replaces the selected active tunnel',()=>{
+ const fields={tnPlan:''};
+ const c=context(fields,'let tnEditBase={instance_id:"managed"},tnEditSelectedID="tun-first",tnPlanHash="",tnPlanReq=null,tnPlanReplaces="";const esc=String;'+fn('function tnShowPlan(p)','function tnClearPlan()'));
+ const p={ok:true,hash:'ready-but-unrelated',request:{instance_id:'managed'},replaces:'',gates:[],nodes:[],steps:[],verify:[],rollback:[]};
+ vm.runInContext('tnShowPlan('+JSON.stringify(p)+')',c);
+ assert.equal(vm.runInContext('tnPlanHash',c),'');
+ assert.equal(vm.runInContext('tnPlanReq',c),null);
+ assert.match(fields.tnPlan,/disabled onclick="tnDeploy\(\)"/);
+ assert.match(fields.tnPlan,/no longer the target/);
 });

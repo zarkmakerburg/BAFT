@@ -69,9 +69,7 @@ func TestGammaNodeHTTPSReceiptNegativeContractFixture(t *testing.T) {
  for _,dns:=range srv.Certificate().DNSNames {if dns!="" {serverIdentity=dns;break}}
  if serverIdentity=="" {serverIdentity="example.com"}
  check("authenticated-fixture",roots,serverIdentity,expected,true)
- unknown:=x509.NewCertPool()
- other:=httptest.NewTLSServer(http.NotFoundHandler())
- unknown.AddCert(other.Certificate());other.Close()
+ unknown:=x509.NewCertPool() // no fixture signing cert trusted
  check("untrusted-ca",unknown,serverIdentity,expected,false)
  check("wrong-node-identity",roots,"wrong-node.invalid",expected,false)
  check("missing-trust",nil,serverIdentity,expected,false)

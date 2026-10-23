@@ -68,13 +68,48 @@ key material in command arguments, public logs or CI artifacts. Actual
 stopped-service restore, permissions on the target host, and recovery under
 systemd remain release gates.
 
+## P0-C: real v0.3.7 BCC upgrade and cold rollback (isolated Linux)
+
+The actual `v0.3.7` tag is pinned to
+`94c55dccf5af7cd126089374d991463931413121`.
+A disposable Ubuntu LAB compiles the genuine tagged `baft-bcc`
+and the development candidate, boots the old BCC over loopback,
+persists a node, shuts it down and snapshots its SQLite state and
+sidecars. The new binary then performs a forward schema migration and
+persists an additional node. Re-running the old binary against the
+migrated DB must **fail closed** without corrupting the two writes.
+
+With both BCC processes stopped, the LAB restores the preserved
+pre-upgrade filesystem state, proves that the original binary starts
+and sees only the pre-upgrade node, then upgrades again to verify
+recovery. The test runs in isolated temporary directories, with no
+systemd or production service operations.
+
+- Script: `tests/e2e/gamma_v037_upgrade_rollback.sh`.
+- Hosted Ubuntu exact-commit first success:
+  [run 39977674832](https://github.com/zarkmakerburg/BAFT/actions/runs/39977674832) /
+  [job 120496417536](https://github.com/zarkmakerburg/BAFT/actions/runs/39977674832/job/120496417536)
+  — SUCCESS with emitted `[gamma-v037] PASS`.
+- Release eligibility now demands this workflow on the **exact tagged SHA**,
+  not a lookalike workflow or an earlier successful attempt. Falsification
+  tests `TestGammaTaggedReleaseRequiresV037UpgradeLAB` passed on Mac
+  against `5814918`, exit 0, across six cases: absent,
+  lookalike, failed, running, later-failed and green.
+
+These are **BCC state-schema and cold-snapshot recovery** proofs, not
+an EX/IR binary downgrade from v0.3.7 to v0.4.0, live zero-downtime
+upgrade, whole-host rollback, systemd reboot or restoration of active
+tunnel sockets. A rollback necessarily discards writes made after the
+backup; automation must surface that data-loss window. Real node
+upgrade/recovery remains a blocking acceptance drill.
+
 ## P0-A through P0-F release acceptance matrix
 
 | P0 | Operational criterion | Gamma status | Required next proof |
 |---|---|---|---|
 | A | Two independent Linux nodes: install, pair, EX→IR SSH blocked, reinstallation, preservation of live tunnels | PARTIAL: isolated Linux namespace pairing, port-22 filtering and service preservation PASS; real two-host installation remains BLOCKED | Disposable two-node Linux LAB and then approved real-host acceptance; prove **both** install/repair and traffic continuity |
 | B | Create/start/stop/restart/delete, reboot/crash, cross-process ownership and safe resource reconciliation | BLOCKED | End-to-end process/service crash and reboot with authoritative nft/systemd inventory, existing-service hashes |
-| C | v0.3.x→v0.4.0 upgrade and compatible downgrade, failed-upgrade rollback | BLOCKED | Snapshot-first Linux host upgrade drill with verified complete restore |
+| C | v0.3.x→v0.4.0 upgrade and compatible downgrade, failed-upgrade rollback | PARTIAL: isolated genuine v0.3.7 BCC schema forward migration, old-binary refusal, cold snapshot rollback and re-upgrade PASS | Still requires EX/IR live service upgrade, tunnel preservation and real host recovery; no unsafe in-place downgrade |
 | D | Encrypted backup, same/second-node restore, key permissions and secret-free logs | PARTIAL: real CLI Mac LAB with wrong-key/held-lock failures, stopped-state restore and isolated fresh-directory recovery passed | Still requires real stopped-service Linux drill, separate physical node, key handling and artifact/log review |
 | E | TCP/UDP, IPv4/IPv6 when admitted, network loss, nftables, port conflicts, SSH/service preservation | PARTIAL: actual Linux nft and TCP namespace check PASS; remaining protocol and host gates OPEN | Real Linux kernel ingress LAB exists in #270; no final physical-host/network reachability or complete protocol matrix |
 | F | Exact candidate race/vet/CI plus all release gates, provenance/signatures | PARTIAL | Exact candidate hosted workflows green; Gamma local scoped race green; final integrated SHA and operational P0 gates still absent |

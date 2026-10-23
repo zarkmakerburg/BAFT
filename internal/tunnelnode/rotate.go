@@ -666,6 +666,11 @@ func evidenceJSON(e RotationEvidence) string {
 func (m *Manager) RotatePrepareEX(ctx context.Context, rid, tunnelID string, epoch int) (RotationPlan, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return RotationPlan{}, lockErr
+	}
+	defer unlock()
 	r, err := m.readRot(rid)
 	switch {
 	case err == nil:
@@ -791,6 +796,11 @@ func (m *Manager) planOf(r Rotation) (RotationPlan, error) {
 func (m *Manager) RotateTrustIR(ctx context.Context, rid, tunnelID string, epoch int, caDER []byte, caSHA string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
 	if !hexRe.MatchString(caSHA) || shaHex(caDER) != caSHA {
 		return "", errors.New("the new CA does not match its digest")
 	}
@@ -967,6 +977,11 @@ func (m *Manager) irEvidence(ctx context.Context, cfg config.Config, r Rotation,
 func (m *Manager) RotateVerifyEX(ctx context.Context, rid string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
 	r, _, err := m.rotFor(rid, RoleEX)
 	if err != nil {
 		return "", err
@@ -1010,6 +1025,11 @@ func (m *Manager) RotateVerifyEX(ctx context.Context, rid string) (string, error
 func (m *Manager) RotateVerifyIR(ctx context.Context, rid string, certDER []byte, certSHA string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
 	r, cfg, err := m.rotFor(rid, RoleIR)
 	if err != nil {
 		return "", err
@@ -1068,6 +1088,11 @@ func (m *Manager) RotateVerifyIR(ctx context.Context, rid string, certDER []byte
 func (m *Manager) RotateActivateEX(ctx context.Context, rid string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
 	r, cfg, err := m.rotFor(rid, RoleEX)
 	if err != nil {
 		return "", err
@@ -1182,6 +1207,11 @@ func (m *Manager) exEvidence(ctx context.Context, cfg config.Config, r Rotation,
 func (m *Manager) RotateConfirmIR(ctx context.Context, rid, certSHA string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
 	r, cfg, err := m.rotFor(rid, RoleIR)
 	if err != nil {
 		return "", err
@@ -1237,6 +1267,11 @@ func (m *Manager) RotateConfirmIR(ctx context.Context, rid, certSHA string) (str
 func (m *Manager) RotateRetireIR(ctx context.Context, rid string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
 	r, cfg, err := m.rotFor(rid, RoleIR)
 	if err != nil {
 		return "", err
@@ -1336,6 +1371,11 @@ func (m *Manager) RotateRetireIR(ctx context.Context, rid string) (string, error
 func (m *Manager) RotateRetireEX(ctx context.Context, rid string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
 	r, cfg, err := m.rotFor(rid, RoleEX)
 	if err != nil {
 		return "", err
@@ -1386,6 +1426,11 @@ func (m *Manager) RotateRetireEX(ctx context.Context, rid string) (string, error
 func (m *Manager) RotateRollback(ctx context.Context, rid string, exNeverActivated bool) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
 	r, err := m.readRot(rid)
 	if err != nil {
 		return "nothing to roll back", nil

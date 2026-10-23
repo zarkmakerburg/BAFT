@@ -475,6 +475,11 @@ func (m *Manager) begin(id, role string) (Txn, error) {
 func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
 	if err := p.validate(); err != nil {
 		return "", err
 	}
@@ -554,6 +559,11 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
 	if err := p.validate(); err != nil {
 		return "", err
 	}
@@ -626,6 +636,11 @@ func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (s
 func (m *Manager) CommitEX(ctx context.Context, id, reply string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
 	t, err := m.requirePhase(id, RoleEX, PhasePrepared)
 	if err != nil {
 		return "", err
@@ -655,6 +670,11 @@ func (m *Manager) CommitEX(ctx context.Context, id, reply string) (string, error
 func (m *Manager) CommitIR(ctx context.Context, id string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
 	t, err := m.requirePhase(id, RoleIR, PhasePrepared)
 	if err != nil {
 		return "", err
@@ -805,6 +825,11 @@ func (m *Manager) stableSample(ctx context.Context) (restarts string, err error)
 func (m *Manager) Finalize(ctx context.Context, id string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
 	t, err := m.readTxn(id)
 	if err != nil {
 		return "", fmt.Errorf("unknown tunnel change %s", id)
@@ -854,6 +879,11 @@ func (m *Manager) Finalize(ctx context.Context, id string) (string, error) {
 func (m *Manager) Rollback(ctx context.Context, id string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
 	// A rollback must never act while another transaction owns the node.
 	// This also catches corrupt markers rather than treating them as absent.
 	cur, activeErr := m.checkedActiveID()
@@ -1607,6 +1637,11 @@ func (m *Manager) verifyRetireLive(l Live, id string, want RetireExpectation, al
 func (m *Manager) Retire(ctx context.Context, id string, want RetireExpectation) (RetireEvidence, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return RetireEvidence{}, lockErr
+	}
+	defer unlock()
 	var ev RetireEvidence
 	ev.TunnelID, ev.Instance = id, m.Instance
 	if !idRe.MatchString(id) || want.Generation <= 0 ||

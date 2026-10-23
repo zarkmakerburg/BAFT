@@ -151,6 +151,17 @@ func (a *Agent) loadSeen() error {
 	if a.seen == nil {
 		return errors.New("invalid null seen-job journal")
 	}
+	return validateSeenTimestamps(a.seen)
+}
+
+// validateSeenTimestamps prevents malformed zero-valued entries from being
+// pruned as expired, which could otherwise re-admit a previously claimed job.
+func validateSeenTimestamps(seen map[string]time.Time) error {
+	for _, recordedAt := range seen {
+		if recordedAt.IsZero() {
+			return errors.New("invalid zero timestamp in seen-job journal")
+		}
+	}
 	return nil
 }
 
@@ -181,6 +192,9 @@ func (a *Agent) markSeen(id string) error {
 		}
 		if latest == nil {
 			return errors.New("invalid null seen-job journal")
+		}
+		if err := validateSeenTimestamps(latest); err != nil {
+			return err
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return err

@@ -33,3 +33,5 @@ jobs:
         run: |
           set -euo pipefail
           timeout --signal=TERM --kill-after=10s 240s sudo bash tests/e2e/gamma_two_node_namespace.sh "$RUNNER_TEMP/baft-bin"
+          # 2053 has no special meaning: repeat with an unrelated live port.
+          timeout --signal=TERM --kill-after=10s 240s sudo env GAMMA_EXISTING_PORT=24443 bash tests/e2e/gamma_two_node_namespace.sh "$RUNNER_TEMP/baft-bin"

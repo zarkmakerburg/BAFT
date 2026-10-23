@@ -4,13 +4,72 @@ package ingressownership
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net"
+	"os"
+	"path/filepath"
 	"strconv"
 	"testing"
 
 	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
 )
+
+func TestNFTLabRetireFinalizesDurableRecordBeforeHeadFailure(t *testing.T) {
+	j, err := OpenDurableJournal(newJournalTestDir(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec := testSpec(t, "retire-record-head")
+	owner, err := ingressmanifest.Preview(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fake := &nftLabFake{chainHandle: 7}
+	tx := &NFTLabTransaction{Runtime: NewRuntime(), Firewall: &NFTLabBackend{Runner: fake, ExpectedChainHandle: 7}, Journal: j}
+	if err := tx.Apply(context.Background(), spec, owner); err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Runtime.Retire(spec.Config.Listen, owner)
+	records := 0
+	j.fault = func(point string) error {
+		if point == "after_record" {
+			records++
+			if records == 2 {
+				return errFinalizeFault
+			}
+		}
+		return nil
+	}
+	if err := tx.Retire(context.Background(), spec, owner); !errors.Is(err, errFinalizeFault) {
+		t.Fatalf("missing durable head fault: %v", err)
+	}
+	current, _, err := j.Current(owner)
+	if err != nil || current.Phase != PhaseRetired {
+		t.Fatalf("final record not persisted: %+v %v", current, err)
+	}
+	j.fault = nil
+	commands := len(fake.commands)
+	restarted := &NFTLabTransaction{Runtime: NewRuntime(), Firewall: tx.Firewall, Journal: j}
+	if err := restarted.Retire(context.Background(), spec, owner); err == nil {
+		t.Fatal("restart adopted retired journal as deletion proof")
+	}
+	if err := tx.Retire(context.Background(), spec, owner); err != nil {
+		t.Fatalf("cannot finish durable head: %v", err)
+	}
+	if len(fake.commands) != commands {
+		t.Fatal("head repair repeated resource mutation")
+	}
+	recovered, err := j.Recover()
+	if err != nil || len(recovered.NeedsReconciliation) != 0 {
+		t.Fatalf("head not reconciled: %+v %v", recovered, err)
+	}
+	raw, err := os.ReadFile(filepath.Join(j.dir, "head.json"))
+	var head journalHead
+	if err != nil || json.Unmarshal(raw, &head) != nil || head.Sequence != 6 {
+		t.Fatalf("durable head did not advance to retired record: %s %v", raw, err)
+	}
+}
 
 func TestJournaledLabTransactionPersistsBeforeMutation(t *testing.T) {
 	j, err := OpenDurableJournal(newJournalTestDir(t))

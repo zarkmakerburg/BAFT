@@ -144,6 +144,30 @@ func (b *NFTLabBackend) Inspect(ctx context.Context, plan RulePlan) (FirewallObs
 	return ReconcileRuleObservation(plan, observations)
 }
 
+// verifyAbsent is read-only. Absence alone never grants deletion authority;
+// callers must independently retain evidence of a successful exact deletion.
+func (b *NFTLabBackend) verifyAbsent(ctx context.Context, plan RulePlan, oldHandle uint64) error {
+	if b == nil || ctx == nil || oldHandle == 0 {
+		return ErrFirewallUnverified
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	expected, err := PlanIngressRule(plan.Port, plan.Owner)
+	if err != nil || expected != plan {
+		return ErrInvalid
+	}
+	observations, err := b.inspect(ctx)
+	if err != nil {
+		return err
+	}
+	for _, observation := range observations {
+		if observation.Port == plan.Port || observation.Tag == plan.Tag || observation.Handle == oldHandle {
+			return ErrFirewallUnverified
+		}
+	}
+	return nil
+}
+
 // Install never removes a foreign rule after a partial command failure. A
 // later retry must independently reobserve the exact owner rule.
 func (b *NFTLabBackend) Install(ctx context.Context, plan RulePlan) (FirewallObservation, error) {

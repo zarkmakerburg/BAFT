@@ -28,6 +28,18 @@ type kernelRetireFault struct {
 	failDelete bool
 }
 
+type kernelJournalFault struct {
+	ingressownership.MutationJournal
+	failRetired bool
+}
+
+func (j *kernelJournalFault) Advance(r ingressownership.MutationRecord) error {
+	if j.failRetired && r.Phase == ingressownership.PhaseRetired {
+		return errors.New("LAB injected final journal failure after kernel delete")
+	}
+	return j.MutationJournal.Advance(r)
+}
+
 func (r *kernelRetireFault) Run(ctx context.Context, args ...string) error {
 	if r.failDelete && len(args) > 0 && args[0] == "delete" {
 		return errors.New("LAB injected failure before kernel delete")
@@ -127,7 +139,8 @@ func TestPublicIngressLABKernelSignedLifecycle(t *testing.T) {
 	}
 	runner := &kernelRetireFault{NFTCommandRunner: ingressownership.NFTCommandRunner{Binary: binary}}
 	backend := &ingressownership.NFTLabBackend{Runner: runner, ExpectedChainHandle: handle}
-	tx := &ingressownership.NFTLabTransaction{Runtime: ingressownership.NewRuntime(), Firewall: backend, Journal: journal}
+	journalFault := &kernelJournalFault{MutationJournal: journal}
+	tx := &ingressownership.NFTLabTransaction{Runtime: ingressownership.NewRuntime(), Firewall: backend, Journal: journalFault}
 	manifestDir := filepath.Join(dir, "manifest")
 	if err := os.Mkdir(manifestDir, 0700); err != nil {
 		t.Fatal(err)
@@ -211,6 +224,19 @@ func TestPublicIngressLABKernelSignedLifecycle(t *testing.T) {
 	}
 	defer foreign.Close()
 	runner.failDelete = false
+	journalFault.failRetired = true
+	if _, output, err := a.executeFull(ctx, verify(j)); err == nil || output != "" {
+		t.Fatalf("failed final journal write claimed success: %q %v", output, err)
+	}
+	rawRules := run("-j", "list", "chain", "inet", "baft", "ingress")
+	if bytes.Contains(rawRules, []byte(plan.Tag)) {
+		t.Fatal("successful deletion left owned rule")
+	}
+	current, found, err := journal.Current(proof)
+	if err != nil || !found || current.Phase != ingressownership.PhaseRetireIntent {
+		t.Fatalf("lost final journal uncertainty: %+v %v", current, err)
+	}
+	journalFault.failRetired = false
 	if err := json.Unmarshal([]byte(execute(j)), &receipt); err != nil {
 		t.Fatal(err)
 	}

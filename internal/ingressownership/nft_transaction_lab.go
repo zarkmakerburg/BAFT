@@ -25,9 +25,11 @@ type NFTLabTransaction struct {
 }
 
 type stoppedIngressSocket struct {
-	runtime  *Runtime
-	firewall *NFTLabBackend
-	handle   uint64
+	runtime     *Runtime
+	firewall    *NFTLabBackend
+	handle      uint64
+	chainHandle uint64
+	removed     bool
 }
 
 func nftTransactionRecord(spec ingressmanifest.Spec, proof ingressmanifest.Proof) (MutationRecord, RulePlan, error) {
@@ -149,8 +151,29 @@ func (t *NFTLabTransaction) Retire(ctx context.Context, spec ingressmanifest.Spe
 	if err != nil {
 		return err
 	}
-	if !found || current.Owner != proof || current.Port != plan.Port || current.FirewallHandle == 0 || (current.Phase != PhaseVerified && current.Phase != PhaseRetireIntent) {
+	stopped, alreadyStopped := t.stopped[proof]
+	if !found || current.Owner != proof || current.Port != plan.Port || current.FirewallHandle == 0 || (current.Phase != PhaseVerified && current.Phase != PhaseRetireIntent && !(current.Phase == PhaseRetired && alreadyStopped && stopped.removed)) {
 		return ErrUnverified
+	}
+	if alreadyStopped && (stopped.runtime != t.Runtime || stopped.firewall != t.Firewall || stopped.handle != current.FirewallHandle || stopped.chainHandle != t.Firewall.ExpectedChainHandle) {
+		return ErrUnverified
+	}
+	if alreadyStopped && stopped.removed {
+		if current.Phase != PhaseRetireIntent && current.Phase != PhaseRetired {
+			return ErrUnverified
+		}
+		if err := t.Firewall.verifyAbsent(ctx, plan, stopped.handle); err != nil {
+			return err
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		record.Phase, record.FirewallHandle = PhaseRetired, current.FirewallHandle
+		if err := t.Journal.Advance(record); err != nil {
+			return err
+		}
+		delete(t.stopped, proof)
+		return nil
 	}
 	observed, err := t.Firewall.Inspect(ctx, plan)
 	if err != nil {
@@ -167,23 +190,21 @@ func (t *NFTLabTransaction) Retire(ctx context.Context, spec ingressmanifest.Spe
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	stopped, alreadyStopped := t.stopped[proof]
-	if alreadyStopped {
-		if stopped.runtime != t.Runtime || stopped.firewall != t.Firewall || stopped.handle != current.FirewallHandle {
-			return ErrUnverified
-		}
-	} else {
+	if !alreadyStopped {
 		if err := t.Runtime.Retire(spec.Config.Listen, proof); err != nil {
 			return err
 		}
 		if t.stopped == nil {
 			t.stopped = make(map[ingressmanifest.Proof]stoppedIngressSocket)
 		}
-		t.stopped[proof] = stoppedIngressSocket{runtime: t.Runtime, firewall: t.Firewall, handle: current.FirewallHandle}
+		stopped = stoppedIngressSocket{runtime: t.Runtime, firewall: t.Firewall, handle: current.FirewallHandle, chainHandle: t.Firewall.ExpectedChainHandle}
+		t.stopped[proof] = stopped
 	}
 	if err := t.Firewall.Remove(ctx, plan, observed.Handle); err != nil {
 		return err
 	}
+	stopped.removed = true
+	t.stopped[proof] = stopped
 	record.Phase = PhaseRetired
 	if err := t.Journal.Advance(record); err != nil {
 		return err

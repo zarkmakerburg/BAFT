@@ -20,6 +20,18 @@ type LabTransaction struct {
 	Journal  MutationJournal // optional durable LAB intent and phase record
 }
 
+// stopAndRemoveOwnedRule is used only after a previously verified install.
+// The in-memory firewall refuses unknown/foreign proof and does not remove
+// the rule unless Runtime has completed the exact-owner socket retirement.
+// A terminal transport error is preserved while cleanup still proceeds.
+func (t *LabTransaction) stopAndRemoveOwnedRule(endpoint string, port uint16, proof ingressmanifest.Proof) error {
+	retireErr := t.Runtime.Retire(endpoint, proof)
+	if !listenerRetirementVerified(retireErr) {
+		return retireErr
+	}
+	return errors.Join(retireErr, t.Firewall.Remove(port, proof))
+}
+
 func (t *LabTransaction) Apply(ctx context.Context, spec ingressmanifest.Spec, proof ingressmanifest.Proof) error {
 	if t == nil || t.Runtime == nil || t.Firewall == nil || ctx == nil {
 		return ErrInvalid
@@ -114,29 +126,17 @@ func (t *LabTransaction) Apply(ctx context.Context, spec ingressmanifest.Spec, p
 	if t.Journal != nil {
 		record.Phase = PhaseFirewallInstalled
 		if err := t.Journal.Advance(record); err != nil {
-			if retireErr := t.Runtime.Retire(spec.Config.Listen, proof); retireErr != nil {
-				return errors.Join(err, retireErr)
-			}
-			return errors.Join(err, t.Firewall.Remove(uint16(n), proof))
+			return errors.Join(err, t.stopAndRemoveOwnedRule(spec.Config.Listen, uint16(n), proof))
 		}
 	}
 	ok, err := t.Firewall.Verify(uint16(n), proof)
 	if err != nil || !ok {
-		// Never remove policy before the owned listener has stopped.
-		retireErr := t.Runtime.Retire(spec.Config.Listen, proof)
-		if retireErr != nil {
-			return errors.Join(ErrFirewallUnverified, err, retireErr)
-		}
-		removeErr := t.Firewall.Remove(uint16(n), proof)
-		return errors.Join(ErrFirewallUnverified, err, removeErr)
+		// Exact-owner listener teardown must be independently verified
+		// before attempting to remove the corresponding allow rule.
+		return errors.Join(ErrFirewallUnverified, err, t.stopAndRemoveOwnedRule(spec.Config.Listen, uint16(n), proof))
 	}
 	if err := ctx.Err(); err != nil {
-		retireErr := t.Runtime.Retire(spec.Config.Listen, proof)
-		if retireErr != nil {
-			return errors.Join(err, retireErr)
-		}
-		removeErr := t.Firewall.Remove(uint16(n), proof)
-		return errors.Join(err, removeErr)
+		return errors.Join(err, t.stopAndRemoveOwnedRule(spec.Config.Listen, uint16(n), proof))
 	}
 	// Detect a listener that stopped while the firewall rule was installed.
 	t.Runtime.mu.Lock()
@@ -151,29 +151,16 @@ func (t *LabTransaction) Apply(ctx context.Context, spec ingressmanifest.Spec, p
 	}
 	t.Runtime.mu.Unlock()
 	if stopped {
-		retireErr := t.Runtime.Retire(spec.Config.Listen, proof)
-		if retireErr != nil {
-			return errors.Join(ErrStopped, retireErr)
-		}
-		removeErr := t.Firewall.Remove(uint16(n), proof)
-		return errors.Join(ErrStopped, removeErr)
+		return errors.Join(ErrStopped, t.stopAndRemoveOwnedRule(spec.Config.Listen, uint16(n), proof))
 	}
 	// Fence a cancellation that raced with the final listener-health check.
 	if err := ctx.Err(); err != nil {
-		retireErr := t.Runtime.Retire(spec.Config.Listen, proof)
-		if retireErr != nil {
-			return errors.Join(err, retireErr)
-		}
-		removeErr := t.Firewall.Remove(uint16(n), proof)
-		return errors.Join(err, removeErr)
+		return errors.Join(err, t.stopAndRemoveOwnedRule(spec.Config.Listen, uint16(n), proof))
 	}
 	if t.Journal != nil {
 		record.Phase = PhaseVerified
 		if err := t.Journal.Advance(record); err != nil {
-			if retireErr := t.Runtime.Retire(spec.Config.Listen, proof); retireErr != nil {
-				return errors.Join(err, retireErr)
-			}
-			return errors.Join(err, t.Firewall.Remove(uint16(n), proof))
+			return errors.Join(err, t.stopAndRemoveOwnedRule(spec.Config.Listen, uint16(n), proof))
 		}
 	}
 	return nil

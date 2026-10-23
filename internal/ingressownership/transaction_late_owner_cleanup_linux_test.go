@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
 )
@@ -118,6 +119,89 @@ func TestNFTLabTransactionRemovesExactOwnedRuleAfterRetiredConflictLinux(t *test
 	}
 	if c, err := net.Dial("tcp6", foreign.Addr().String()); err != nil {
 		t.Fatalf("nft retirement interrupted unrelated socket: %v", err)
+	} else {
+		c.Close()
+	}
+}
+
+type injectAfterFirewallInstallJournal struct {
+	MutationJournal
+	hook func()
+}
+
+func (j *injectAfterFirewallInstallJournal) Advance(next MutationRecord) error {
+	if err := j.MutationJournal.Advance(next); err != nil {
+		return err
+	}
+	if next.Phase == PhaseFirewallInstalled && j.hook != nil {
+		hook := j.hook
+		j.hook = nil
+		hook()
+	}
+	return nil
+}
+
+// The foreign socket may appear DURING firewall installation, before Apply
+// returns an ACK. Even a stopped session with a recorded terminal failure
+// cannot strand the exact-owned allow rule during failed Apply rollback.
+func TestLabApplyRollsBackExactOwnedFirewallOnForeignPortDuringInstallLinux(t *testing.T) {
+	probe, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := strconv.Itoa(probe.Addr().(*net.TCPAddr).Port)
+	probe.Close()
+	spec := ingressmanifest.Spec{TunnelID: "tx-install-late-foreign", Generation: 1, Config: ingressmanifest.Config{Listen: net.JoinHostPort("127.0.0.1", port), Target: "127.0.0.1:1443"}}
+	proof, err := ingressmanifest.Preview(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fw := NewMemoryFirewall()
+	j := &injectAfterFirewallInstallJournal{MutationJournal: new(LabJournal)}
+	tx := &LabTransaction{Runtime: NewRuntime(), Firewall: fw, Journal: j}
+	var foreign net.Listener
+	j.hook = func() {
+		var listenErr error
+		foreign, listenErr = net.Listen("tcp6", net.JoinHostPort("::1", port))
+		if listenErr != nil {
+			t.Skipf("kernel does not permit cross-family same-port listeners: %v", listenErr)
+		}
+		if err := tx.Runtime.Apply(context.Background(), spec, proof); !errors.Is(err, ErrStopped) {
+			t.Errorf("lost foreign owner was not fenced: %v", err)
+		}
+		// Deliver a deterministic already-completed stopped session before
+		// the transaction's post-install health check.
+		tx.Runtime.mu.Lock()
+		s := tx.Runtime.sessions[spec.Config.Listen]
+		tx.Runtime.mu.Unlock()
+		if s == nil {
+			t.Error("missing session")
+			return
+		}
+		select {
+		case <-s.done:
+		case <-time.After(3 * time.Second):
+			t.Error("ownership-loss stop did not complete")
+		}
+	}
+	defer func() {
+		if foreign != nil {
+			foreign.Close()
+		}
+	}()
+	err = tx.Apply(context.Background(), spec, proof)
+	if err == nil {
+		t.Fatal("unexpected successful Apply after foreign listener arrived during installation")
+	}
+	portNum, _ := strconv.Atoi(port)
+	if exists, verifyErr := fw.Verify(uint16(portNum), proof); verifyErr != nil || exists {
+		t.Fatalf("failed Apply leaked owned allow rule: exists=%v verify=%v apply=%v", exists, verifyErr, err)
+	}
+	if len(tx.Runtime.sessions) != 0 {
+		t.Fatal("failed Apply retained old listener owner")
+	}
+	if c, err := net.Dial("tcp6", foreign.Addr().String()); err != nil {
+		t.Fatalf("failed Apply damaged foreign service: %v", err)
 	} else {
 		c.Close()
 	}

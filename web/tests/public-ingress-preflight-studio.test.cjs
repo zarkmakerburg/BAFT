@@ -7,7 +7,7 @@ const html=src.slice(src.indexOf('<div class="card aurora-tunnel-studio">'),src.
 function controller(){const a=js.indexOf('let tnIngressPreflightJobID='),b=js.indexOf('async function tnRotate(',a);assert.ok(a>=0&&b>a,'missing ingress preflight controller');return js.slice(a,b)}
 function harness(port='54619'){
  const els=new Map(),requests=[];let reply=()=>{throw Error('unexpected API call')};
- const q=key=>{if(!els.has(key))els.set(key,{value:key==='#tnClientPort'?port:'',textContent:'',innerHTML:'',hidden:false});return els.get(key)};
+ const q=key=>{if(!els.has(key))els.set(key,{value:key==='#tnClientPort'?port:'',textContent:'',innerHTML:'',hidden:false,scrollIntoView(){this.scrolls=(this.scrolls||0)+1}});return els.get(key)};
  const c={q,fetch:(url,opts={})=>{requests.push({url,opts});return reply(url,opts)},ah:()=>({Authorization:'Bearer test'}),prompt:()=>port,tnWizardText:en=>en,console};
  vm.createContext(c);vm.runInContext(controller(),c);
  return {c,q,requests,respond:fn=>reply=fn};
@@ -72,4 +72,11 @@ test('response that falsely claims ready-to-apply never reveals a refreshable jo
  await vm.runInContext('tnIngressPreflight("tun-active")',h.c);
  assert.equal(h.q('#tnIngressPreflightRefresh').hidden,true);
  assert.match(h.q('#tnIngressPreflightState').textContent,/Untrusted/);
+});
+
+test('node-card preflight action brings its otherwise distant evidence panel into view',async()=>{
+ const h=harness();
+ h.respond(async()=>({ok:false}));
+ await vm.runInContext('tnIngressPreflight("tun-active")',h.c);
+ assert.equal(h.q('#tnIngressPreflightState').scrolls,1);
 });

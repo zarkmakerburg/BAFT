@@ -474,6 +474,8 @@ let tnIngressPreflightJobID='',tnIngressPreflightSeq=0;
 function tnIngressPreflightStatus(message){q('#tnIngressPreflightState').textContent=message}
 async function tnIngressPreflight(id){
  if(!id)return;
+ const state=q('#tnIngressPreflightState');
+ if(state&&state.scrollIntoView)state.scrollIntoView({block:'center'});
  const seq=++tnIngressPreflightSeq;
  tnIngressPreflightJobID='';
  q('#tnIngressPreflightRefresh').hidden=true;

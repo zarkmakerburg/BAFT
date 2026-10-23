@@ -144,8 +144,20 @@ test('new tunnel resets direction and engine and requires an explicit destinatio
 });
 
 test('blocked backend plan cannot leave a deployable plan hash',()=>{
- const fields={tnPlan:''};const c=context(fields,'let tnPlanHash="stale",tnPlanReq={stale:true},tnPlanReplaces="old";const esc=String;'+fn('function tnShowPlan(p)','function tnClearPlan()'));
+ const fields={tnPlan:''};const c=context(fields,'let tnPlanHash="stale",tnPlanReq={stale:true},tnPlanReplaces="old",tnPlanEpoch=0;const esc=String;'+fn('function tnShowPlan(p)','function tnClearPlan()'));
  vm.runInContext('tnShowPlan({ok:false,hash:"blocked",request:{},gates:[],nodes:[],steps:[],verify:[],rollback:[]})',c);
+ assert.equal(vm.runInContext('tnPlanHash',c),'');
+ assert.equal(vm.runInContext('tnPlanReq',c),null);
+});
+
+test('stale async plan response cannot restore deploy state after user edits',async()=>{
+ const fields={...defaults,tnPlan:'',tnIngressConfirm:true};let resolveFetch;
+ const c=context(fields,'const esc=String;let tnEditBase=null;let tnWizardTunnels=[];const tnWizardText=en=>en;const tnWizardSharesLegacy=()=>false;const tnWizardEnsureID=()=>{};'+req+fn('function tnWizardValidateStep(i)','function tnWizardStep(i)')+'let tnPlanHash="",tnPlanReq=null,tnPlanReplaces="",tnPlanEpoch=0;'+fn('function tnShowPlan(p)','async function tnDeploy()'));
+ c.fetch=()=>new Promise(resolve=>{resolveFetch=resolve});c.ah=()=>({});c.loadAudit=()=>{};
+ const pending=vm.runInContext('tnPlan()',c);
+ vm.runInContext('tnClearPlan()',c);
+ resolveFetch({ok:true,text:async()=>JSON.stringify({ok:true,hash:'stale-hash',request:{},gates:[],nodes:[],steps:[],verify:[],rollback:[]})});
+ await pending;
  assert.equal(vm.runInContext('tnPlanHash',c),'');
  assert.equal(vm.runInContext('tnPlanReq',c),null);
 });

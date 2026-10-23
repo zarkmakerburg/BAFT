@@ -21,7 +21,7 @@ test('verified active tunnel sends exact read-only preflight request without app
  const h=harness();
  h.respond(async url=>{
   if(url==='/api/tunnels?id=tun-active')return {ok:true,json:async()=>({id:'tun-active',phase:'active',ir_node:'ir-1',route_listen:'127.0.0.1:1443'})};
-  if(url==='/api/ingress/preflight')return {ok:true,text:async()=>JSON.stringify({job:{id:'job-123'},read_only:true,ready_to_apply:false})};
+  if(url==='/api/ingress/preflight')return {ok:true,text:async()=>JSON.stringify({job:{id:'job-123',node_id:'ir-1'},read_only:true,ready_to_apply:false})};
   throw Error('unexpected '+url);
  });
  await vm.runInContext('tnIngressPreflight("tun-active")',h.c);
@@ -42,8 +42,8 @@ test('read-only receipt displays limitations as text and never claims apply auth
  const h=harness();
  h.respond(async url=>{
   if(url==='/api/tunnels?id=tun-active')return {ok:true,json:async()=>({id:'tun-active',phase:'active',ir_node:'ir-1',route_listen:'127.0.0.1:1443'})};
-  if(url==='/api/ingress/preflight')return {ok:true,text:async()=>JSON.stringify({job:{id:'job-123'},read_only:true,ready_to_apply:false})};
-  if(url==='/api/ingress/preflight?id=job-123')return {ok:true,text:async()=>JSON.stringify({job_id:'job-123',status:'succeeded',read_only:true,ready_to_apply:false,evidence:{public_port:54619,public_port_state:'free',target_listener_observed:true,ownership_verified:false,firewall_policy_verified:false,ready_to_apply:false,limitations:['<b>not verified</b>']}})};
+  if(url==='/api/ingress/preflight')return {ok:true,text:async()=>JSON.stringify({job:{id:'job-123',node_id:'ir-1'},read_only:true,ready_to_apply:false})};
+  if(url==='/api/ingress/preflight?id=job-123')return {ok:true,text:async()=>JSON.stringify({job_id:'job-123',node_id:'ir-1',status:'succeeded',read_only:true,ready_to_apply:false,evidence:{schema_version:1,scope:'agent_network_namespace_snapshot',tunnel_id:'tun-active',local_target:'127.0.0.1:1443',public_port:54619,public_port_state:'not_observed',target_listener_observed:true,ownership_verified:false,firewall_policy_verified:false,ready_to_apply:false,limitations:['<b>not verified</b>']}})};
   throw Error('unexpected '+url);
  });
  await vm.runInContext('tnIngressPreflight("tun-active")',h.c);
@@ -79,4 +79,71 @@ test('node-card preflight action brings its otherwise distant evidence panel int
  h.respond(async()=>({ok:false}));
  await vm.runInContext('tnIngressPreflight("tun-active")',h.c);
  assert.equal(h.q('#tnIngressPreflightState').scrolls,1);
+});
+
+test('read-only receipt refuses wrong selected node or tunnel or public port or loopback route',async()=>{
+ const expected={schema_version:1,tunnel_id:'tun-active',public_port:54619,local_target:'127.0.0.1:1443',scope:'agent_network_namespace_snapshot',public_port_state:'not_observed',target_listener_observed:true,ownership_verified:false,firewall_policy_verified:false,ready_to_apply:false,limitations:['manual firewall/ownership checks required']};
+ for(const [key,wrong] of [['tunnel_id','tun-other'],['public_port',54620],['local_target','127.0.0.1:2443'],['scope','host_verified']]){
+  const h=harness();
+  h.respond(async url=>{
+   if(url==='/api/tunnels?id=tun-active')return {ok:true,json:async()=>({id:'tun-active',phase:'active',ir_node:'ir-1',route_listen:'127.0.0.1:1443'})};
+   if(url==='/api/ingress/preflight')return {ok:true,text:async()=>JSON.stringify({job:{id:'job-123',node_id:'ir-1'},read_only:true,ready_to_apply:false})};
+   if(url==='/api/ingress/preflight?id=job-123')return {ok:true,text:async()=>JSON.stringify({job_id:'job-123',node_id:'ir-1',status:'succeeded',read_only:true,ready_to_apply:false,evidence:{...expected,[key]:wrong}})};
+   throw Error('unexpected '+url);
+  });
+  await vm.runInContext('tnIngressPreflight("tun-active")',h.c);
+  await vm.runInContext('tnIngressPreflightRefresh()',h.c);
+  assert.match(h.q('#tnIngressPreflightState').textContent,/mismatch|Untrusted|Incomplete|not authorized|not verified/i,key);
+  assert.doesNotMatch(h.q('#tnIngressPreflightState').textContent,/Read-only observation:/,key);
+ }
+});
+test('read-only preflight rejects accepted job bound to a different IR node',async()=>{
+ const h=harness();
+ h.respond(async url=>{
+  if(url==='/api/tunnels?id=tun-active')return {ok:true,json:async()=>({id:'tun-active',phase:'active',ir_node:'ir-1',route_listen:'127.0.0.1:1443'})};
+  if(url==='/api/ingress/preflight')return {ok:true,text:async()=>JSON.stringify({job:{id:'job-cross-node',node_id:'ir-other'},read_only:true,ready_to_apply:false})};
+  throw Error('unexpected '+url);
+ });
+ await vm.runInContext('tnIngressPreflight("tun-active")',h.c);
+ assert.equal(h.q('#tnIngressPreflightRefresh').hidden,true);
+ assert.match(h.q('#tnIngressPreflightState').textContent,/Untrusted|mismatch/i);
+});
+
+test('double-click during preflight POST preserves its original refreshable job without duplicate inspection',async()=>{
+ const h=harness(),requests=[];
+ let acceptPOST;
+ h.respond(async url=>{
+  requests.push(url);
+  if(url==='/api/tunnels?id=tun-active')return {ok:true,json:async()=>({id:'tun-active',phase:'active',ir_node:'ir-1',route_listen:'127.0.0.1:1443'})};
+  if(url==='/api/ingress/preflight')return requests.filter(x=>x===url).length===1?new Promise(resolve=>{acceptPOST=resolve}):{ok:false,text:async()=> 'already pending'};
+  throw Error('unexpected '+url);
+ });
+ const first=vm.runInContext('tnIngressPreflight("tun-active")',h.c);
+ while(!acceptPOST)await Promise.resolve();
+ const second=vm.runInContext('tnIngressPreflight("tun-active")',h.c);
+ await second;
+ acceptPOST({ok:true,text:async()=>JSON.stringify({job:{id:'job-preserved',node_id:'ir-1'},read_only:true,ready_to_apply:false})});
+ await first;
+ assert.equal(requests.filter(x=>x==='/api/ingress/preflight').length,1);
+ assert.equal(requests.filter(x=>x==='/api/tunnels?id=tun-active').length,1);
+ assert.equal(h.q('#tnIngressPreflightRefresh').hidden,false);
+ assert.match(h.q('#tnIngressPreflightState').textContent,/job-preserved/);
+});
+
+test('failed read-only inspection submission releases the client-side pending gate for retry',async()=>{
+ const h=harness();let posts=0;
+ h.respond(async url=>{
+  if(url==='/api/tunnels?id=tun-active')return {ok:true,json:async()=>({id:'tun-active',phase:'active',ir_node:'ir-1',route_listen:'127.0.0.1:1443'})};
+  if(url==='/api/ingress/preflight'){
+   posts++;
+   return posts===1?{ok:false,text:async()=> 'temporary error'}:{ok:true,text:async()=>JSON.stringify({job:{id:'job-retried',node_id:'ir-1'},read_only:true,ready_to_apply:false})};
+  }
+  throw Error('unexpected '+url);
+ });
+ await vm.runInContext('tnIngressPreflight("tun-active")',h.c);
+ assert.equal(h.q('#tnIngressPreflightRefresh').hidden,true);
+ await vm.runInContext('tnIngressPreflight("tun-active")',h.c);
+ assert.equal(posts,2);
+ assert.equal(h.q('#tnIngressPreflightRefresh').hidden,false);
+ assert.match(h.q('#tnIngressPreflightState').textContent,/job-retried/);
 });

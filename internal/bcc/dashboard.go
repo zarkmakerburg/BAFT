@@ -470,14 +470,15 @@ function tnShowPlan(p){const unselectedReplacement=!!p.replaces&&(!tnEditBase||p
 function tnClearPlan(){tnPlanEpoch++;tnPlanHash='';tnPlanReq=null;tnPlanReplaces='';q('#tnPlan').innerHTML=''}
 async function tnPlan(){tnClearPlan();const epoch=tnPlanEpoch;for(let i=0;i<4;i++)if(!tnWizardValidateStep(i))return;let body=tnReq();if(!body.ex_node||!body.ir_node){alert('Choose the EX and IR nodes');return}if(!tnEditBase&&q('#tnMode').value==='replace'){alert('To edit or replace an active tunnel, first click Edit on its row. / برای ویرایش، ابتدا روی ویرایش تونل فعال کلیک کنید.');return}if(q('#tnMode').value==='independent'&&!/^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$/.test(body.instance_id||'')){alert('Enter a unique valid Instance ID (letters, numbers, dot, underscore or hyphen). / شناسه نمونه مستقل الزامی است.');return}let r=await fetch('/api/tunnels/plan',{method:'POST',headers:ah(),body:JSON.stringify(body)});let t=await r.text();if(epoch!==tnPlanEpoch)return;if(!r.ok){alert(t);return}tnShowPlan(JSON.parse(t));loadAudit()}
 async function tnDeploy(){if(tnDeployPending||!tnPlanHash||!tnPlanReq)return;if(tnPlanReplaces&&!confirm('This plan replaces existing active tunnel '+tnPlanReplaces+'. Users may disconnect. Continue? / تونل فعال جایگزین می‌شود و ممکن است اتصال کاربران قطع شود. ادامه؟'))return;if(tnPlanReq.allow_legacy_coexistence&&!confirm('Deploy independent BAFT instance alongside current legacy tunnel? Existing tunnel will not be replaced. Ensure ports are free. / تونل مستقل در کنار تونل فعلی ساخته شود؟'))return;tnDeployPending=true;const epoch=tnPlanEpoch;try{let body=Object.assign({},tnPlanReq,{plan_hash:tnPlanHash});let r=await fetch('/api/tunnels',{method:'POST',headers:ah(),body:JSON.stringify(body)});let t=await r.text();if(epoch!==tnPlanEpoch)return;if(r.status===409){try{let d=JSON.parse(t);alert(d.error);tnShowPlan(d.plan)}catch(e){alert(t)}return}if(!r.ok){alert(t);return}tnClearPlan();tnEditEnd();loadTunnels();loadAudit()}finally{tnDeployPending=false}}
-let tnIngressPreflightJobID='',tnIngressPreflightSeq=0;
+let tnIngressPreflightJobID='',tnIngressPreflightSeq=0,tnIngressPreflightExpected=null,tnIngressPreflightSubmitPending=false;
 function tnIngressPreflightStatus(message){q('#tnIngressPreflightState').textContent=message}
 async function tnIngressPreflight(id){
  if(!id)return;
+ if(tnIngressPreflightSubmitPending){tnIngressPreflightStatus(tnWizardText('An IR inspection is already being submitted. Use Refresh after it is queued.','درخواست بررسی ایران در حال ارسال است. پس از ثبت، از تازه‌سازی استفاده کنید.'));return}
  const state=q('#tnIngressPreflightState');
  if(state&&state.scrollIntoView)state.scrollIntoView({block:'center'});
  const seq=++tnIngressPreflightSeq;
- tnIngressPreflightJobID='';
+ tnIngressPreflightJobID='';tnIngressPreflightExpected=null;
  q('#tnIngressPreflightRefresh').hidden=true;
  tnIngressPreflightStatus(tnWizardText('Loading active tunnel details…','در حال دریافت مشخصات تونل فعال…'));
  try{
@@ -498,22 +499,23 @@ async function tnIngressPreflight(id){
   }
   const body={ir_node:tunnel.ir_node,tunnel_id:id,public_port:port,local_target:tunnel.route_listen};
   tnIngressPreflightStatus(tnWizardText('Submitting signed read-only inspection…','در حال ارسال بررسی امضاشده فقط‌خواندنی…'));
+  tnIngressPreflightSubmitPending=true;
   const response=await fetch('/api/ingress/preflight',{method:'POST',headers:ah(),body:JSON.stringify(body)});
   const result=await response.text();
   if(seq!==tnIngressPreflightSeq)return;
   if(!response.ok){tnIngressPreflightStatus(tnWizardText('Preflight rejected: ','بررسی رد شد: ')+result);return}
   const accepted=JSON.parse(result);
-  if(accepted.read_only!==true||accepted.ready_to_apply!==false||!accepted.job||!accepted.job.id){
+  if(accepted.read_only!==true||accepted.ready_to_apply!==false||!accepted.job||!accepted.job.id||accepted.job.node_id!==body.ir_node){
    tnIngressPreflightStatus(tnWizardText('Untrusted response: check was not accepted as read-only.','پاسخ نامعتبر: فقط‌خواندنی بودن تأیید نشد.'));return
   }
-  tnIngressPreflightJobID=accepted.job.id;
+  tnIngressPreflightJobID=accepted.job.id;tnIngressPreflightExpected=body;
   q('#tnIngressPreflightRefresh').hidden=false;
   tnIngressPreflightStatus(tnWizardText('Read-only inspection queued (','بررسی فقط‌خواندنی در صف (')+accepted.job.id+tnWizardText('). Refresh evidence after the IR agent responds; no port is configured.',' ). پس از پاسخ عامل ایران، شواهد را تازه‌سازی کنید؛ هیچ پورتی ایجاد نشده است.'));
- }catch(e){if(seq===tnIngressPreflightSeq)tnIngressPreflightStatus(tnWizardText('Preflight failed; no ingress has been configured.','بررسی ناموفق بود؛ ورودی عمومی تنظیم نشده است.'))}
+ }catch(e){if(seq===tnIngressPreflightSeq)tnIngressPreflightStatus(tnWizardText('Preflight failed; no ingress has been configured.','بررسی ناموفق بود؛ ورودی عمومی تنظیم نشده است.'))}finally{if(seq===tnIngressPreflightSeq)tnIngressPreflightSubmitPending=false}
 }
 async function tnIngressPreflightRefresh(){
- const id=tnIngressPreflightJobID,seq=tnIngressPreflightSeq;
- if(!id)return;
+ const id=tnIngressPreflightJobID,seq=tnIngressPreflightSeq,expected=tnIngressPreflightExpected;
+ if(!id||!expected)return;
  tnIngressPreflightStatus(tnWizardText('Loading read-only receipt…','دریافت رسید فقط‌خواندنی…'));
  try{
   const r=await fetch('/api/ingress/preflight?id='+encodeURIComponent(id),{headers:ah()});
@@ -521,12 +523,12 @@ async function tnIngressPreflightRefresh(){
   if(seq!==tnIngressPreflightSeq||id!==tnIngressPreflightJobID)return;
   if(!r.ok){tnIngressPreflightStatus(tnWizardText('Read-only receipt unavailable.','رسید بررسی در دسترس نیست.'));return}
   const receipt=JSON.parse(raw);
-  if(receipt.job_id!==id||receipt.read_only!==true||receipt.ready_to_apply!==false){
+  if(receipt.job_id!==id||receipt.node_id!==expected.ir_node||receipt.read_only!==true||receipt.ready_to_apply!==false){
    tnIngressPreflightStatus(tnWizardText('Untrusted ingress receipt; no permission to apply.','رسید ورودی نامعتبر است؛ مجوز اعمال وجود ندارد.'));return
   }
   if(receipt.status==='succeeded'){
    const o=receipt.evidence;
-   if(!o||o.ready_to_apply!==false||o.ownership_verified!==false||o.firewall_policy_verified!==false||!Array.isArray(o.limitations)||!o.limitations.length){
+   if(!o||o.schema_version!==1||o.scope!=='agent_network_namespace_snapshot'||o.tunnel_id!==expected.tunnel_id||o.public_port!==expected.public_port||o.local_target!==expected.local_target||o.ready_to_apply!==false||o.ownership_verified!==false||o.firewall_policy_verified!==false||!Array.isArray(o.limitations)||!o.limitations.length){
     tnIngressPreflightStatus(tnWizardText('Incomplete ingress evidence; not authorized for apply.','شواهد ناقص است؛ اعمال مجاز نیست.'));return
    }
    tnIngressPreflightStatus(tnWizardText('Read-only observation: port ','مشاهده فقط‌خواندنی: پورت ')+String(o.public_port)+' '+String(o.public_port_state)+tnWizardText('; local route listener ','؛ شنونده مسیر داخلی ')+(o.target_listener_observed?'observed':'not observed')+tnWizardText('; limitations: ','؛ محدودیت‌ها: ')+o.limitations.join('; ')+tnWizardText('. NOT approved to apply or proof of public reachability.','. این نتیجه مجوز اعمال یا تأیید دسترسی عمومی نیست.'));

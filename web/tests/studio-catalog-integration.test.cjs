@@ -64,7 +64,7 @@ test('catalog to Studio to generated IPv6 destination to reviewed deployment use
  assert.equal(create.body.target,'[2001:db8::15]:20007');
  assert.equal(create.body.port,8443);
  assert.equal(create.body.instance_id,'test-instance');
- assert.deepEqual(Object.keys(plan.body).sort(),['allow_legacy_coexistence','ex_metrics_listen','ex_node','instance_id','ir_metrics_listen','ir_node','port','route_listen','target'].sort());
+ assert.deepEqual(Object.keys(plan.body).sort(),['allow_legacy_coexistence','ex_metrics_listen','ex_node','instance_id','ir_metrics_listen','ir_node','port','client_port','route_listen','target'].sort());
  for(const request of h.requests)assert.equal(request.headers.Authorization,'Bearer integration-credential');
  assert.doesNotMatch(h.element('tlCatalog').innerHTML+h.element('tnPlan').innerHTML,/integration-credential/);
 });

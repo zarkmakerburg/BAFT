@@ -47,7 +47,7 @@ func readSeenJournal(path string) ([]byte, error) {
 	if !pathInfo.Mode().IsRegular() || pathInfo.Mode().Perm()&0077 != 0 {
 		return nil, errors.New("seen-job journal must be a private regular file")
 	}
-	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_CLOEXEC, 0)
+	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_CLOEXEC|syscall.O_NONBLOCK, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,17 @@ func readSeenJournal(path string) ([]byte, error) {
 	if !os.SameFile(pathInfo, info) || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || !ok || int(stat.Uid) != os.Geteuid() || stat.Nlink != 1 {
 		return nil, errors.New("seen-job journal inode, permissions or ownership invalid")
 	}
-	return io.ReadAll(f)
+	if info.Size() > maxSeenJournalBytes {
+		return nil, errors.New("seen-job replay journal exceeds size limit")
+	}
+	raw, err := io.ReadAll(io.LimitReader(f, maxSeenJournalBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(raw) > maxSeenJournalBytes {
+		return nil, errors.New("seen-job replay journal exceeds size limit")
+	}
+	return raw, nil
 }
 
 // validateSeenStateDir requires a real owned directory that other users

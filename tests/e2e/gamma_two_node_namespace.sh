@@ -12,6 +12,17 @@ PAIR="$BIN_DIR/baft-pair"
 test -x "$BAFT" && test -x "$PAIR"
 for tool in ip nft python3 curl sha256sum; do command -v "$tool" >/dev/null; done
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+# Protect whichever unrelated service port is already in use.
+# Port 2053 is merely the historical test default, not a reserved BAFT port.
+EXISTING_PORT="${GAMMA_EXISTING_PORT:-2053}"
+if [[ ! "$EXISTING_PORT" =~ ^[1-9][0-9]{0,4}$ ]] || (( EXISTING_PORT < 1024 || EXISTING_PORT > 65535 )); then
+  echo "FAIL: invalid existing service port" >&2
+  exit 2
+fi
+case "$EXISTING_PORT" in
+  18443|15443|15619|18112|18113|22)
+    echo "FAIL: existing service port conflicts with LAB fixtures" >&2; exit 2 ;;
+esac
 WORK="$(mktemp -d)"
 chmod 700 "$WORK"
 NS_EX="gamma-ex-$$"
@@ -47,17 +58,6 @@ mkdir -m 700 -p "$EX" "$IR/state"
 EX_PORT=18443
 IR_PORT=15443
 TARGET_PORT=15619
-# Protect whichever unrelated service port is already in use.
-# Port 2053 is merely the historical test default, not a reserved BAFT port.
-EXISTING_PORT="${GAMMA_EXISTING_PORT:-2053}"
-if [[ ! "$EXISTING_PORT" =~ ^[1-9][0-9]{0,4}$ ]] || (( EXISTING_PORT < 1024 || EXISTING_PORT > 65535 )); then
-  echo "FAIL: invalid existing service port" >&2
-  exit 2
-fi
-case "$EXISTING_PORT" in
-  18443|15443|15619|18112|18113|22)
-    echo "FAIL: existing service port conflicts with LAB fixtures" >&2; exit 2 ;;
-esac
 
 wait_port() {
   local ns="$1" host="$2" port="$3"

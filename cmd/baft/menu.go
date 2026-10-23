@@ -24,8 +24,8 @@ import (
 )
 
 // The interactive BAFT menu (HQ A3): `baft` on a terminal. It is a front for
-// what already exists, over plain numbered lines (no raw mode, so it works over
-// SSH and on a phone). It is READ-ONLY apart from the support bundle, which
+// what already exists, with numbered lines and terminal Tab selection over
+// SSH and on a phone. It is READ-ONLY apart from the support bundle, which
 // writes one archive after an explicit yes, and Uninstall (13), which runs the
 // same flow as `baft uninstall`: an exact preview, separate confirmations
 // (each data class defaults to NO, active tunnels, then typing "uninstall"),
@@ -40,15 +40,17 @@ type menuCfg struct {
 }
 
 type menu struct {
-	in   *bufio.Reader
-	out  io.Writer
-	errw io.Writer
-	env  opsEnv
-	cfg  menuCfg
-	caps termCaps
-	st   style
-	now  func() time.Time
-	host func() (string, error)
+	in            *bufio.Reader
+	terminal      *os.File
+	exitRequested bool
+	out           io.Writer
+	errw          io.Writer
+	env           opsEnv
+	cfg           menuCfg
+	caps          termCaps
+	st            style
+	now           func() time.Time
+	host          func() (string, error)
 }
 
 type menuItem struct {
@@ -74,6 +76,7 @@ func runMenu(args []string, in io.Reader, stdout, stderr io.Writer, env opsEnv, 
 	}
 	mc.file, mc.service, mc.releaseState = f.file, f.service, f.releaseState
 	m := &menu{in: bufio.NewReader(in), out: stdout, errw: stderr, env: env, cfg: mc, caps: caps, st: style{caps}, now: now, host: hostnameFn}
+	m.terminal = menuTerminal(in, stdout, caps)
 	return m.loop()
 }
 
@@ -113,7 +116,7 @@ func (m *menu) loop() int {
 			m.printf("  %s %s\n", m.st.highlight(fmt.Sprintf("%2d", i+1)), m.itemLabel(it))
 		}
 		m.printf("  %s %s\n", m.st.highlight(" 0"), "Exit")
-		a, ok := m.ask(m.st.gold("\nbaft> "))
+		a, ok := m.choose(items, "Exit")
 		if !ok {
 			m.printf("\n")
 			return 0
@@ -131,6 +134,9 @@ func (m *menu) loop() int {
 		}
 		m.printf("\n")
 		m.runItem(items[n-1])
+		if m.exitRequested {
+			return 0
+		}
 	}
 }
 
@@ -149,7 +155,9 @@ func (m *menu) runItem(it menuItem) {
 	} else {
 		it.run(m)
 	}
-	m.pause()
+	if !m.exitRequested {
+		m.pause()
+	}
 }
 
 func (m *menu) submenu(title string, items []menuItem) {
@@ -159,7 +167,7 @@ func (m *menu) submenu(title string, items []menuItem) {
 			m.printf("  %s %s\n", m.st.highlight(fmt.Sprintf("%2d", i+1)), m.itemLabel(it))
 		}
 		m.printf("  %s %s\n", m.st.highlight(" 0"), "Back")
-		a, ok := m.ask(m.st.gold("\nbaft> "))
+		a, ok := m.choose(items, "Back")
 		if !ok || a == "0" || strings.EqualFold(a, "b") || strings.EqualFold(a, "back") {
 			return
 		}
@@ -288,7 +296,7 @@ func (m *menu) logsMenu() {
 }
 
 func (m *menu) servers() {
-	m.printf("Servers are registered and managed in BCC (Servers, Bootstrap, Tunnels).\n\nThis server:\n")
+	m.printf("This server (read-only):\n")
 	cfg, err := m.loadConfig()
 	if err == nil {
 		m.printf("  node id     %s\n  role        %s\n", clean(cfg.Node.ID), roleLabel(cfg.Node.Role))
@@ -297,7 +305,13 @@ func (m *menu) servers() {
 	}
 	state, _ := m.env.serviceState(m.cfg.agentUnit)
 	m.printf("  agent       %s (%s)\n", m.st.status(strings.ToUpper(firstWord(state))), clean(m.cfg.agentUnit))
-	m.printf("\nEnrolling another server is done from BCC; the installer's --agent-only mode prepares it.\n")
+	m.printf("\nStandalone pairing is supported without BCC or EX-to-IR SSH for an unpaired instance.\n")
+	m.printf("  EX: use the installer with --role ex --no-panel to issue BAFTPAIR1.\n")
+	m.printf("  IR: run the installer locally with --role ir and paste BAFTPAIR1; return BAFTREPLY1 to EX.\n")
+	m.printf("  Manual CLI: baft-pair ex-code / ir-apply / ex-accept (separate instance files).\n")
+	m.printf("  IMPORTANT: an already-paired EX is NOT a fresh instance. --re-pair replaces its pairing\n")
+	m.printf("  and may interrupt users. Non-disruptive add-instance is not implemented here yet;\n")
+	m.printf("  do not re-pair or overwrite active configs. BCC is optional for manual standalone pairing.\n")
 }
 
 func firstWord(s string) string {

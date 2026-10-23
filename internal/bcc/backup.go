@@ -20,7 +20,7 @@ import (
 
 const (
 	backupMagic = "BAFT-BCC-BACKUP"
-	BackupSchemaVersion = 2
+	BackupSchemaVersion = 4
 )
 
 type BackupHeader struct {
@@ -89,6 +89,8 @@ func normalizeState(st *state){
 	if st.Nodes==nil{st.Nodes=map[string]Node{}}
 	if st.Jobs==nil{st.Jobs=map[string]Job{}}
 	if st.Tunnels==nil{st.Tunnels=map[string]Tunnel{}}
+	if st.PublicIngressReservations==nil{st.PublicIngressReservations=map[string]PublicIngressReservation{}}
+	if st.PublicIngressOperations==nil{st.PublicIngressOperations=map[string]PublicIngressOperation{}}
 	if st.Health==nil{st.Health=map[string]NodeHealthRecord{}}
 	if st.Discovery==nil{st.Discovery=map[string]NodeDiscovery{}}
 	if st.ComponentDigestReceipts==nil{st.ComponentDigestReceipts=map[string]ComponentDigestReceipt{}}
@@ -245,7 +247,7 @@ func decodeBackup(data,key []byte)(backupPayload,BackupHeader,error){
 	var env encryptedBackup
 	if err:=json.Unmarshal(data,&env);err!=nil{return backupPayload{},BackupHeader{},errors.New("invalid backup envelope")}
 	if env.Header.Magic!=backupMagic{return backupPayload{},BackupHeader{},errors.New("invalid backup magic")}
-	if env.Header.SchemaVersion!=BackupSchemaVersion{return backupPayload{},BackupHeader{},fmt.Errorf("unsupported backup schema version %d",env.Header.SchemaVersion)}
+	if env.Header.SchemaVersion!=BackupSchemaVersion&&env.Header.SchemaVersion!=3&&env.Header.SchemaVersion!=2{return backupPayload{},BackupHeader{},fmt.Errorf("unsupported backup schema version %d",env.Header.SchemaVersion)}
 	aad,err:=json.Marshal(env.Header);if err!=nil{return backupPayload{},BackupHeader{},err}
 	aead,err:=newAEAD(key);if err!=nil{return backupPayload{},BackupHeader{},err}
 	nonce,err:=base64.StdEncoding.DecodeString(env.Nonce);if err!=nil{return backupPayload{},BackupHeader{},errors.New("invalid backup nonce")}
@@ -256,6 +258,8 @@ func decodeBackup(data,key []byte)(backupPayload,BackupHeader,error){
 	if hex.EncodeToString(sum[:])!=env.Header.PayloadSHA256{return backupPayload{},BackupHeader{},errors.New("backup checksum mismatch")}
 	var payload backupPayload
 	if err:=json.Unmarshal(plain,&payload);err!=nil{return backupPayload{},BackupHeader{},errors.New("invalid backup payload")}
+	if env.Header.SchemaVersion==2&&len(payload.State.PublicIngressReservations)>0{return backupPayload{},BackupHeader{},errors.New("legacy backup schema cannot contain public ingress reservations")}
+	if env.Header.SchemaVersion<4&&len(payload.State.PublicIngressOperations)>0{return backupPayload{},BackupHeader{},errors.New("legacy backup schema cannot contain public ingress operations")}
 	normalizeState(&payload.State)
 	if payload.Alerts.ActiveAlerts==nil{payload.Alerts.ActiveAlerts=map[string]Alert{}}
 	if err:=verifyAuditEntries(payload.Audit);err!=nil{return backupPayload{},BackupHeader{},fmt.Errorf("backup audit invalid: %w",err)}
@@ -351,6 +355,9 @@ func mergeAntiRollback(restored *state,current state,createdAt time.Time){
 		for bootID,v:=range ids{if v{restored.RetiredBootIDs[nodeID][bootID]=true}}
 	}
 	if current.NextRateVersion>restored.NextRateVersion{restored.NextRateVersion=current.NextRateVersion}
+	// An agent permanently remembers accepted job IDs. Rewinding this counter
+	// would reuse a signed ID after restore and make the new job unexecutable.
+	if current.NextJob>restored.NextJob{restored.NextJob=current.NextJob}
 	if current.NextTelemetryIngestID>restored.NextTelemetryIngestID{restored.NextTelemetryIngestID=current.NextTelemetryIngestID}
 }
 

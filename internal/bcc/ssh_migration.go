@@ -67,6 +67,9 @@ func (s *Store) PlanSSHMigration(r SSHMigrationRequest, now time.Time) (SSHMigra
 	if strings.TrimSpace(r.User) == "" || !strings.HasPrefix(r.Fingerprint, "SHA256:") {
 		return SSHMigration{}, errors.New("ssh user and pinned SHA256 fingerprint are required")
 	}
+	if err := s.validatePublicIngressPortSetLocked(r.NodeID, r.OldPort, r.NewPort); err != nil {
+		return SSHMigration{}, err
+	}
 	for _, m := range s.st.SSHMigrations {
 		if m.NodeID != r.NodeID {
 			continue
@@ -95,6 +98,9 @@ func (s *Store) StartSSHMigration(r SSHMigrationRequest, plan string, now time.T
 	defer s.mu.Unlock()
 	if s.st.SSHMigrations == nil {
 		s.st.SSHMigrations = map[string]SSHMigration{}
+	}
+	if err := s.validatePublicIngressPortSetLocked(r.NodeID, r.OldPort, r.NewPort); err != nil {
+		return SSHMigration{}, err
 	}
 	j := s.newJobLocked(Job{Type: agentjob.ActionSSHMigrationStage, NodeID: m.NodeID, Params: map[string]string{"old_port": strconv.Itoa(m.OldPort), "new_port": strconv.Itoa(m.NewPort)}})
 	m.JobID = j.ID

@@ -177,6 +177,11 @@ func (s *Store) startDriftLocked(t *Tunnel, now time.Time) error {
 		params := map[string]string{}
 		if t.InstanceID != "" {
 			params["instance_id"] = t.InstanceID
+			if node == t.EXNode {
+				params["metrics_listen"] = t.EXMetricsListen
+			} else {
+				params["metrics_listen"] = t.IRMetricsListen
+			}
 		}
 		j := s.newJobLocked(Job{Type: JobTunnelInspect, NodeID: node, Params: params})
 		t.DriftJobs = append(t.DriftJobs, j.ID)

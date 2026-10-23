@@ -94,7 +94,7 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1);
       await page.screenshot({path:path.join(dir,label+'.png'),fullPage:true,animations:'disabled'});
       if(overflow){
-        result.layout??={};result.layout[label]=await page.evaluate(()=>({viewport:innerWidth,width:document.documentElement.scrollWidth,offenders:[...document.querySelectorAll('#main *')].map(n=>({tag:n.tagName,id:n.id,classes:n.className,rect:n.getBoundingClientRect().toJSON()})).filter(n=>n.rect.width>0&&(n.rect.right>innerWidth+1||n.rect.left< -1)).slice(0,25)}));
+        result.layout??={};result.layout[label]=await page.evaluate(()=>({viewport:innerWidth,width:document.documentElement.scrollWidth,offenders:[...document.querySelectorAll('#public *,#main *')].map(n=>({tag:n.tagName,id:n.id,classes:n.className,rect:n.getBoundingClientRect().toJSON()})).filter(n=>n.rect.width>0&&(n.rect.right>innerWidth+1||n.rect.left< -1)).slice(0,25)}));
       }
       assert.equal(overflow,false,'document has horizontal overflow');
     };
@@ -113,7 +113,12 @@ async function runProfile(browser,[name,viewport,lang,theme]){
     await page.goto(f.base,{waitUntil:'networkidle'});
     await check('public access boundary',async()=>{
       assert.equal(await page.evaluate(()=>Boolean(window.BAFT_UI.operationsHTML||window.BAFT_UI.csrf)),false);
-      assert.equal(await page.locator('.ops-card').count(),0);await shot('welcome');
+      assert.equal(await page.locator('.ops-card').count(),0);
+      for(const control of ['#baw-open','[data-lang=fa]','[data-lang=en]','[data-go=signin]']){
+        const item=page.locator('#public '+control).first();assert.equal(await item.isVisible(),true,'public control '+control+' must remain visible');
+        const box=await item.boundingBox();assert.ok(box&&box.x>=-1&&box.x+box.width<=viewport.width+1,'public control '+control+' must fit viewport');
+      }
+      await shot('welcome');
     });
     await page.goto(f.base+'login',{waitUntil:'networkidle'});await shot('signin');
     await page.locator('#loginUsername').fill(f.username);await page.locator('#loginPassword').fill(f.password);

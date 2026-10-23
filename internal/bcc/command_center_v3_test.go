@@ -34,6 +34,15 @@ func TestCommandCenterV3NativeSession(t *testing.T) {
 	if asset := r.do(httptest.NewRequest("GET", r.base()+"v3/assets/baft-brand.png", nil)); asset.Code != 200 || asset.Header().Get("Content-Type") != "image/png" {
 		t.Fatal("brand asset missing")
 	}
+	for _, asset := range []struct{ path, contentType string }{
+		{"bcc-action-wizard.css", "text/css"},
+		{"bcc-action-wizard.js", "javascript"},
+	} {
+		rr := r.do(httptest.NewRequest("GET", r.base()+"v3/"+asset.path, nil))
+		if rr.Code != 200 || !strings.Contains(rr.Header().Get("Content-Type"), asset.contentType) || rr.Body.Len() == 0 {
+			t.Fatalf("wizard asset %s unavailable: status %d, type %s", asset.path, rr.Code, rr.Header().Get("Content-Type"))
+		}
+	}
 	if source := r.do(httptest.NewRequest("GET", r.base()+"v3/assets.go", nil)); source.Code != 404 {
 		t.Fatal("source exposed")
 	}

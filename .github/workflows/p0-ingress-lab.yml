@@ -1,0 +1,60 @@
+name: P0 Public Ingress LAB
+on:
+  pull_request:
+    paths:
+      - 'internal/ingressownership/**'
+      - 'internal/ingressmanifest/**'
+      - 'internal/publicingress/**'
+      - 'internal/agentjob/**'
+      - 'internal/agent/**'
+      - 'internal/bcc/**'
+      - '.github/workflows/p0-ingress-lab.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  lab-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          check-latest: false
+          cache: false
+      - name: Verify P0 safety fences
+        run: |
+          go test ./internal/agentjob -run '^TestP0PublicIngressMutationActionsRemainDisabled$' -count=1
+          go test ./internal/ingressownership -run 'TestRestartPreparedManifestDoesNotAuthorizeSocket|TestRegistryPort443OwnershipWithoutSocket|TestCanonicalEndpointAllows443WithoutBinding' -count=1
+      - name: LAB ingress ownership and manifest race acceptance
+        run: go test -race ./internal/ingressownership ./internal/ingressmanifest ./internal/publicingress -count=3 -timeout=15m
+      - name: Isolated Linux nftables kernel LAB
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq nftables iproute2
+          go test -c -o /tmp/baft-nft-lab.test ./internal/ingressownership
+          namespace="baft-p0-${GITHUB_RUN_ID}"
+          sudo ip netns add "$namespace"
+          trap 'sudo ip netns del "$namespace"' EXIT
+          sudo ip netns exec "$namespace" ip link set lo up
+          sudo ip netns exec "$namespace" env BAFT_NFT_KERNEL_LAB=1 /tmp/baft-nft-lab.test -test.run '^TestNFTKernelLAB$' -test.v
+          go test -c -o /tmp/baft-agent-kernel-lab.test ./internal/agent
+          # Agent TestMain builds helper binaries. Prime its dependencies before
+          # entering the offline namespace, preserve the pinned Go toolchain and
+          # cache, and run from the package directory its relative paths require.
+          go build ./cmd/baft ./cmd/baft-pair
+          go_cache="$(go env GOCACHE)"
+          go_path="$(go env GOPATH)"
+          (cd internal/agent && sudo ip netns exec "$namespace" env \
+            PATH="$PATH" GOTOOLCHAIN=local GOCACHE="$go_cache" GOPATH="$go_path" \
+            GOPROXY=off BAFT_NFT_KERNEL_LAB=1 \
+            /tmp/baft-agent-kernel-lab.test -test.run '^TestPublicIngressLABKernelSignedLifecycle$' -test.v)
+      - name: Signed Agent LAB lifecycle and race acceptance
+        run: |
+          go test -race ./internal/agent -run 'TestPublicIngressLAB' -count=2 -timeout=10m
+          go test ./internal/agentjob -run 'TestPublicIngressSignedLiveActionsRequireCanonicalParameters' -count=1
+      - name: Signed prepare/cancel and BCC ingress tests
+        run: |
+          go test ./internal/agentjob ./internal/agent -run 'PublicIngress' -count=1 -timeout=10m
+          go test ./internal/bcc -run 'PublicIngress' -count=1 -timeout=10m

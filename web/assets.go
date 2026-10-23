@@ -13,7 +13,7 @@ const PageFile = "bcc-app.html"
 
 // FS contains only public UI assets. No credentials or state are embedded.
 //
-//go:embed bcc-app.html bcc-app.css bcc-app.js bcc-map.js bcc-operations-v3.js bcc-earth-v3.js bcc-welcome-globe-v3.js assets/*
+//go:embed bcc-app.html bcc-app.css bcc-app.js bcc-map.js bcc-operations-v3.js bcc-earth-v3.js bcc-welcome-globe-v3.js bcc-action-wizard.css bcc-action-wizard.js assets/*
 var FS embed.FS
 
 type Config struct {

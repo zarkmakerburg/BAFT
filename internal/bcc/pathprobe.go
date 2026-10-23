@@ -203,6 +203,9 @@ func (s *Store) StartPathProbe(req PathProbeRequest, now time.Time) (PathProbe, 
 	if err != nil {
 		return PathProbe{}, err
 	}
+	if err := s.validatePublicIngressPortSetLocked(dst.ID, ports...); err != nil {
+		return PathProbe{}, err
+	}
 	id, err := newPathProbeID()
 	if err != nil {
 		return PathProbe{}, err
@@ -266,6 +269,9 @@ func (s *Store) scheduleQueuedPathProbesLocked(now time.Time) {
 }
 
 func (s *Store) createPathProbeLocked(source, destination, family, destinationIP string, ports []int, now time.Time) (PathProbe, error) {
+	if err := s.validatePublicIngressPortSetLocked(destination, ports...); err != nil {
+		return PathProbe{}, err
+	}
 	id, err := newPathProbeID()
 	if err != nil {
 		return PathProbe{}, err

@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"os/user"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -30,6 +31,9 @@ type planOut struct {
 
 func newPlanRig(t *testing.T) *planRig {
 	t.Helper()
+	if runtime.GOOS != "linux" {
+		t.Skip("installer plan requires Linux GNU stat and ownership semantics")
+	}
 	if _, err := exec.LookPath("bash"); err != nil {
 		t.Skip("bash not installed")
 	}
@@ -84,6 +88,10 @@ func (r *planRig) write(rel, content string, mode os.FileMode) {
 		r.t.Fatal(err)
 	}
 	if err := os.WriteFile(p, []byte(content), mode); err != nil {
+		r.t.Fatal(err)
+	}
+	// WriteFile is subject to the host umask; fixtures need exact modes.
+	if err := os.Chmod(p, mode); err != nil {
 		r.t.Fatal(err)
 	}
 }

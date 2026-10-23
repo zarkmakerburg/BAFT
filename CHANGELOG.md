@@ -4,9 +4,20 @@ All notable changes to BAFT are listed here. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
-Candidate for v0.3.4 (draft PR #242). Not released.
+- Read-only ingress preflight now expires from its persisted creation time across queue dispatch, signed payload and acknowledgement; expired dispatch writes a durable security-audit intent. TCP/2053 is governed by resource ownership and OS bind conflicts instead of a blanket port ban. Existing unrelated listeners remain owned by their services.
+
+Development target: **v0.4.0**, draft PR #270. Not released. See [readiness and upgrade gates](docs/release/v0.4.0-readiness.md).
 
 ### Added
+
+- Read-only Public Ingress host preflight with signed BCC-to-Agent dispatch, strict receipt validation and authenticated result retrieval for an existing owned tunnel. It observes listeners without binding, connecting or changing host state; ingress apply remains unavailable.
+- Durable desired Public Ingress port reservations with authenticated API, concurrent conflict protection, atomic audit, restart persistence and allocator/restore guards. They do not bind ports or authorize host changes. SQLite schema 14 and encrypted backup schema 3 prevent older binaries from silently losing allocations; legacy schema 2 backups remain readable without reservation data. Retain a verified pre-upgrade snapshot for downgrade.
+- BCC now persists a pending Public Ingress operation proof bound to an exact reservation, generation, manifest digest and listener/firewall IDs. Conflicting retries and restore snapshots are refused. SQLite schema 15 and encrypted backup schema 4 protect this cursor; it does not run an agent action or prove a live resource.
+- Authenticated read-only Public Ingress inspection now queues a signed Agent job using the persisted operation proof, with bounded lifetime, duplicate/expiry handling and a validated receipt. It still cannot mark ingress applied or verify host ownership.
+- BCC checks the expected manifest digest against a canonical, read-only preview of the reserved ingress configuration before persisting an operation intent; arbitrary caller-supplied digests are rejected.
+- BCC can issue a signed, five-minute Public Ingress prepare job from the fenced initial operation. The Agent writes only canonical private manifest bytes and returns proof-bound evidence; installer provisions the Agent's private state path. No listener or firewall is applied. The installer also wraps narrow terminal tables instead of forcing a 64-column layout.
+- An authenticated cancellation request can now queue a signed generation-1 tombstone job after prepare was issued. The Agent fences either prepared or unseen manifest bytes; BCC rejects late prepare ACKs after cancellation intent. This is manifest recovery only, with no listener or firewall rollback.
+- The isolated Public Ingress LAB now has a durable mutation journal, exact-handle nftables adapter, generation-bound listener/firewall transaction, and a disposable Linux network-namespace acceptance workflow. A proof-bound systemd unit can be rendered and safely staged without enabling it. None of these LAB paths enables production ingress.
 
 - **Tunnel Toolbox in the panel**: the engines a server can run are listed from the panel's own catalog; only the native BAFT engine can be selected. Other engines are shown as not available and every action on them is refused before a plan is made.
 - **Smart Tunnel Wizard**: create a tunnel in five steps, with port suggestions checked against the catalog (a suggested port is not a reservation) and a truthful mapping for x-ui/Xray ports.
@@ -18,6 +29,15 @@ Candidate for v0.3.4 (draft PR #242). Not released.
 - Classic and Aurora panels reach the same cards and actions (parity documented in `docs/release/r1-classic-aurora-parity-stage286.md`).
 
 ### Fixed
+
+- Public welcome/sign-in headers wrap on mobile with the preview launcher visible, preventing horizontal overflow. Full browser checks now cover public control bounds as well as authenticated pages.
+
+- Generated `baft-panel` and `baft-net` menus accept Up/Down, Tab/Shift+Tab and numbered choices through the same action dispatch, with numeric fallback for dumb terminals and redirected input. The Linux Go console also supports arrow/Tab selection, Back and Exit, restores terminal state before actions and on interruption, and keeps its plain input fallback.
+- Lost read-only ingress preflight delivery or ACK no longer blocks a node forever: a fresh request after five minutes atomically expires the pending inspection, records the replacement in the audit trail and rejects late ACKs for the old job.
+- Network tuning requires explicit consent (including SSH-assisted installs), cancels on prompt EOF, and saves the exact previous values of the keys it changes, restores them on partial failure, and keeps retryable rollback state. Legacy tuning without a snapshot is refused rather than guessed.
+- BCC certificate acceptance requires DNS SAN and matching EC/RSA private key; new ACME downloads are pinned to a verified immutable archive and fallback requires explicit consent; failed ACME replacement restores the previous serving files. Renewal timer failure is reported without promising automatic renewal.
+- Signed ingress preflight jobs reject invalid ports and loopback endpoints, and lifecycle helpers reject malformed owned resources. Operational ingress application is still incomplete.
+- Floating wizard assets are embedded in BCC so their HTTP routes no longer return 404.
 
 - Creating a tunnel from the Aurora panel works again, and edit plans for one instance no longer touch its siblings.
 - Monitoring summaries require current, dated evidence; stale data shows as unknown instead of healthy.

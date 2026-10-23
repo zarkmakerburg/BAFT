@@ -1,0 +1,53 @@
+package installer_test
+
+import (
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"testing"
+)
+
+// TestNetworkToolSafetyContracts prevents reintroduction of known unsafe
+// installer patterns. These source-level checks do not replace PTY/VM tests.
+func TestNetworkToolSafetyContracts(t *testing.T) {
+	_, current, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("cannot resolve test source")
+	}
+	data, err := os.ReadFile(filepath.Join(filepath.Dir(current), "..", "..", "install.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := string(data)
+
+	for _, forbidden := range []string{
+		"sysctl -q -w net.ipv4.tcp_congestion_control=cubic",
+		"sysctl -q -w net.core.default_qdisc=fq_codel",
+		"sysctl -q --system",
+		"sysctl -q -p \"$SYSCTL_FILE\" >/dev/null 2>&1 || true",
+	} {
+		if strings.Contains(script, forbidden) {
+			t.Errorf("unsafe network tuning pattern still present: %s", forbidden)
+		}
+	}
+
+	for _, required := range []string{
+		"if ! sysctl -q -p \"$SYSCTL_FILE\"",
+		"net_snapshot_valid",
+		"invalid TCP port: enter a number from 1 to 65535",
+		"baft_menu_read c",
+		"^[0-9]{1,5}$",
+		"awk -v t=\"$t\" 'BEGIN { exit !(t > 0) }'",
+		"[[ \"$t\" =~ ^[0-9]+([.][0-9]+)?$",
+		"&& \"${speed:-}\" =~ ^[0-9]+([.][0-9]+)?$",
+		"awk -v speed=\"$out\" 'BEGIN { exit !(speed > 0) }'",
+		"\"$rc\" == 0 && \"${size:-0}\"",
+		"\"$rc\" == 0 && \"$out\"",
+		"cause unknown (check route, TLS, proxy and remote service)",
+	} {
+		if !strings.Contains(script, required) {
+			t.Errorf("network safety guard missing: %s", required)
+		}
+	}
+}

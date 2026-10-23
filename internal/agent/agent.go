@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/zarkmakerburg/baft/internal/agentjob"
+	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
 	"github.com/zarkmakerburg/baft/internal/release"
 	"github.com/zarkmakerburg/baft/internal/sshmigrate"
 	"github.com/zarkmakerburg/baft/internal/tunnelnode"
@@ -39,12 +40,15 @@ type System interface {
 }
 
 type Config struct {
-	BCCURL    string // e.g. https://bcc.example.com
-	NodeID    string
-	Token     string            // agent bearer token
-	BCCJobKey ed25519.PublicKey // pinned at enrollment
-	StateDir  string            // seen-job log
-	Service   string            // systemd unit, e.g. "baft"
+	BCCURL               string // e.g. https://bcc.example.com
+	NodeID               string
+	Token                string                                      // agent bearer token
+	BCCJobKey            ed25519.PublicKey                           // pinned at enrollment
+	StateDir             string                                      // seen-job log
+	IngressManifestDir   string                                      // trusted, private prepared-manifest directory; optional
+	IngressExpectedProof func(string) (ingressmanifest.Proof, error) // independent persisted proof resolver; optional
+	IngressLABExecutor   IngressLABExecutor                          // explicitly injected isolated LAB executor; nil disables live ingress jobs
+	Service              string                                      // systemd unit, e.g. "baft"
 
 	// Updates.
 	ReleaseRoot    ed25519.PublicKey // pinned release root
@@ -77,9 +81,9 @@ type Agent struct {
 	// BCC restarting). They are sent again on the next poll so a finished
 	// step does not wait for BCC's step timeout. Memory only: an output may
 	// be a one-time secret.
-	unacked []pendingAck
+	unacked                    []pendingAck
 	lastComponentReportAttempt time.Time
-	lastComponentReportError string
+	lastComponentReportError   string
 }
 
 type pendingAck struct {
@@ -138,21 +142,46 @@ func (a *Agent) loadSeen() error {
 }
 
 // markSeen records a job before it runs, so a crash mid-run cannot replay it.
+var errJobAlreadySeen = errors.New("job already recorded")
+
 func (a *Agent) markSeen(id string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if err := os.MkdirAll(a.cfg.StateDir, 0o700); err != nil {
+		return err
+	}
+	unlock, err := lockSeenJournal(a.seenPath() + ".lock")
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	// Verification's in-memory cache is only an early refusal. Another Agent
+	// may have claimed a job since this object started; the locked durable
+	// ledger is the admission authority and must also preserve its other IDs.
+	latest := make(map[string]time.Time)
+	if raw, err := os.ReadFile(a.seenPath()); err == nil {
+		if err := json.Unmarshal(raw, &latest); err != nil {
+			return err
+		}
+		if latest == nil {
+			return errors.New("invalid null seen-job journal")
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	a.seen = latest
 	now := a.cfg.Now()
 	for k, t := range a.seen {
 		if now.Sub(t) > seenRetention {
 			delete(a.seen, k)
 		}
 	}
+	if _, exists := a.seen[id]; exists {
+		return errJobAlreadySeen
+	}
 	a.seen[id] = now
 	b, err := json.Marshal(a.seen)
 	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(a.cfg.StateDir, 0o700); err != nil {
 		return err
 	}
 	f, err := os.CreateTemp(a.cfg.StateDir, ".seen-jobs-*")
@@ -309,6 +338,14 @@ func (a *Agent) RunOnce(ctx context.Context) ([]Result, error) {
 			if job.JobID == pj.ID && job.NodeID == a.cfg.NodeID {
 				_ = a.ack(ctx, pj.ID, "failed", "refused by agent: "+err.Error(), "")
 			}
+			continue
+		}
+		// The list entry is only a transport wrapper. It must identify the
+		// same job as the verified payload before either ID can be recorded,
+		// executed or acknowledged.
+		if pj.ID != job.JobID {
+			r.Status, r.Detail = "refused", "job wrapper ID differs from signed payload"
+			out = append(out, r)
 			continue
 		}
 		r.Action = job.Action

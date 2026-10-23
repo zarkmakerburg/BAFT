@@ -363,7 +363,8 @@ td select{min-height:34px;padding:5px 10px;width:auto;min-width:150px}
  .landing-art canvas,html[dir=rtl] .landing-art canvas{inset:-20px;width:calc(100% + 40px);height:calc(100% + 40px)}
  .pub-links{display:none}
  .pub-support-btn{display:inline-flex}
- .pub-head{justify-content:space-between}
+ .pub-head{justify-content:space-between;flex-wrap:wrap;gap:14px}
+ .pub-tools{flex-wrap:wrap;min-width:0;max-width:100%;gap:8px}
 }
 @media(max-width:640px){
  .top .seg,.top .theme-switch{display:none}

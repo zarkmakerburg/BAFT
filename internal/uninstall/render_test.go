@@ -104,6 +104,10 @@ func TestAgentUnitMatchesInstaller(t *testing.T) {
 			if got := renderAgentUnit(p); got != want {
 				t.Fatalf("Go render differs:\n--- go\n%s\n--- sh\n%s", got, want)
 			}
+			legacy := strings.Replace(want, " --ingress-manifest-dir /var/lib/baft-agent", "", 1)
+			if old, ok := installerAgentParams(legacy); !ok || old.IngressManifest || renderAgentUnit(old) != legacy {
+				t.Fatal("previous installer agent unit lost ownership recognition")
+			}
 			if p.NodeID != "ex-1" || p.AgentDir != "/etc/baft-agent" || p.ReleaseState != "/opt/baft/release-state.json" {
 				t.Fatalf("params %+v", p)
 			}
@@ -119,7 +123,13 @@ func TestAgentUnitMatchesInstaller(t *testing.T) {
 func TestCopyTreeKeepsModesAndLinks(t *testing.T) {
 	src := t.TempDir() + "/src"
 	os.MkdirAll(src+"/sub", 0o750)
-	os.WriteFile(src+"/sub/a", []byte("a"), 0o640)
+	if err := os.WriteFile(src+"/sub/a", []byte("a"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	// WriteFile applies umask; set the fixture mode explicitly.
+	if err := os.Chmod(src+"/sub/a", 0o640); err != nil {
+		t.Fatal(err)
+	}
 	os.WriteFile(src+"/b", []byte("bb"), 0o600)
 	os.Symlink("sub/a", src+"/link")
 	dst := t.TempDir() + "/dst"

@@ -147,6 +147,17 @@ func TestInstanceManagerScopesHostOwnership(t *testing.T) {
 	if _, err := n.Manager.ForInstance("../bad", ""); err == nil {
 		t.Fatal("unsafe instance id accepted")
 	}
+	if _, err := n.Manager.ForInstance("new-instance", ""); err == nil {
+		t.Fatal("sibling inherited primary metrics listener")
+	}
+	if _, err := n.Manager.ForInstance("new-instance", n.Manager.MetricsListen); err == nil {
+		t.Fatal("sibling reused primary metrics listener")
+	}
+	for _, address := range []string{"0.0.0.0:9301", "192.0.2.9:9301", "127.0.0.1:9191", "127.0.0.2:9191", "127.0.0.2:09191", "127.0.0.1:0", "not-an-address"} {
+		if _, err := n.Manager.ForInstance("new-instance", address); err == nil {
+			t.Errorf("unsafe metrics listener %q accepted", address)
+		}
+	}
 }
 
 func TestScopedManagerCreatesTraversableInstanceNamespaces(t *testing.T) {
@@ -901,5 +912,30 @@ func TestInspectSeesWhatIsReallyThere(t *testing.T) {
 	os.Remove(p.ex.markerPath())
 	if l := p.ex.Inspect(ctx); l.MarkerPresent {
 		t.Fatal("marker reported after deletion")
+	}
+}
+
+func TestInstancePreflightRejectsUnverifiableSibling(t *testing.T) {
+	n := newNode(t)
+	sibling := filepath.Join(n.Manager.ConfigDir, "instances", "sibling")
+	if err := os.MkdirAll(sibling, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sibling, "baft.yaml"), []byte("invalid config"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := n.Manager.ForInstance("new-one", "127.0.0.1:9234"); err == nil {
+		t.Fatal("unverifiable sibling bypassed port conflict fence")
+	}
+}
+
+func TestInstancePreflightRejectsSiblingWithoutConfig(t *testing.T) {
+	n := newNode(t)
+	sibling := filepath.Join(n.Manager.ConfigDir, "instances", "unconfigured")
+	if err := os.MkdirAll(sibling, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := n.Manager.ForInstance("new-one", "127.0.0.1:9234"); err == nil {
+		t.Fatal("sibling with no config bypassed ownership preflight")
 	}
 }

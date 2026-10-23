@@ -92,6 +92,10 @@ BAFT_BCC_LISTEN="${BAFT_BCC_LISTEN:-127.0.0.1:8080}"
 BAFT_BCC_DOMAIN="${BAFT_BCC_DOMAIN:-}"
 BAFT_BCC_PORT="${BAFT_BCC_PORT:-}"
 BAFT_ACME_VERSION="${BAFT_ACME_VERSION:-3.1.1}"
+# Official 3.1.1 tag -> commit, checked against GitHub's git/ref API. Hash is
+# the archive downloaded by immutable commit, not a mutable tag URL.
+BAFT_ACME_COMMIT="676d76696b616c0e013ad8a9be1aedd01e4e0204"
+BAFT_ACME_SHA256="2d5d635c4bd0e90b73999fa42ba33fcb4b61fb29df3a2daa10e7533e0ccf9510"
 BAFT_ACME_HOME="${BAFT_ACME_HOME:-/root/.acme.sh}"
 BAFT_BCC_TLS_DIR="${BAFT_BCC_TLS_DIR:-$BAFT_BCC_CONFIG_DIR/tls}"
 BAFT_PANEL_CMD="${BAFT_PANEL_CMD:-$(dirname "$BAFT_BCC_BIN")/baft-panel}"
@@ -190,7 +194,7 @@ ui_cols() {
   [[ "$c" =~ ^[0-9]+$ ]] || c="$(stty size 2>/dev/null <&2 | awk '{print $2}' || true)"
   [[ "$c" =~ ^[0-9]+$ && "$c" -gt 0 ]] || c=100
   ((c > 132)) && c=132
-  ((c < 64)) && c=64
+  ((c < 20)) && c=20
   printf '%s' "$c"
 }
 
@@ -225,7 +229,25 @@ ui_table() {
   done
   local used=0
   for ((i = 0; i < n - 1; i++)); do used=$((used + widths[i] + 3)); done
-  max=$(($(ui_cols) - used - 6))
+  local available
+  available="$(ui_cols)"
+  # Box cells use display width that Bash cannot reliably measure for mixed
+  # Unicode. On a narrow terminal, emit wrapped facts instead of a box that
+  # can spill past the right edge.
+  if ((available < 64 || used + 26 > available)); then
+    local plain_width=$((available - 4))
+    for row in "$@"; do
+      IFS='|' read -r -a cells <<<"$row"
+      printf '%s\n' "${cells[0]:-}" | fold -s -w "$plain_width" | sed 's/^/    /' >&2
+      for ((i = 1; i < n; i++)); do
+        text="${cells[i]:-}"; text="${text#@*:}"
+        printf '%s: %s\n' "${heads[i]}" "$text" | fold -s -w "$plain_width" | sed 's/^/    /' >&2
+      done
+      printf '\n' >&2
+    done
+    return 0
+  fi
+  max=$((available - used - 6))
   ((max < 20)) && max=20
   widths[n - 1]=$max
   local longest=${#heads[n - 1]}
@@ -236,7 +258,7 @@ ui_table() {
   done
   ((longest < max)) && widths[n - 1]=$longest
   ui_rule '┌' '┬' '┐' "${widths[@]}"
-  local line="" v="$S_MUTE│$S_R"
+  local line="" v="${S_MUTE}│${S_R}"
   for ((i = 0; i < n; i++)); do line+="$v $S_B$(printf '%-*s' "${widths[i]}" "${heads[i]}")$S_R "; done
   printf '  %s%s\n' "$line" "$v" >&2
   ui_rule '├' '┼' '┤' "${widths[@]}"
@@ -1500,9 +1522,18 @@ bcc_ask_access() {
 # A certificate already in place for this address and valid for another day
 # is kept; a rerun never asks Let's Encrypt again.
 bcc_cert_ok() {
+  local cert_pub key_pub
   [[ -s "$BAFT_BCC_TLS_CERT" && -s "$BAFT_BCC_TLS_KEY" ]] || return 1
   openssl x509 -in "$BAFT_BCC_TLS_CERT" -noout -checkend 86400 >/dev/null 2>&1 || return 1
+  # Compare public keys for both RSA and EC certificates. Do not prompt for an
+  # encrypted key: BCC must be able to load this key unattended after restart.
+  cert_pub="$(openssl x509 -in "$BAFT_BCC_TLS_CERT" -pubkey -noout 2>/dev/null)" || return 1
+  key_pub="$(openssl pkey -in "$BAFT_BCC_TLS_KEY" -passin pass: -pubout 2>/dev/null)" || return 1
+  [[ -n "$cert_pub" && "$cert_pub" == "$key_pub" ]] || return 1
   if [[ "$(bcc_host_kind "$BAFT_BCC_DOMAIN")" == domain ]]; then
+    # OpenSSL's checkhost permits legacy CN fallback when DNS SANs are absent;
+    # BCC requires a DNS SAN. These are identity/key checks, not CA trust proof.
+    openssl x509 -in "$BAFT_BCC_TLS_CERT" -noout -ext subjectAltName 2>/dev/null | grep -q 'DNS:' || return 1
     openssl x509 -in "$BAFT_BCC_TLS_CERT" -noout -checkhost "$BAFT_BCC_DOMAIN" 2>/dev/null | grep -q 'does match'
   else
     openssl x509 -in "$BAFT_BCC_TLS_CERT" -noout -checkip "$BAFT_BCC_DOMAIN" 2>/dev/null | grep -q 'does match'
@@ -1511,18 +1542,23 @@ bcc_cert_ok() {
 
 bcc_install_acme() {
   [[ -x "$BAFT_ACME_HOME/acme.sh" ]] && return 0
+  [[ "$BAFT_ACME_VERSION" == 3.1.1 ]] || { warn "unsupported acme.sh version; use the verified 3.1.1 pin or install a reviewed client manually"; return 1; }
   local tmp
   tmp="$(mktemp -d)"; CLEANUP+=("$tmp")
   log "downloading acme.sh $BAFT_ACME_VERSION"
-  curl -fsSL --max-time 120 "https://github.com/acmesh-official/acme.sh/archive/refs/tags/${BAFT_ACME_VERSION}.tar.gz" |
-    tar -xz -C "$tmp" || return 1
-  ( cd "$tmp/acme.sh-$BAFT_ACME_VERSION" && ./acme.sh --install --home "$BAFT_ACME_HOME" --nocron --noprofile ) >/dev/null 2>&1 || return 1
+  curl -fsSL --max-time 120 "https://github.com/acmesh-official/acme.sh/archive/${BAFT_ACME_COMMIT}.tar.gz" -o "$tmp/acme.tar.gz" || return 1
+  if ! printf '%s  %s\n' "$BAFT_ACME_SHA256" "$tmp/acme.tar.gz" | sha256sum -c - >/dev/null 2>&1; then
+    warn "acme.sh archive checksum mismatch; no downloaded code was extracted or executed"
+    return 1
+  fi
+  tar -xzf "$tmp/acme.tar.gz" -C "$tmp" || return 1
+  ( cd "$tmp/acme.sh-$BAFT_ACME_COMMIT" && ./acme.sh --install --home "$BAFT_ACME_HOME" --nocron --noprofile --auto-upgrade 0 ) >/dev/null 2>&1 || return 1
   [[ -x "$BAFT_ACME_HOME/acme.sh" ]]
 }
 
 # Daily renewal, as a systemd timer so it does not depend on cron.
 bcc_install_renew_timer() {
-  cat >"$BAFT_SYSTEMD_DIR/baft-bcc-cert.service" <<UNIT
+  cat >"$BAFT_SYSTEMD_DIR/baft-bcc-cert.service" <<UNIT || return 1
 # baft-managed: true
 # baft-component: bcc-cert
 [Unit]
@@ -1531,7 +1567,7 @@ Description=Renew the BAFT panel certificate
 Type=oneshot
 ExecStart=$BAFT_ACME_HOME/acme.sh --cron --home $BAFT_ACME_HOME
 UNIT
-  cat >"$BAFT_SYSTEMD_DIR/baft-bcc-cert.timer" <<UNIT
+  cat >"$BAFT_SYSTEMD_DIR/baft-bcc-cert.timer" <<UNIT || return 1
 # baft-managed: true
 # baft-component: bcc-cert
 [Unit]
@@ -1543,8 +1579,8 @@ Persistent=true
 [Install]
 WantedBy=timers.target
 UNIT
-  systemctl daemon-reload
-  systemctl enable --now baft-bcc-cert.timer >/dev/null 2>&1 || warn "could not enable the certificate renewal timer"
+  systemctl daemon-reload || return 1
+  systemctl enable --now baft-bcc-cert.timer >/dev/null 2>&1 || return 1
 }
 
 bcc_self_signed() {
@@ -1589,11 +1625,23 @@ bcc_obtain_cert() {
   [[ -n "$why" ]] || bcc_install_acme || why="could not download acme.sh"
   # IP certificates need ACME profile support (shortlived).
   if [[ -z "$why" && "$kind" != domain ]] && ! "$BAFT_ACME_HOME/acme.sh" --help 2>/dev/null | grep -q -- '--certificate-profile'; then
-    "$BAFT_ACME_HOME/acme.sh" --upgrade --home "$BAFT_ACME_HOME" >/dev/null 2>&1 || true
-    "$BAFT_ACME_HOME/acme.sh" --help 2>/dev/null | grep -q -- '--certificate-profile' ||
-      why="this acme.sh cannot request an IP certificate; use a domain instead"
+    why="this verified acme.sh cannot request an IP certificate; use a domain, or install a separately reviewed client with --certificate-profile support (automatic unverified upgrade is disabled)"
   fi
   if [[ -z "$why" ]]; then
+    # Preserve the active pair before ACME can replace either file. Keep a
+    # failed rollback snapshot private and available for operator recovery.
+    # This restores serving files, not ACME's account/domain renewal metadata;
+    # an interrupted process leaves the snapshot for manual recovery.
+    local previous had_cert=0 had_key=0
+    previous="$(mktemp -d "$BAFT_BCC_TLS_DIR/.previous.XXXXXX")" || die "could not stage certificate rollback"
+    if [[ -e "$BAFT_BCC_TLS_CERT" || -L "$BAFT_BCC_TLS_CERT" ]]; then
+      cp -p -- "$BAFT_BCC_TLS_CERT" "$previous/cert" || { rm -rf -- "$previous"; die "could not back up certificate"; }
+      had_cert=1
+    fi
+    if [[ -e "$BAFT_BCC_TLS_KEY" || -L "$BAFT_BCC_TLS_KEY" ]]; then
+      cp -p -- "$BAFT_BCC_TLS_KEY" "$previous/key" || { rm -rf -- "$previous"; die "could not back up certificate key"; }
+      had_key=1
+    fi
     local -a args=(--issue -d "$BAFT_BCC_DOMAIN" --standalone --httpport 80 --server letsencrypt --keylength ec-256)
     [[ "$kind" == domain ]] || args+=(--certificate-profile shortlived --days 3)
     [[ "$kind" != ip6 ]] || args+=(--listen-v6)
@@ -1605,17 +1653,36 @@ bcc_obtain_cert() {
        "$BAFT_ACME_HOME/acme.sh" --home "$BAFT_ACME_HOME" --install-cert -d "$BAFT_BCC_DOMAIN" --ecc \
          --key-file "$BAFT_BCC_TLS_KEY" --fullchain-file "$BAFT_BCC_TLS_CERT" \
          --reloadcmd "chmod 0600 $BAFT_BCC_TLS_KEY" >>"$BAFT_BCC_TLS_DIR/issue.log" 2>&1; then
-      bcc_install_renew_timer
-      BCC_SSL_KIND=letsencrypt
-      ok "certificate issued for $BAFT_BCC_DOMAIN; it renews automatically"
-      return 0
+      if bcc_cert_ok && chmod 0600 "$BAFT_BCC_TLS_KEY"; then
+        rm -rf -- "$previous"
+        BCC_SSL_KIND=letsencrypt
+        if bcc_install_renew_timer; then
+          ok "certificate issued for $BAFT_BCC_DOMAIN; it renews automatically"
+        else
+          warn "certificate installed, but the renewal timer could not be enabled; configure renewal before expiry"
+          ok "certificate issued for $BAFT_BCC_DOMAIN; automatic renewal is not confirmed"
+        fi
+        return 0
+      fi
+      why="installed certificate failed hostname, expiry or private-key validation (log: $BAFT_BCC_TLS_DIR/issue.log)"
     fi
-    why="Let's Encrypt did not issue it (is port 80 open to the internet? log: $BAFT_BCC_TLS_DIR/issue.log)"
+    [[ -n "$why" ]] || why="Let's Encrypt did not issue it (is port 80 open to the internet? log: $BAFT_BCC_TLS_DIR/issue.log)"
+    if [[ "$had_cert" == 1 ]]; then
+      cp -p -- "$previous/cert" "$BAFT_BCC_TLS_CERT" || die "certificate rollback failed; recovery snapshot: $previous"
+    else
+      rm -f -- "$BAFT_BCC_TLS_CERT" || die "certificate rollback failed; recovery snapshot: $previous"
+    fi
+    if [[ "$had_key" == 1 ]]; then
+      cp -p -- "$previous/key" "$BAFT_BCC_TLS_KEY" || die "certificate key rollback failed; recovery snapshot: $previous"
+    else
+      rm -f -- "$BAFT_BCC_TLS_KEY" || die "certificate key rollback failed; recovery snapshot: $previous"
+    fi
+    rm -rf -- "$previous"
   fi
   warn "no SSL certificate: $why"
   if [[ "$ASK_TTY" == 1 ]]; then
-    ask a "$(ui_ask_prompt "Continue with a self-signed certificate? The browser will warn once." "[Y/n]")" || true
-    [[ "$a" == n || "$a" == N || "$a" == no ]] && die "stopped before installing; nothing else was changed"
+    ask a "$(ui_ask_prompt "Continue with a self-signed certificate? The browser will warn once." "[y/N]")" || die "certificate issuance stopped; previous serving files preserved"
+    [[ "$a" == y || "$a" == Y || "$a" == yes ]] || die "certificate issuance stopped; previous serving files preserved"
   else
     die "no SSL certificate for $BAFT_BCC_DOMAIN: $why"
   fi
@@ -1928,8 +1995,7 @@ setup_ir_over_ssh() { # PAIRING_CODE -> prints the BAFTREPLY1 code on stdout
     cat "$dir/install.sh"
     printf 'BAFT_IR_INSTALL_SH_END\n'
     printf 'export BAFT_NONINTERACTIVE=1 BAFT_PAIRING_CODE=%q\n' "$code"
-    # The IR gets BBR and network tuning unless the operator said otherwise.
-    [[ -n "${BAFT_TUNE_NETWORK:-}" ]] || printf 'export BAFT_TUNE_NETWORK=1\n'
+    # Forward explicit tuning consent only; noninteractive IR installs default to no tuning.
     local v
     local -a pass_vars=() ir_env=()
     IFS=' ' read -r -a pass_vars <<<"$IR_SSH_ENV_PASS"
@@ -2124,7 +2190,7 @@ StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-ExecStart=$BAFT_AGENT_BIN --bcc-url $BAFT_BCC_URL --node-id $BAFT_NODE_ID --token-file $BAFT_AGENT_DIR/token --bcc-job-key $BAFT_AGENT_DIR/bcc-job.pub $root_flag --state-dir $BAFT_AGENT_STATE_DIR --release-state $BAFT_RELEASE_STATE --bin-dir $bindir --service $BAFT_SERVICE --config-dir $BAFT_CONFIG_DIR --baft-state-dir $BAFT_STATE_DIR --service-user $BAFT_USER --metrics-listen $BAFT_METRICS_LISTEN --interval $BAFT_AGENT_INTERVAL $http_flag
+ExecStart=$BAFT_AGENT_BIN --bcc-url $BAFT_BCC_URL --node-id $BAFT_NODE_ID --token-file $BAFT_AGENT_DIR/token --bcc-job-key $BAFT_AGENT_DIR/bcc-job.pub $root_flag --state-dir $BAFT_AGENT_STATE_DIR --ingress-manifest-dir $BAFT_AGENT_STATE_DIR --release-state $BAFT_RELEASE_STATE --bin-dir $bindir --service $BAFT_SERVICE --config-dir $BAFT_CONFIG_DIR --baft-state-dir $BAFT_STATE_DIR --service-user $BAFT_USER --metrics-listen $BAFT_METRICS_LISTEN --interval $BAFT_AGENT_INTERVAL $http_flag
 Restart=always
 RestartSec=10s
 NoNewPrivileges=true
@@ -2554,6 +2620,10 @@ finalize_apply() {
 install_agent() {
   [[ -d "$BAFT_AGENT_DIR" ]] || install -d -m 0700 -o root -g root "$BAFT_AGENT_DIR"
   [[ -d "$BAFT_AGENT_STATE_DIR" ]] || install -d -m 0700 -o root -g root "$BAFT_AGENT_STATE_DIR"
+  # The prepared-manifest store shares this root-owned private state directory.
+  # Refuse an old permissive or redirected directory instead of weakening the
+  # manifest store's ownership checks or silently changing existing ownership.
+  [[ ! -L "$BAFT_AGENT_STATE_DIR" && "$(stat -c '%u:%a' -- "$BAFT_AGENT_STATE_DIR")" == '0:700' ]] || die "agent state directory must be root-owned, private (0700), and not a symlink: $BAFT_AGENT_STATE_DIR"
   if [[ "$DO_TOKEN" == 1 ]]; then
     backup_file "$BAFT_AGENT_DIR/token"
     install -m 0600 -o root -g root "$AGENT_TOKEN_TMP" "$BAFT_AGENT_DIR/token"
@@ -2588,16 +2658,70 @@ install_agent() {
 # route tests. The installer offers to turn the tuning on once.
 BAFT_NET_SYSCTL="${BAFT_NET_SYSCTL:-/etc/sysctl.d/99-baft-net.conf}"
 
+# Shared numbered selector embedded in both installed management tools.
+# read -n handles terminal modes itself; no persistent stty changes or eval.
+write_menu_reader() {
+  cat <<'BAFT_MENU_READER'
+baft_menu_read() {
+  local result="$1"; shift
+  local selected=0 typed="" key="" seq="" cursor="" option number label match
+  local -a choices=("$@")
+  if [[ ! -t 0 || ! -t 2 || "${TERM:-dumb}" == dumb ]]; then
+    IFS= read -r -p "  Choose: " typed || return 1
+    printf -v "$result" '%s' "$typed"
+    return 0
+  fi
+  printf '  Up/Down or Tab/Shift+Tab: select; number + Enter; 0: exit\n' >&2
+  while :; do
+    option="${choices[$selected]}"
+    number="${option%%:*}"; label="${option#*:}"
+    printf '\r\033[2K  Choose [%s %s]: %s' "$number" "$label" "$typed" >&2
+    IFS= read -r -s -n 1 key || { printf '\n' >&2; return 1; }
+    case "$key" in
+      $'\t') typed=""; selected=$(( (selected + 1) % ${#choices[@]} )) ;;
+      $'\e')
+        seq=""
+        if IFS= read -r -s -n 1 -t 0.15 cursor && [[ "$cursor" == '[' || "$cursor" == O ]]; then
+          if IFS= read -r -s -n 1 -t 0.15 seq; then
+            case "$cursor$seq" in
+              '[A'|'OA'|'[Z') typed=""; selected=$(( (selected + ${#choices[@]} - 1) % ${#choices[@]} )) ;;
+              '[B'|'OB') typed=""; selected=$(( (selected + 1) % ${#choices[@]} )) ;;
+            esac
+          fi
+        fi
+        ;;
+      $'\177'|$'\b') typed="${typed%?}" ;;
+      "")
+        match="${typed:-$number}"
+        for option in "${choices[@]}"; do
+          if [[ "${option%%:*}" == "$match" ]]; then
+            printf -v "$result" '%s' "$match"
+            printf '\n' >&2
+            return 0
+          fi
+        done
+        printf '\n  Invalid choice; enter a listed number.\n' >&2
+        typed=""
+        ;;
+      [0-9]) [[ ${#typed} -ge 6 ]] || typed+="$key" ;;
+      *) printf '\n  Enter a listed number, or use Up/Down or Tab.\n' >&2 ;;
+    esac
+  done
+}
+BAFT_MENU_READER
+}
+
 write_net_tool() {
   local tmp dest="$1"
   tmp="$(mktemp)"; CLEANUP+=("$tmp")
   {
     printf '#!/usr/bin/env bash\n# baft-net: BBR, network tuning and quick tests. Written by the BAFT installer; a rerun replaces it.\n'
     printf 'SYSCTL_FILE=%q\n' "$BAFT_NET_SYSCTL"
+    write_menu_reader
     cat <<'NET'
 set -u
 [[ "${EUID}" -eq 0 ]] || { echo "run as root: sudo baft-net"; exit 1; }
-if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then G=$'\e[38;5;179m' B=$'\e[1m' M=$'\e[38;5;245m' OK=$'\e[38;5;78m' ER=$'\e[38;5;203m' R=$'\e[0m'
+if [[ -t 1 && "${TERM:-dumb}" != dumb && -z "${NO_COLOR:-}" ]]; then G=$'\e[38;5;179m' B=$'\e[1m' M=$'\e[38;5;245m' OK=$'\e[38;5;78m' ER=$'\e[38;5;203m' R=$'\e[0m'
 else G="" B="" M="" OK="" ER="" R=""; fi
 
 cc() { sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null; }
@@ -2612,13 +2736,70 @@ do_status() {
   printf '  kernel    %s\n' "$(uname -r)"
 }
 
-do_on() {
-  local bbr=1
+# Keep the original values beside the profile, never reload unrelated sysctls.
+# A legacy profile has no trustworthy before-image: refuse to guess its values.
+net_lock() {
+  local parent mode
+  NET_STATE="${SYSCTL_FILE}.state"
+  parent="$(dirname -- "$SYSCTL_FILE")"
+  if [[ -L "$SYSCTL_FILE" || -L "$NET_STATE" || ! -d "$parent" ]]; then
+    echo "  unsafe network profile/state path" >&2; return 1
+  fi
+  mode="$(stat -c %a -- "$parent")" || return 1
+  if [[ "$(stat -c %u -- "$parent")" != 0 ]] || (( (8#$mode & 0022) != 0 )); then
+    echo "  network profile parent must be root-owned and not writable by others" >&2; return 1
+  fi
+  if [[ ! -e "$NET_STATE" ]]; then (umask 077; mkdir -- "$NET_STATE") || return 1; fi
+  if [[ ! -d "$NET_STATE" || "$(stat -c %u:%a -- "$NET_STATE")" != 0:700 || -L "$NET_STATE/lock" ]]; then
+    echo "  unsafe network state directory" >&2; return 1
+  fi
+  exec {NET_LOCK_FD}>"$NET_STATE/lock" || return 1
+  flock -n "$NET_LOCK_FD" || { echo "  another network tuning operation is running" >&2; return 1; }
+}
+
+net_unlock() { flock -u "$NET_LOCK_FD"; exec {NET_LOCK_FD}>&-; }
+
+net_snapshot_valid() {
+  local snapshot="${1:-$NET_STATE/before.conf}" expected="${2:-}"
+  [[ -f "$snapshot" && ! -L "$snapshot" &&
+     "$(stat -c %u:%a -- "$snapshot")" == 0:600 ]] || return 1
+  # Never source saved data, and reject keys outside BAFT's small tuning set.
+  awk -F ' = ' -v expected="$expected" '
+    BEGIN { n=0 }
+    !/^(net[.]core[.](default_qdisc|rmem_max|wmem_max|somaxconn)|net[.]ipv4[.](tcp_congestion_control|tcp_rmem|tcp_wmem|tcp_mtu_probing|tcp_slow_start_after_idle|tcp_notsent_lowat|tcp_max_syn_backlog)) = [a-zA-Z0-9_[:blank:]-]+$/ { exit 1 }
+    { if (seen[$1]++) exit 1; n++ }
+    END {
+      split("net.core.rmem_max net.core.wmem_max net.ipv4.tcp_rmem net.ipv4.tcp_wmem net.ipv4.tcp_mtu_probing net.ipv4.tcp_slow_start_after_idle net.ipv4.tcp_notsent_lowat net.core.somaxconn net.ipv4.tcp_max_syn_backlog", required, " ")
+      for (i in required) if (!seen[required[i]]) exit 1
+      if (n != 9 && n != 11) exit 1
+      if (expected != "" && n != expected) exit 1
+    }
+  ' "$snapshot"
+}
+
+net_on_locked() {
+  local bbr=1 key value profile before
+  if [[ -e "$SYSCTL_FILE" ]]; then
+    if ! net_snapshot_valid; then
+      echo "  existing profile has no valid rollback snapshot; refusing to overwrite it" >&2; return 1
+    fi
+    echo "  BAFT tuning already has a rollback snapshot; use off before changing it"
+    return 0
+  fi
+  if [[ -e "$NET_STATE/before.conf" || -L "$NET_STATE/before.conf" ]]; then
+    echo "  pending rollback snapshot exists; run baft-net off first" >&2; return 1
+  fi
   bbr_available || bbr=0
-  {
-    echo "# Written by baft-net. Remove with: sudo baft-net off"
-    if [[ "$bbr" == 1 ]]; then echo "net.core.default_qdisc = fq"; echo "net.ipv4.tcp_congestion_control = bbr"; fi
-    cat <<'CONF'
+  profile="$(mktemp "$NET_STATE/profile.XXXXXX")" || return 1
+  before="$(mktemp "$NET_STATE/before.XXXXXX")" || { rm -f -- "$profile"; return 1; }
+  chmod 600 "$profile" "$before" || { rm -f -- "$profile" "$before"; return 1; }
+  if ! printf '%s\n' "# Written by baft-net. Remove with: sudo baft-net off" >"$profile"; then
+    rm -f -- "$profile" "$before"; return 1
+  fi
+  if [[ "$bbr" == 1 ]] && ! printf '%s\n' 'net.core.default_qdisc = fq' 'net.ipv4.tcp_congestion_control = bbr' >>"$profile"; then
+    rm -f -- "$profile" "$before"; return 1
+  fi
+  if ! cat >>"$profile" <<'CONF'
 net.core.rmem_max = 33554432
 net.core.wmem_max = 33554432
 net.ipv4.tcp_rmem = 4096 131072 33554432
@@ -2629,18 +2810,68 @@ net.ipv4.tcp_notsent_lowat = 16384
 net.core.somaxconn = 4096
 net.ipv4.tcp_max_syn_backlog = 8192
 CONF
-  } >"$SYSCTL_FILE"
-  sysctl -q -p "$SYSCTL_FILE" >/dev/null 2>&1 || true
+  then
+    rm -f -- "$profile" "$before"; return 1
+  fi
+  while IFS= read -r key; do
+    [[ "$key" == net.* ]] || continue
+    key="${key%% =*}"
+    if ! value="$(sysctl -n "$key")" || [[ ! "$value" =~ ^[a-zA-Z0-9_[:blank:]-]+$ ]]; then
+      echo "  cannot snapshot $key; no tuning was applied" >&2
+      rm -f -- "$profile" "$before"; return 1
+    fi
+    if ! printf '%s = %s\n' "$key" "$value" >>"$before"; then
+      echo "  cannot save network rollback snapshot; no tuning was applied" >&2
+      rm -f -- "$profile" "$before"; return 1
+    fi
+  done <"$profile"
+  if ! net_snapshot_valid "$before" "$((9 + 2*bbr))"; then
+    echo "  incomplete network rollback snapshot; no tuning was applied" >&2
+    rm -f -- "$profile" "$before"; return 1
+  fi
+  mv -- "$before" "$NET_STATE/before.conf" || { rm -f -- "$profile" "$before"; return 1; }
+  mv -- "$profile" "$SYSCTL_FILE" || { rm -f -- "$profile" "$NET_STATE/before.conf"; return 1; }
+  if ! sysctl -q -p "$SYSCTL_FILE"; then
+    echo "  network tuning failed; restoring the exact previous values" >&2
+    if sysctl -q -p "$NET_STATE/before.conf"; then
+      rm -f -- "$SYSCTL_FILE" && rm -f -- "$NET_STATE/before.conf"
+    else
+      echo "  rollback failed; snapshot retained; retry baft-net off" >&2
+    fi
+    return 1
+  fi
   [[ "$bbr" == 1 ]] || echo "  ${ER}this kernel has no BBR${R}; buffer tuning is on without it"
   do_status
 }
 
-do_off() {
-  rm -f "$SYSCTL_FILE"
-  sysctl -q -w net.ipv4.tcp_congestion_control=cubic >/dev/null 2>&1 || true
-  sysctl -q -w net.core.default_qdisc=fq_codel >/dev/null 2>&1 || true
-  sysctl -q --system >/dev/null 2>&1 || true
+do_on() {
+  local rc
+  net_lock || return 1
+  net_on_locked; rc=$?
+  net_unlock
+  return "$rc"
+}
+
+net_off_locked() {
+  if [[ ! -e "$SYSCTL_FILE" && ! -e "$NET_STATE/before.conf" ]]; then
+    echo "  no BAFT-owned network tuning file to remove"; return 0
+  fi
+  if ! net_snapshot_valid; then
+    echo "  no valid rollback snapshot; leaving the legacy profile and current values unchanged" >&2; return 1
+  fi
+  if ! sysctl -q -p "$NET_STATE/before.conf"; then
+    echo "  restore failed; profile and snapshot retained for retry" >&2; return 1
+  fi
+  rm -f -- "$SYSCTL_FILE" && rm -f -- "$NET_STATE/before.conf" || return 1
   do_status
+}
+
+do_off() {
+  local rc
+  net_lock || return 1
+  net_off_locked; rc=$?
+  net_unlock
+  return "$rc"
 }
 
 mbps() { awk -v b="$1" 'BEGIN{printf "%.1f Mbit/s", b*8/1000000}'; }
@@ -2650,27 +2881,28 @@ do_speed() {
   printf '  download  '
   out="$(curl -o /dev/null -sS --max-time 20 -w '%{size_download} %{speed_download}' 'https://speed.cloudflare.com/__down?bytes=25000000' 2>/dev/null)"; rc=$?
   read -r size speed <<<"$out"
-  if [[ "${size:-0}" =~ ^[0-9]+$ && "${size:-0}" -gt 0 ]]; then printf '%s%s%s  (%s bytes)\n' "$B" "$(mbps "${speed:-0}")" "$R" "$size"
+  if [[ "$rc" == 0 && "${size:-0}" =~ ^[0-9]+$ && "${size:-0}" -eq 25000000 && "${speed:-}" =~ ^[0-9]+([.][0-9]+)?$ ]]; then printf '%s%s%s  (%s bytes)\n' "$B" "$(mbps "${speed:-0}")" "$R" "$size"
   else printf '%sfailed%s\n' "$ER" "$R"; fi
   if [[ "$rc" != 0 && "${size:-0}" =~ ^[0-9]+$ && "${size:-0}" -gt 0 && "${size:-0}" -lt 65536 ]]; then
-    printf '  %sthe transfer stopped after %s bytes: foreign TCP looks cut on this server%s\n' "$ER" "${size:-0}" "$R"
+    printf '  %stransfer interrupted after %s bytes; cause unknown (check route, TLS, proxy and remote service)%s\n' "$ER" "${size:-0}" "$R"
   fi
   printf '  upload    '
-  out="$(head -c 10000000 /dev/zero | curl -o /dev/null -sS --max-time 20 -w '%{speed_upload}' --data-binary @- 'https://speed.cloudflare.com/__up' 2>/dev/null)" || true
-  if [[ "${out%%.*}" =~ ^[0-9]+$ && "${out%%.*}" -gt 0 ]]; then printf '%s%s%s\n' "$B" "$(mbps "$out")" "$R"; else printf '%sfailed%s\n' "$ER" "$R"; fi
+  out="$(head -c 10000000 /dev/zero | curl -o /dev/null -sS --max-time 20 -w '%{speed_upload}' --data-binary @- 'https://speed.cloudflare.com/__up' 2>/dev/null)" && rc=0 || rc=$?
+  if [[ "$rc" == 0 && "$out" =~ ^[0-9]+([.][0-9]+)?$ ]] && awk -v speed="$out" 'BEGIN { exit !(speed > 0) }'; then printf '%s%s%s\n' "$B" "$(mbps "$out")" "$R"; else printf '%sfailed%s\n' "$ER" "$R"; fi
 }
 
 do_latency() {
   local h t
   for h in 1.1.1.1 8.8.8.8 www.google.com github.com; do
-    if t="$(curl -o /dev/null -s --max-time 6 -w '%{time_connect}' "https://$h" 2>/dev/null)" && [[ -n "$t" ]]; then printf '  %-16s %s ms\n' "$h" "$(awk -v t="$t" 'BEGIN{printf "%.0f", t*1000}')"
+    if t="$(curl -o /dev/null -s --max-time 6 -w '%{time_connect}' "https://$h" 2>/dev/null)" && [[ "$t" =~ ^[0-9]+([.][0-9]+)?$ ]]; then printf '  %-16s %s ms\n' "$h" "$(awk -v t="$t" 'BEGIN{printf "%.0f", t*1000}')"
     else printf '  %-16s %sno answer%s\n' "$h" "$ER" "$R"; fi
   done
 }
 
 do_route() {
   local h
-  read -r -p "  Host or IP to trace [1.1.1.1]: " h; h="${h:-1.1.1.1}"
+  read -r -p "  Host or IP to trace [1.1.1.1]: " h || return 1
+  h="${h:-1.1.1.1}"
   if command -v mtr >/dev/null 2>&1; then mtr -rwc 10 "$h"
   elif command -v tracepath >/dev/null 2>&1; then tracepath -n "$h"
   else echo "  installing mtr"; apt-get -qq install -y mtr-tiny >/dev/null 2>&1 && mtr -rwc 10 "$h"; fi
@@ -2678,19 +2910,27 @@ do_route() {
 
 do_port() {
   local h p t
-  read -r -p "  Host or IP: " h; read -r -p "  Port [443]: " p; p="${p:-443}"
+  read -r -p "  Host or IP: " h || return 1
+  read -r -p "  Port [443]: " p || return 1
+  p="${p:-443}"
   [[ -n "$h" ]] || return 0
-  t="$(curl -o /dev/null -s --max-time 6 -w '%{time_connect}' "telnet://$h:$p" 2>/dev/null </dev/null)"
-  if [[ -n "$t" && "$t" != "0.000000" && "$t" != "0" ]]; then printf '  %s:%s %sopen%s  %s ms\n' "$h" "$p" "$OK" "$R" "$(awk -v t="$t" 'BEGIN{printf "%.0f", t*1000}')"
+  if [[ ! "$p" =~ ^[0-9]{1,5}$ ]] || ((10#$p < 1 || 10#$p > 65535)); then
+    echo "  invalid TCP port: enter a number from 1 to 65535" >&2
+    return 2
+  fi
+  t="$(curl -o /dev/null -s --max-time 6 -w '%{time_connect}' "telnet://$h:$p" 2>/dev/null </dev/null)" || t=""
+  if [[ "$t" =~ ^[0-9]+([.][0-9]+)?$ ]] && awk -v t="$t" 'BEGIN { exit !(t > 0) }'; then printf '  %s:%s %sopen%s  %s ms\n' "$h" "$p" "$OK" "$R" "$(awk -v t="$t" 'BEGIN{printf "%.0f", t*1000}')"
   else printf '  %s:%s %sno answer%s\n' "$h" "$p" "$ER" "$R"; fi
 }
 
 menu() {
   printf '\n  %s◆%s %sBAFT network%s  %sBBR %s%s\n\n' "$G$B" "$R" "$B" "$R" "$M" "$( [[ "$(cc)" == bbr ]] && echo on || echo off )" "$R"
   printf '   %s1%s  status\n   %s2%s  turn on BBR and tuning\n   %s3%s  turn off BBR and tuning\n' "$G" "$R" "$G" "$R" "$G" "$R"
-  printf '   %s4%s  speed test (also shows foreign TCP cut-off)\n   %s5%s  latency to well-known hosts\n' "$G" "$R" "$G" "$R"
+  printf '   %s4%s  speed test (download and upload)\n   %s5%s  latency to well-known hosts\n' "$G" "$R" "$G" "$R"
   printf '   %s6%s  route to a host (mtr)\n   %s7%s  is a port open on a host\n   %s0%s  exit\n\n' "$G" "$R" "$G" "$R" "$G" "$R"
-  local c; read -r -p "  Choose: " c; echo
+  local c
+  baft_menu_read c "1:status" "2:turn on tuning" "3:turn off tuning" "4:speed test" "5:latency" "6:route" "7:port" "0:exit" || return 0
+  echo
   case "$c" in
     1) do_status ;; 2) do_on ;; 3) do_off ;; 4) do_speed ;; 5) do_latency ;; 6) do_route ;; 7) do_port ;;
     0|"") exit 0 ;; *) echo "  type a number from the menu" ;;
@@ -2715,8 +2955,8 @@ net_setup() {
   [[ -f "$BAFT_NET_SYSCTL" || "${BAFT_TUNE_NETWORK:-}" == 0 ]] && return 0
   if [[ "${BAFT_TUNE_NETWORK:-}" != 1 ]]; then
     [[ "$ASK_TTY" == 1 ]] || return 0
-    ask a "$(printf '\n'; ui_ask_prompt "Turn on BBR and network tuning? (recommended; undo with: sudo baft-net off)" "[Y/n]")" || true
-    [[ "$a" == n || "$a" == N || "$a" == no ]] && return 0
+    ask a "$(printf '\n'; ui_ask_prompt "Turn on BBR and network tuning? (host-wide changes; undo with: sudo baft-net off)" "[y/N]")" || return 0
+    [[ "$a" == y || "$a" == Y || "$a" == yes ]] || return 0
   fi
   if "$dest" on >/dev/null 2>&1; then ok "BBR and network tuning are on ($( [[ "$(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null)" == bbr ]] && echo "BBR active" || echo "no BBR in this kernel" ))"
   else warn "network tuning could not be applied"; fi
@@ -2768,10 +3008,11 @@ write_panel_menu() {
     printf '#!/usr/bin/env bash\n# baft-panel: manage the BAFT panel. Written by the BAFT installer; a rerun replaces it.\n'
     printf 'BCC_BIN=%q\nACCESS_FILE=%q\nSERVICE=%q\nUNIT_FILE=%q\nINSTALLER=%q\nACME_HOME=%q\nRELEASE_STATE=%q\nNET_CMD=%q\n' \
       "$BAFT_BCC_BIN" "$BAFT_BCC_ACCESS_FILE" "$BAFT_BCC_SERVICE" "$BAFT_BCC_UNIT_FILE" "$BAFT_BCC_BOOTSTRAP_SCRIPT" "$BAFT_ACME_HOME" "$BAFT_RELEASE_STATE" "$(dirname "$BAFT_PANEL_CMD")/baft-net"
+    write_menu_reader
     cat <<'MENU'
 set -u
 [[ "${EUID}" -eq 0 ]] || { echo "run as root: sudo baft-panel"; exit 1; }
-if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then G=$'\e[38;5;179m' B=$'\e[1m' M=$'\e[38;5;245m' OK=$'\e[38;5;78m' ER=$'\e[38;5;203m' R=$'\e[0m'
+if [[ -t 1 && "${TERM:-dumb}" != dumb && -z "${NO_COLOR:-}" ]]; then G=$'\e[38;5;179m' B=$'\e[1m' M=$'\e[38;5;245m' OK=$'\e[38;5;78m' ER=$'\e[38;5;203m' R=$'\e[0m'
 else G="" B="" M="" OK="" ER="" R=""; fi
 
 arg() { sed -n 's/^ExecStart=//p' "$UNIT_FILE" 2>/dev/null | head -n1 | awk -v f="--$1" '{for(i=1;i<NF;i++) if($i==f){print $(i+1); exit}}'; }
@@ -2802,7 +3043,7 @@ do_link() {
 }
 do_reset() {
   local a
-  read -r -p "  Make a new link, username and password? Everyone is signed out. [y/N] " a
+  read -r -p "  Make a new link, username and password? Everyone is signed out. [y/N] " a || return 1
   [[ "$a" == y || "$a" == Y ]] || return 0
   local out p u pw
   out="$("$BCC_BIN" access regenerate --access-file "$ACCESS_FILE")" || { echo "  failed"; return 1; }
@@ -2815,7 +3056,7 @@ do_restart() { systemctl restart "$SERVICE" && sleep 1; do_status; }
 do_logs() { journalctl -u "$SERVICE" -n 60 --no-pager; }
 do_ssl() {
   local d port
-  read -r -p "  Domain for the panel, or Enter for this server's IP [$(public_ip)]: " d
+  read -r -p "  Domain for the panel, or Enter for this server's IP [$(public_ip)]: " d || return 1
   d="${d:-$(public_ip)}"
   port="$(arg listen)"; port="${port##*:}"
   [[ "$port" =~ ^[0-9]+$ && "$port" != 8080 ]] || port=""
@@ -2832,7 +3073,9 @@ menu() {
   printf '   %s1%s  status\n   %s2%s  show panel link and username\n   %s3%s  new login (link, username, password)\n' "$G" "$R" "$G" "$R" "$G" "$R"
   printf '   %s4%s  restart panel\n   %s5%s  panel logs\n   %s6%s  set domain / get SSL\n   %s7%s  renew SSL now\n' "$G" "$R" "$G" "$R" "$G" "$R" "$G" "$R"
   printf '   %s8%s  update panel to the latest release\n   %s9%s  network: BBR, speed and route tests\n   %s0%s  exit\n\n' "$G" "$R" "$G" "$R" "$G" "$R"
-  local c; read -r -p "  Choose: " c; echo
+  local c
+  baft_menu_read c "1:status" "2:panel link" "3:new login" "4:restart" "5:logs" "6:SSL" "7:renew SSL" "8:update" "9:network" "0:exit" || return 0
+  echo
   case "$c" in
     1) do_status ;; 2) do_link ;; 3) do_reset ;; 4) do_restart ;; 5) do_logs ;;
     6) do_ssl ;; 7) do_renew ;; 8) do_update ;; 9) "$NET_CMD" ;; 0|"") exit 0 ;; *) echo "  type a number from the menu" ;;

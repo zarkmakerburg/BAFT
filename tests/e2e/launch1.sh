@@ -176,7 +176,7 @@ cat "$WORK/ex.marker.keep" > /etc/baft-ex/baft.managed.json
 
 log "baft menu on a real terminal; direct commands stay plain"
 python3 - <<'PY' || fail "the baft menu did not behave on a terminal"
-import os, pty, re, select, struct, fcntl, termios, subprocess, time
+import os, pty, re, select, struct, fcntl, termios, subprocess, time, signal
 def run_menu(env, cols):
     pid, fd = pty.fork()
     if pid == 0:
@@ -195,17 +195,24 @@ def run_menu(env, cols):
                 if not d: return
                 out += d
     drain(1.5)
-    for line in (b"11\n", b"\n", b"0\n"):
+    for line in (b"1\n", b"\n", b"0\n"):
         os.write(fd, line); drain(0.7)
-    _, status = os.waitpid(pid, 0)
-    return out.decode(errors="replace"), os.WEXITSTATUS(status)
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        done, status = os.waitpid(pid, os.WNOHANG)
+        if done == pid:
+            return out.decode(errors="replace"), os.waitstatus_to_exitcode(status)
+        drain(0.1)
+    os.kill(pid, signal.SIGKILL)
+    os.waitpid(pid, 0)
+    raise AssertionError("interactive baft menu did not exit within 10 seconds; output tail: " + repr(out[-1500:]))
 colored, rc = run_menu({"TERM": "xterm-256color", "COLORTERM": "truecolor", "LANG": "C.UTF-8"}, 120)
 assert rc == 0, rc
 assert "\x1b[" in colored and "B  A  F  T" in re.sub(r"\x1b\[[0-9;]*m", "", colored), "no gold header on a color terminal"
 seen = re.sub(r"\x1b\[[0-9;]*m", "", colored)
-assert "Update (planned)" in seen and "not available in this version yet" in seen, seen[:500]
+assert "Update" in seen and "(planned)" in seen and "Overview / Status" in seen, seen[:500]
 plain, rc = run_menu({"TERM": "xterm", "NO_COLOR": "1", "LANG": "C"}, 60)
-assert rc == 0 and "\x1b[" not in plain, "NO_COLOR was not respected"
+assert rc == 0 and not re.search(r"\x1b\[[0-9;]*m", plain), "NO_COLOR emitted ANSI SGR color codes; rc=%s, output tail=%r" % (rc, plain[-1800:])
 assert "BAFT | v" in plain, plain[:300]
 # Direct commands print no splash and no escape sequence, even when asked on a terminal-capable host.
 for args in (["status", "--json"], ["doctor", "--json"], ["version", "--json"]):
@@ -395,6 +402,19 @@ for port in 15443 15444; do
   [[ "$ok" == true ]] || fail "scoped route $port carries no verified traffic"
 done
 
+# A prior automatic drift probe may have observed slot-b while its scoped
+# config was still being installed. Wait for that probe to finish, then demand
+# a fresh verified baseline for both fully deployed sibling instances.
+for id in "$SA" "$SB"; do
+  for _ in $(seq 1 60); do
+    pending="$(api "$BCC/api/tunnels?id=$id" | python3 -c 'import json,sys;print(len(json.load(sys.stdin).get("drift_jobs",[])))')"
+    [[ "$pending" == 0 ]] && break
+    sleep 2
+  done
+  [[ "$pending" == 0 ]] || fail "scoped tunnel $id has unfinished initial drift inspection"
+  [[ "$(drift_check "$id")" == "IN_SYNC" ]] || fail "scoped tunnel $id is not IN_SYNC after both siblings committed"
+done
+
 log "M-018C: external edit must fail closed before any retirement"
 cp /etc/baft-ir/instances/slot-a/baft.yaml "$WORK/slot-a-ir.keep"
 printf '\n# M-018C external edit\n' >> /etc/baft-ir/instances/slot-a/baft.yaml
@@ -416,7 +436,18 @@ DHASH="$(printf '%s' "$DPLAN" | jfield '["hash"]')"
 api -d "{\"id\":\"$SA\",\"plan_hash\":\"$DHASH\"}" "$BCC/api/tunnels/decommission" >/dev/null
 phase="$(wait_tunnel "$SA" 240 decommissioned decommission_failed)" || true
 [[ "$phase" == "decommissioned" ]] || fail "slot-a decommission ended as '$phase'"
-[[ "$(api "$BCC/api/tunnels?id=$SB" | jfield '["phase"]')" == "active" ]] || fail "slot-b lost active state"
+# The admin API can briefly rate-limit after decommission polling. Treat 429 as
+# inconclusive, not as proof the sibling stopped; require a fresh active state.
+sibling_phase=""
+for attempt in $(seq 1 12); do
+  sibling_json="$(api "$BCC/api/tunnels?id=$SB" 2>/dev/null)" || sibling_json=""
+  if [[ -n "$sibling_json" ]]; then
+    sibling_phase="$(printf '%s' "$sibling_json" | jfield '["phase"]')" || fail "slot-b returned invalid state JSON"
+    break
+  fi
+  sleep 2
+done
+[[ "$sibling_phase" == "active" ]] || fail "slot-b not confirmed active after decommission (phase='$sibling_phase')"
 
 python3 - <<'PY' || fail "slot-a endpoints remain reachable or slot-b endpoints disappeared"
 import socket

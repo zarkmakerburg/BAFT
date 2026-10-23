@@ -151,6 +151,18 @@ func TestBootstrapRefusesClearTextCredentialsAndMissingPieces(t *testing.T) {
 	if rr := r.post("/api/bootstrap", goodBody, "127.0.0.1:1"); rr.Code != http.StatusConflict {
 		t.Fatalf("no job key = %d", rr.Code)
 	}
+	// A key with a mismatched public half must not be pinned by a new agent.
+	valid, _, err := LoadOrCreateJobKey(filepath.Join(t.TempDir(), "other-job-key"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	invalid := append([]byte(nil), valid...)
+	invalid[len(invalid)-1] ^= 1
+	r.app.ConfigureJobSigning(invalid)
+	beforeRuns := r.runs
+	if rr := r.post("/api/bootstrap", goodBody, "127.0.0.1:1"); rr.Code != http.StatusConflict || r.runs != beforeRuns {
+		t.Fatalf("inconsistent job key = %d; bootstrap runs = %d", rr.Code, r.runs-beforeRuns)
+	}
 	// Not configured at all.
 	plain := newBootRig(t)
 	plain.app.boot = nil

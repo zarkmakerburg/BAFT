@@ -177,6 +177,8 @@ type state struct {
 	ActiveAlerts    map[string]Alert             `json:"active_alerts,omitempty"`
 	RetiredBootIDs  map[string]map[string]bool   `json:"retired_boot_ids,omitempty"`
 	Tunnels         map[string]Tunnel            `json:"tunnels,omitempty"`
+	PublicIngressReservations map[string]PublicIngressReservation `json:"public_ingress_reservations,omitempty"`
+	PublicIngressOperations map[string]PublicIngressOperation `json:"public_ingress_operations,omitempty"`
 	// Health is the layered health of each node (state machines + history).
 	Health          map[string]NodeHealthRecord  `json:"health,omitempty"`
 	// Discovery is the last report-only inventory of each node.
@@ -327,6 +329,7 @@ func (s *Store) UpsertNode(n Node, agentToken string, audits ...AuditEntry) (Nod
 	if n.LastChecked.IsZero()&&exists{n.LastChecked=old.LastChecked;n.LatencyMS=old.LatencyMS}
 	if n.LastChecked.IsZero()&&!exists{n.LatencyMS=-1}
 	n.UpdatedAt=time.Now().UTC()
+	if err:=s.validateNodePublicIngressReservationsLocked(n);err!=nil{return Node{},err}
 	s.st.Nodes[n.ID]=n
 	if len(audits)==1{
 		a:=audits[0]
@@ -545,19 +548,42 @@ func (s *Store) noteAgentSeenLocked(nodeID string,now time.Time){
 }
 
 func (s *Store) PullJobs(nodeID,token string) ([]Job,error) {
+	return s.pullJobs(nodeID,token,nil)
+}
+
+// pullJobs optionally prepares the response while the queued state is still
+// reversible. A signing failure must never persist a dispatched job that the
+// agent never received. The response is returned only after the state commits.
+func (s *Store) pullJobs(nodeID,token string,prepare func([]Job)error) ([]Job,error) {
 	s.mu.Lock();defer s.mu.Unlock()
 	if !s.authorizedLocked(nodeID,token){return nil,ErrAgentAuthentication}
 	before,err:=cloneState(s.st);if err!=nil{return nil,err}
-	s.noteAgentSeenLocked(nodeID,time.Now().UTC())
+	now:=time.Now().UTC()
+	s.noteAgentSeenLocked(nodeID,now)
 	var out []Job
 	changed:=false
 	for id,j:=range s.st.Jobs{
-		if j.NodeID!=nodeID||j.Status!="queued"{continue}
+		if j.NodeID!=nodeID || (j.Status!="queued" && j.Status!="dispatched"){continue}
+		if (j.Type=="public_ingress_preflight" || j.Type=="public_ingress_inspect" || j.Type=="public_ingress_prepare" || j.Type=="public_ingress_cancel") && !now.Before(publicIngressPreflightDeadline(j)) {
+			changed=true
+			wasQueued:=j.Status=="queued"
+			message:="read-only ingress observation expired before acknowledgement"
+			if wasQueued{message="read-only ingress observation expired before dispatch"}
+			action:="public_ingress.preflight.expire"
+			if j.Type=="public_ingress_inspect"{action="public_ingress.inspect.expire"}
+			if j.Type=="public_ingress_prepare"{action="public_ingress.prepare.expire";message="ingress prepare expired before acknowledgement";if wasQueued{message="ingress prepare expired before dispatch"}}
+			if j.Type=="public_ingress_cancel"{action="public_ingress.cancel.expire";message="ingress cancellation expired before acknowledgement";if wasQueued{message="ingress cancellation expired before dispatch"}}
+			j.Status="failed";j.Message=message;j.UpdatedAt=now;s.st.Jobs[id]=j
+			if _,err:=s.enqueueSecurityAuditLocked(AuditEntry{Timestamp:now,Actor:"bcc",Action:action,Target:j.Params["tunnel_id"],Outcome:"expired",Details:map[string]any{"job_id":j.ID,"ir_node":j.NodeID,"public_port":j.Params["public_port"]}});err!=nil{s.st=before;return nil,err}
+			continue
+		}
+		if j.Status!="queued"{continue}
 		changed=true
 		if j.Type==jobEnrollPeerLegacy{j.Status="failed";j.Message="retired job type: build tunnels with /api/tunnels";j.UpdatedAt=time.Now().UTC();s.st.Jobs[id]=j;continue}
 		j.Status="dispatched";j.UpdatedAt=time.Now().UTC();s.st.Jobs[id]=j;out=append(out,j)
 	}
 	sort.Slice(out,func(i,j int)bool{return out[i].CreatedAt.Before(out[j].CreatedAt)})
+	if prepare!=nil {if err:=prepare(out);err!=nil{s.st=before;return nil,err}}
 	if changed{if err:=s.saveLocked();err!=nil{s.st=before;return nil,err}}
 	return out,nil
 }
@@ -577,6 +603,36 @@ func (s *Store) AckJobOutput(nodeID,token,jobID,status,message,output string) er
 	if !s.authorizedLocked(nodeID,token){return ErrAgentAuthentication}
 	j,ok:=s.st.Jobs[jobID];if !ok||j.NodeID!=nodeID{return errors.New("job not found")}
 	if j.Status!="dispatched"&&j.Status!="queued"{return errors.New("job already completed")}
+	if (j.Type=="public_ingress_preflight" || j.Type=="public_ingress_inspect" || j.Type=="public_ingress_prepare" || j.Type=="public_ingress_cancel") && !time.Now().Before(publicIngressPreflightDeadline(j)) {
+		before, err := cloneState(s.st)
+		if err != nil { return err }
+		now := time.Now().UTC()
+		j.Status, j.Message, j.UpdatedAt = "failed", "read-only ingress observation expired before acknowledgement", now
+		s.st.Jobs[jobID] = j
+		action := "public_ingress.preflight.expire"
+		if j.Type == "public_ingress_inspect" { action = "public_ingress.inspect.expire" }
+		if j.Type == "public_ingress_prepare" { action = "public_ingress.prepare.expire"; j.Message = "ingress prepare expired before acknowledgement"; s.st.Jobs[jobID] = j }
+		if j.Type == "public_ingress_cancel" { action = "public_ingress.cancel.expire"; j.Message = "ingress cancellation expired before acknowledgement"; s.st.Jobs[jobID] = j }
+		if _, err := s.enqueueSecurityAuditLocked(AuditEntry{
+			Timestamp: now, Actor: "bcc", Action: action,
+			Target: j.Params["tunnel_id"], Outcome: "expired",
+			Details: map[string]any{"job_id": j.ID, "ir_node": j.NodeID, "public_port": j.Params["public_port"]},
+		}); err != nil { s.st = before; return err }
+		if err := s.saveLocked(); err != nil { s.st = before; return err }
+		return errors.New(j.Message)
+	}
+	if (j.Type=="public_ingress_inspect" || j.Type=="public_ingress_prepare" || j.Type=="public_ingress_cancel") && j.Status!="dispatched" {return errors.New("ingress acknowledgement requires dispatched job")}
+	if status=="succeeded"&&j.Type=="public_ingress_preflight"{if err:=validatePublicIngressPreflightReceipt(output,j.Params);err!=nil{return err}}
+	if status=="succeeded"&&j.Type=="public_ingress_inspect"{if err:=validatePublicIngressInspectSnapshot(output,j.ID,j.NodeID,j.Params);err!=nil{return err}}
+	if status=="succeeded"&&j.Type=="public_ingress_inspect"{if err:=validateCurrentPublicIngressInspectIntent(s.st,j);err!=nil{return err}}
+	if status=="succeeded"&&j.Type=="public_ingress_prepare"{
+		for _,other:=range s.st.Jobs {if other.Type=="public_ingress_cancel"&&other.NodeID==j.NodeID&&other.Params["tunnel_id"]==j.Params["tunnel_id"] {return errors.New("ingress prepare was cancelled")}}
+		op,ok:=s.st.PublicIngressOperations[j.Params["tunnel_id"]];if !ok{return errors.New("ingress prepare operation missing")};if err:=validatePublicIngressPrepareReceipt(output,j,op);err!=nil{return err}
+	}
+	if status=="succeeded"&&j.Type=="public_ingress_cancel"{
+		if err:=validateCurrentPublicIngressInspectIntent(s.st,j);err!=nil{return err}
+		op,ok:=s.st.PublicIngressOperations[j.Params["tunnel_id"]];if !ok{return errors.New("ingress cancel operation missing")};if err:=validatePublicIngressCancelReceipt(output,j,op);err!=nil{return err}
+	}
 	previous:=j
 	j.Status=status;j.Message=message;j.UpdatedAt=time.Now().UTC()
 	if status=="succeeded"{j.Output=output}

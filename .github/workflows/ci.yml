@@ -37,6 +37,12 @@ jobs:
         run: |
           set -o pipefail
           go test ./... 2>&1 | tee "$RUNNER_TEMP/go-test.log"
+      - name: Privileged network rollback sandbox
+        # Compile unprivileged, then execute only the isolated fake-sysctl test.
+        # The normal suite runs as runner and otherwise skips this root guard.
+        run: |
+          go test -c -o "$RUNNER_TEMP/baft-installer.test" ./tests/installer
+          sudo env BAFT_REQUIRE_NETWORK_TESTS=1 "$RUNNER_TEMP/baft-installer.test" -test.run '^TestNetworkToolRuntimeRollback$' -test.v
       - name: Report failing tests
         # Job logs are not always retrievable; annotations are.
         if: failure()

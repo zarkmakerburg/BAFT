@@ -173,11 +173,56 @@ func (m *Manager) ForInstance(instance, metricsListen string) (*Manager, error) 
 		}
 		return nil, errors.New("tunnelnode: cannot rescope an instance manager")
 	}
+	// A sibling must never silently inherit the primary metrics socket:
+	// doing so makes an otherwise isolated service fail to bind at startup.
+	if metricsListen == "" || metricsListen == m.MetricsListen {
+		return nil, errors.New("tunnelnode: independent instance requires an explicit distinct metrics listener")
+	}
+	host, port, err := net.SplitHostPort(metricsListen)
+	ip := net.ParseIP(host)
+	if err != nil || ip == nil || !ip.IsLoopback() {
+		return nil, errors.New("tunnelnode: instance metrics listener must use a literal loopback IP")
+	}
+	portNum, err := strconv.Atoi(port)
+	if err != nil || !validPort(portNum) {
+		return nil, errors.New("tunnelnode: invalid instance metrics port")
+	}
+	_, primaryPort, primaryErr := net.SplitHostPort(m.MetricsListen)
+	primaryNum, primaryParseErr := strconv.Atoi(primaryPort)
+	if primaryErr == nil && primaryParseErr == nil && primaryNum == portNum {
+		return nil, errors.New("tunnelnode: instance metrics port conflicts with primary metrics port")
+	}
+	// Check previously configured sibling instances before allocating an
+	// independent metrics socket. Unknown or unreadable sibling state fails closed.
+	siblings := filepath.Join(m.ConfigDir, "instances")
+	entries, readErr := os.ReadDir(siblings)
+	if readErr != nil && !os.IsNotExist(readErr) {
+		return nil, fmt.Errorf("tunnelnode: cannot inspect sibling instances: %w", readErr)
+	}
+	for _, entry := range entries {
+		if entry.Name() == instance {
+			continue
+		}
+		if !entry.IsDir() {
+			return nil, errors.New("tunnelnode: unexpected sibling instance entry")
+		}
+		path := filepath.Join(siblings, entry.Name(), "baft.yaml")
+		cfg, loadErr := config.LoadFile(path)
+		if os.IsNotExist(loadErr) {
+			return nil, errors.New("tunnelnode: sibling instance has no verifiable config")
+		}
+		if loadErr != nil {
+			return nil, fmt.Errorf("tunnelnode: cannot verify sibling metrics ownership: %w", loadErr)
+		}
+		_, usedPort, splitErr := net.SplitHostPort(cfg.Management.MetricsListen)
+		usedNum, parseErr := strconv.Atoi(usedPort)
+		if splitErr != nil || parseErr != nil || !validPort(usedNum) || usedNum == portNum {
+			return nil, errors.New("tunnelnode: sibling instance metrics port conflict or invalid configuration")
+		}
+	}
 	env := m.Env
 	env.Instance = instance
-	if metricsListen != "" {
-		env.MetricsListen = metricsListen
-	}
+	env.MetricsListen = metricsListen
 	return New(env)
 }
 
@@ -257,7 +302,13 @@ func (m *Manager) readTxn(id string) (Txn, error) {
 		return t, err
 	}
 	if err := json.Unmarshal(b, &t); err != nil {
-		return t, fmt.Errorf("corrupt state for %s: %w", id, err)
+		return Txn{}, fmt.Errorf("corrupt state for %s: %w", id, err)
+	}
+	// The on-disk path is not evidence of ownership: never let stale, swapped
+	// or partially restored transaction contents name a different change.
+	if !idRe.MatchString(id) || t.Version != 1 || t.ID != id || (t.Role != RoleEX && t.Role != RoleIR) ||
+		(t.Phase != PhasePrepared && t.Phase != PhaseCommitted && t.Phase != PhaseFinalized && t.Phase != PhaseRolledBack) {
+		return Txn{}, fmt.Errorf("corrupt transaction identity or phase for %s", id)
 	}
 	return t, nil
 }
@@ -298,8 +349,48 @@ func (m *Manager) activeID() string {
 	return strings.TrimSpace(string(b))
 }
 
+// checkedActiveID distinguishes no active transaction from an unreadable or
+// malformed marker. Mutation preflights must use it instead of activeID.
+func (m *Manager) checkedActiveID() (string, error) {
+	b, err := os.ReadFile(m.activePath())
+	if errors.Is(err, os.ErrNotExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("read active transaction: %w", err)
+	}
+	id := strings.TrimSpace(string(b))
+	if !idRe.MatchString(id) || string(b) != id+"\n" {
+		return "", errors.New("invalid active transaction marker; reconciliation required")
+	}
+	return id, nil
+}
+
 func (m *Manager) setActive(id string) error {
-	return writeFile(m.activePath(), []byte(id+"\n"), 0o600)
+	// The manager mutex only serializes callers of this object. Independent
+	// CLI/Agent managers must atomically claim the same instance on disk.
+	// Never replace an existing marker, including a partial/crashed claim.
+	if err := os.MkdirAll(filepath.Dir(m.activePath()), 0o700); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(m.activePath(), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return fmt.Errorf("claim active transaction; reconciliation may be required: %w", err)
+	}
+	_, writeErr := f.WriteString(id + "\n")
+	if writeErr == nil {
+		writeErr = f.Sync()
+	}
+	closeErr := f.Close()
+	if writeErr != nil {
+		return writeErr
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	// A failure leaves the marker in place and refuses admission. Removing it
+	// on error would erase the evidence needed after an interrupted claim.
+	return syncParentDirs(m.activePath())
 }
 
 func (m *Manager) clearActive() { _ = os.Remove(m.activePath()) }
@@ -309,9 +400,41 @@ func (m *Manager) begin(id, role string) (Txn, error) {
 	if !idRe.MatchString(id) {
 		return Txn{}, errors.New("invalid tunnel id")
 	}
-	if cur := m.activeID(); cur != "" && cur != id {
-		if t, err := m.readTxn(cur); err == nil && (t.Phase == PhasePrepared || t.Phase == PhaseCommitted) {
+	cur, activeErr := m.checkedActiveID()
+	if activeErr != nil {
+		return Txn{}, activeErr
+	}
+	if cur != "" {
+		if cur == id {
+			return Txn{}, fmt.Errorf("tunnel change %s already holds the active marker; reconcile before retrying", id)
+		}
+		t, err := m.readTxn(cur)
+		if err != nil {
+			return Txn{}, fmt.Errorf("unreadable active tunnel change %s; manual reconciliation required: %w", cur, err)
+		}
+		if t.Phase == PhasePrepared || t.Phase == PhaseCommitted {
 			return Txn{}, fmt.Errorf("tunnel change %s is still in progress on this node", cur)
+		}
+	}
+	// After a crash the active marker can be lost while a prepared or
+	// committed transaction survives. Refuse a second change until the old
+	// transaction is reconciled, even when its ID differs from the new ID.
+	if cur == "" {
+		entries, err := os.ReadDir(filepath.Join(m.StateDir, "tunnels"))
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return Txn{}, fmt.Errorf("inspect stored tunnel transactions: %w", err)
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() || !idRe.MatchString(entry.Name()) {
+				continue
+			}
+			old, err := m.readTxn(entry.Name())
+			if err != nil {
+				return Txn{}, fmt.Errorf("stale or unreadable transaction %s needs reconciliation: %w", entry.Name(), err)
+			}
+			if old.Phase == PhasePrepared || old.Phase == PhaseCommitted {
+				return Txn{}, fmt.Errorf("unfinished tunnel change %s needs reconciliation", old.ID)
+			}
 		}
 	}
 	if rid := m.rotationInProgress(); rid != "" {
@@ -319,12 +442,16 @@ func (m *Manager) begin(id, role string) (Txn, error) {
 	}
 	if _, err := m.readTxn(id); err == nil {
 		return Txn{}, fmt.Errorf("tunnel change %s already exists on this node", id)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		// A corrupt or unreadable transaction must not be overwritten by a new
+		// one with the same ID, even if its active marker disappeared in a crash.
+		return Txn{}, fmt.Errorf("tunnel change %s has unreadable state; reconciliation required: %w", id, err)
 	}
 	t := Txn{Version: 1, ID: id, Role: role, Phase: PhasePrepared, Created: m.Now().UTC()}
 	if err := m.ensureScopedDirs(); err != nil {
 		return t, err
 	}
-	if err := os.MkdirAll(m.stage(id), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(m.stage(id)), 0o700); err != nil {
 		return t, err
 	}
 	// The service reads the IR's staged CA from here, so it must be able to
@@ -333,6 +460,9 @@ func (m *Manager) begin(id, role string) (Txn, error) {
 		return t, err
 	}
 	if err := m.setActive(id); err != nil {
+		return t, err
+	}
+	if err := os.MkdirAll(m.stage(id), 0o700); err != nil {
 		return t, err
 	}
 	return t, m.writeTxn(t)
@@ -345,14 +475,47 @@ func (m *Manager) begin(id, role string) (Txn, error) {
 func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
 	if err := p.validate(); err != nil {
 		return "", err
 	}
 	if p.MetricsListen == "" {
 		p.MetricsListen = m.MetricsListen
 	}
+	// A scoped instance must never override its validated metrics allocation
+	// through Prepare parameters after the initial instance preflight.
+	if m.Instance != "" && p.MetricsListen != m.MetricsListen {
+		return "", errors.New("tunnelnode: instance metrics address differs from scoped allocation")
+	}
+	if m.Instance != "" {
+		_, metricsPort, err := net.SplitHostPort(p.MetricsListen)
+		if err != nil {
+			return "", err
+		}
+		n, err := strconv.Atoi(metricsPort)
+		if err != nil {
+			return "", err
+		}
+		if _, err := m.ClaimMetricsPort(n); err != nil {
+			return "", fmt.Errorf("tunnelnode: metrics reservation before prepare: %w", err)
+		}
+	}
 	t, err := m.begin(id, RoleEX)
 	if err != nil {
+		if m.Instance != "" {
+			_, portText, splitErr := net.SplitHostPort(m.MetricsListen)
+			if splitErr == nil {
+				if port, parseErr := strconv.Atoi(portText); parseErr == nil {
+					if releaseErr := m.ReleaseMetricsPort(port); releaseErr != nil {
+						return "", fmt.Errorf("prepare begin failed: %w; metrics claim release failed: %v", err, releaseErr)
+					}
+				}
+			}
+		}
 		return "", err
 	}
 	t.Port = p.Port
@@ -396,14 +559,47 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
 	if err := p.validate(); err != nil {
 		return "", err
 	}
 	if p.MetricsListen == "" {
 		p.MetricsListen = m.MetricsListen
 	}
+	// A scoped instance must never override its validated metrics allocation
+	// through Prepare parameters after the initial instance preflight.
+	if m.Instance != "" && p.MetricsListen != m.MetricsListen {
+		return "", errors.New("tunnelnode: instance metrics address differs from scoped allocation")
+	}
+	if m.Instance != "" {
+		_, metricsPort, err := net.SplitHostPort(p.MetricsListen)
+		if err != nil {
+			return "", err
+		}
+		n, err := strconv.Atoi(metricsPort)
+		if err != nil {
+			return "", err
+		}
+		if _, err := m.ClaimMetricsPort(n); err != nil {
+			return "", fmt.Errorf("tunnelnode: metrics reservation before prepare: %w", err)
+		}
+	}
 	t, err := m.begin(id, RoleIR)
 	if err != nil {
+		if m.Instance != "" {
+			_, portText, splitErr := net.SplitHostPort(m.MetricsListen)
+			if splitErr == nil {
+				if port, parseErr := strconv.Atoi(portText); parseErr == nil {
+					if releaseErr := m.ReleaseMetricsPort(port); releaseErr != nil {
+						return "", fmt.Errorf("prepare begin failed: %w; metrics claim release failed: %v", err, releaseErr)
+					}
+				}
+			}
+		}
 		return "", err
 	}
 	t.RouteListen = p.RouteListen
@@ -440,6 +636,11 @@ func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (s
 func (m *Manager) CommitEX(ctx context.Context, id, reply string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
 	t, err := m.requirePhase(id, RoleEX, PhasePrepared)
 	if err != nil {
 		return "", err
@@ -469,6 +670,11 @@ func (m *Manager) CommitEX(ctx context.Context, id, reply string) (string, error
 func (m *Manager) CommitIR(ctx context.Context, id string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
 	t, err := m.requirePhase(id, RoleIR, PhasePrepared)
 	if err != nil {
 		return "", err
@@ -619,6 +825,11 @@ func (m *Manager) stableSample(ctx context.Context) (restarts string, err error)
 func (m *Manager) Finalize(ctx context.Context, id string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
 	t, err := m.readTxn(id)
 	if err != nil {
 		return "", fmt.Errorf("unknown tunnel change %s", id)
@@ -628,6 +839,15 @@ func (m *Manager) Finalize(ctx context.Context, id string) (string, error) {
 	}
 	if t.Phase != PhaseCommitted {
 		return "", fmt.Errorf("tunnel change %s is %s, not committed", id, t.Phase)
+	}
+	// Finalization destroys rollback evidence. Only the current transaction
+	// owner may finalize; a lost, corrupt or foreign marker must fail closed.
+	cur, err := m.checkedActiveID()
+	if err != nil {
+		return "", fmt.Errorf("finalize active owner: %w", err)
+	}
+	if cur != id {
+		return "", fmt.Errorf("finalize %s refused: active transaction is %q", id, cur)
 	}
 	t.Phase = PhaseFinalized
 	if err := m.writeTxn(t); err != nil {
@@ -659,9 +879,32 @@ func (m *Manager) Finalize(ctx context.Context, id string) (string, error) {
 func (m *Manager) Rollback(ctx context.Context, id string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
+	// A rollback must never act while another transaction owns the node.
+	// This also catches corrupt markers rather than treating them as absent.
+	cur, activeErr := m.checkedActiveID()
+	if activeErr != nil {
+		return "", activeErr
+	}
 	t, err := m.readTxn(id)
 	if err != nil {
-		return "nothing to roll back", nil
+		// A crash between writing the active marker and transaction state
+		// leaves an ambiguous change. Never report a successful rollback:
+		// doing so could invite reuse of an allocated port or live service.
+		if m.activeID() == id {
+			return "", fmt.Errorf("tunnel change %s has an active marker but no readable transaction; manual reconciliation required: %w", id, err)
+		}
+		if errors.Is(err, os.ErrNotExist) {
+			return "nothing to roll back", nil
+		}
+		return "", fmt.Errorf("tunnel change %s has unreadable transaction state; reconciliation required: %w", id, err)
+	}
+	if cur != "" && cur != id {
+		return "", fmt.Errorf("rollback %s refused: active transaction %s owns this node", id, cur)
 	}
 	switch t.Phase {
 	case PhaseRolledBack:
@@ -747,9 +990,31 @@ func (m *Manager) rollbackTxn(ctx context.Context, t Txn) (string, error) {
 		_ = os.Remove(filepath.Join(m.stage(t.ID), f))
 	}
 	t.Phase = PhaseRolledBack
-	_ = m.writeTxn(t)
-	if m.activeID() == t.ID {
+	if err := m.writeTxn(t); err != nil {
+		return "rollback restored live files but could not persist recovery state", err
+	}
+	cur, err := m.checkedActiveID()
+	if err != nil {
+		return "rollback persisted but active marker needs reconciliation", err
+	}
+	if cur != "" && cur != t.ID {
+		return "rollback persisted but another active owner needs reconciliation", fmt.Errorf("active transaction %s does not match %s", cur, t.ID)
+	}
+	if cur == t.ID {
 		m.clearActive()
+	}
+	if m.Instance != "" {
+		_, port, err := net.SplitHostPort(m.MetricsListen)
+		if err != nil {
+			return "rollback completed but metrics claim requires reconciliation", err
+		}
+		n, err := strconv.Atoi(port)
+		if err != nil {
+			return "rollback completed but metrics claim requires reconciliation", err
+		}
+		if err := m.ReleaseMetricsPort(n); err != nil {
+			return "rollback completed but metrics claim requires reconciliation", err
+		}
 	}
 	return "rolled back", nil
 }
@@ -1372,6 +1637,11 @@ func (m *Manager) verifyRetireLive(l Live, id string, want RetireExpectation, al
 func (m *Manager) Retire(ctx context.Context, id string, want RetireExpectation) (RetireEvidence, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return RetireEvidence{}, lockErr
+	}
+	defer unlock()
 	var ev RetireEvidence
 	ev.TunnelID, ev.Instance = id, m.Instance
 	if !idRe.MatchString(id) || want.Generation <= 0 ||

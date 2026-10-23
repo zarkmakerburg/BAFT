@@ -59,7 +59,7 @@ type Alert struct {
 type Server struct {
 	store                   *Store
 	version                 string
-	verifiedCatalog *VerifiedReleaseCatalog
+	verifiedCatalog         *VerifiedReleaseCatalog
 	adminToken              string
 	audit                   *AuditLog
 	guard                   *IPGuard
@@ -252,6 +252,11 @@ func (s *Server) Handler() http.Handler {
 	m.HandleFunc("/api/topology", s.topologyAPI)
 	m.HandleFunc("/api/topology/reconcile", s.topologyReconcileAPI)
 	m.HandleFunc("/api/ingress", s.ingressAPI)
+	m.HandleFunc("/api/ingress/preflight", s.publicIngressPreflightAPI)
+	m.HandleFunc("/api/ingress/inspect", s.publicIngressInspectAPI)
+	m.HandleFunc("/api/ingress/prepare", s.publicIngressPrepareAPI)
+	m.HandleFunc("/api/ingress/cancel", s.publicIngressCancelAPI)
+	m.HandleFunc("/api/ingress/reservations", s.publicIngressReservationsAPI)
 	m.HandleFunc("/api/ingress/evaluate", s.ingressEvaluateAPI)
 	m.HandleFunc("/api/ingress/distribution", s.distributionAPI)
 	m.HandleFunc("/api/ingress/distribution/evaluate", s.distributionEvaluateAPI)
@@ -424,15 +429,19 @@ func (s *Server) agentJobs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	nodeID := r.URL.Query().Get("node_id")
-	jobs, err := s.store.PullJobs(nodeID, bearer(r))
+	var signed []AgentJob
+	_, err := s.store.pullJobs(nodeID, bearer(r), func(jobs []Job) error {
+		var signErr error
+		signed, signErr = s.signAgentJobs(jobs)
+		return signErr
+	})
 	s.agentAuthResult(r, err)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-	signed, err := s.signAgentJobs(jobs)
-	if err != nil {
-		http.Error(w, "job signing failed", http.StatusInternalServerError)
+		if errors.Is(err, ErrAgentAuthentication) {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+		} else {
+			http.Error(w, "job dispatch failed", http.StatusInternalServerError)
+		}
 		return
 	}
 	writeJSON(w, http.StatusOK, signed)

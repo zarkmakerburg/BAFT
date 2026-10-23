@@ -982,7 +982,19 @@ func (r *Runtime) runDialer(ctx context.Context, cfg config.Config) error {
 	shards := make([]*dialerShard, 0, cfg.Transport.Shards)
 	runErr := make(chan error, cfg.Transport.Shards+len(cfg.Routes)+1)
 	for i := 0; i < cfg.Transport.Shards; i++ {
-		o, err := r.dialCarrier(ctx, cfg, tlsCfg)
+		// Retry initial dial attempts while EX is still starting; an initial
+		// connection refusal must not terminate the IR service immediately.
+		var o *openedRuntimeCarrier
+		var err error
+		deadline := time.Now().Add(12 * time.Second)
+		for attempt := 0; ; attempt++ {
+			o, err = r.dialCarrier(ctx, cfg, tlsCfg)
+			if err == nil || ctx.Err() != nil || time.Now().After(deadline) { break }
+			pause := time.Duration(250*(1<<min(attempt, 3))) * time.Millisecond
+			if remaining := time.Until(deadline); pause > remaining { pause = remaining }
+			if pause <= 0 { break }
+			select { case <-ctx.Done(): break; case <-time.After(pause): }
+		}
 		if err != nil {
 			r.closeShards(shards)
 			return fmt.Errorf("open shard %d: %w", i, err)

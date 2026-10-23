@@ -17,6 +17,10 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
+      - name: Check Gamma release falsification and pairing rejection tests
+        run: |
+          set -euo pipefail
+          go test ./tests/release -run '^TestGamma' -count=1 -timeout=5m
       - name: Prepare disposable namespace LAB
         run: |
           set -euo pipefail

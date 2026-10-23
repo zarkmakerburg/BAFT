@@ -191,6 +191,24 @@ func TestSeenJournalRejectsUnsafeStateDirectory(t *testing.T) {
 	}
 }
 
+func TestSeenJournalAllowsReadOnlyDirectoryVisibility(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Chmod(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	a := &Agent{cfg: Config{StateDir: dir, Now: time.Now}, seen: map[string]time.Time{}}
+	if err := a.loadSeen(); err != nil {
+		t.Fatalf("non-writable directory refused: %v", err)
+	}
+	if err := a.markSeen("signed-job-one"); err != nil {
+		t.Fatalf("private journal refused: %v", err)
+	}
+	restarted := &Agent{cfg: Config{StateDir: dir, Now: time.Now}, seen: map[string]time.Time{}}
+	if err := restarted.loadSeen(); err != nil || !restarted.isSeen("signed-job-one") {
+		t.Fatalf("replay fence missing after restart: %v", err)
+	}
+}
+
 func TestMarkSeenRefusesCorruptDiskAfterStartup(t *testing.T) {
 	for _, raw := range []string{"null", "{"} {
 		t.Run(raw, func(t *testing.T) {

@@ -4,6 +4,7 @@ package agent
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"syscall"
@@ -62,16 +63,17 @@ func readSeenJournal(path string) ([]byte, error) {
 	return io.ReadAll(f)
 }
 
-// validateSeenStateDir requires a private owner-only directory before any
-// signed job can consult or update its persistent replay fence. MkdirAll
-// deliberately does not repair unsafe permissions on pre-existing paths.
+// validateSeenStateDir requires a real owned directory that other users
+// cannot modify before any signed job consults its persistent replay fence.
+// Private ledger and lock files remain mode 0600 even if the directory is
+// read/searchable by others. MkdirAll never repairs insecure permissions.
 func validateSeenStateDir(path string) error {
 	pathInfo, err := os.Lstat(path)
 	if err != nil {
 		return err
 	}
-	if !pathInfo.IsDir() || pathInfo.Mode().Perm() != 0700 || pathInfo.Mode()&(os.ModeSetuid|os.ModeSetgid|os.ModeSticky) != 0 {
-		return errors.New("seen-job state directory must be a private regular directory")
+	if !pathInfo.IsDir() || pathInfo.Mode().Perm()&0700 != 0700 || pathInfo.Mode().Perm()&0022 != 0 || pathInfo.Mode()&(os.ModeSetuid|os.ModeSetgid|os.ModeSticky) != 0 {
+		return fmt.Errorf("seen-job state directory must be private: mode=%v", pathInfo.Mode())
 	}
 	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_DIRECTORY|syscall.O_NOFOLLOW|syscall.O_CLOEXEC, 0)
 	if err != nil {
@@ -83,7 +85,7 @@ func validateSeenStateDir(path string) error {
 		return err
 	}
 	stat, ok := info.Sys().(*syscall.Stat_t)
-	if !os.SameFile(pathInfo, info) || !info.IsDir() || info.Mode().Perm() != 0700 || !ok || int(stat.Uid) != os.Geteuid() {
+	if !os.SameFile(pathInfo, info) || !info.IsDir() || info.Mode().Perm()&0700 != 0700 || info.Mode().Perm()&0022 != 0 || info.Mode()&(os.ModeSetuid|os.ModeSetgid|os.ModeSticky) != 0 || !ok || int(stat.Uid) != os.Geteuid() {
 		return errors.New("seen-job state directory inode, permissions or owner invalid")
 	}
 	return nil

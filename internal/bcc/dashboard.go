@@ -368,7 +368,7 @@ async function loadTunnelEngines(){
 // existing reviewed tunnel API; public client ingress is never silently made.
 let tnWizardIndex=0,tnWizardTunnels=[];
 function tnWizardText(en,fa){return document.documentElement.lang==='fa'?fa:en}
-function tnWizardChanged(){tnClearPlan()}
+function tnWizardChanged(){tnIngressPreflightSeq++;tnIngressPreflightRefreshSeq++;tnIngressPreflightJobID='';tnIngressPreflightExpected=null;q('#tnIngressPreflightRefresh').hidden=true;tnIngressPreflightStatus(tnWizardText('Server selection changed. Repeat the read-only IR inspection on the selected server.','سرور انتخاب‌شده تغییر کرد؛ بررسی فقط‌خواندنی ورودی ایران را دوباره انجام دهید.'));tnClearPlan()}
 function tnWizardTargetChanged(){const hint=q('#tnServicePortHint');if(hint)hint.textContent='';tnClearPlan()}
 function tnWizardGenerateServicePort(){
  const input=q('#tnTarget'),hint=q('#tnServicePortHint'),ex=q('#tnEx').value;

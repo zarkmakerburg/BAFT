@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net"
 	"os"
@@ -19,6 +20,20 @@ import (
 	"github.com/zarkmakerburg/baft/internal/ingressownership"
 	"github.com/zarkmakerburg/baft/internal/release"
 )
+
+// Fail before the real delete, leaving a rule that must be independently
+// reverified on retry. All other operations use the actual kernel backend.
+type kernelRetireFault struct {
+	ingressownership.NFTCommandRunner
+	failDelete bool
+}
+
+func (r *kernelRetireFault) Run(ctx context.Context, args ...string) error {
+	if r.failDelete && len(args) > 0 && args[0] == "delete" {
+		return errors.New("LAB injected failure before kernel delete")
+	}
+	return r.NFTCommandRunner.Run(ctx, args...)
+}
 
 // This test mutates only a disposable network namespace. It deliberately uses
 // the real signature verifier, Agent dispatcher, journal, listener and nft binary.
@@ -110,7 +125,8 @@ func TestPublicIngressLABKernelSignedLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	backend := &ingressownership.NFTLabBackend{Runner: ingressownership.NFTCommandRunner{Binary: binary}, ExpectedChainHandle: handle}
+	runner := &kernelRetireFault{NFTCommandRunner: ingressownership.NFTCommandRunner{Binary: binary}}
+	backend := &ingressownership.NFTLabBackend{Runner: runner, ExpectedChainHandle: handle}
 	tx := &ingressownership.NFTLabTransaction{Runtime: ingressownership.NewRuntime(), Firewall: backend, Journal: journal}
 	manifestDir := filepath.Join(dir, "manifest")
 	if err := os.Mkdir(manifestDir, 0700); err != nil {
@@ -122,7 +138,7 @@ func TestPublicIngressLABKernelSignedLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	j, proof := prepareJob(t)
-	execute := func(job agentjob.Job) string {
+	verify := func(job agentjob.Job) agentjob.Job {
 		t.Helper()
 		env, err := agentjob.Sign(key, job)
 		if err != nil {
@@ -132,7 +148,11 @@ func TestPublicIngressLABKernelSignedLifecycle(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, output, err := a.executeFull(ctx, verified)
+		return verified
+	}
+	execute := func(job agentjob.Job) string {
+		t.Helper()
+		_, output, err := a.executeFull(ctx, verify(job))
 		if err != nil {
 			t.Fatalf("%s: %v", job.Action, err)
 		}
@@ -178,12 +198,31 @@ func TestPublicIngressLABKernelSignedLifecycle(t *testing.T) {
 		t.Fatalf("kernel ownership: %+v %v", observed, err)
 	}
 	j.Action, j.JobID = agentjob.ActionPublicIngressRetire, "kernel-retire"
+	runner.failDelete = true
+	if _, output, err := a.executeFull(ctx, verify(j)); err == nil || output != "" {
+		t.Fatalf("failed kernel retirement claimed success: %q %v", output, err)
+	}
+	if _, err := backend.Inspect(ctx, plan); err != nil {
+		t.Fatalf("failed deletion lost exact kernel ownership: %v", err)
+	}
+	foreign, err := net.Listen("tcp4", "0.0.0.0:54619")
+	if err != nil {
+		t.Fatalf("failed delete did not stop original listener: %v", err)
+	}
+	defer foreign.Close()
+	runner.failDelete = false
 	if err := json.Unmarshal([]byte(execute(j)), &receipt); err != nil {
 		t.Fatal(err)
 	}
 	if receipt.LiveOwnershipVerified {
 		t.Fatal("retired receipt claims live ownership")
 	}
+	foreignClient, err := net.DialTimeout("tcp4", "127.0.0.1:54619", time.Second)
+	if err != nil {
+		t.Fatalf("retirement retry closed unrelated replacement listener: %v", err)
+	}
+	_ = foreignClient.Close()
+	_ = foreign.Close()
 	rebound, err := net.Listen("tcp4", "0.0.0.0:54619")
 	if err != nil {
 		t.Fatalf("retire leaked socket: %v", err)

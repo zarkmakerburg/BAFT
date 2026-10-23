@@ -19,6 +19,15 @@ type NFTLabTransaction struct {
 	Runtime  *Runtime
 	Firewall *NFTLabBackend
 	Journal  MutationJournal
+	// Successful socket retirement is process-local evidence, never recovered
+	// from journal phases. Keep it only while exact-owner cleanup is unfinished.
+	stopped map[ingressmanifest.Proof]stoppedIngressSocket
+}
+
+type stoppedIngressSocket struct {
+	runtime  *Runtime
+	firewall *NFTLabBackend
+	handle   uint64
 }
 
 func nftTransactionRecord(spec ingressmanifest.Spec, proof ingressmanifest.Proof) (MutationRecord, RulePlan, error) {
@@ -158,12 +167,27 @@ func (t *NFTLabTransaction) Retire(ctx context.Context, spec ingressmanifest.Spe
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if err := t.Runtime.Retire(spec.Config.Listen, proof); err != nil {
-		return err
+	stopped, alreadyStopped := t.stopped[proof]
+	if alreadyStopped {
+		if stopped.runtime != t.Runtime || stopped.firewall != t.Firewall || stopped.handle != current.FirewallHandle {
+			return ErrUnverified
+		}
+	} else {
+		if err := t.Runtime.Retire(spec.Config.Listen, proof); err != nil {
+			return err
+		}
+		if t.stopped == nil {
+			t.stopped = make(map[ingressmanifest.Proof]stoppedIngressSocket)
+		}
+		t.stopped[proof] = stoppedIngressSocket{runtime: t.Runtime, firewall: t.Firewall, handle: current.FirewallHandle}
 	}
 	if err := t.Firewall.Remove(ctx, plan, observed.Handle); err != nil {
 		return err
 	}
 	record.Phase = PhaseRetired
-	return t.Journal.Advance(record)
+	if err := t.Journal.Advance(record); err != nil {
+		return err
+	}
+	delete(t.stopped, proof)
+	return nil
 }

@@ -142,3 +142,10 @@ test('new tunnel resets direction and engine and requires an explicit destinatio
  assert.equal(fields.tnDirection,'ir-to-ex');assert.equal(fields.tnEngine,'baft');
  assert.equal(fields.tnTarget,'');assert.equal(fields.tnServicePortHint,'');
 });
+
+test('blocked backend plan cannot leave a deployable plan hash',()=>{
+ const fields={tnPlan:''};const c=context(fields,'let tnPlanHash="stale",tnPlanReq={stale:true},tnPlanReplaces="old";const esc=String;'+fn('function tnShowPlan(p)','function tnClearPlan()'));
+ vm.runInContext('tnShowPlan({ok:false,hash:"blocked",request:{},gates:[],nodes:[],steps:[],verify:[],rollback:[]})',c);
+ assert.equal(vm.runInContext('tnPlanHash',c),'');
+ assert.equal(vm.runInContext('tnPlanReq',c),null);
+});

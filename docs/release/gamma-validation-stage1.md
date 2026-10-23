@@ -68,6 +68,17 @@ key material in command arguments, public logs or CI artifacts. Actual
 stopped-service restore, permissions on the target host, and recovery under
 systemd remain release gates.
 
+**New P0-D key-file trust regression (RED, not merged):** On Mac LAB,
+the real `bcc.BackupKeyFromFile` accepted both mode-`0644` key material and
+a symlink to a key file. An isolated `TestGammaBackupKeyMustRejectPublicModeAndSymlink`
+reproduced both failures (exit **1**) against `5814918`; no actual secrets
+were used and the failing scratch test has **not** been added to the PR.
+Ownership remains with Beta; [HQ evidence](https://github.com/zarkmakerburg/BAFT/issues/67#issuecomment-6368745255)
+and [Beta coordination](https://github.com/zarkmakerburg/BAFT/pull/275#issuecomment-6368745965)
+request fail-closed regular-file, ownership/mode and symlink validation
+with regression tests. The key-file permission criterion is **OPEN**,
+independent of successful encrypted backup content and restore drills.
+
 ## P0-C: real v0.3.7 BCC upgrade and cold rollback (isolated Linux)
 
 The actual `v0.3.7` tag is pinned to
@@ -103,13 +114,44 @@ tunnel sockets. A rollback necessarily discards writes made after the
 backup; automation must surface that data-loss window. Real node
 upgrade/recovery remains a blocking acceptance drill.
 
+## P0-C: EX/IR transport v0.3.7 → candidate (Linux namespaces)
+
+The pinned genuine BAFT **v0.3.7** executables were built from tag
+`94c55dccf5af7cd126089374d991463931413121` alongside candidate executables.
+The older `baft-pair` generated EX/IR Noise keys, PKI and one-time PairCode;
+the original v0.3.7 `baft run` binaries carried two SHA-checked 1 MiB
+connections between two separate Linux network namespaces. Both were
+stopped and the candidate `baft run` binaries launched **without
+re-pairing, replacing config, or rotating secrets**. Two more 1 MiB
+SHA-checked connections succeeded. EX→IR TCP/22 was blocked by nftables;
+an unrelated IR:2053 service remained reachable before/after restart.
+EX/IR config and key digests remained bit-for-bit unchanged.
+
+- Script: `tests/e2e/gamma_v037_tunnel_upgrade_namespace.sh`.
+- Workflow: `.github/workflows/gamma-v037-tunnel-upgrade-lab.yml`.
+- Hosted Linux result:
+  [run 39979913583](https://github.com/zarkmakerburg/BAFT/actions/runs/39979913583) /
+  [job 120504182399](https://github.com/zarkmakerburg/BAFT/actions/runs/39979913583/job/120504182399)
+  **SUCCESS** (source `d55ebd09`; job log emits explicit v0.3.7→candidate PASS).
+- Release admission: `scripts/release/accept.sh` requires the exact tagged
+  candidate commit's `v037-two-node-upgrade` job to have completed
+  successfully when the workflow is included in that tag. Mac
+  `TestGammaTaggedReleaseRequiresV037TunnelUpgradeLAB` passed on
+  `3bae76c` (Exit Code 0).
+
+**Boundary:** This is a *stopped-binary upgrade* under network namespaces,
+not two physical hosts, systemd upgrade, durable kernel resource adoption,
+an unattended installer migration or uninterrupted existing TCP sockets.
+No server was modified. Real-host service recovery and signed
+installer Upgrade/Rollback remain release gates.
+
 ## P0-A through P0-F release acceptance matrix
 
 | P0 | Operational criterion | Gamma status | Required next proof |
 |---|---|---|---|
 | A | Two independent Linux nodes: install, pair, EX→IR SSH blocked, reinstallation, preservation of live tunnels | PARTIAL: isolated Linux namespace pairing, port-22 filtering and service preservation PASS; real two-host installation remains BLOCKED | Disposable two-node Linux LAB and then approved real-host acceptance; prove **both** install/repair and traffic continuity |
 | B | Create/start/stop/restart/delete, reboot/crash, cross-process ownership and safe resource reconciliation | BLOCKED | End-to-end process/service crash and reboot with authoritative nft/systemd inventory, existing-service hashes |
-| C | v0.3.x→v0.4.0 upgrade and compatible downgrade, failed-upgrade rollback | PARTIAL: isolated genuine v0.3.7 BCC schema forward migration, old-binary refusal, cold snapshot rollback and re-upgrade PASS | Still requires EX/IR live service upgrade, tunnel preservation and real host recovery; no unsafe in-place downgrade |
+| C | v0.3.x→v0.4.0 upgrade and compatible downgrade, failed-upgrade rollback | PARTIAL: genuine v0.3.7 BCC migration/rollback plus stopped EX/IR v0.3.7→candidate binary recovery with pairing/config/key preservation PASS in isolated LAB | Still requires installer/systemd upgrade, active socket continuity and physical-host recovery; no unsafe in-place downgrade |
 | D | Encrypted backup, same/second-node restore, key permissions and secret-free logs | PARTIAL: real CLI Mac LAB with wrong-key/held-lock failures, stopped-state restore and isolated fresh-directory recovery passed | Still requires real stopped-service Linux drill, separate physical node, key handling and artifact/log review |
 | E | TCP/UDP, IPv4/IPv6 when admitted, network loss, nftables, port conflicts, SSH/service preservation | PARTIAL: actual Linux nft and TCP namespace check PASS; remaining protocol and host gates OPEN | Real Linux kernel ingress LAB exists in #270; no final physical-host/network reachability or complete protocol matrix |
 | F | Exact candidate race/vet/CI plus all release gates, provenance/signatures | PARTIAL | Exact candidate hosted workflows green; Gamma local scoped race green; final integrated SHA and operational P0 gates still absent |

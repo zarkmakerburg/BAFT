@@ -20,6 +20,7 @@ type Config struct {
 	Target      string
 	MaxClients  int
 	DialTimeout time.Duration
+	IdleTimeout time.Duration // Maximum silence across both directions; zero uses 5 minutes
 }
 
 // Forwarder owns one listener while running. The configuration is immutable;
@@ -60,6 +61,9 @@ func New(cfg Config) (*Forwarder, error) {
 	if port < 1024 && port != 443 {
 		return nil, errors.New("privileged listen port is not allowed (except 443)")
 	}
+	// An ordinary service's public port is not a permanent magic number.
+	// The kernel refuses conflicts with live listeners. Persisted claims and
+	// stopped-service ownership must be verified by the admission layer.
 	if !ip.IsUnspecified() && !ip.IsGlobalUnicast() && !ip.IsLoopback() {
 		return nil, errors.New("listen IP must be unicast, loopback or wildcard")
 	}
@@ -87,6 +91,12 @@ func New(cfg Config) (*Forwarder, error) {
 	}
 	if cfg.DialTimeout < 10*time.Millisecond || cfg.DialTimeout > 10*time.Second {
 		return nil, errors.New("dial timeout must be between 10ms and 10s")
+	}
+	if cfg.IdleTimeout == 0 {
+		cfg.IdleTimeout = 5 * time.Minute
+	}
+	if cfg.IdleTimeout < 50*time.Millisecond || cfg.IdleTimeout > 30*time.Minute {
+		return nil, errors.New("idle timeout must be between 50ms and 30m")
 	}
 	cfg.Listen = net.JoinHostPort(ip.String(), strconv.Itoa(port))
 	cfg.Target = net.JoinHostPort(target.String(), strconv.Itoa(targetPort))
@@ -167,6 +177,23 @@ func (f *Forwarder) Serve(parent context.Context, ln net.Listener) error {
 	}
 }
 
+// activityReader records successful stream reads, regardless of direction.
+// An idle peer cannot indefinitely exhaust the bounded connection budget.
+// The window is refreshed by real bytes, not by a connection merely staying
+// open; a write stalled by backpressure eventually expires too.
+type activityReader struct {
+	io.Reader
+	touch func()
+}
+
+func (r activityReader) Read(p []byte) (int, error) {
+	n, err := r.Reader.Read(p)
+	if n > 0 {
+		r.touch()
+	}
+	return n, err
+}
+
 func (f *Forwarder) forward(ctx context.Context, client net.Conn) {
 	defer client.Close()
 	stopClient := context.AfterFunc(ctx, func() { _ = client.Close() })
@@ -179,10 +206,19 @@ func (f *Forwarder) forward(ctx context.Context, client net.Conn) {
 	defer upstream.Close()
 	stopUpstream := context.AfterFunc(ctx, func() { _ = upstream.Close() })
 	defer stopUpstream()
+	// One idle budget covers traffic in either direction. Timeout closes both
+	// peers to release io.Copy goroutines and the admission slot. Successful
+	// reads reset the timer; inactivity cannot keep a slot indefinitely.
+	idle := time.AfterFunc(f.cfg.IdleTimeout, func() {
+		_ = client.Close()
+		_ = upstream.Close()
+	})
+	defer idle.Stop()
+	touch := func() { idle.Reset(f.cfg.IdleTimeout) }
 	// EOF half-closes only the destination write side. The opposite direction
 	// stays alive until its own EOF; request EOF may trigger a delayed response.
 	copyDirection := func(dst, src net.Conn) {
-		if _, err := io.Copy(dst, src); err != nil {
+		if _, err := io.Copy(dst, activityReader{Reader: src, touch: touch}); err != nil {
 			_ = client.Close()
 			_ = upstream.Close()
 			return

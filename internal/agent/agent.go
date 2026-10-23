@@ -100,6 +100,10 @@ var errAckRefused = errors.New("BCC refused the result")
 
 const seenRetention = 7 * 24 * time.Hour
 
+// Bound replay-ledger I/O and refuse admission instead of accepting an
+// unreadable on-disk state file. This comfortably covers normal 7-day job IDs.
+const maxSeenJournalBytes = 16 << 20
+
 func New(cfg Config) (*Agent, error) {
 	if cfg.BCCURL == "" || cfg.NodeID == "" || cfg.Token == "" || len(cfg.BCCJobKey) != ed25519.PublicKeySize || cfg.StateDir == "" {
 		return nil, errors.New("agent needs BCC URL, node ID, token, pinned BCC job key and state dir")
@@ -189,6 +193,10 @@ func (a *Agent) markSeen(id string) error {
 	b, err := json.Marshal(a.seen)
 	if err != nil {
 		return err
+	}
+	// Refuse admission rather than persist a ledger that startup cannot read.
+	if len(b) > maxSeenJournalBytes {
+		return errors.New("seen-job replay journal exceeds size limit")
 	}
 	f, err := os.CreateTemp(a.cfg.StateDir, ".seen-jobs-*")
 	if err != nil {

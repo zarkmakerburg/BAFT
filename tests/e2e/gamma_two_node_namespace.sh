@@ -135,10 +135,11 @@ kill -0 "$IR_PID"
 AFTER=$(sha256sum "$EX/baft.yaml" "$IR/baft.yaml" \
   "$EX/noise-key.json" "$IR/noise-key.json" | sha256sum)
 test "$BEFORE" = "$AFTER" || { echo "FAIL: config/key drift" >&2; exit 1; }
-# Cold process restart: no new PairCode or regenerated key is permitted.
-# This checks re-establishing NEW connections with the original pair, not
-# continuity of a socket during a crash or systemd's restart policy.
-kill "$IR_PID" "$EX_PID"
+# Simulated unclean crash of both disposable EX and IR processes.
+# The candidate restarts using the original keys and config, without PairCode.
+# This verifies fresh connection recovery, NOT persistence of in-flight sockets,
+# systemd auto-restart, machine reboot or production kernel state adoption.
+kill -KILL "$IR_PID" "$EX_PID"
 wait "$IR_PID" 2>/dev/null || true
 wait "$EX_PID" 2>/dev/null || true
 ip netns exec "$NS_EX" curl -fsS --max-time 3 -o /dev/null \
@@ -173,4 +174,4 @@ wait "$IR_RESTART_PID" 2>/dev/null || true
 wait "$EX_RESTART_PID" 2>/dev/null || true
 ip netns exec "$NS_EX" curl -fsS --max-time 3 -o /dev/null \
   http://10.221.52.2:2053/
-echo "PASS: isolated Linux one-way pairing, 2x2x1MiB SHA transport including cold process restart, blocked EX->IR:22, unchanged configs/keys and preserved IR:2053"
+echo "PASS: isolated Linux one-way pairing, 2x2x1MiB SHA transport including SIGKILL crash/restart, blocked EX->IR:22, unchanged configs/keys and preserved IR:2053"

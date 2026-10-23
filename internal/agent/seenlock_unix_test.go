@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -206,6 +207,45 @@ func TestSeenJournalAllowsReadOnlyDirectoryVisibility(t *testing.T) {
 	restarted := &Agent{cfg: Config{StateDir: dir, Now: time.Now}, seen: map[string]time.Time{}}
 	if err := restarted.loadSeen(); err != nil || !restarted.isSeen("signed-job-one") {
 		t.Fatalf("replay fence missing after restart: %v", err)
+	}
+}
+
+func TestSeenJournalRejectsOversizedOnDiskLedger(t *testing.T) {
+	dir := t.TempDir()
+	ledger := filepath.Join(dir, "seen-jobs.json")
+	f, err := os.OpenFile(ledger, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Truncate(maxSeenJournalBytes + 1); err != nil {
+		f.Close()
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readSeenJournal(ledger); err == nil {
+		t.Fatal("unbounded replay ledger accepted")
+	}
+	a := &Agent{cfg: Config{StateDir: dir, Now: time.Now}, seen: map[string]time.Time{}}
+	if err := a.loadSeen(); err == nil {
+		t.Fatal("oversized replay ledger admitted agent startup")
+	}
+	if err := a.markSeen("must-not-execute"); err == nil {
+		t.Fatal("oversized replay ledger admitted a job")
+	}
+	if info, err := os.Stat(ledger); err != nil || info.Size() != maxSeenJournalBytes+1 {
+		t.Fatalf("replay ledger was overwritten on failed admission: %v %v", info, err)
+	}
+}
+
+func TestMarkSeenRefusesOversizedSerializedLedger(t *testing.T) {
+	a := &Agent{cfg: Config{StateDir: t.TempDir(), Now: time.Now}, seen: map[string]time.Time{}}
+	if err := a.markSeen(strings.Repeat("x", maxSeenJournalBytes)); err == nil {
+		t.Fatal("oversized replay ledger accepted as durable")
+	}
+	if _, err := os.Stat(a.seenPath()); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("oversized job claim wrote an unreadable replay ledger: %v", err)
 	}
 }
 

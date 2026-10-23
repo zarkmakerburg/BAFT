@@ -1,0 +1,31 @@
+name: Gamma Two-Node Isolated LAB
+on:
+  pull_request:
+    paths:
+      - 'tests/e2e/gamma_two_node_namespace.sh'
+      - '.github/workflows/gamma-two-node-lab.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-two-node:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Prepare disposable namespace LAB
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq iproute2 nftables
+          mkdir -p "$RUNNER_TEMP/baft-bin"
+          go build -o "$RUNNER_TEMP/baft-bin/" ./cmd/baft ./cmd/baft-pair
+          bash -n tests/e2e/gamma_two_node_namespace.sh
+      - name: Prove one-way pairing and unrelated service preservation
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=10s 240s sudo bash tests/e2e/gamma_two_node_namespace.sh "$RUNNER_TEMP/baft-bin"

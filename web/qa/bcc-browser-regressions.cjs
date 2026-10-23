@@ -191,7 +191,11 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       const endpoint=f.base+'api/tunnels/plan';
       await page.route(endpoint,r=>r.fulfill({status:503,contentType:'text/plain',body:'QA failure fixture'}));
       await Promise.all([page.waitForResponse(r=>r.url()===endpoint&&r.status()===503),review.click()]);
-      assert.ok((await page.locator('#ops_tnPlan').textContent()).includes(plan.hash));await page.unroute(endpoint);
+      // A failed re-preview invalidates the earlier deployable plan; never
+      // retain a stale reviewed hash after a new planning attempt.
+      assert.equal((await page.locator('#ops_tnPlan').textContent()).includes(plan.hash),false);
+      assert.equal(await page.locator('#ops_tnPlan [onclick="tnDeploy()"]').count(),0);
+      await page.unroute(endpoint);
       await page.locator('#ops_tnWizardBack').click();await page.locator('#ops_tnTarget').fill('[::1]:5432');
       assert.equal(await page.locator('#ops_tnPlan [onclick="tnDeploy()"]').count(),0);
       assert.equal(apiRequests.filter(r=>r.path==='api/tunnels'&&r.method==='POST').length,0);

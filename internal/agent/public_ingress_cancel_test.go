@@ -170,3 +170,20 @@ func TestIngressCancelAlreadyCancelledContextDoesNotWriteTombstone(t *testing.T)
 		t.Fatalf("cancelled request mutated manifest directory: %v, %v", entries, err)
 	}
 }
+
+func TestIngressCancelNilContextDoesNotWriteTombstone(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Chmod(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	j, _ := prepareJob(t)
+	j.Action = agentjob.ActionPublicIngressCancel
+	_, err := (&Agent{cfg: Config{IngressManifestDir: dir}}).publicIngressCancel(nil, j)
+	if err == nil || !strings.Contains(err.Error(), "non-nil context") {
+		t.Fatalf("nil context: got %v, want explicit rejection", err)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("nil context mutated manifest directory: %v, %v", entries, err)
+	}
+}

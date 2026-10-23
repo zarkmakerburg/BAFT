@@ -73,6 +73,16 @@ func TestRenderRequiresExactManifestAndDoesNotAdoptChangedUnit(t *testing.T) {
 	}
 }
 
+func TestRenderRejectsProtectedImperialCrownPort(t *testing.T) {
+	spec := candidateSpec()
+	spec.Config.Listen = "0.0.0.0:2053"
+	// A valid proof must never be issued for a conflicting listener: the
+	// protection must hold at both runtime and signed-manifest boundaries.
+	if _, err := ingressmanifest.Preview(spec); err == nil {
+		t.Fatal("prepared a persistent unit for protected port 2053")
+	}
+}
+
 func TestRenderRejectsUnsafeManifestIdentityInSystemdMetadata(t *testing.T) {
 	for _, id := range []string{"bad\n[Service]\nExecStart=/bin/false", "bad\runit", "bad\x00id"} {
 		spec := candidateSpec()

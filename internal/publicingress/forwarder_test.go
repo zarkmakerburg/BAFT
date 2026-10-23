@@ -441,6 +441,113 @@ func TestForwarderDoesNotTakeOwnershipOfMismatchedListener(t *testing.T) {
 	}
 }
 
+// A temporarily stopped Imperial Crown instance must retain its dedicated
+// public port; admission cannot treat an unoccupied 2053 as available.
+func TestForwarderIdleClientsReleaseCapacity(t *testing.T) {
+	backend := echoBackend(t)
+	ln := tcpListener(t)
+	f, err := New(Config{
+		Listen: ln.Addr().String(), Target: backend.Addr().String(),
+		MaxClients: 1, DialTimeout: 100 * time.Millisecond, IdleTimeout: 100 * time.Millisecond,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- f.Serve(ctx, ln) }()
+	defer func() {
+		cancel()
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Errorf("forwarder shutdown: %v", err)
+			}
+		case <-time.After(3 * time.Second):
+			t.Error("idle forwarder failed to shut down")
+		}
+	}()
+	client := connect(t, ln.Addr().String())
+	if _, err := client.Write([]byte("hi")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.ReadFull(client, make([]byte, 2)); err != nil {
+		t.Fatal(err)
+	}
+	// Client holds the connection open but sends no more bytes; read must
+	// finish with EOF/reset rather than stay pinned until client cancellation.
+	if _, err := client.Read(make([]byte, 1)); err == nil {
+		t.Fatal("idle client did not expire")
+	} else if ne, ok := err.(net.Error); ok && ne.Timeout() {
+		t.Fatalf("idle client retained capacity until caller deadline: %v", err)
+	}
+	deadline := time.Now().Add(time.Second)
+	for f.ActiveConnections() != 0 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if f.ActiveConnections() != 0 {
+		t.Fatal("idle client retained an ingress slot")
+	}
+	fresh := connect(t, ln.Addr().String())
+	if _, err := fresh.Write([]byte("ok")); err != nil {
+		t.Fatal(err)
+	}
+	got := make([]byte, 2)
+	if _, err := io.ReadFull(fresh, got); err != nil || string(got) != "ok" {
+		t.Fatalf("replacement connection did not forward: %q %v", got, err)
+	}
+}
+
+func TestForwarderActivityExtendsIdleWindow(t *testing.T) {
+	backend := echoBackend(t)
+	ln := tcpListener(t)
+	f, err := New(Config{
+		Listen: ln.Addr().String(), Target: backend.Addr().String(),
+		MaxClients: 1, IdleTimeout: 400 * time.Millisecond,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- f.Serve(ctx, ln) }()
+	defer func() { cancel(); <-done }()
+	client := connect(t, ln.Addr().String())
+	for i := 0; i < 7; i++ {
+		if _, err := client.Write([]byte("x")); err != nil {
+			t.Fatal(err)
+		}
+		got := make([]byte, 1)
+		if _, err := io.ReadFull(client, got); err != nil || string(got) != "x" {
+			t.Fatalf("active stream expired after %d replies: %v", i, err)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+func TestForwarderRejectsInvalidIdleTimeout(t *testing.T) {
+	for _, idle := range []time.Duration{-time.Second, time.Millisecond, 31 * time.Minute} {
+		if _, err := New(Config{Listen: "127.0.0.1:15555", Target: "127.0.0.1:1443", IdleTimeout: idle}); err == nil {
+			t.Fatalf("accepted unsafe idle timeout %s", idle)
+		}
+	}
+}
+
+func TestForwarderRejectsProtected2053(t *testing.T) {
+	for _, listen := range []string{"127.0.0.1:2053", "0.0.0.0:2053", "[::]:2053"} {
+		t.Run(listen, func(t *testing.T) {
+			if _, err := New(Config{Listen: listen, Target: "127.0.0.1:1443"}); err == nil {
+				t.Fatal("reserved Imperial Crown listen port 2053 was accepted")
+			}
+		})
+	}
+	// Unrelated high ports remain valid. Protect only the reserved ingress
+	// endpoint, not every service using ports near it.
+	if _, err := New(Config{Listen: "127.0.0.1:2054", Target: "127.0.0.1:1443"}); err != nil {
+		t.Fatalf("unrelated port refused: %v", err)
+	}
+}
+
 func TestNewAllowsPrivileged443WithoutBinding(t *testing.T) {
 	f, err := New(Config{Listen: "127.0.0.1:443", Target: "127.0.0.1:1443"})
 	if err != nil || f == nil {

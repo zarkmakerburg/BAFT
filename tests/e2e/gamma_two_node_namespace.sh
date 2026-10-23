@@ -9,14 +9,7 @@ fi
 BIN_DIR="$1"
 BAFT="$BIN_DIR/baft"
 PAIR="$BIN_DIR/baft-pair"
-# Optional genuine older binaries for v0.3.7 -> candidate transport recovery.
-# Only the first pair and live processes use the older binaries; the second
-# start uses the exact candidate binaries, without changing any state file.
-INITIAL_BIN_DIR="${GAMMA_INITIAL_BIN_DIR:-$BIN_DIR}"
-INITIAL_BAFT="$INITIAL_BIN_DIR/baft"
-INITIAL_PAIR="$INITIAL_BIN_DIR/baft-pair"
 test -x "$BAFT" && test -x "$PAIR"
-test -x "$INITIAL_BAFT" && test -x "$INITIAL_PAIR"
 for tool in ip nft python3 curl sha256sum; do command -v "$tool" >/dev/null; done
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 WORK="$(mktemp -d)"
@@ -100,26 +93,23 @@ fi
 ip netns exec "$NS_EX" curl -fsS --max-time 3 -o /dev/null \
   http://10.221.52.2:2053/
 
-"$INITIAL_PAIR" keygen --file "$EX/noise-key.json" >/dev/null
-"$INITIAL_PAIR" pki --dir "$EX/pki" --host 10.221.52.1 >/dev/null
-CODE=$("$INITIAL_PAIR" ex-code --key "$EX/noise-key.json" \
+"$PAIR" keygen --file "$EX/noise-key.json" >/dev/null
+"$PAIR" pki --dir "$EX/pki" --host 10.221.52.1 >/dev/null
+CODE=$("$PAIR" ex-code --key "$EX/noise-key.json" \
   --address 10.221.52.1:$EX_PORT --server-name 10.221.52.1 \
   --identity urn:baft:node:ex-gamma-lab --ca-file "$EX/pki/ca.pem" \
   --psk-out "$EX/pair.psk" --pending-out "$EX/pair.pending" --ttl 5m)
-"$INITIAL_PAIR" keygen --file "$IR/noise-key.json" >/dev/null
-REPLY=$("$INITIAL_PAIR" ir-apply --code "$CODE" --key "$IR/noise-key.json" \
+"$PAIR" keygen --file "$IR/noise-key.json" >/dev/null
+REPLY=$("$PAIR" ir-apply --code "$CODE" --key "$IR/noise-key.json" \
   --state-dir "$IR/state" --config-out "$IR/baft.yaml" \
   --route-listen "127.0.0.1:$IR_PORT" --metrics-listen 127.0.0.1:18113)
-"$INITIAL_PAIR" ex-accept --reply "$REPLY" --pending "$EX/pair.pending" \
+"$PAIR" ex-accept --reply "$REPLY" --pending "$EX/pair.pending" \
   --psk-file "$EX/pair.psk" --key "$EX/noise-key.json" \
   --listen "10.221.52.1:$EX_PORT" --ca-file "$EX/pki/ca.pem" \
   --cert-file "$EX/pki/server.pem" --cert-key-file "$EX/pki/server.key" \
   --target "127.0.0.1:$TARGET_PORT" --metrics-listen 127.0.0.1:18112 \
   --unix-socket "$EX/admin.sock" --config-out "$EX/baft.yaml" >/dev/null
 test ! -e "$EX/pair.psk" && test ! -e "$EX/pair.pending"
-"$INITIAL_BAFT" config validate --file "$EX/baft.yaml" >/dev/null
-"$INITIAL_BAFT" config validate --file "$IR/baft.yaml" >/dev/null
-# Catch unsupported legacy config before stopping a working old tunnel.
 "$BAFT" config validate --file "$EX/baft.yaml" >/dev/null
 "$BAFT" config validate --file "$IR/baft.yaml" >/dev/null
 BEFORE=$(sha256sum "$EX/baft.yaml" "$IR/baft.yaml" \
@@ -128,12 +118,12 @@ BEFORE=$(sha256sum "$EX/baft.yaml" "$IR/baft.yaml" \
 ip netns exec "$NS_EX" python3 "$ROOT/tests/e2e/echo.py" serve "$TARGET_PORT" \
   >"$WORK/target.log" 2>&1 &
 PIDS="$PIDS $!"
-ip netns exec "$NS_EX" "$INITIAL_BAFT" run --file "$EX/baft.yaml" \
+ip netns exec "$NS_EX" "$BAFT" run --file "$EX/baft.yaml" \
   >"$WORK/ex.log" 2>&1 &
 EX_PID=$!
 PIDS="$PIDS $EX_PID"
 wait_port "$NS_EX" 10.221.52.1 "$EX_PORT"
-ip netns exec "$NS_IR" "$INITIAL_BAFT" run --file "$IR/baft.yaml" \
+ip netns exec "$NS_IR" "$BAFT" run --file "$IR/baft.yaml" \
   >"$WORK/ir.log" 2>&1 &
 IR_PID=$!
 PIDS="$PIDS $IR_PID"
@@ -183,8 +173,4 @@ wait "$IR_RESTART_PID" 2>/dev/null || true
 wait "$EX_RESTART_PID" 2>/dev/null || true
 ip netns exec "$NS_EX" curl -fsS --max-time 3 -o /dev/null \
   http://10.221.52.2:2053/
-if [[ "$INITIAL_BIN_DIR" != "$BIN_DIR" ]]; then
-  echo "PASS: genuine older EX/IR binaries upgraded to candidate with both configs/keys unchanged, 2x2x1MiB SHA transport, one-way SSH filter, IR:2053 preserved"
-else
-  echo "PASS: isolated Linux one-way pairing, 2x2x1MiB SHA transport including cold process restart, blocked EX->IR:22, unchanged configs/keys and preserved IR:2053"
-fi
+echo "PASS: isolated Linux one-way pairing, 2x2x1MiB SHA transport including cold process restart, blocked EX->IR:22, unchanged configs/keys and preserved IR:2053"

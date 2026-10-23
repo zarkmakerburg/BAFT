@@ -180,8 +180,8 @@ var optionalParamRules = map[string]map[string]*regexp.Regexp{
 	ActionTunnelRetire:         {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
 	ActionPublicIngressPrepare: {"instance_id": instanceIDRe},
 	ActionPublicIngressCancel:  {"instance_id": instanceIDRe},
-	ActionPublicIngressApply:   {"instance_id": instanceIDRe},
-	ActionPublicIngressRetire:  {"instance_id": instanceIDRe},
+	ActionPublicIngressApply:   {"instance_id": instanceIDRe, "ingress_protocol": regexp.MustCompile("^1$"), "operation_id": tunnelIDRe, "lease_id": tunnelIDRe, "plan_sha256": sha256Re, "config_sha256": sha256Re, "listen_endpoint": endpointRe, "transport": regexp.MustCompile("^dedicated$")},
+	ActionPublicIngressRetire:  {"instance_id": instanceIDRe, "ingress_protocol": regexp.MustCompile("^1$"), "operation_id": tunnelIDRe, "lease_id": tunnelIDRe, "plan_sha256": sha256Re, "config_sha256": sha256Re, "listen_endpoint": endpointRe, "transport": regexp.MustCompile("^dedicated$")},
 	ActionCertPrepareEX:        {"instance_id": instanceIDRe},
 	ActionCertTrustIR:          {"instance_id": instanceIDRe},
 	ActionCertVerifyEX:         {"instance_id": instanceIDRe},
@@ -243,6 +243,9 @@ func (j Job) Validate() error {
 			return fmt.Errorf("action %s needs parameter %q", j.Action, k)
 		}
 	}
+	if err := validateIngressV1(j); err != nil {
+		return err
+	}
 	// Regular expressions constrain syntax, but can still match invalid IPs
 	// and ports such as 0 or 65536. Apply the same semantic checks before
 	// planning, signing and accepting native tunnel preparation jobs.
@@ -271,8 +274,8 @@ func (j Job) Validate() error {
 		_, targetPort, _ := net.SplitHostPort(j.Params["local_target"])
 		publicPort, _ := strconv.Atoi(j.Params["public_port"])
 		targetNumber, _ := strconv.Atoi(targetPort)
-		if publicPort < 1024 {
-			return errors.New("public ingress listen port must be at least 1024")
+		if publicPort < 1024 && !(j.Params["ingress_protocol"] == "1" && publicPort != 22) {
+			return errors.New("public ingress listen port must be at least 1024 for legacy jobs, and never SSH 22")
 		}
 		if targetNumber == 22 {
 			return errors.New("public ingress target port 22 is reserved for SSH management")

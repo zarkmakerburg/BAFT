@@ -145,6 +145,9 @@ func (a *Agent) loadSeen() error {
 	if err != nil {
 		return err
 	}
+	if err := rejectDuplicateSeenKeys(b); err != nil {
+		return err
+	}
 	if err := json.Unmarshal(b, &a.seen); err != nil {
 		return err
 	}
@@ -152,6 +155,44 @@ func (a *Agent) loadSeen() error {
 		return errors.New("invalid null seen-job journal")
 	}
 	return validateSeenTimestamps(a.seen)
+}
+
+// rejectDuplicateSeenKeys ensures JSON map decoding cannot silently discard
+// an earlier signed-job claim under the same ID. Such shadowing could turn a
+// recently claimed job into an expired entry eligible for re-admission.
+func rejectDuplicateSeenKeys(raw []byte) error {
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	start, err := decoder.Token()
+	if err != nil || start != json.Delim('{') {
+		return errors.New("seen-job journal must be a JSON object")
+	}
+	observed := make(map[string]struct{})
+	for decoder.More() {
+		token, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		key, ok := token.(string)
+		if !ok {
+			return errors.New("seen-job journal contains a non-string key")
+		}
+		if _, found := observed[key]; found {
+			return errors.New("seen-job journal contains duplicate job IDs")
+		}
+		observed[key] = struct{}{}
+		var timestamp json.RawMessage
+		if err := decoder.Decode(&timestamp); err != nil {
+			return err
+		}
+	}
+	end, err := decoder.Token()
+	if err != nil || end != json.Delim('}') {
+		return errors.New("invalid seen-job journal closing delimiter")
+	}
+	if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
+		return errors.New("trailing data in seen-job journal")
+	}
+	return nil
 }
 
 // validateSeenTimestamps prevents malformed zero-valued entries from being
@@ -187,6 +228,9 @@ func (a *Agent) markSeen(id string) error {
 	// ledger is the admission authority and must also preserve its other IDs.
 	latest := make(map[string]time.Time)
 	if raw, err := readSeenJournal(a.seenPath()); err == nil {
+		if err := rejectDuplicateSeenKeys(raw); err != nil {
+			return err
+		}
 		if err := json.Unmarshal(raw, &latest); err != nil {
 			return err
 		}

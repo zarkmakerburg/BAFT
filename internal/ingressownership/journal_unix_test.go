@@ -114,6 +114,21 @@ func TestDurableJournalRetiredGenerationReplayFence(t *testing.T) {
 	}
 }
 
+func TestJournalCapacityPreservesIdempotentReplay(t *testing.T) {
+	record := MutationRecord{Port: 54619, Owner: proof("journal-capacity", 1), Phase: PhaseIntent}
+	snapshot := []MutationRecord{record}
+	if replay, err := planJournalMutation(maxJournalEntries, snapshot, record); err != nil || !replay {
+		t.Fatalf("journal full but current phase replay rejected: replay=%v err=%v", replay, err)
+	}
+	other := MutationRecord{Port: 54620, Owner: proof("journal-next", 1), Phase: PhaseIntent}
+	if replay, err := planJournalMutation(maxJournalEntries, snapshot, other); replay || !errors.Is(err, ErrInvalid) {
+		t.Fatalf("journal capacity allowed new entry: replay=%v err=%v", replay, err)
+	}
+	if replay, err := planJournalMutation(maxJournalEntries-1, snapshot, other); replay || err != nil {
+		t.Fatalf("journal below capacity rejected new intent: replay=%v err=%v", replay, err)
+	}
+}
+
 func TestDurableJournalConcurrentWritersAndFences(t *testing.T) {
 	dir := newJournalTestDir(t)
 	a, _ := OpenDurableJournal(dir)

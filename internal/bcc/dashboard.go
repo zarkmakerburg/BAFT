@@ -470,10 +470,11 @@ function tnShowPlan(p){const unselectedReplacement=!!p.replaces&&(!tnEditBase||p
 function tnClearPlan(){tnPlanEpoch++;tnPlanHash='';tnPlanReq=null;tnPlanReplaces='';q('#tnPlan').innerHTML=''}
 async function tnPlan(){tnClearPlan();const epoch=tnPlanEpoch;for(let i=0;i<4;i++)if(!tnWizardValidateStep(i))return;let body=tnReq();if(!body.ex_node||!body.ir_node){alert('Choose the EX and IR nodes');return}if(!tnEditBase&&q('#tnMode').value==='replace'){alert('To edit or replace an active tunnel, first click Edit on its row. / برای ویرایش، ابتدا روی ویرایش تونل فعال کلیک کنید.');return}if(q('#tnMode').value==='independent'&&!/^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$/.test(body.instance_id||'')){alert('Enter a unique valid Instance ID (letters, numbers, dot, underscore or hyphen). / شناسه نمونه مستقل الزامی است.');return}let r=await fetch('/api/tunnels/plan',{method:'POST',headers:ah(),body:JSON.stringify(body)});let t=await r.text();if(epoch!==tnPlanEpoch)return;if(!r.ok){alert(t);return}tnShowPlan(JSON.parse(t));loadAudit()}
 async function tnDeploy(){if(tnDeployPending||!tnPlanHash||!tnPlanReq)return;if(tnPlanReplaces&&!confirm('This plan replaces existing active tunnel '+tnPlanReplaces+'. Users may disconnect. Continue? / تونل فعال جایگزین می‌شود و ممکن است اتصال کاربران قطع شود. ادامه؟'))return;if(tnPlanReq.allow_legacy_coexistence&&!confirm('Deploy independent BAFT instance alongside current legacy tunnel? Existing tunnel will not be replaced. Ensure ports are free. / تونل مستقل در کنار تونل فعلی ساخته شود؟'))return;tnDeployPending=true;const epoch=tnPlanEpoch;try{let body=Object.assign({},tnPlanReq,{plan_hash:tnPlanHash});let r=await fetch('/api/tunnels',{method:'POST',headers:ah(),body:JSON.stringify(body)});let t=await r.text();if(epoch!==tnPlanEpoch)return;if(r.status===409){try{let d=JSON.parse(t);alert(d.error);tnShowPlan(d.plan)}catch(e){alert(t)}return}if(!r.ok){alert(t);return}tnClearPlan();tnEditEnd();loadTunnels();loadAudit()}finally{tnDeployPending=false}}
-let tnIngressPreflightJobID='',tnIngressPreflightSeq=0,tnIngressPreflightExpected=null;
+let tnIngressPreflightJobID='',tnIngressPreflightSeq=0,tnIngressPreflightExpected=null,tnIngressPreflightSubmitPending=false;
 function tnIngressPreflightStatus(message){q('#tnIngressPreflightState').textContent=message}
 async function tnIngressPreflight(id){
  if(!id)return;
+ if(tnIngressPreflightSubmitPending){tnIngressPreflightStatus(tnWizardText('An IR inspection is already being submitted. Use Refresh after it is queued.','درخواست بررسی ایران در حال ارسال است. پس از ثبت، از تازه‌سازی استفاده کنید.'));return}
  const state=q('#tnIngressPreflightState');
  if(state&&state.scrollIntoView)state.scrollIntoView({block:'center'});
  const seq=++tnIngressPreflightSeq;
@@ -498,6 +499,7 @@ async function tnIngressPreflight(id){
   }
   const body={ir_node:tunnel.ir_node,tunnel_id:id,public_port:port,local_target:tunnel.route_listen};
   tnIngressPreflightStatus(tnWizardText('Submitting signed read-only inspection…','در حال ارسال بررسی امضاشده فقط‌خواندنی…'));
+  tnIngressPreflightSubmitPending=true;
   const response=await fetch('/api/ingress/preflight',{method:'POST',headers:ah(),body:JSON.stringify(body)});
   const result=await response.text();
   if(seq!==tnIngressPreflightSeq)return;
@@ -509,7 +511,7 @@ async function tnIngressPreflight(id){
   tnIngressPreflightJobID=accepted.job.id;tnIngressPreflightExpected=body;
   q('#tnIngressPreflightRefresh').hidden=false;
   tnIngressPreflightStatus(tnWizardText('Read-only inspection queued (','بررسی فقط‌خواندنی در صف (')+accepted.job.id+tnWizardText('). Refresh evidence after the IR agent responds; no port is configured.',' ). پس از پاسخ عامل ایران، شواهد را تازه‌سازی کنید؛ هیچ پورتی ایجاد نشده است.'));
- }catch(e){if(seq===tnIngressPreflightSeq)tnIngressPreflightStatus(tnWizardText('Preflight failed; no ingress has been configured.','بررسی ناموفق بود؛ ورودی عمومی تنظیم نشده است.'))}
+ }catch(e){if(seq===tnIngressPreflightSeq)tnIngressPreflightStatus(tnWizardText('Preflight failed; no ingress has been configured.','بررسی ناموفق بود؛ ورودی عمومی تنظیم نشده است.'))}finally{if(seq===tnIngressPreflightSeq)tnIngressPreflightSubmitPending=false}
 }
 async function tnIngressPreflightRefresh(){
  const id=tnIngressPreflightJobID,seq=tnIngressPreflightSeq,expected=tnIngressPreflightExpected;

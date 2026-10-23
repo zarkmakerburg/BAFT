@@ -108,3 +108,42 @@ test('read-only preflight rejects accepted job bound to a different IR node',asy
  assert.equal(h.q('#tnIngressPreflightRefresh').hidden,true);
  assert.match(h.q('#tnIngressPreflightState').textContent,/Untrusted|mismatch/i);
 });
+
+test('double-click during preflight POST preserves its original refreshable job without duplicate inspection',async()=>{
+ const h=harness(),requests=[];
+ let acceptPOST;
+ h.respond(async url=>{
+  requests.push(url);
+  if(url==='/api/tunnels?id=tun-active')return {ok:true,json:async()=>({id:'tun-active',phase:'active',ir_node:'ir-1',route_listen:'127.0.0.1:1443'})};
+  if(url==='/api/ingress/preflight')return requests.filter(x=>x===url).length===1?new Promise(resolve=>{acceptPOST=resolve}):{ok:false,text:async()=> 'already pending'};
+  throw Error('unexpected '+url);
+ });
+ const first=vm.runInContext('tnIngressPreflight("tun-active")',h.c);
+ while(!acceptPOST)await Promise.resolve();
+ const second=vm.runInContext('tnIngressPreflight("tun-active")',h.c);
+ await second;
+ acceptPOST({ok:true,text:async()=>JSON.stringify({job:{id:'job-preserved',node_id:'ir-1'},read_only:true,ready_to_apply:false})});
+ await first;
+ assert.equal(requests.filter(x=>x==='/api/ingress/preflight').length,1);
+ assert.equal(requests.filter(x=>x==='/api/tunnels?id=tun-active').length,1);
+ assert.equal(h.q('#tnIngressPreflightRefresh').hidden,false);
+ assert.match(h.q('#tnIngressPreflightState').textContent,/job-preserved/);
+});
+
+test('failed read-only inspection submission releases the client-side pending gate for retry',async()=>{
+ const h=harness();let posts=0;
+ h.respond(async url=>{
+  if(url==='/api/tunnels?id=tun-active')return {ok:true,json:async()=>({id:'tun-active',phase:'active',ir_node:'ir-1',route_listen:'127.0.0.1:1443'})};
+  if(url==='/api/ingress/preflight'){
+   posts++;
+   return posts===1?{ok:false,text:async()=> 'temporary error'}:{ok:true,text:async()=>JSON.stringify({job:{id:'job-retried',node_id:'ir-1'},read_only:true,ready_to_apply:false})};
+  }
+  throw Error('unexpected '+url);
+ });
+ await vm.runInContext('tnIngressPreflight("tun-active")',h.c);
+ assert.equal(h.q('#tnIngressPreflightRefresh').hidden,true);
+ await vm.runInContext('tnIngressPreflight("tun-active")',h.c);
+ assert.equal(posts,2);
+ assert.equal(h.q('#tnIngressPreflightRefresh').hidden,false);
+ assert.match(h.q('#tnIngressPreflightState').textContent,/job-retried/);
+});

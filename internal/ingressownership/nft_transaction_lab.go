@@ -30,6 +30,7 @@ type stoppedIngressSocket struct {
 	handle      uint64
 	chainHandle uint64
 	removed     bool
+	rollback    bool
 }
 
 func nftTransactionRecord(spec ingressmanifest.Spec, proof ingressmanifest.Proof) (MutationRecord, RulePlan, error) {
@@ -100,26 +101,27 @@ func (t *NFTLabTransaction) Apply(ctx context.Context, spec ingressmanifest.Spec
 		return errors.Join(err, t.Runtime.Retire(endpoint, proof))
 	}
 	observed, err := t.Firewall.Install(ctx, plan)
-	if err != nil {
-		stopErr := t.Runtime.Retire(endpoint, proof)
-		if stopErr != nil || observed.Handle == 0 {
-			return errors.Join(err, stopErr)
-		}
-		cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		return errors.Join(err, t.Firewall.Remove(cleanupCtx, plan, observed.Handle))
-	}
-	record.FirewallHandle = observed.Handle
 	rollback := func(cause error) error {
 		if stopErr := t.Runtime.Retire(endpoint, proof); stopErr != nil {
 			return errors.Join(cause, stopErr)
 		}
+		if observed.Handle == 0 {
+			return cause
+		}
+		if t.stopped == nil {
+			t.stopped = make(map[ingressmanifest.Proof]stoppedIngressSocket)
+		}
+		t.stopped[proof] = stoppedIngressSocket{runtime: t.Runtime, firewall: t.Firewall, handle: observed.Handle, chainHandle: t.Firewall.ExpectedChainHandle, rollback: true}
 		// Cleanup must outlive a cancelled apply, but must not block the
 		// transaction lock indefinitely if the kernel backend is unresponsive.
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		return errors.Join(cause, t.Firewall.Remove(cleanupCtx, plan, observed.Handle))
+		return errors.Join(cause, t.retireLocked(cleanupCtx, spec, proof))
 	}
+	if err != nil {
+		return rollback(err)
+	}
+	record.FirewallHandle = observed.Handle
 	record.Phase = PhaseFirewallInstalled
 	if err := t.Journal.Advance(record); err != nil {
 		return rollback(err)
@@ -146,6 +148,11 @@ func (t *NFTLabTransaction) Retire(ctx context.Context, spec ingressmanifest.Spe
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	return t.retireLocked(ctx, spec, proof)
+}
+
+// retireLocked shares exact-owner cleanup with failed Apply while t.mu is held.
+func (t *NFTLabTransaction) retireLocked(ctx context.Context, spec ingressmanifest.Spec, proof ingressmanifest.Proof) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -158,10 +165,30 @@ func (t *NFTLabTransaction) Retire(ctx context.Context, spec ingressmanifest.Spe
 		return err
 	}
 	stopped, alreadyStopped := t.stopped[proof]
-	if !found || current.Owner != proof || current.Port != plan.Port || current.FirewallHandle == 0 || (current.Phase != PhaseVerified && current.Phase != PhaseRetireIntent && !(current.Phase == PhaseRetired && alreadyStopped && stopped.removed)) {
+	if !found || current.Owner != proof || current.Port != plan.Port {
 		return ErrUnverified
 	}
-	if alreadyStopped && (stopped.runtime != t.Runtime || stopped.firewall != t.Firewall || stopped.handle != current.FirewallHandle || stopped.chainHandle != t.Firewall.ExpectedChainHandle) {
+	if alreadyStopped && (stopped.runtime != t.Runtime || stopped.firewall != t.Firewall || stopped.chainHandle != t.Firewall.ExpectedChainHandle) {
+		return ErrUnverified
+	}
+	if alreadyStopped && stopped.rollback && (current.Phase == PhaseListenerBound || current.Phase == PhaseFirewallInstalled) {
+		if stopped.handle == 0 || (current.Phase == PhaseListenerBound && current.FirewallHandle != 0) || (current.Phase == PhaseFirewallInstalled && current.FirewallHandle != stopped.handle) {
+			return ErrUnverified
+		}
+		observed, err := t.Firewall.Inspect(ctx, plan)
+		if err != nil || observed.Handle != stopped.handle {
+			return errors.Join(ErrFirewallUnverified, err)
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		record.Phase, record.FirewallHandle = PhaseRetireIntent, stopped.handle
+		if err := t.Journal.Advance(record); err != nil {
+			return err
+		}
+		current = record
+	}
+	if current.FirewallHandle == 0 || (current.Phase != PhaseVerified && current.Phase != PhaseRetireIntent && !(current.Phase == PhaseRetired && alreadyStopped && stopped.removed)) || (alreadyStopped && stopped.handle != current.FirewallHandle) {
 		return ErrUnverified
 	}
 	if alreadyStopped && stopped.removed {

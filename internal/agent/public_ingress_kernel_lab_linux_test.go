@@ -157,8 +157,17 @@ func TestPublicIngressLABKernelSignedLifecycle(t *testing.T) {
 	}
 	partialRuntime := ingressownership.NewRuntime()
 	defer partialRuntime.Retire(partialSpec.Config.Listen, partialProof)
-	partialTx := &ingressownership.NFTLabTransaction{Runtime: partialRuntime, Firewall: backend, Journal: new(ingressownership.LabJournal)}
+	partialJournalDir := filepath.Join(dir, "partial-journal")
+	if err := os.Mkdir(partialJournalDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	partialJournal, err := ingressownership.OpenDurableJournal(partialJournalDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	partialTx := &ingressownership.NFTLabTransaction{Runtime: partialRuntime, Firewall: backend, Journal: partialJournal}
 	runner.failAfterAdd = true
+	runner.failDelete = true
 	if err := partialTx.Apply(ctx, partialSpec, partialProof); err == nil {
 		t.Fatal("partial kernel add acknowledged success")
 	}
@@ -166,14 +175,43 @@ func TestPublicIngressLABKernelSignedLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bytes.Contains(run("-j", "list", "chain", "inet", "baft", "ingress"), []byte(partialPlan.Tag)) {
-		t.Fatal("partial add left owned kernel rule")
+	partialObserved, err := backend.Inspect(ctx, partialPlan)
+	if err != nil || partialObserved.Handle == 0 {
+		t.Fatalf("failed rollback lost kernel evidence: %+v %v", partialObserved, err)
+	}
+	partialCurrent, found, err := partialJournal.Current(partialProof)
+	if err != nil || !found || partialCurrent.Phase != ingressownership.PhaseRetireIntent || partialCurrent.FirewallHandle != partialObserved.Handle {
+		t.Fatalf("rollback intent missing from durable journal: %+v %v", partialCurrent, err)
 	}
 	partialListener, err := net.Listen("tcp4", partialSpec.Config.Listen)
 	if err != nil {
 		t.Fatalf("partial add left owned listener: %v", err)
 	}
+	defer partialListener.Close()
+	runner.failDelete = false
+	restartedPartial := &ingressownership.NFTLabTransaction{Runtime: ingressownership.NewRuntime(), Firewall: backend, Journal: partialJournal}
+	if err := restartedPartial.Retire(ctx, partialSpec, partialProof); err == nil {
+		t.Fatal("restart adopted partial-Apply rollback intent")
+	}
+	if stillOwned, err := backend.Inspect(ctx, partialPlan); err != nil || stillOwned.Handle != partialObserved.Handle {
+		t.Fatalf("restart touched retained kernel rule: %+v %v", stillOwned, err)
+	}
+	if err := partialTx.Retire(ctx, partialSpec, partialProof); err != nil {
+		t.Fatalf("same-process partial-Apply rollback retry: %v", err)
+	}
+	if bytes.Contains(run("-j", "list", "chain", "inet", "baft", "ingress"), []byte(partialPlan.Tag)) {
+		t.Fatal("rollback retry left owned kernel rule")
+	}
+	partialClient, err := net.DialTimeout("tcp4", partialListener.Addr().String(), time.Second)
+	if err != nil {
+		t.Fatalf("rollback retry stopped replacement listener: %v", err)
+	}
+	_ = partialClient.Close()
 	_ = partialListener.Close()
+	partialRecovery, err := partialJournal.Recover()
+	if err != nil || len(partialRecovery.Records) != 1 || partialRecovery.Records[0].Phase != ingressownership.PhaseRetired || len(partialRecovery.NeedsReconciliation) != 0 {
+		t.Fatalf("rollback not durably finalized: %+v %v", partialRecovery, err)
+	}
 	journalFault := &kernelJournalFault{MutationJournal: journal}
 	tx := &ingressownership.NFTLabTransaction{Runtime: ingressownership.NewRuntime(), Firewall: backend, Journal: journalFault}
 	manifestDir := filepath.Join(dir, "manifest")

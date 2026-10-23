@@ -45,7 +45,7 @@ func TestNFTLabApplyPartialAddCleanupFailureRemainsUnverified(t *testing.T) {
 	}
 	defer tx.Runtime.Retire(spec.Config.Listen, owner)
 	current, _, err := journal.Current(owner)
-	if err != nil || current.Phase != PhaseListenerBound || current.FirewallHandle != 0 || fake.ruleHandle != 42 {
+	if err != nil || current.Phase != PhaseRetireIntent || current.FirewallHandle != 42 || fake.ruleHandle != 42 {
 		t.Fatalf("lost cleanup uncertainty: %+v %v", current, err)
 	}
 	ln, err := net.Listen("tcp4", spec.Config.Listen)
@@ -53,8 +53,8 @@ func TestNFTLabApplyPartialAddCleanupFailureRemainsUnverified(t *testing.T) {
 		t.Fatalf("cleanup failure left original listener: %v", err)
 	}
 	_ = ln.Close()
-	// This increment deliberately does not grant restart adoption or claim
-	// automatic recovery from a second failure during rollback.
+	// The original deletion fault still refuses completion. The journal does
+	// not turn a failed Apply into a verified listener or grant restart adoption.
 	if err := tx.Retire(context.Background(), spec, owner); err == nil {
 		t.Fatal("unverified rollback journal authorized retirement")
 	}

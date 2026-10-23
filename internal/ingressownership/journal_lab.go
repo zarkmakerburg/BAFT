@@ -16,7 +16,7 @@ const (
 	PhaseListenerBound     MutationPhase = "listener_bound"
 	PhaseFirewallInstalled MutationPhase = "firewall_installed"
 	PhaseVerified          MutationPhase = "verified"
-	PhaseRetireIntent      MutationPhase = "retire_intent"
+	PhaseRetireIntent      MutationPhase = "retire_intent" // also cleanup of a partially installed operation; not proof of a verified Apply
 	PhaseRetired           MutationPhase = "retired"
 )
 
@@ -86,14 +86,15 @@ func (j *LabJournal) Advance(next MutationRecord) error {
 	if next.Port != old.Port || next.Owner != old.Owner {
 		return ErrConflict
 	}
-	if (old.FirewallHandle != 0 && next.FirewallHandle != old.FirewallHandle) || (old.FirewallHandle == 0 && next.FirewallHandle != 0 && (old.Phase != PhaseListenerBound || next.Phase != PhaseFirewallInstalled)) {
+	if (old.FirewallHandle != 0 && next.FirewallHandle != old.FirewallHandle) || (old.FirewallHandle == 0 && next.FirewallHandle != 0 && (old.Phase != PhaseListenerBound || (next.Phase != PhaseFirewallInstalled && next.Phase != PhaseRetireIntent))) {
 		return ErrConflict
 	}
 	if next.Phase == old.Phase {
 		return nil
 	}
 	allowed := map[MutationPhase]MutationPhase{PhaseIntent: PhaseListenerBound, PhaseListenerBound: PhaseFirewallInstalled, PhaseFirewallInstalled: PhaseVerified, PhaseVerified: PhaseRetireIntent, PhaseRetireIntent: PhaseRetired}
-	if allowed[old.Phase] != next.Phase {
+	rollbackIntent := (old.Phase == PhaseListenerBound || old.Phase == PhaseFirewallInstalled) && next.Phase == PhaseRetireIntent && next.FirewallHandle != 0
+	if allowed[old.Phase] != next.Phase && !rollbackIntent {
 		return errors.Join(ErrInvalid, ErrUnverified)
 	}
 	j.entries[key] = next

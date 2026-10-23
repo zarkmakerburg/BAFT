@@ -46,6 +46,7 @@ for(const instance of ['', 'existing-managed'])test('editing '+(instance?'manage
  assert.equal(fields.tnTarget,old.target);
  assert.equal(fields.tnPort,old.port);
  fields.tnIngressConfirm=true;
+ fields.tnClientPort='443'; // Edit resets client port; operator must select it again.
  assert.equal(vm.runInContext('tnWizardValidateStep(2)',c),true);
  const result=vm.runInContext('tnReq()',c);
  assert.equal(result.target,old.target);
@@ -293,5 +294,18 @@ test('Edit refuses non-active or mismatched tunnel API response without selectin
   assert.equal(vm.runInContext('tnEditSelectedID',c),'');
   assert.equal(fields.tnTarget,'127.0.0.1:9000');
   assert.equal(alerted,1);
+ }
+});
+
+test('Wizard requires one explicit usable IR client configuration port before reviewed planning',()=>{
+ const fields={...defaults,tnIngressConfirm:true};
+ const c=context(fields,'const tnWizardText=en=>en;'+fn('function tnWizardValidateStep(i)','function tnWizardStep(i)'));
+ for(const input of ['', '0', '22', '65536', '8.5', '  ', '0x50']){
+  fields.tnClientPort=input;
+  assert.equal(vm.runInContext('tnWizardValidateStep(2)',c),false,'should refuse client config port '+input);
+ }
+ for(const port of ['443', '2053', '24443']){
+  fields.tnClientPort=port;
+  assert.equal(vm.runInContext('tnWizardValidateStep(2)',c),true,'valid free candidate '+port);
  }
 });

@@ -177,3 +177,51 @@ test('late older receipt refresh cannot replace newer completed inspection evide
  refreshes[0]({ok:true,text:async()=>JSON.stringify({...success,status:'queued',evidence:undefined})});await older;
  assert.match(h.q('#tnIngressPreflightState').textContent,/Read-only observation/);
 });
+
+test('public ingress inspection uses only the wizard client config port and never prompts for a second IR port',async()=>{
+ const h=harness('24443');let prompts=0;
+ h.c.prompt=()=>{prompts++;return '34567'};
+ h.respond(async url=>{
+  if(url==='/api/tunnels?id=tun-active')return {ok:true,json:async()=>({id:'tun-active',phase:'active',ir_node:'ir-1',route_listen:'127.0.0.1:1443'})};
+  if(url==='/api/ingress/preflight')return {ok:true,text:async()=>JSON.stringify({job:{id:'job-config-port',node_id:'ir-1'},read_only:true,ready_to_apply:false})};
+  throw Error('unexpected '+url);
+ });
+ await vm.runInContext('tnIngressPreflight("tun-active")',h.c);
+ assert.equal(prompts,0);
+ assert.equal(h.requests.length,2);
+ assert.equal(JSON.parse(h.requests[1].opts.body).public_port,24443);
+});
+
+test('no selected configuration port prevents read-only ingress preflight from guessing or prompting',async()=>{
+ const h=harness('');let prompts=0;
+ h.c.prompt=()=>{prompts++;return '443'};
+ h.respond(async url=>{
+  if(url==='/api/tunnels?id=tun-active')return {ok:true,json:async()=>({id:'tun-active',phase:'active',ir_node:'ir-1',route_listen:'127.0.0.1:1443'})};
+  throw Error('unexpected mutation request '+url);
+ });
+ await vm.runInContext('tnIngressPreflight("tun-active")',h.c);
+ assert.equal(prompts,0);
+ assert.equal(h.requests.length,1);
+ assert.match(h.q('#tnIngressPreflightState').textContent,/client configuration port|client port|config port|پورت/i);
+});
+
+test('changing the canonical client port invalidates an earlier pending IR inspection result',async()=>{
+ const h=harness('24443');let finish;
+ h.c.tnClearPlan=()=>{};
+ // Load the real wizard input invalidation handler in the same controller context.
+ const inputChanged=js.slice(js.indexOf('function tnWizardIngressChanged()'),js.indexOf('function tnWizardValidateStep(i)'));
+ vm.runInContext(inputChanged,h.c);
+ h.respond(async url=>{
+  if(url==='/api/tunnels?id=tun-active')return {ok:true,json:async()=>({id:'tun-active',phase:'active',ir_node:'ir-1',route_listen:'127.0.0.1:1443'})};
+  if(url==='/api/ingress/preflight')return new Promise(resolve=>{finish=resolve});
+  throw Error('unexpected '+url);
+ });
+ const pending=vm.runInContext('tnIngressPreflight("tun-active")',h.c);
+ while(!finish)await Promise.resolve();
+ h.q('#tnClientPort').value='35555';
+ vm.runInContext('tnWizardIngressChanged()',h.c);
+ finish({ok:true,text:async()=>JSON.stringify({job:{id:'job-original-port',node_id:'ir-1'},read_only:true,ready_to_apply:false})});
+ await pending;
+ assert.equal(h.q('#tnIngressPreflightRefresh').hidden,true);
+ assert.doesNotMatch(h.q('#tnIngressPreflightState').textContent,/job-original-port/);
+});

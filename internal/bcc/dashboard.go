@@ -396,7 +396,7 @@ function tnWizardGenerateServicePort(){
  }
  tell('Could not suggest a port; enter the destination manually.','پورت پیشنهادی پیدا نشد؛ مقصد را دستی وارد کنید.');
 }
-function tnWizardIngressChanged(){if(!q('#tnClientPort').value)q('#tnIngressConfirm').checked=false;tnClearPlan()}
+function tnWizardIngressChanged(){if(!q('#tnClientPort').value)q('#tnIngressConfirm').checked=false;tnIngressPreflightSeq++;tnIngressPreflightRefreshSeq++;tnIngressPreflightJobID='';tnIngressPreflightExpected=null;q('#tnIngressPreflightRefresh').hidden=true;tnIngressPreflightStatus(tnWizardText('Client port changed. Repeat read-only IR ingress inspection for the newly selected port.','پورت کانفیگ تغییر کرد؛ بررسی ورودی ایران را برای پورت جدید دوباره انجام دهید.'));tnClearPlan()}
 function tnWizardActive(t){return !['superseded','decommissioned','rolled_back'].includes(t.phase)}
 function tnWizardSharesLegacy(){const ex=q('#tnEx').value,ir=q('#tnIr').value;return tnWizardTunnels.some(t=>t.phase==='active'&&!t.instance_id&&(t.ex_node===ex||t.ir_node===ir))}
 function tnWizardEnsureID(){if(q('#tnInstance').value.trim())return;const a=new Uint32Array(2);crypto.getRandomValues(a);q('#tnInstance').value='baft-'+[...a].map(v=>v.toString(36)).join('-').slice(0,29)}
@@ -420,7 +420,7 @@ function tnWizardValidateStep(i){
  }
  if(i===2){
   const port=Number(q('#tnPort').value);if(!Number.isInteger(port)||port<1||port>65535){alert(tnWizardText('Enter a valid BAFT port (1–65535).','پورت معتبر BAFT را وارد کنید (۱ تا ۶۵۵۳۵).'));return false}
-  if(q('#tnClientPort').value){const n=Number(q('#tnClientPort').value);if(!Number.isInteger(n)||n<1||n>65535){alert(tnWizardText('Enter a valid public IR port.','پورت عمومی ایران معتبر نیست.'));return false}}
+  const clientPortText=String(q('#tnClientPort').value||'').trim(),clientPort=Number(clientPortText);if(!/^[0-9]{1,5}$/.test(clientPortText)||!Number.isInteger(clientPort)||clientPort<1||clientPort>65535||clientPort===22){alert(tnWizardText('Select a valid client configuration port (1–65535 except reserved SSH port 22). The same port is the intended public IR ingress port.','یک پورت معتبر کانفیگ کاربران انتخاب کنید (۱ تا ۶۵۵۳۵ به‌جز پورت مدیریتی ۲۲). همین پورت باید ورودی عمومی ایران باشد.'));return false}
   if(!q('#tnIngressConfirm').checked){alert(tnWizardText('Confirm that BAFT does not create the public IR client ingress.','تأیید کنید که BAFT در این نسخه پورت عمومی کاربران ایران را ایجاد نمی‌کند.'));return false}
  }
  if(i===3){
@@ -491,9 +491,10 @@ async function tnIngressPreflight(id){
   if(!tunnel||tunnel.id!==id||tunnel.phase!=='active'||!tunnel.ir_node||!tunnel.route_listen){
    tnIngressPreflightStatus(tnWizardText('Only an active tunnel with a known IR route may be inspected.','فقط تونل فعال با مسیر داخلی ایران قابل بررسی است.'));return
   }
-  const requested=prompt(tnWizardText('Public client TCP port on IR to check (read-only; nothing will be provisioned):','پورت عمومی TCP کاربران روی ایران برای بررسی فقط‌خواندنی (هیچ پورتی ساخته نمی‌شود):'),q('#tnClientPort').value||'');
-  if(requested===null){tnIngressPreflightStatus(tnWizardText('Read-only check cancelled.','بررسی لغو شد.'));return}
-  const input=String(requested).trim();
+  // The user-config port and IR public ingress port are one canonical value.
+  // Never prompt for a second port; inspection cannot authorize provisioning.
+  const input=String(q('#tnClientPort').value||'').trim();
+  if(!input){tnIngressPreflightStatus(tnWizardText('Select a client configuration port in Wizard step 3 before inspecting IR ingress.','ابتدا پورت کانفیگ کاربران را در مرحله سوم ویزارد انتخاب کنید.'));return}
   const port=Number(input);
   if(!/^[0-9]{1,5}$/.test(input)||!Number.isInteger(port)||port<1||port>65535||port===22){
    tnIngressPreflightStatus(tnWizardText('Invalid port or reserved SSH port 22. Enter TCP 1–65535 except 22.','پورت نامعتبر یا پورت ۲۲ رزرو‌شده برای SSH است.'));return
@@ -512,7 +513,7 @@ async function tnIngressPreflight(id){
   tnIngressPreflightJobID=accepted.job.id;tnIngressPreflightExpected=body;
   q('#tnIngressPreflightRefresh').hidden=false;
   tnIngressPreflightStatus(tnWizardText('Read-only inspection queued (','بررسی فقط‌خواندنی در صف (')+accepted.job.id+tnWizardText('). Refresh evidence after the IR agent responds; no port is configured.',' ). پس از پاسخ عامل ایران، شواهد را تازه‌سازی کنید؛ هیچ پورتی ایجاد نشده است.'));
- }catch(e){if(seq===tnIngressPreflightSeq)tnIngressPreflightStatus(tnWizardText('Preflight failed; no ingress has been configured.','بررسی ناموفق بود؛ ورودی عمومی تنظیم نشده است.'))}finally{if(seq===tnIngressPreflightSeq)tnIngressPreflightSubmitPending=false}
+ }catch(e){if(seq===tnIngressPreflightSeq)tnIngressPreflightStatus(tnWizardText('Preflight failed; no ingress has been configured.','بررسی ناموفق بود؛ ورودی عمومی تنظیم نشده است.'))}finally{tnIngressPreflightSubmitPending=false}
 }
 async function tnIngressPreflightRefresh(){
  const id=tnIngressPreflightJobID,seq=tnIngressPreflightSeq,refreshSeq=++tnIngressPreflightRefreshSeq,expected=tnIngressPreflightExpected;

@@ -68,6 +68,17 @@ key material in command arguments, public logs or CI artifacts. Actual
 stopped-service restore, permissions on the target host, and recovery under
 systemd remain release gates.
 
+**New P0-D key-file trust regression (RED, not merged):** On Mac LAB,
+the real `bcc.BackupKeyFromFile` accepted both mode-`0644` key material and
+a symlink to a key file. An isolated `TestGammaBackupKeyMustRejectPublicModeAndSymlink`
+reproduced both failures (exit **1**) against `5814918`; no actual secrets
+were used and the failing scratch test has **not** been added to the PR.
+Ownership remains with Beta; [HQ evidence](https://github.com/zarkmakerburg/BAFT/issues/67#issuecomment-6368745255)
+and [Beta coordination](https://github.com/zarkmakerburg/BAFT/pull/275#issuecomment-6368745965)
+request fail-closed regular-file, ownership/mode and symlink validation
+with regression tests. The key-file permission criterion is **OPEN**,
+independent of successful encrypted backup content and restore drills.
+
 ## P0-C: real v0.3.7 BCC upgrade and cold rollback (isolated Linux)
 
 The actual `v0.3.7` tag is pinned to

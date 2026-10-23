@@ -168,3 +168,32 @@ func TestNFTLabTransactionRefusesSecondOwnerOfActivePort(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// Restart must not adopt journal ownership without the original live listener.
+func TestNFTLabTransactionRestartRefusesStaleVerifiedJournal(t *testing.T) {
+	spec := testSpec(t, "nft-restart-stale")
+	proof, err := ingressmanifest.Preview(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	journal := new(LabJournal)
+	fake := &nftLabFake{chainHandle: 7}
+	backend := &NFTLabBackend{Runner: fake, ExpectedChainHandle: 7}
+	first := &NFTLabTransaction{Runtime: NewRuntime(), Firewall: backend, Journal: journal}
+	if err := first.Apply(context.Background(), spec, proof); err != nil {
+		t.Fatal(err)
+	}
+	// A newly constructed runtime has no verified listener, even if the
+	// persisted journal and kernel rule appear to claim an active owner.
+	restarted := &NFTLabTransaction{Runtime: NewRuntime(), Firewall: backend, Journal: journal}
+	commands := len(fake.commands)
+	if err := restarted.Apply(context.Background(), spec, proof); !errors.Is(err, ErrUnverified) {
+		t.Fatalf("restarted transaction adopted stale journal: %v", err)
+	}
+	if len(fake.commands) != commands {
+		t.Fatal("restart mutated kernel firewall")
+	}
+	if err := first.Retire(context.Background(), spec, proof); err != nil {
+		t.Fatal(err)
+	}
+}

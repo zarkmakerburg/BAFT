@@ -72,9 +72,15 @@ ingress_lab_required=0
 if git cat-file -e "$sha:.github/workflows/p0-ingress-lab.yml" 2>/dev/null; then
   ingress_lab_required=1
 fi
-python3 - "$GH" "$repo" "$sha" "$ci_jobs" "$ingress_lab_required" >"$work/ci.out" 2>"$work/ci.err" <<'PY'
+# The two-namespace acceptance is an additional exact-tag gate only for
+# candidates that carry it. It cannot replace independent host acceptance.
+gamma_two_node_required=0
+if git cat-file -e "$sha:.github/workflows/gamma-two-node-lab.yml" 2>/dev/null; then
+  gamma_two_node_required=1
+fi
+python3 - "$GH" "$repo" "$sha" "$ci_jobs" "$ingress_lab_required" "$gamma_two_node_required" >"$work/ci.out" 2>"$work/ci.err" <<'PY'
 import json, subprocess, sys
-gh, repo, sha, jobs, ingress_lab_required = sys.argv[1:6]
+gh, repo, sha, jobs, ingress_lab_required, gamma_two_node_required = sys.argv[1:7]
 def api(path):
     r = subprocess.run([gh, "api", path], capture_output=True, text=True)
     if r.returncode != 0:
@@ -122,6 +128,14 @@ try:
         else:
             status, _, detail = job_row(ingress, "lab-acceptance", path)
             print(status, "ci: ingress-kernel-lab", detail, sep="\t")
+    if gamma_two_node_required == "1":
+        path = ".github/workflows/gamma-two-node-lab.yml"
+        gamma = runs_for(path)
+        if gamma is None:
+            print("FAIL", "ci: gamma-two-node-lab", f"no {path} workflow run for this commit", sep="\t")
+        else:
+            status, _, detail = job_row(gamma, "isolated-two-node", path)
+            print(status, "ci: gamma-two-node-lab", detail, sep="\t")
 except Exception as e:
     print("FAIL", "ci", f"cannot read workflow runs: {e}", sep="\t")
 PY

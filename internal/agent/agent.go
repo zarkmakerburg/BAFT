@@ -189,8 +189,14 @@ func (a *Agent) markSeen(id string) error {
 	if _, exists := a.seen[id]; exists {
 		return errJobAlreadySeen
 	}
-	a.seen[id] = now
-	b, err := json.Marshal(a.seen)
+	// Stage the new claim separately; a failed write must never mark an
+	// unexecuted job as seen in this process.
+	next := make(map[string]time.Time, len(a.seen)+1)
+	for k, seenAt := range a.seen {
+		next[k] = seenAt
+	}
+	next[id] = now
+	b, err := json.Marshal(next)
 	if err != nil {
 		return err
 	}
@@ -227,7 +233,11 @@ func (a *Agent) markSeen(id string) error {
 		return err
 	}
 	defer dir.Close()
-	return dir.Sync()
+	if err := dir.Sync(); err != nil {
+		return err
+	}
+	a.seen = next
+	return nil
 }
 
 func (a *Agent) isSeen(id string) bool {

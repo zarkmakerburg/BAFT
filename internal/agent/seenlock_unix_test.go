@@ -241,11 +241,21 @@ func TestSeenJournalRejectsOversizedOnDiskLedger(t *testing.T) {
 
 func TestMarkSeenRefusesOversizedSerializedLedger(t *testing.T) {
 	a := &Agent{cfg: Config{StateDir: t.TempDir(), Now: time.Now}, seen: map[string]time.Time{}}
-	if err := a.markSeen(strings.Repeat("x", maxSeenJournalBytes)); err == nil {
+	id := strings.Repeat("x", maxSeenJournalBytes)
+	if err := a.markSeen(id); err == nil {
 		t.Fatal("oversized replay ledger accepted as durable")
+	}
+	if a.isSeen(id) {
+		t.Fatal("failed durable claim poisoned the in-memory replay fence")
 	}
 	if _, err := os.Stat(a.seenPath()); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("oversized job claim wrote an unreadable replay ledger: %v", err)
+	}
+	if err := a.markSeen("retryable-small-job"); err != nil {
+		t.Fatalf("failed first claim blocked subsequent admission: %v", err)
+	}
+	if !a.isSeen("retryable-small-job") || a.isSeen(id) {
+		t.Fatal("in-memory replay fence differs from durable successful claims")
 	}
 }
 

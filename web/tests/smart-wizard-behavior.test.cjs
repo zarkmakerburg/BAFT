@@ -142,3 +142,53 @@ test('new tunnel resets direction and engine and requires an explicit destinatio
  assert.equal(fields.tnDirection,'ir-to-ex');assert.equal(fields.tnEngine,'baft');
  assert.equal(fields.tnTarget,'');assert.equal(fields.tnServicePortHint,'');
 });
+
+test('blocked backend plan cannot leave a deployable plan hash',()=>{
+ const fields={tnPlan:''};const c=context(fields,'let tnPlanHash="stale",tnPlanReq={stale:true},tnPlanReplaces="old",tnPlanEpoch=0;const esc=String;'+fn('function tnShowPlan(p)','function tnClearPlan()'));
+ vm.runInContext('tnShowPlan({ok:false,hash:"blocked",request:{},gates:[],nodes:[],steps:[],verify:[],rollback:[]})',c);
+ assert.equal(vm.runInContext('tnPlanHash',c),'');
+ assert.equal(vm.runInContext('tnPlanReq',c),null);
+});
+
+test('stale async plan response cannot restore deploy state after user edits',async()=>{
+ const fields={...defaults,tnPlan:'',tnIngressConfirm:true};let resolveFetch;
+ const c=context(fields,'const esc=String;let tnEditBase=null;let tnWizardTunnels=[];const tnWizardText=en=>en;const tnWizardSharesLegacy=()=>false;const tnWizardEnsureID=()=>{};'+req+fn('function tnWizardValidateStep(i)','function tnWizardStep(i)')+'let tnPlanHash="",tnPlanReq=null,tnPlanReplaces="",tnPlanEpoch=0;'+fn('function tnShowPlan(p)','async function tnDeploy()'));
+ c.fetch=()=>new Promise(resolve=>{resolveFetch=resolve});c.ah=()=>({});c.loadAudit=()=>{};
+ const pending=vm.runInContext('tnPlan()',c);
+ vm.runInContext('tnClearPlan()',c);
+ resolveFetch({ok:true,text:async()=>JSON.stringify({ok:true,hash:'stale-hash',request:{},gates:[],nodes:[],steps:[],verify:[],rollback:[]})});
+ await pending;
+ assert.equal(vm.runInContext('tnPlanHash',c),'');
+ assert.equal(vm.runInContext('tnPlanReq',c),null);
+});
+
+test('starting a new backend plan invalidates previously deployable plan immediately',async()=>{
+ const fields={...defaults,tnPlan:'old rendered plan',tnIngressConfirm:true};let resolveFetch;
+ const c=context(fields,'const esc=String;let tnEditBase=null;let tnWizardTunnels=[];const tnWizardText=en=>en;const tnWizardSharesLegacy=()=>false;const tnWizardEnsureID=()=>{};'+req+fn('function tnWizardValidateStep(i)','function tnWizardStep(i)')+'let tnPlanHash="old-hash",tnPlanReq={old:true},tnPlanReplaces="",tnPlanEpoch=0;'+fn('function tnShowPlan(p)','async function tnDeploy()'));
+ c.fetch=()=>new Promise(resolve=>{resolveFetch=resolve});c.ah=()=>({});c.loadAudit=()=>{};
+ const pending=vm.runInContext('tnPlan()',c);
+ assert.equal(vm.runInContext('tnPlanHash',c),'');
+ assert.equal(vm.runInContext('tnPlanReq',c),null);
+ resolveFetch({ok:false,text:async()=> 'unavailable'});await pending;
+});
+test('double-click deploy submits only one backend mutation while pending',async()=>{
+ const fields={...defaults,tnPlan:''};let resolveFetch;let calls=0;
+ const c=context(fields,'let tnPlanHash="valid",tnPlanReq={instance_id:"test"},tnPlanReplaces="",tnPlanEpoch=0,tnDeployPending=false;'+fn('async function tnDeploy()','async function tnRotate(id)'));
+ c.confirm=()=>true;c.ah=()=>({});c.fetch=()=>{calls++;return new Promise(resolve=>{resolveFetch=resolve})};c.tnClearPlan=()=>{};c.tnEditEnd=()=>{};c.loadTunnels=()=>{};c.loadAudit=()=>{};
+ const first=vm.runInContext('tnDeploy()',c);
+ const second=vm.runInContext('tnDeploy()',c);
+ assert.equal(calls,1);
+ resolveFetch({ok:true,status:200,text:async()=>'{"id":"job"}'});
+ await Promise.all([first,second]);
+});
+test('stale deploy conflict response cannot resurrect plan after form change',async()=>{
+ const fields={...defaults,tnPlan:''};let resolveFetch;
+ const c=context(fields,'const esc=String;let tnPlanHash="reviewed",tnPlanReq={instance_id:"test"},tnPlanReplaces="",tnPlanEpoch=0,tnDeployPending=false;'+fn('function tnShowPlan(p)','async function tnRotate(id)'));
+ c.confirm=()=>true;c.ah=()=>({});c.fetch=()=>new Promise(resolve=>{resolveFetch=resolve});c.loadAudit=()=>{};c.loadTunnels=()=>{};c.tnEditEnd=()=>{};
+ const pending=vm.runInContext('tnDeploy()',c);
+ vm.runInContext('tnClearPlan()',c);
+ resolveFetch({ok:false,status:409,text:async()=>JSON.stringify({error:'stale',plan:{ok:true,hash:'outdated',request:{},gates:[],nodes:[],steps:[],verify:[],rollback:[]}})});
+ await pending;
+ assert.equal(vm.runInContext('tnPlanHash',c),'');
+ assert.equal(vm.runInContext('tnPlanReq',c),null);
+});

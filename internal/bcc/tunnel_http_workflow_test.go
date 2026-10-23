@@ -335,6 +335,9 @@ func TestTunnelHTTPRejectsUnauthorizedAndUnavailableEngine(t *testing.T) {
 			before := f.domainState(f.store)
 			req := TunnelRequest{Engine: engine, EXNode: "ex-1", IRNode: "ir-1", Target: "192.0.2.40:2443"}
 			for _, path := range []string{"/api/tunnels/plan", "/api/tunnels"} {
+				if path == "/api/tunnels" {
+					req.PlanHash = "invalid-reviewed-hash"
+				}
 				b := f.call(http.MethodPost, path, tunnelHTTPAdmin, req, http.StatusBadRequest, nil)
 				if !strings.Contains(string(b), "engine") {
 					t.Fatalf("unexpected rejection: %s", b)
@@ -442,4 +445,12 @@ func TestTunnelHTTPWrongObservedTargetRollsBackReplacement(t *testing.T) {
 	}
 	f.siblingUnchanged(original)
 	f.siblingUnchanged(sibling)
+}
+
+func TestTunnelHTTPCreateRequiresReviewedPlanHash(t *testing.T) {
+	f := newTunnelHTTPFixture(t)
+	req := TunnelRequest{EXNode: "ex-1", IRNode: "ir-1", Port: 8443, Target: "127.0.0.1:443"}
+	before := f.domainState(f.store)
+	f.call(http.MethodPost, "/api/tunnels", tunnelHTTPAdmin, req, http.StatusBadRequest, nil)
+	f.unchanged(before)
 }

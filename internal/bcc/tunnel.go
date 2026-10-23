@@ -972,6 +972,10 @@ func (s *Server) tunnels(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), 400)
 			return
 		}
+		if strings.TrimSpace(in.PlanHash) == "" {
+			http.Error(w, "reviewed plan_hash is required", http.StatusBadRequest)
+			return
+		}
 		details := map[string]any{"ex_node": in.EXNode, "ir_node": in.IRNode, "port": in.Port, "target": in.Target, "route_listen": in.RouteListen}
 		t, _, err := s.store.CreateTunnelFromPlan(in, in.PlanHash, s.now(), AuditEntry{
 			Timestamp: s.now().UTC(), Actor: "admin", RemoteIP: s.clientIP(r), Details: withRequest(r, details),

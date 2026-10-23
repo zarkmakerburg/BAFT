@@ -21,8 +21,8 @@ func TestStoppedSystemdMultiRootInventoryAndIncompleteVeto(t *testing.T) {
 			t.Fatalf("foreign stopped claim %d bypassed: %v", port, err)
 		}
 	}
-	if err := got.VetoKnownStoppedPort(2053); err != nil {
-		t.Fatalf("unclaimed port was incorrectly hardcoded blocked: %v", err)
+	if err := got.VetoKnownStoppedPort(2053); !errors.Is(err, ErrPersistentServiceInventoryIncomplete) {
+		t.Fatalf("non-global source scan authorized unrelated port 2053: %v", err)
 	}
 	if _, err := InspectSystemdSocketSources(nil); !errors.Is(err, ErrPersistentServiceInventoryIncomplete) {
 		t.Fatalf("no-source inventory accepted: %v", err)

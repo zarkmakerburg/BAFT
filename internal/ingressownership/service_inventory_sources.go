@@ -55,9 +55,11 @@ func InspectSystemdSocketSources(directories []string) (SystemdSourcesSnapshot, 
 	return out, nil
 }
 
-// VetoKnownStoppedPort only reports a known conflict or an incomplete scan.
-// Even a nil result is NOT authorization to bind/firewall: the caller must
-// separately prove the durable host-wide authority and live socket state.
+// VetoKnownStoppedPort never asserts global host availability. A confirmed
+// stopped owner vetoes with ErrConflict; absence in the bounded source scan
+// returns ErrPersistentServiceInventoryIncomplete, requiring independent
+// inventory categories and Alpha's durable held authority before any bind
+// or firewall effect. No nil success from this read-only adapter.
 func (s SystemdSourcesSnapshot) VetoKnownStoppedPort(port uint16) error {
 	if !s.ScopedComplete || len(s.Sources) == 0 || port == 0 {
 		return ErrPersistentServiceInventoryIncomplete
@@ -72,5 +74,5 @@ func (s SystemdSourcesSnapshot) VetoKnownStoppedPort(port uint16) error {
 			return ErrConflict
 		}
 	}
-	return nil
+	return ErrPersistentServiceInventoryIncomplete
 }

@@ -113,6 +113,15 @@ func (s *ReservationStore) ReservePending(binding BindingV1) error {
 			}
 			return ErrReserved
 		}
+		// A tunnel/instance can hold only one unresolved lease, even when
+		// a later signed operation selects another numeric TCP port.
+		// Generation advancement needs a separately verified retirement.
+		for _, old := range claims {
+			if old.NodeID == binding.NodeID && old.Spec.TunnelID == binding.Spec.TunnelID &&
+				old.Spec.InstanceID == binding.Spec.InstanceID {
+				return ErrReserved
+			}
+		}
 		claims[key] = binding
 		return savePending(d, root, claims)
 	})

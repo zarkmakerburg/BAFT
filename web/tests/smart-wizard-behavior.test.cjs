@@ -232,3 +232,34 @@ test('late Edit response never overwrites a newer selected tunnel',async()=>{
  assert.equal(fields.tnTarget,'192.0.2.20:4000');
  assert.equal(vm.runInContext('tnEditBase.instance_id',c),'new');
 });
+
+test('new independent Wizard plan cannot replace a tunnel unless Edit explicitly selected it',()=>{
+ const fields={tnPlan:''};
+ const c=context(fields,'let tnEditBase=null,tnEditSelectedID="",tnPlanHash="",tnPlanReq=null,tnPlanReplaces="";const esc=String;'+fn('function tnShowPlan(p)','function tnClearPlan()'));
+ const p={ok:true,hash:'backend-ready',request:{instance_id:'reused'},replaces:'tun-active',gates:[],nodes:[],steps:[],verify:[],rollback:[]};
+ vm.runInContext('tnShowPlan('+JSON.stringify(p)+')',c);
+ assert.equal(vm.runInContext('tnPlanHash',c),'');
+ assert.equal(vm.runInContext('tnPlanReq',c),null);
+ assert.match(fields.tnPlan,/disabled onclick="tnDeploy\(\)"/);
+ assert.match(fields.tnPlan,/Choose Edit on that exact tunnel/);
+});
+
+test('review may replace only the precise selected Edit tunnel, not a different active tunnel',()=>{
+ const fields={tnPlan:''};
+ const c=context(fields,'let tnEditBase={instance_id:"managed"},tnEditSelectedID="tun-first",tnPlanHash="",tnPlanReq=null,tnPlanReplaces="";const esc=String;'+fn('function tnShowPlan(p)','function tnClearPlan()'));
+ const p={ok:true,hash:'valid',request:{instance_id:'managed'},replaces:'tun-other',gates:[],nodes:[],steps:[],verify:[],rollback:[]};
+ vm.runInContext('tnShowPlan('+JSON.stringify(p)+')',c);
+ assert.equal(vm.runInContext('tnPlanHash',c),'');
+ p.replaces='tun-first';vm.runInContext('tnShowPlan('+JSON.stringify(p)+')',c);
+ assert.equal(vm.runInContext('tnPlanHash',c),'valid');
+ assert.equal(vm.runInContext('tnPlanReplaces',c),'tun-first');
+ assert.doesNotMatch(fields.tnPlan,/disabled onclick="tnDeploy\(\)"/);
+});
+
+test('changing from Edit to new mode revokes replacement selection',()=>{
+ const fields={...defaults,tnMode:'replace'};
+ const c=context(fields,'let tnEditBase={instance_id:"managed"},tnEditSelectedID="tun-first";'+fn('function tnModeChanged()','function tnNew()'));
+ vm.runInContext('tnModeChanged()',c);
+ assert.equal(vm.runInContext('tnEditBase',c),null);
+ assert.equal(vm.runInContext('tnEditSelectedID',c),'');
+});

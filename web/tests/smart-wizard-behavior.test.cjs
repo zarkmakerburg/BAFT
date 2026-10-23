@@ -263,3 +263,14 @@ test('changing from Edit to new mode revokes replacement selection',()=>{
  assert.equal(vm.runInContext('tnEditBase',c),null);
  assert.equal(vm.runInContext('tnEditSelectedID',c),'');
 });
+
+test('Edit review refuses a plan that no longer replaces the selected active tunnel',()=>{
+ const fields={tnPlan:''};
+ const c=context(fields,'let tnEditBase={instance_id:"managed"},tnEditSelectedID="tun-first",tnPlanHash="",tnPlanReq=null,tnPlanReplaces="";const esc=String;'+fn('function tnShowPlan(p)','function tnClearPlan()'));
+ const p={ok:true,hash:'ready-but-unrelated',request:{instance_id:'managed'},replaces:'',gates:[],nodes:[],steps:[],verify:[],rollback:[]};
+ vm.runInContext('tnShowPlan('+JSON.stringify(p)+')',c);
+ assert.equal(vm.runInContext('tnPlanHash',c),'');
+ assert.equal(vm.runInContext('tnPlanReq',c),null);
+ assert.match(fields.tnPlan,/disabled onclick="tnDeploy\(\)"/);
+ assert.match(fields.tnPlan,/no longer the target/);
+});

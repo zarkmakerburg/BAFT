@@ -171,3 +171,13 @@ test('starting a new backend plan invalidates previously deployable plan immedia
  assert.equal(vm.runInContext('tnPlanReq',c),null);
  resolveFetch({ok:false,text:async()=> 'unavailable'});await pending;
 });
+test('double-click deploy submits only one backend mutation while pending',async()=>{
+ const fields={...defaults,tnPlan:''};let resolveFetch;let calls=0;
+ const c=context(fields,'let tnPlanHash="valid",tnPlanReq={instance_id:"test"},tnPlanReplaces="",tnDeployPending=false;'+fn('async function tnDeploy()','async function tnRotate(id)'));
+ c.confirm=()=>true;c.ah=()=>({});c.fetch=()=>{calls++;return new Promise(resolve=>{resolveFetch=resolve})};c.tnClearPlan=()=>{};c.tnEditEnd=()=>{};c.loadTunnels=()=>{};c.loadAudit=()=>{};
+ const first=vm.runInContext('tnDeploy()',c);
+ const second=vm.runInContext('tnDeploy()',c);
+ assert.equal(calls,1);
+ resolveFetch({ok:true,status:200,text:async()=>'{"id":"job"}'});
+ await Promise.all([first,second]);
+});

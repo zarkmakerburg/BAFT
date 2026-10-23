@@ -136,3 +136,35 @@ func TestNFTLabTransactionCancellationDoesNotAcknowledgeApplyOrRetire(t *testing
 		t.Fatalf("safe retirement retry failed: %v", err)
 	}
 }
+
+func TestNFTLabTransactionRefusesSecondOwnerOfActivePort(t *testing.T) {
+	first := testSpec(t, "nft-first-owner")
+	second := first
+	second.TunnelID = "nft-second-owner"
+	firstProof, err := ingressmanifest.Preview(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondProof, err := ingressmanifest.Preview(second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fake := &nftLabFake{chainHandle: 7}
+	tx := &NFTLabTransaction{Runtime: NewRuntime(), Firewall: &NFTLabBackend{Runner: fake, ExpectedChainHandle: 7}, Journal: new(LabJournal)}
+	if err := tx.Apply(context.Background(), first, firstProof); err != nil {
+		t.Fatal(err)
+	}
+	commands := len(fake.commands)
+	if err := tx.Apply(context.Background(), second, secondProof); err == nil {
+		t.Fatal("second owner acquired active port")
+	}
+	if len(fake.commands) != commands {
+		t.Fatal("second owner changed firewall")
+	}
+	if err := tx.Apply(context.Background(), first, firstProof); err != nil {
+		t.Fatalf("first owner lost live ownership: %v", err)
+	}
+	if err := tx.Retire(context.Background(), first, firstProof); err != nil {
+		t.Fatal(err)
+	}
+}

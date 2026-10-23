@@ -1,0 +1,37 @@
+name: Gamma v0.3.7 Tunnel Upgrade LAB
+on:
+  pull_request:
+    paths:
+      - 'tests/e2e/gamma_v037_tunnel_upgrade_namespace.sh'
+      - '.github/workflows/gamma-v037-tunnel-upgrade-lab.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  v037-two-node-upgrade:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Build pinned v0.3.7 and candidate Linux binaries
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq iproute2 nftables
+          old_sha="$(git rev-parse 'v0.3.7^{commit}')"
+          test "$old_sha" = 94c55dccf5af7cd126089374d991463931413121
+          git worktree add --detach "$RUNNER_TEMP/gamma-v037-src" "$old_sha"
+          mkdir -p "$RUNNER_TEMP/gamma-v037-bin" "$RUNNER_TEMP/gamma-next-bin"
+          go -C "$RUNNER_TEMP/gamma-v037-src" build -o "$RUNNER_TEMP/gamma-v037-bin/" ./cmd/baft ./cmd/baft-pair
+          go build -o "$RUNNER_TEMP/gamma-next-bin/" ./cmd/baft ./cmd/baft-pair
+          bash -n tests/e2e/gamma_v037_tunnel_upgrade_namespace.sh
+      - name: Verify paired EX and IR survive binary replacement without re-pair
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=10s 240s sudo bash tests/e2e/gamma_v037_tunnel_upgrade_namespace.sh "$RUNNER_TEMP/gamma-v037-bin" "$RUNNER_TEMP/gamma-next-bin"

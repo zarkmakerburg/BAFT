@@ -35,5 +35,12 @@ jobs:
         run: |
           set -euo pipefail
           timeout --signal=TERM --kill-after=10s 240s sudo bash tests/e2e/gamma_v037_tunnel_upgrade_namespace.sh "$RUNNER_TEMP/gamma-v037-bin" "$RUNNER_TEMP/gamma-next-bin"
+          # Refuse an already-used BAFT fixture port without touching the host.
+          before="$(ip netns list)"
+          if sudo env GAMMA_EXISTING_PORT=18443 bash tests/e2e/gamma_v037_tunnel_upgrade_namespace.sh "$RUNNER_TEMP/gamma-v037-bin" "$RUNNER_TEMP/gamma-next-bin" >"$RUNNER_TEMP/gamma-rejected-port.log" 2>&1; then
+            echo "FAIL: conflicting existing service port accepted" >&2; exit 1
+          fi
+          grep -Fq "existing service port conflicts with LAB fixtures" "$RUNNER_TEMP/gamma-rejected-port.log"
+          test "$(ip netns list)" = "$before"
           # 2053 has no special meaning: repeat with an unrelated live port.
           timeout --signal=TERM --kill-after=10s 240s sudo env GAMMA_EXISTING_PORT=24443 bash tests/e2e/gamma_v037_tunnel_upgrade_namespace.sh "$RUNNER_TEMP/gamma-v037-bin" "$RUNNER_TEMP/gamma-next-bin"

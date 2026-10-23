@@ -110,6 +110,51 @@ func TestSeenJournalLockRejectsSymlinkAndSharedFiles(t *testing.T) {
 	}
 }
 
+// A modified on-disk ledger must not let a formerly verified signed job be
+// re-admitted after the process starts (or during a new Agent startup).
+func TestSeenJournalRejectsUnsafeLedgerFiles(t *testing.T) {
+	for _, kind := range []string{"symlink", "hardlink", "public"} {
+		t.Run(kind, func(t *testing.T) {
+			dir := t.TempDir()
+			a := &Agent{cfg: Config{StateDir: dir, Now: time.Now}, seen: map[string]time.Time{}}
+			target := filepath.Join(dir, "other-file")
+			if err := os.WriteFile(target, []byte("{}"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			ledger := a.seenPath()
+			switch kind {
+			case "symlink":
+				if err := os.Symlink(target, ledger); err != nil {
+					t.Fatal(err)
+				}
+			case "hardlink":
+				if err := os.Link(target, ledger); err != nil {
+					t.Fatal(err)
+				}
+			case "public":
+				if err := os.WriteFile(ledger, []byte("{}"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Chmod(ledger, 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := a.loadSeen(); err == nil {
+				t.Fatal("unsafe ledger accepted at startup")
+			}
+			if err := a.markSeen("must-not-execute"); err == nil {
+				t.Fatal("unsafe ledger admitted signed job")
+			}
+			if a.isSeen("must-not-execute") {
+				t.Fatal("unsafe ledger marked job as seen")
+			}
+			if got, err := os.ReadFile(target); err != nil || string(got) != "{}" {
+				t.Fatalf("unrelated target modified: %q %v", got, err)
+			}
+		})
+	}
+}
+
 func TestMarkSeenRefusesCorruptDiskAfterStartup(t *testing.T) {
 	for _, raw := range []string{"null", "{"} {
 		t.Run(raw, func(t *testing.T) {

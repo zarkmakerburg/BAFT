@@ -4,6 +4,7 @@ package agent
 
 import (
 	"errors"
+	"io"
 	"os"
 	"syscall"
 )
@@ -31,4 +32,32 @@ func lockSeenJournal(path string) (func(), error) {
 		return nil, err
 	}
 	return func() { _ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN); _ = f.Close() }, nil
+}
+
+// readSeenJournal refuses aliases and publicly accessible files before
+// loading the replay-fence ledger, and verifies the opened inode still
+// matches the path examined. A compromised ledger must never reset the
+// admission history of signed jobs.
+func readSeenJournal(path string) ([]byte, error) {
+	pathInfo, err := os.Lstat(path)
+	if err != nil {
+		return nil, err
+	}
+	if !pathInfo.Mode().IsRegular() || pathInfo.Mode().Perm()&0077 != 0 {
+		return nil, errors.New("seen-job journal must be a private regular file")
+	}
+	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_CLOEXEC, 0)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	if !os.SameFile(pathInfo, info) || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || !ok || int(stat.Uid) != os.Geteuid() || stat.Nlink != 1 {
+		return nil, errors.New("seen-job journal inode, permissions or ownership invalid")
+	}
+	return io.ReadAll(f)
 }

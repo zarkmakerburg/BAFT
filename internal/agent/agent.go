@@ -131,7 +131,7 @@ func New(cfg Config) (*Agent, error) {
 func (a *Agent) seenPath() string { return filepath.Join(a.cfg.StateDir, "seen-jobs.json") }
 
 func (a *Agent) loadSeen() error {
-	b, err := os.ReadFile(a.seenPath())
+	b, err := readSeenJournal(a.seenPath())
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
@@ -159,7 +159,7 @@ func (a *Agent) markSeen(id string) error {
 	// may have claimed a job since this object started; the locked durable
 	// ledger is the admission authority and must also preserve its other IDs.
 	latest := make(map[string]time.Time)
-	if raw, err := os.ReadFile(a.seenPath()); err == nil {
+	if raw, err := readSeenJournal(a.seenPath()); err == nil {
 		if err := json.Unmarshal(raw, &latest); err != nil {
 			return err
 		}

@@ -92,6 +92,26 @@ func TestDurableJournalRetiredGenerationReplayFence(t *testing.T) {
 	if err != nil || len(got.Records) != 1 || got.Records[0].Phase != PhaseRetired || len(got.NeedsReconciliation) != 0 {
 		t.Fatalf("retired durable journal changed: %+v %v", got, err)
 	}
+	// A process restart must preserve both the retired-generation tombstone
+	// and the ability to reserve this dynamically chosen port for a new owner.
+	reopened, err := OpenDurableJournal(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := reopened.Advance(record); !errors.Is(err, ErrConflict) {
+		t.Fatalf("restarted journal resurrected retired generation: %v", err)
+	}
+	replacement := MutationRecord{Port: record.Port, Owner: proof("replacement-after-retirement", 1), Phase: PhaseIntent}
+	if err := reopened.Advance(replacement); err != nil {
+		t.Fatalf("restarted journal did not release retired port: %v", err)
+	}
+	if err := j.Advance(MutationRecord{Port: record.Port, Owner: proof("third-owner", 1), Phase: PhaseIntent}); !errors.Is(err, ErrConflict) {
+		t.Fatalf("competing owner claimed port after replacement: %v", err)
+	}
+	got, err = reopened.Recover()
+	if err != nil || len(got.Records) != 2 || len(got.NeedsReconciliation) != 1 || got.NeedsReconciliation[0] != replacement {
+		t.Fatalf("restarted ownership/recovery not preserved: %+v %v", got, err)
+	}
 }
 
 func TestDurableJournalConcurrentWritersAndFences(t *testing.T) {

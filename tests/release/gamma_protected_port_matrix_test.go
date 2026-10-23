@@ -24,7 +24,9 @@ func TestGammaExistingServicePortMatrixIsExecutable(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.script, func(t *testing.T) {
 			src, err := os.ReadFile(filepath.Join("..", "e2e", tc.script))
-			if err != nil { t.Fatal(err) }
+			if err != nil {
+				t.Fatal(err)
+			}
 			script := string(src)
 			guard := strings.Index(script, "GAMMA_EXISTING_PORT:-2053")
 			mutation := strings.Index(script, "ip netns add")
@@ -35,26 +37,36 @@ func TestGammaExistingServicePortMatrixIsExecutable(t *testing.T) {
 				"EXISTING_PORT", "existing service port conflicts with LAB fixtures",
 				"http://10.221.52.2:${EXISTING_PORT}/",
 			} {
-				if !strings.Contains(script, marker) { t.Fatalf("dynamic port handling missing %q", marker) }
+				if !strings.Contains(script, marker) {
+					t.Fatalf("dynamic port handling missing %q", marker)
+				}
 			}
 			if strings.Contains(script, "http://10.221.52.2:2053/") {
 				t.Fatal("actual service check still pinned to port 2053")
 			}
 			b, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", tc.workflow))
-			if err != nil { t.Fatal(err) }
+			if err != nil {
+				t.Fatal(err)
+			}
 			var flow struct {
 				Jobs map[string]struct {
 					Steps []struct {
 						Name string `yaml:"name"`
-						Run string `yaml:"run"`
+						Run  string `yaml:"run"`
 					} `yaml:"steps"`
 				} `yaml:"jobs"`
 			}
-			if err := yaml.Unmarshal(b, &flow); err != nil { t.Fatalf("invalid workflow: %v", err) }
+			if err := yaml.Unmarshal(b, &flow); err != nil {
+				t.Fatalf("invalid workflow: %v", err)
+			}
 			job, ok := flow.Jobs[tc.job]
-			if !ok { t.Fatalf("missing %s job", tc.job) }
+			if !ok {
+				t.Fatalf("missing %s job", tc.job)
+			}
 			var runs string
-			for _, step := range job.Steps { runs += step.Run + "\n" }
+			for _, step := range job.Steps {
+				runs += step.Run + "\n"
+			}
 			for _, required := range []string{
 				"bash -n tests/e2e/" + tc.script,
 				"sudo bash tests/e2e/" + tc.script,

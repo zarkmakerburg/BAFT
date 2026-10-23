@@ -124,5 +124,8 @@ func (j *LabJournal) Current(owner ingressmanifest.Proof) (MutationRecord, bool,
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	r, ok := j.entries[journalKey(owner)]
-	return r, ok, nil
+	if !ok || r.Owner != owner {
+		return MutationRecord{}, false, nil
+	}
+	return r, true, nil
 }

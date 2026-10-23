@@ -309,3 +309,32 @@ test('Wizard requires one explicit usable IR client configuration port before re
   assert.equal(vm.runInContext('tnWizardValidateStep(2)',c),true,'valid free candidate '+port);
  }
 });
+
+test('successful deploy still refreshes inventory and audit if operator edits form while request is pending',async()=>{
+ const fields={...defaults,tnPlan:''};let resolveFetch,refreshTunnels=0,refreshAudit=0;
+ const c=context(fields,'const esc=String;let tnPlanHash="reviewed",tnPlanReq={instance_id:"test"},tnPlanReplaces="",tnPlanEpoch=0,tnDeployPending=false;'+fn('function tnShowPlan(p)','async function tnRotate(id)'));
+ c.confirm=()=>true;c.ah=()=>({});
+ c.fetch=()=>new Promise(resolve=>{resolveFetch=resolve});
+ c.loadTunnels=()=>{refreshTunnels++};c.loadAudit=()=>{refreshAudit++};c.tnEditEnd=()=>{};
+ const pending=vm.runInContext('tnDeploy()',c);
+ vm.runInContext('tnClearPlan()',c);
+ resolveFetch({ok:true,status:202,text:async()=>'{"id":"durable-job"}'});
+ await pending;
+ assert.equal(refreshTunnels,1,'accepted mutation must be visible despite later form edit');
+ assert.equal(refreshAudit,1,'accepted mutation must trigger audit refresh');
+ assert.equal(vm.runInContext('tnPlanHash',c),'','old reviewed plan must remain invalid');
+ assert.equal(vm.runInContext('tnPlanReq',c),null);
+});
+test('failed stale deploy response must not refresh inventory or resurrect plan',async()=>{
+ const fields={...defaults,tnPlan:''};let resolveFetch,refreshTunnels=0,refreshAudit=0;
+ const c=context(fields,'const esc=String;let tnPlanHash="reviewed",tnPlanReq={instance_id:"test"},tnPlanReplaces="",tnPlanEpoch=0,tnDeployPending=false;'+fn('function tnShowPlan(p)','async function tnRotate(id)'));
+ c.confirm=()=>true;c.ah=()=>({});c.tnEditEnd=()=>{};
+ c.fetch=()=>new Promise(resolve=>{resolveFetch=resolve});
+ c.loadTunnels=()=>{refreshTunnels++};c.loadAudit=()=>{refreshAudit++};
+ const pending=vm.runInContext('tnDeploy()',c);
+ vm.runInContext('tnClearPlan()',c);
+ resolveFetch({ok:false,status:409,text:async()=>JSON.stringify({error:'stale',plan:{ok:true,hash:'obsolete',request:{},gates:[],nodes:[],steps:[],verify:[],rollback:[]}})});
+ await pending;
+ assert.equal(refreshTunnels,0);assert.equal(refreshAudit,0);
+ assert.equal(vm.runInContext('tnPlanHash',c),'');
+});

@@ -26,6 +26,13 @@ type session struct {
 	proof  ingressmanifest.Proof
 	ctx    context.Context // original lifecycle, including cancellation before done
 	cancel context.CancelFunc
+	// The exact listener/forwarder are retained only for read-only replay
+	// verification. Neither is a durable host or firewall ownership claim.
+	listener  net.Listener
+	forwarder *publicingress.Forwarder
+	// A lost live-port claim found by replay is immutable evidence until
+	// exact-owner Retire, even if cancellation makes Serve exit cleanly.
+	violation error
 	// done is a broadcast completion signal, not a consumable error queue.
 	// Multiple health checks must not drain the terminal outcome before
 	// exact-owner Retire has inspected it.
@@ -96,6 +103,18 @@ func (r *Runtime) Apply(parent context.Context, spec ingressmanifest.Spec, proof
 				if s.ctx.Err() != nil {
 					return ErrStopped
 				}
+				// A foreign process may have bound another IP/family since
+				// admission and before the 1-second watchdog tick. Never
+				// claim a healthy replay without re-verifying the exact
+				// listener's current live TCP-port ownership.
+				if err := s.forwarder.ValidateListener(s.listener); err != nil {
+					s.violation = err
+					s.cancel()
+					return errors.Join(ErrStopped, err)
+				}
+				if s.ctx.Err() != nil {
+					return ErrStopped
+				}
 				if err := parent.Err(); err != nil {
 					return err
 				}
@@ -133,7 +152,7 @@ func (r *Runtime) Apply(parent context.Context, spec ingressmanifest.Spec, proof
 	// A concurrently cancelled parent is represented by a stopped session,
 	// which can only be retired with its exact proof.
 	ctx, cancel := context.WithCancel(parent)
-	s := &session{proof: proof, ctx: ctx, cancel: cancel, done: make(chan struct{})}
+	s := &session{proof: proof, ctx: ctx, cancel: cancel, listener: ln, forwarder: f, done: make(chan struct{})}
 	r.sessions[spec.Config.Listen] = s
 	go func() {
 		err := f.Serve(ctx, ln)
@@ -177,6 +196,12 @@ func (r *Runtime) Retire(endpoint string, proof ingressmanifest.Proof) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	err = s.result
+	// If a health read detected lost ownership and canceled Serve before
+	// its watchdog reported failure, retain that cause across any number
+	// of intervening health checks and cleanup.
+	if s.violation != nil {
+		err = errors.Join(err, s.violation)
+	}
 	if releaseErr := r.registry.Release(endpoint, proof); releaseErr != nil {
 		return releaseErr
 	}

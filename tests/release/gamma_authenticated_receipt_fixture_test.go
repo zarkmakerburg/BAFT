@@ -2,6 +2,8 @@ package release_test
 
 import (
  "context"
+ "io"
+ "net/url"
  "crypto/tls"
  "crypto/x509"
  "encoding/json"
@@ -28,20 +30,23 @@ type gammaReceiptFixture struct {
 
 func gammaReadAuthenticatedReceipt(ctx context.Context, endpoint string, roots *x509.CertPool, serverName string, expected gammaReceiptFixture) error {
  if roots == nil || serverName == "" { return errors.New("missing node TLS trust or identity") }
+ u,err:=url.Parse(endpoint);if err!=nil||u.Scheme!="https"||u.Host==""||u.User!=nil {return errors.New("receipt requires explicit HTTPS endpoint")}
  tr := &http.Transport{TLSClientConfig: &tls.Config{RootCAs: roots, ServerName: serverName, MinVersion: tls.VersionTLS12}}
  defer tr.CloseIdleConnections()
- client := &http.Client{Transport: tr, Timeout: 3*time.Second}
+ client := &http.Client{Transport: tr, Timeout: 3*time.Second, CheckRedirect:func(*http.Request,[]*http.Request)error{return http.ErrUseLastResponse}}
  req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
  if err != nil { return err }
  resp, err := client.Do(req)
  if err != nil { return fmt.Errorf("certificate-validated node HTTPS: %w", err) }
  defer resp.Body.Close()
+ if resp.TLS==nil||len(resp.TLS.VerifiedChains)==0{return errors.New("receipt requires verified TLS transport")}
  if resp.StatusCode != http.StatusOK { return fmt.Errorf("node receipt HTTP %d", resp.StatusCode) }
  if !strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json") { return errors.New("node receipt has unexpected content type") }
  dec := json.NewDecoder(http.MaxBytesReader(nil,resp.Body,4096))
  dec.DisallowUnknownFields()
  var got gammaReceiptFixture
  if err := dec.Decode(&got); err != nil { return fmt.Errorf("invalid node receipt: %w",err) }
+ var extra any; if err:=dec.Decode(&extra);err!=io.EOF{return errors.New("receipt contains trailing data or exceeds body limit")}
  if got.OperationID == "" || got.NodeID == "" || got.PlanHash == "" || got.Generation == 0 || got.ClientPort < 1 || got.ClientPort > 65535 || got.Status != "applied" {return errors.New("incomplete or non-applied node receipt")}
  if got != expected {return fmt.Errorf("authenticated node receipt does not bind operation, identity, reviewed hash, generation and canonical client port")}
  return nil

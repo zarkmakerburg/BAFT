@@ -181,11 +181,24 @@ func (f *Forwarder) Serve(parent context.Context, ln net.Listener) error {
 	ctx, cancel := context.WithCancel(parent)
 	var clients sync.WaitGroup
 	stopListener := context.AfterFunc(ctx, func() { _ = ln.Close() })
-	defer func() { cancel(); _ = ln.Close(); clients.Wait(); stopListener() }()
+	// Periodically recheck for foreign listeners on the same numeric port.
+	// A successful bind or initial inventory snapshot alone is insufficient:
+	// another process may later bind a different IP/family.
+	liveFailures := make(chan error, 1)
+	watchDone := watchLiveTCPListener(ctx, f, ln, liveFailures)
+	defer func() { cancel(); _ = ln.Close(); clients.Wait(); stopListener(); <-watchDone }()
 	slots := make(chan struct{}, f.cfg.MaxClients)
 	for {
 		client, err := ln.Accept()
 		if err != nil {
+			// On conflict, the watchdog sends its evidence before closing
+			// our listener. Report a hard ownership error instead of
+			// treating it as an ordinary graceful shutdown.
+			select {
+			case liveErr := <-liveFailures:
+				return liveErr
+			default:
+			}
 			if ctx.Err() != nil {
 				return nil
 			}

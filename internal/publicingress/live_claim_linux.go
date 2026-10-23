@@ -4,6 +4,7 @@ package publicingress
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 )
 
 // A successful kernel bind is insufficient to claim a numeric TCP port:
@@ -148,4 +150,37 @@ func inspectSocketTable(raw []byte, ipv6 bool, port int, own uint64) (socketRows
 		}
 	}
 	return result, nil
+}
+
+// watchLiveTCPListener detects an independently bound later listener while
+// this ingress is active. It never mutates the other owner or firewall.
+// This narrows, but cannot eliminate, the non-atomic kernel observation gap.
+func watchLiveTCPListener(ctx context.Context, f *Forwarder, ln net.Listener, failed chan<- error) <-chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		tick := time.NewTicker(time.Second)
+		defer tick.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-tick.C:
+				if ctx.Err() != nil {
+					return
+				}
+				if err := f.ValidateListener(ln); err != nil {
+					if ctx.Err() != nil {
+						return
+					}
+					failed <- fmt.Errorf("ingress lost exclusive live-port ownership: %w", err)
+					// Only the caller-supplied ingress listener is owned.
+					// Close to unblock Accept; Serve handles client cleanup.
+					_ = ln.Close()
+					return
+				}
+			}
+		}
+	}()
+	return done
 }

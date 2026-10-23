@@ -24,6 +24,7 @@ type Runtime struct {
 }
 type session struct {
 	proof  ingressmanifest.Proof
+	ctx    context.Context // original lifecycle, including cancellation before done
 	cancel context.CancelFunc
 	// done is a broadcast completion signal, not a consumable error queue.
 	// Multiple health checks must not drain the terminal outcome before
@@ -89,8 +90,12 @@ func (r *Runtime) Apply(parent context.Context, spec ingressmanifest.Spec, proof
 			case <-s.done:
 				return ErrStopped
 			default:
-				// Cancellation may race with the initial check. Never ACK
-				// a cancelled replay as an active, healthy listener.
+				// The original owner's cancellation must be visible even
+				// before Serve has acquired r.mu to publish its terminal
+				// result. A fresh replay context cannot revive it.
+				if s.ctx.Err() != nil {
+					return ErrStopped
+				}
 				if err := parent.Err(); err != nil {
 					return err
 				}
@@ -128,7 +133,7 @@ func (r *Runtime) Apply(parent context.Context, spec ingressmanifest.Spec, proof
 	// A concurrently cancelled parent is represented by a stopped session,
 	// which can only be retired with its exact proof.
 	ctx, cancel := context.WithCancel(parent)
-	s := &session{proof: proof, cancel: cancel, done: make(chan struct{})}
+	s := &session{proof: proof, ctx: ctx, cancel: cancel, done: make(chan struct{})}
 	r.sessions[spec.Config.Listen] = s
 	go func() {
 		err := f.Serve(ctx, ln)

@@ -155,6 +155,42 @@ func TestSeenJournalRejectsUnsafeLedgerFiles(t *testing.T) {
 	}
 }
 
+func TestSeenJournalRejectsUnsafeStateDirectory(t *testing.T) {
+	for _, kind := range []string{"public", "symlink"} {
+		t.Run(kind, func(t *testing.T) {
+			root := t.TempDir()
+			dir := filepath.Join(root, "agent-state")
+			if err := os.Mkdir(dir, 0700); err != nil {
+				t.Fatal(err)
+			}
+			state := dir
+			if kind == "public" {
+				if err := os.Chmod(dir, 0777); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				state = filepath.Join(root, "alias")
+				if err := os.Symlink(dir, state); err != nil {
+					t.Fatal(err)
+				}
+			}
+			a := &Agent{cfg: Config{StateDir: state, Now: time.Now}, seen: map[string]time.Time{}}
+			if err := a.loadSeen(); err == nil {
+				t.Fatal("unsafe state directory accepted at startup")
+			}
+			if err := a.markSeen("must-not-execute"); err == nil {
+				t.Fatal("unsafe state directory admitted job")
+			}
+			if a.isSeen("must-not-execute") {
+				t.Fatal("job cached from unsafe directory")
+			}
+			if _, err := os.Stat(filepath.Join(dir, "seen-jobs.json")); !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("unsafe state directory wrote ledger: %v", err)
+			}
+		})
+	}
+}
+
 func TestMarkSeenRefusesCorruptDiskAfterStartup(t *testing.T) {
 	for _, raw := range []string{"null", "{"} {
 		t.Run(raw, func(t *testing.T) {

@@ -19,6 +19,15 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
+      - name: Verify release gate rejects missing v0.3.7 upgrade evidence
+        run: |
+          set -euo pipefail
+          go test ./tests/release -run '^TestGammaTaggedReleaseRequiresV037UpgradeLAB
+        run: |
+          set -euo pipefail
+          bash -n tests/e2e/gamma_v037_upgrade_rollback.sh
+          timeout --signal=TERM --kill-after=10s 900s bash tests/e2e/gamma_v037_upgrade_rollback.sh
+ -count=1 -timeout=5m
       - name: Validate and execute disposable v0.3.7 BCC upgrade rollback
         run: |
           set -euo pipefail

@@ -47,6 +47,17 @@ mkdir -m 700 -p "$EX" "$IR/state"
 EX_PORT=18443
 IR_PORT=15443
 TARGET_PORT=15619
+# Protect whichever unrelated service port is already in use.
+# Port 2053 is merely the historical test default, not a reserved BAFT port.
+EXISTING_PORT="${GAMMA_EXISTING_PORT:-2053}"
+if [[ ! "$EXISTING_PORT" =~ ^[1-9][0-9]{0,4}$ ]] || (( EXISTING_PORT < 1024 || EXISTING_PORT > 65535 )); then
+  echo "FAIL: invalid existing service port" >&2
+  exit 2
+fi
+case "$EXISTING_PORT" in
+  18443|15443|15619|18112|18113|22)
+    echo "FAIL: existing service port conflicts with LAB fixtures" >&2; exit 2 ;;
+esac
 
 wait_port() {
   local ns="$1" host="$2" port="$3"
@@ -62,12 +73,12 @@ wait_port() {
 }
 
 # A pre-existing IR service stays live while Pairing/BAFT is created/stopped.
-ip netns exec "$NS_IR" python3 -m http.server 2053 --bind 10.221.52.2 \
-  >"$WORK/unrelated2053.log" 2>&1 &
+ip netns exec "$NS_IR" python3 -m http.server ${EXISTING_PORT} --bind 10.221.52.2 \
+  >"$WORK/unrelated-service.log" 2>&1 &
 PIDS="$PIDS $!"
-wait_port "$NS_IR" 10.221.52.2 2053
+wait_port "$NS_IR" 10.221.52.2 ${EXISTING_PORT}
 ip netns exec "$NS_EX" curl -fsS --max-time 3 -o /dev/null \
-  http://10.221.52.2:2053/
+  http://10.221.52.2:${EXISTING_PORT}/
 
 # Model an IR SSH listener and reject NEW EX->IR TCP/22 using a scoped
 # disposable nft rule. This models one-way reachability, not sshd/auth.
@@ -91,7 +102,7 @@ if ip netns exec "$NS_EX" python3 -c \
 fi
 # A reachable unrelated port proves the negative SSH test is not route loss.
 ip netns exec "$NS_EX" curl -fsS --max-time 3 -o /dev/null \
-  http://10.221.52.2:2053/
+  http://10.221.52.2:${EXISTING_PORT}/
 
 "$PAIR" keygen --file "$EX/noise-key.json" >/dev/null
 "$PAIR" pki --dir "$EX/pki" --host 10.221.52.1 >/dev/null
@@ -143,7 +154,7 @@ kill -KILL "$IR_PID" "$EX_PID"
 wait "$IR_PID" 2>/dev/null || true
 wait "$EX_PID" 2>/dev/null || true
 ip netns exec "$NS_EX" curl -fsS --max-time 3 -o /dev/null \
-  http://10.221.52.2:2053/
+  http://10.221.52.2:${EXISTING_PORT}/
 
 ip netns exec "$NS_EX" "$BAFT" run --file "$EX/baft.yaml" \
   >"$WORK/ex-restart.log" 2>&1 &
@@ -168,10 +179,10 @@ if ip netns exec "$NS_EX" python3 -c \
   exit 1
 fi
 ip netns exec "$NS_EX" curl -fsS --max-time 3 -o /dev/null \
-  http://10.221.52.2:2053/
+  http://10.221.52.2:${EXISTING_PORT}/
 kill "$IR_RESTART_PID" "$EX_RESTART_PID"
 wait "$IR_RESTART_PID" 2>/dev/null || true
 wait "$EX_RESTART_PID" 2>/dev/null || true
 ip netns exec "$NS_EX" curl -fsS --max-time 3 -o /dev/null \
-  http://10.221.52.2:2053/
-echo "PASS: isolated Linux one-way pairing, 2x2x1MiB SHA transport including SIGKILL crash/restart, blocked EX->IR:22, unchanged configs/keys and preserved IR:2053"
+  http://10.221.52.2:${EXISTING_PORT}/
+echo "PASS: isolated Linux one-way pairing, 2x2x1MiB SHA transport including SIGKILL crash/restart, blocked EX->IR:22, unchanged configs/keys and preserved IR:${EXISTING_PORT}"

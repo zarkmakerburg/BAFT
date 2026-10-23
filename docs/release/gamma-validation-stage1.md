@@ -145,6 +145,59 @@ an unattended installer migration or uninterrupted existing TCP sockets.
 No server was modified. Real-host service recovery and signed
 installer Upgrade/Rollback remain release gates.
 
+## P0-E: preserve the active service's actual port (dynamic port LAB)
+
+The existing live listener in both Gamma network-namespace acceptance
+scripts is now selected by `GAMMA_EXISTING_PORT`, with `2053` only the
+historical *test fixture default*, **never a privileged or hard-coded
+protected BAFT port**. Invalid values and collisions with the test's
+own EX/IR/target/metrics ports fail before creating namespaces. Both
+CI workflows now test:
+
+- `2053` with the original active service preserved through pairing,
+  traffic, stop/restart and tunnel upgrades.
+- `24443` with the same preservation checks on a different real
+  listener port.
+- `18443` as a deliberately colliding input: rejected before any
+  namespace mutation, with unchanged namespace inventory.
+
+Changes: `tests/e2e/gamma_two_node_namespace.sh`,
+`tests/e2e/gamma_v037_tunnel_upgrade_namespace.sh`,
+`.github/workflows/gamma-two-node-lab.yml` and
+`.github/workflows/gamma-v037-tunnel-upgrade-lab.yml`.
+Exact Gamma SHA `4251eef3a775c5ad9e8f78b6b9ced0dc811e2a14`
+passed `bash -n` (both scripts),
+`go test ./tests/release -run '^TestGammaV037UpgradeWorkflowSyntaxAndCommands
+
+| P0 | Operational criterion | Gamma status | Required next proof |
+|---|---|---|---|
+| A | Two independent Linux nodes: install, pair, EX→IR SSH blocked, reinstallation, preservation of live tunnels | PARTIAL: isolated Linux namespace pairing, port-22 filtering and service preservation PASS; real two-host installation remains BLOCKED | Disposable two-node Linux LAB and then approved real-host acceptance; prove **both** install/repair and traffic continuity |
+| B | Create/start/stop/restart/delete, reboot/crash, cross-process ownership and safe resource reconciliation | BLOCKED | End-to-end process/service crash and reboot with authoritative nft/systemd inventory, existing-service hashes |
+| C | v0.3.x→v0.4.0 upgrade and compatible downgrade, failed-upgrade rollback | PARTIAL: genuine v0.3.7 BCC migration/rollback plus stopped EX/IR v0.3.7→candidate binary recovery with pairing/config/key preservation PASS in isolated LAB | Still requires installer/systemd upgrade, active socket continuity and physical-host recovery; no unsafe in-place downgrade |
+| D | Encrypted backup, same/second-node restore, key permissions and secret-free logs | PARTIAL: real CLI Mac LAB with wrong-key/held-lock failures, stopped-state restore and isolated fresh-directory recovery passed | Still requires real stopped-service Linux drill, separate physical node, key handling and artifact/log review |
+| E | TCP/UDP, IPv4/IPv6 when admitted, network loss, nftables, port conflicts, SSH/service preservation | PARTIAL: Linux nft and one-port preservation PASS earlier; new dynamic-port matrix added with Linux CI pending | Exact-SHA 2053/24443/18443 dynamic port jobs, then real host resource ownership, UDP/IPv6 and network failure acceptance |
+| F | Exact candidate race/vet/CI plus all release gates, provenance/signatures | PARTIAL | Exact candidate hosted workflows green; Gamma local scoped race green; final integrated SHA and operational P0 gates still absent |
+
+## Reproduction and operating boundaries
+
+Run from repository root. Use only private disposable LAB nodes, no production host:
+
+```sh
+E2E_MIB=1 E2E_CONNS=2 bash tests/e2e/pair_and_run.sh
+# root-only disposable Linux GitHub runner (not macOS/production):
+sudo bash tests/e2e/gamma_two_node_namespace.sh /path/to/compiled/baft-binaries
+go test -race ./tests/release -run '^TestGammaRejectedPairCodeDoesNotCreateIRState$' -count=1 -v
+go test -race ./cmd/baft-pair ./tests/release ./internal/bcc -run 'TestGeneratedConfigsLoadAndPinEachOther|TestEncryptedBackupFreshRestoreFullStateAndAudit|TestRestoreFaultInjectionLeavesStateAndAuditUnchanged' -count=1
+```
+
+Secrets are generated only in temporary directories, not uploaded or logged. A macOS loopback test does not simulate the Linux firewall, network namespaces, physical routes or loss of EX→IR SSH. Keep PR #270 Draft, #269 OPEN, and do not merge/tag/release/deploy until separate HQ authorization and accepted final gates.
+ -count=1`,
+`go vet ./tests/release` and `git diff --check` on Mac (exit 0).
+Hosted Linux on this new port matrix SHA was **queued** at observation;
+do not promote the new `24443` or collision claims to PASS until the
+exact Linux job succeeds. Earlier Linux success only established `2053`
+on older SHA. No physical host or existing Imperial Crown service touched.
+
 ## P0-A through P0-F release acceptance matrix
 
 | P0 | Operational criterion | Gamma status | Required next proof |

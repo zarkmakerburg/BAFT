@@ -338,3 +338,15 @@ test('failed stale deploy response must not refresh inventory or resurrect plan'
  assert.equal(refreshTunnels,0);assert.equal(refreshAudit,0);
  assert.equal(vm.runInContext('tnPlanHash',c),'');
 });
+
+// Regression: a successful deploy must reconcile even if body stream fails.
+test('accepted deploy refreshes inventory on response parse failure',async()=>{
+ const fields={...defaults,tnPlan:''};let tunnels=0,audit=0;
+ const c=context(fields,'const esc=String;let tnPlanHash="reviewed",tnPlanReq={instance_id:"test"},tnPlanReplaces="",tnPlanEpoch=0,tnDeployPending=false;'+fn('function tnShowPlan(p)','async function tnRotate(id)'));
+ c.confirm=()=>true;c.ah=()=>({});c.tnEditEnd=()=>{};
+ c.fetch=async()=>({ok:true,status:202,text:async()=>{throw Error('unreadable')}});
+ c.loadTunnels=()=>{tunnels++};c.loadAudit=()=>{audit++};
+ await vm.runInContext('tnDeploy()',c);
+ assert.equal(tunnels,1);assert.equal(audit,1);
+ assert.equal(vm.runInContext('tnDeployPending',c),false);
+});

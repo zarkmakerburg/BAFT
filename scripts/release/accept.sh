@@ -78,9 +78,13 @@ gamma_two_node_required=0
 if git cat-file -e "$sha:.github/workflows/gamma-two-node-lab.yml" 2>/dev/null; then
   gamma_two_node_required=1
 fi
-python3 - "$GH" "$repo" "$sha" "$ci_jobs" "$ingress_lab_required" "$gamma_two_node_required" >"$work/ci.out" 2>"$work/ci.err" <<'PY'
+gamma_v037_required=0
+if git cat-file -e "$sha:.github/workflows/gamma-v037-upgrade-lab.yml" 2>/dev/null; then
+  gamma_v037_required=1
+fi
+python3 - "$GH" "$repo" "$sha" "$ci_jobs" "$ingress_lab_required" "$gamma_two_node_required" "$gamma_v037_required" >"$work/ci.out" 2>"$work/ci.err" <<'PY'
 import json, subprocess, sys
-gh, repo, sha, jobs, ingress_lab_required, gamma_two_node_required = sys.argv[1:7]
+gh, repo, sha, jobs, ingress_lab_required, gamma_two_node_required, gamma_v037_required = sys.argv[1:8]
 def api(path):
     r = subprocess.run([gh, "api", path], capture_output=True, text=True)
     if r.returncode != 0:
@@ -136,6 +140,14 @@ try:
         else:
             status, _, detail = job_row(gamma, "isolated-two-node", path)
             print(status, "ci: gamma-two-node-lab", detail, sep="\t")
+    if gamma_v037_required == "1":
+        path = ".github/workflows/gamma-v037-upgrade-lab.yml"
+        upgrade = runs_for(path)
+        if upgrade is None:
+            print("FAIL", "ci: gamma-v037-upgrade-lab", f"no {path} workflow run for this commit", sep="\t")
+        else:
+            status, _, detail = job_row(upgrade, "upgrade-rollback", path)
+            print(status, "ci: gamma-v037-upgrade-lab", detail, sep="\t")
 except Exception as e:
     print("FAIL", "ci", f"cannot read workflow runs: {e}", sep="\t")
 PY

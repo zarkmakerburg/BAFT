@@ -22,7 +22,7 @@ func TestReviewedIngressOperationAtomicallyPersistsDesiredReservationAndProof(t 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if op.Spec != spec || op.Proof != proof || op.Status != PublicIngressPending {
+	if op.Spec != spec || op.Proof != proof || op.Status != PublicIngressPending || op.ReviewedPlanHash != "reviewed-hash" {
 		t.Fatalf("wrong cursor: %+v", op)
 	}
 	reopened, err := OpenStore(s.Path())
@@ -62,5 +62,44 @@ func TestReviewedIngressOperationRejectedSaveLeavesNoPartialReservation(t *testi
 	s.path = path
 	if len(s.st.PublicIngressReservations) != 0 || len(s.st.PublicIngressOperations) != 0 {
 		t.Fatal("partial desired reservation or operation survived failed save")
+	}
+}
+
+func TestReviewedOperationRestoreRejectsChangedPlanHashOrClientPort(t *testing.T) {
+	s, spec := reservationStore(t)
+	s.mu.Lock()
+	tun := s.st.Tunnels[spec.TunnelID]
+	tun.PlanHash = "reviewed-hash"
+	tun.ClientPort = spec.PublicPort
+	s.st.Tunnels[tun.ID] = tun
+	if err := s.saveLocked(); err != nil {
+		s.mu.Unlock()
+		t.Fatal(err)
+	}
+	s.mu.Unlock()
+	proof := canonicalOperationProof(t, s, spec, 1)
+	if _, err := s.RecordReviewedPublicIngressOperation(spec, "reviewed-hash", proof, time.Now(), ingressAudit()); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name   string
+		mutate func(*Tunnel)
+	}{
+		{"different plan", func(t *Tunnel) { t.PlanHash = "replaced" }},
+		{"different client port", func(t *Tunnel) { t.ClientPort++ }},
+		{"non-active tunnel", func(t *Tunnel) { t.Phase = TunnelRollingBack }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			snapshot, err := s.snapshotState()
+			if err != nil {
+				t.Fatal(err)
+			}
+			tun := snapshot.Tunnels[spec.TunnelID]
+			tc.mutate(&tun)
+			snapshot.Tunnels[spec.TunnelID] = tun
+			if err := mergePublicIngressOperations(&snapshot, s.st); err == nil {
+				t.Fatal("restore admitted operation detached from reviewed plan")
+			}
+		})
 	}
 }

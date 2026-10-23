@@ -30,7 +30,7 @@ func (s *Store) RecordReviewedPublicIngressOperation(spec PublicIngressSpec, pla
 		return PublicIngressOperation{}, errors.New("noncanonical ingress operation manifest proof")
 	}
 	if existing, exists := s.st.PublicIngressOperations[spec.TunnelID]; exists {
-		if existing.Spec == spec && existing.Proof == proof && existing.Status == PublicIngressPending {
+		if existing.Spec == spec && existing.Proof == proof && existing.ReviewedPlanHash == planHash && existing.Status == PublicIngressPending {
 			reservation, ok := s.st.PublicIngressReservations[spec.TunnelID]
 			if !ok || reservation.Spec != spec {
 				return PublicIngressOperation{}, errors.New("inconsistent operation and reservation")
@@ -65,7 +65,7 @@ func (s *Store) RecordReviewedPublicIngressOperation(spec PublicIngressSpec, pla
 	if _, exists := s.st.PublicIngressReservations[spec.TunnelID]; !exists {
 		s.st.PublicIngressReservations[spec.TunnelID] = PublicIngressReservation{Spec: spec, CreatedAt: now.UTC()}
 	}
-	op := PublicIngressOperation{Spec: spec, Proof: proof, Status: PublicIngressPending, CreatedAt: now.UTC()}
+	op := PublicIngressOperation{Spec: spec, Proof: proof, ReviewedPlanHash: planHash, Status: PublicIngressPending, CreatedAt: now.UTC()}
 	s.st.PublicIngressOperations[spec.TunnelID] = op
 	audit.Action, audit.Target, audit.Outcome = "public_ingress.operation.reviewed_intent", spec.TunnelID, "success"
 	audit.Details = mergeAuditDetails(audit.Details, map[string]any{"ir_node": spec.IRNode, "public_port": spec.PublicPort, "client_port": spec.PublicPort, "plan_hash": planHash, "generation": proof.Generation, "manifest_digest": proof.ManifestDigest, "desired_only": true})

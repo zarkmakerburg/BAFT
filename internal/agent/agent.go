@@ -131,6 +131,9 @@ func New(cfg Config) (*Agent, error) {
 func (a *Agent) seenPath() string { return filepath.Join(a.cfg.StateDir, "seen-jobs.json") }
 
 func (a *Agent) loadSeen() error {
+	if err := validateSeenStateDir(a.cfg.StateDir); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
 	b, err := readSeenJournal(a.seenPath())
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
@@ -148,6 +151,9 @@ func (a *Agent) markSeen(id string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if err := os.MkdirAll(a.cfg.StateDir, 0o700); err != nil {
+		return err
+	}
+	if err := validateSeenStateDir(a.cfg.StateDir); err != nil {
 		return err
 	}
 	unlock, err := lockSeenJournal(a.seenPath() + ".lock")

@@ -12,3 +12,6 @@ func lockSeenJournal(string) (func(), error) {
 }
 
 func readSeenJournal(path string) ([]byte, error) { return os.ReadFile(path) }
+
+// Signed-job execution already fails closed when cross-process locking is unsupported.
+func validateSeenStateDir(string) error { return nil }

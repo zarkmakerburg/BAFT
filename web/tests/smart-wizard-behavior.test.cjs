@@ -8,7 +8,7 @@ const src=fs.readFileSync(path.resolve(__dirname,'../../internal/bcc/dashboard.g
 const js=src.slice(src.indexOf('<script>')+8,src.indexOf('</script>'));
 function fn(from,to){const start=js.indexOf(from),end=js.indexOf(to,start);assert.ok(start>=0&&end>start);return js.slice(start,end)}
 function context(fields,prelude){
- const c={q:selector=>({get value(){return fields[selector.slice(1)]},set value(v){fields[selector.slice(1)]=v},get checked(){return fields[selector.slice(1)]},set checked(v){fields[selector.slice(1)]=v},get textContent(){return fields[selector.slice(1)]},set textContent(v){fields[selector.slice(1)]=v},scrollIntoView(){}}),document:{documentElement:{lang:'fa'}},alert(){},tnClearPlan(){},console};
+ const c={q:selector=>({get value(){return fields[selector.slice(1)]},set value(v){fields[selector.slice(1)]=v},get checked(){return fields[selector.slice(1)]},set checked(v){fields[selector.slice(1)]=v},get textContent(){return fields[selector.slice(1)]},set textContent(v){fields[selector.slice(1)]=v},get innerHTML(){return fields[selector.slice(1)]},set innerHTML(v){fields[selector.slice(1)]=v},scrollIntoView(){}}),document:{documentElement:{lang:'fa'}},alert(){},tnClearPlan(){},console};
  vm.createContext(c);vm.runInContext(fn('function tnWizardTargetChanged()','function tnWizardGenerateServicePort()')+prelude,c);return c;
 }
 const req=fn('function tnReq()','function tnModeChanged()');

@@ -153,6 +153,12 @@ func (f *Forwarder) Serve(parent context.Context, ln net.Listener) error {
 	if !ok || addr.Port != f.listenPort || !addr.IP.Equal(f.listenIP) {
 		return errors.New("listener does not match configured ingress endpoint")
 	}
+	// Check the complete Linux TCP listener inventory, not only the bound
+	// endpoint. A different IP or address family can share this numeric port.
+	// The caller keeps the socket on rejection; no firewall is touched here.
+	if err := verifyNoOtherLiveTCPListeners(ln, f.listenPort); err != nil {
+		return err
+	}
 	f.mu.Lock()
 	if f.running {
 		f.mu.Unlock()

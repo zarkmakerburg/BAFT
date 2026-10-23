@@ -170,7 +170,7 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       assert.equal(await page.locator('#ops_tnEngine').getAttribute('type'),'hidden');
       assert.equal(await page.locator('#ops_tnDirection option[value="ex-to-ir"]').isDisabled(),true);
     });
-    await check('real reviewed plan, failed preview retention, edit invalidation',async()=>{
+    await check('real reviewed plan, failed preview invalidation, edit invalidation',async()=>{
       await nav('tunnels');
       const next=page.locator('#ops_tnWizardNext');await next.click();
       await page.locator('#ops_tnIr').selectOption('qa-ir');await page.locator('#ops_tnEx').selectOption('qa-ex');await next.click();
@@ -191,7 +191,11 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       const endpoint=f.base+'api/tunnels/plan';
       await page.route(endpoint,r=>r.fulfill({status:503,contentType:'text/plain',body:'QA failure fixture'}));
       await Promise.all([page.waitForResponse(r=>r.url()===endpoint&&r.status()===503),review.click()]);
-      assert.ok((await page.locator('#ops_tnPlan').textContent()).includes(plan.hash));await page.unroute(endpoint);
+      // Failed re-planning must discard the earlier deployable hash and button.
+      await page.waitForFunction(hash=>!(document.querySelector('#ops_tnPlan')?.textContent||'').includes(hash),plan.hash);
+      assert.equal((await page.locator('#ops_tnPlan').textContent()).includes(plan.hash),false);
+      assert.equal(await page.locator('#ops_tnPlan [onclick="tnDeploy()"]').count(),0);
+      await page.unroute(endpoint);
       await page.locator('#ops_tnWizardBack').click();await page.locator('#ops_tnTarget').fill('[::1]:5432');
       assert.equal(await page.locator('#ops_tnPlan [onclick="tnDeploy()"]').count(),0);
       assert.equal(apiRequests.filter(r=>r.path==='api/tunnels'&&r.method==='POST').length,0);

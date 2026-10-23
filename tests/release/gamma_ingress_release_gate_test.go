@@ -31,7 +31,7 @@ func gammaIngressGate(t *testing.T, scenario string) string {
 	git(t, e.clone, "push", "-q", "origin", "v0.4.0")
 
 	runs, jobs := qualifiedCI()
-	kernel := run{ID: 24, Path: ".github/workflows/p0-ingress-lab.yml", RunNumber: 1, Conclusion: "success"}
+	kernel := run{ID: 24, Path: ".github/workflows/p0-ingress-lab.yml", RunNumber: 1, Status: "completed", Conclusion: "success"}
 	switch scenario {
 	case "missing":
 		// A green CI workflow is not proof that the real kernel LAB ran.

@@ -367,7 +367,30 @@ func (m *Manager) checkedActiveID() (string, error) {
 }
 
 func (m *Manager) setActive(id string) error {
-	return writeFile(m.activePath(), []byte(id+"\n"), 0o600)
+	// The manager mutex only serializes callers of this object. Independent
+	// CLI/Agent managers must atomically claim the same instance on disk.
+	// Never replace an existing marker, including a partial/crashed claim.
+	if err := os.MkdirAll(filepath.Dir(m.activePath()), 0o700); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(m.activePath(), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return fmt.Errorf("claim active transaction; reconciliation may be required: %w", err)
+	}
+	_, writeErr := f.WriteString(id + "\n")
+	if writeErr == nil {
+		writeErr = f.Sync()
+	}
+	closeErr := f.Close()
+	if writeErr != nil {
+		return writeErr
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	// A failure leaves the marker in place and refuses admission. Removing it
+	// on error would erase the evidence needed after an interrupted claim.
+	return syncParentDirs(m.activePath())
 }
 
 func (m *Manager) clearActive() { _ = os.Remove(m.activePath()) }
@@ -428,7 +451,7 @@ func (m *Manager) begin(id, role string) (Txn, error) {
 	if err := m.ensureScopedDirs(); err != nil {
 		return t, err
 	}
-	if err := os.MkdirAll(m.stage(id), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(m.stage(id)), 0o700); err != nil {
 		return t, err
 	}
 	// The service reads the IR's staged CA from here, so it must be able to
@@ -437,6 +460,9 @@ func (m *Manager) begin(id, role string) (Txn, error) {
 		return t, err
 	}
 	if err := m.setActive(id); err != nil {
+		return t, err
+	}
+	if err := os.MkdirAll(m.stage(id), 0o700); err != nil {
 		return t, err
 	}
 	return t, m.writeTxn(t)
@@ -792,8 +818,12 @@ func (m *Manager) Finalize(ctx context.Context, id string) (string, error) {
 	// Finalization destroys rollback evidence. Only the current transaction
 	// owner may finalize; a lost, corrupt or foreign marker must fail closed.
 	cur, err := m.checkedActiveID()
-	if err != nil { return "", fmt.Errorf("finalize active owner: %w", err) }
-	if cur != id { return "", fmt.Errorf("finalize %s refused: active transaction is %q", id, cur) }
+	if err != nil {
+		return "", fmt.Errorf("finalize active owner: %w", err)
+	}
+	if cur != id {
+		return "", fmt.Errorf("finalize %s refused: active transaction is %q", id, cur)
+	}
 	t.Phase = PhaseFinalized
 	if err := m.writeTxn(t); err != nil {
 		return "", err

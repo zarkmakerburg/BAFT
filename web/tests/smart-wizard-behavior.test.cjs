@@ -173,11 +173,22 @@ test('starting a new backend plan invalidates previously deployable plan immedia
 });
 test('double-click deploy submits only one backend mutation while pending',async()=>{
  const fields={...defaults,tnPlan:''};let resolveFetch;let calls=0;
- const c=context(fields,'let tnPlanHash="valid",tnPlanReq={instance_id:"test"},tnPlanReplaces="",tnDeployPending=false;'+fn('async function tnDeploy()','async function tnRotate(id)'));
+ const c=context(fields,'let tnPlanHash="valid",tnPlanReq={instance_id:"test"},tnPlanReplaces="",tnPlanEpoch=0,tnDeployPending=false;'+fn('async function tnDeploy()','async function tnRotate(id)'));
  c.confirm=()=>true;c.ah=()=>({});c.fetch=()=>{calls++;return new Promise(resolve=>{resolveFetch=resolve})};c.tnClearPlan=()=>{};c.tnEditEnd=()=>{};c.loadTunnels=()=>{};c.loadAudit=()=>{};
  const first=vm.runInContext('tnDeploy()',c);
  const second=vm.runInContext('tnDeploy()',c);
  assert.equal(calls,1);
  resolveFetch({ok:true,status:200,text:async()=>'{"id":"job"}'});
  await Promise.all([first,second]);
+});
+test('stale deploy conflict response cannot resurrect plan after form change',async()=>{
+ const fields={...defaults,tnPlan:''};let resolveFetch;
+ const c=context(fields,'const esc=String;let tnPlanHash="reviewed",tnPlanReq={instance_id:"test"},tnPlanReplaces="",tnPlanEpoch=0,tnDeployPending=false;'+fn('function tnShowPlan(p)','async function tnRotate(id)'));
+ c.confirm=()=>true;c.ah=()=>({});c.fetch=()=>new Promise(resolve=>{resolveFetch=resolve});c.loadAudit=()=>{};c.loadTunnels=()=>{};c.tnEditEnd=()=>{};
+ const pending=vm.runInContext('tnDeploy()',c);
+ vm.runInContext('tnClearPlan()',c);
+ resolveFetch({ok:false,status:409,text:async()=>JSON.stringify({error:'stale',plan:{ok:true,hash:'outdated',request:{},gates:[],nodes:[],steps:[],verify:[],rollback:[]}})});
+ await pending;
+ assert.equal(vm.runInContext('tnPlanHash',c),'');
+ assert.equal(vm.runInContext('tnPlanReq',c),null);
 });

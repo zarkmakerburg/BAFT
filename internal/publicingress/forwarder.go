@@ -115,6 +115,9 @@ func (f *Forwarder) RejectedConnections() uint64 { return f.rejected.Load() }
 // Run binds only the configured endpoint. A bind conflict leaves the existing
 // listener untouched. Context cancellation is a clean shutdown, not an error.
 func (f *Forwarder) Run(ctx context.Context) error {
+	if ctx == nil {
+		return errors.New("ingress context is required")
+	}
 	if ctx.Err() != nil {
 		return nil
 	}
@@ -134,6 +137,15 @@ func (f *Forwarder) Run(ctx context.Context) error {
 // validation. A rejected or mismatched listener remains the caller's resource.
 // This also allows tests to retain socket ownership without bind/close races.
 func (f *Forwarder) Serve(parent context.Context, ln net.Listener) error {
+	if parent == nil {
+		return errors.New("ingress context is required")
+	}
+	if parent.Err() != nil {
+		// Like Run on an already-canceled context, this is a clean
+		// shutdown. No listener was accepted or owned, so it remains
+		// the caller's responsibility to close it.
+		return nil
+	}
 	if ln == nil {
 		return errors.New("ingress listener is required")
 	}

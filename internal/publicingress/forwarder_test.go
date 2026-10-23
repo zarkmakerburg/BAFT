@@ -525,6 +525,59 @@ func TestForwarderActivityExtendsIdleWindow(t *testing.T) {
 	}
 }
 
+// Invalid or already canceled lifecycle contexts must not panic, bind or
+// close a caller-owned TCP socket before successful Serve admission.
+func TestForwarderRejectsNilContextWithoutOwnership(t *testing.T) {
+	ln := tcpListener(t)
+	f, err := New(Config{Listen: ln.Addr().String(), Target: "127.0.0.1:1443"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Run(nil); err == nil {
+		t.Fatal("nil Run context accepted")
+	}
+	if err := f.Serve(nil, ln); err == nil {
+		t.Fatal("nil Serve context accepted")
+	}
+	// Rejected Serve must leave the original listener untouched.
+	probe, err := net.DialTimeout("tcp4", ln.Addr().String(), time.Second)
+	if err != nil {
+		t.Fatalf("invalid context closed caller listener: %v", err)
+	}
+	defer probe.Close()
+	_ = ln.(*net.TCPListener).SetDeadline(time.Now().Add(time.Second))
+	accepted, err := ln.Accept()
+	if err != nil {
+		t.Fatalf("caller listener did not accept after rejected Serve: %v", err)
+	}
+	_ = accepted.Close()
+}
+
+func TestForwarderRejectsCanceledServeWithoutOwnership(t *testing.T) {
+	ln := tcpListener(t)
+	f, err := New(Config{Listen: ln.Addr().String(), Target: "127.0.0.1:1443"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := f.Serve(ctx, ln); err != nil {
+		t.Fatalf("Serve with canceled context must complete without taking ownership: %v", err)
+	}
+	// A rejected Serve must not close the still-held, already-bound listener.
+	probe, err := net.DialTimeout("tcp4", ln.Addr().String(), time.Second)
+	if err != nil {
+		t.Fatalf("canceled Serve closed caller listener: %v", err)
+	}
+	defer probe.Close()
+	_ = ln.(*net.TCPListener).SetDeadline(time.Now().Add(time.Second))
+	accepted, err := ln.Accept()
+	if err != nil {
+		t.Fatalf("caller listener unavailable after rejection: %v", err)
+	}
+	_ = accepted.Close()
+}
+
 func TestForwarderRejectsInvalidIdleTimeout(t *testing.T) {
 	for _, idle := range []time.Duration{-time.Second, time.Millisecond, 31 * time.Minute} {
 		if _, err := New(Config{Listen: "127.0.0.1:15555", Target: "127.0.0.1:1443", IdleTimeout: idle}); err == nil {

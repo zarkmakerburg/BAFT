@@ -491,9 +491,10 @@ async function tnIngressPreflight(id){
   if(!tunnel||tunnel.id!==id||tunnel.phase!=='active'||!tunnel.ir_node||!tunnel.route_listen){
    tnIngressPreflightStatus(tnWizardText('Only an active tunnel with a known IR route may be inspected.','فقط تونل فعال با مسیر داخلی ایران قابل بررسی است.'));return
   }
-  const requested=prompt(tnWizardText('Public client TCP port on IR to check (read-only; nothing will be provisioned):','پورت عمومی TCP کاربران روی ایران برای بررسی فقط‌خواندنی (هیچ پورتی ساخته نمی‌شود):'),q('#tnClientPort').value||'');
-  if(requested===null){tnIngressPreflightStatus(tnWizardText('Read-only check cancelled.','بررسی لغو شد.'));return}
-  const input=String(requested).trim();
+  // The user-config port and IR public ingress port are one canonical value.
+  // Never prompt for a second port; inspection cannot authorize provisioning.
+  const input=String(q('#tnClientPort').value||'').trim();
+  if(!input){tnIngressPreflightStatus(tnWizardText('Select a client configuration port in Wizard step 3 before inspecting IR ingress.','ابتدا پورت کانفیگ کاربران را در مرحله سوم ویزارد انتخاب کنید.'));return}
   const port=Number(input);
   if(!/^[0-9]{1,5}$/.test(input)||!Number.isInteger(port)||port<1||port>65535||port===22){
    tnIngressPreflightStatus(tnWizardText('Invalid port or reserved SSH port 22. Enter TCP 1–65535 except 22.','پورت نامعتبر یا پورت ۲۲ رزرو‌شده برای SSH است.'));return

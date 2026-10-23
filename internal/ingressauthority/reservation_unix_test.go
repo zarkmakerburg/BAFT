@@ -124,3 +124,28 @@ func TestPendingReservationAcrossProcesses(t *testing.T) {
 		t.Fatalf("competing child failed: %v %s", err, output)
 	}
 }
+
+func TestPendingReservationRejectsSecondPortForSameOwner(t *testing.T) {
+	dir := privateReservationDir(t)
+	s, err := OpenReservationStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := bindingFixture(t)
+	if err := s.ReservePending(first); err != nil {
+		t.Fatal(err)
+	}
+	other := first
+	other.LeaseID = "other-lease"
+	other.OperationID = "other-operation"
+	other.Spec.Config.Listen = "0.0.0.0:3443"
+	other.ListenEndpoint = other.Spec.Config.Listen
+	other.Port, other.ConfigPort = 3443, 3443
+	other.Proof, err = ingressmanifest.Preview(other.Spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ReservePending(other); !errors.Is(err, ErrReserved) {
+		t.Fatal(err)
+	}
+}

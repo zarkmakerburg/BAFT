@@ -97,7 +97,14 @@ func (r *Runtime) Apply(parent context.Context, spec ingressmanifest.Spec, proof
 	}
 	// Bind before claiming: an unrelated process holding the port must not
 	// consume the owner's generation or leave a false reservation.
-	ln, err := net.Listen("tcp", spec.Config.Listen)
+	// Match the manifest family explicitly: a generic wildcard bind can
+	// return an IPv6 listener for 0.0.0.0, which Serve correctly rejects.
+	host, _, _ := net.SplitHostPort(spec.Config.Listen)
+	network := "tcp6"
+	if net.ParseIP(host).To4() != nil {
+		network = "tcp4"
+	}
+	ln, err := net.Listen(network, spec.Config.Listen)
 	if err != nil {
 		return fmt.Errorf("ingress bind: %w", err)
 	}
@@ -114,6 +121,9 @@ func (r *Runtime) Apply(parent context.Context, spec ingressmanifest.Spec, proof
 	r.sessions[spec.Config.Listen] = s
 	go func() {
 		err := f.Serve(ctx, ln)
+		// Serve leaves a rejected listener with its caller. Runtime owns it
+		// even on rejection; close before reporting session completion.
+		_ = ln.Close()
 		r.mu.Lock()
 		// Retain a completed session until explicit exact-owner retirement.
 		// Otherwise an unexpected exit could allow a stale same-proof retry.

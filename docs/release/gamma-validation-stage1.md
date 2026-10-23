@@ -32,6 +32,42 @@ under packet-filter policy, not real sshd or the user's inaccessible Iran
 server. systemd, installer, reboot, WAN/public reachability and live 3X-UI
 remain unverified.
 
+## P0-D: compiled BCC restore acceptance (disposable Mac LAB)
+
+The actual `baft-bcc restore` binary is built and launched as a separate
+process, not merely invoked through a Go library helper. These two tests
+create only temporary private paths; **they do not stop a real BCC systemd
+service or restore an actual second host**.
+
+- `TestGammaStoppedBCCRestoreCLI` covers an encrypted snapshot, failure
+  with a wrong key, refusal when another process holds the state lock, and
+  successful `--yes --json` restoration to the earlier generation after the
+  lock is released. Backup file permissions remain private.
+- `TestGammaEncryptedBackupRestoreToFreshDirectory` verifies a separate
+  destination directory (a simulated second-node filesystem). The CLI
+  requires explicit pre-provisioning of that private directory; preview
+  refuses mutation until confirmation, restore then reopens the original
+  backed-up node, and the original source database remains unchanged.
+  Sensitive node tokens and the key are checked against subprocess output.
+- Both independently passed on macOS ARM64 under `go test -race` with exit
+  status 0, and `go vet ./tests/release` returned 0. Their exact branch
+  commits are tracked in PR #274. Linux hosted acceptance for the newest
+  branch SHA is separate and must not be inferred from macOS.
+
+Reproduce on disposable hosts only:
+
+```sh
+go test -race ./tests/release -run 'TestGammaStoppedBCCRestoreCLI|TestGammaEncryptedBackupRestoreToFreshDirectory' -count=1 -timeout=5m
+go vet ./tests/release
+```
+
+**Operational caveat:** the restore CLI currently obtains its backup
+decryption key from `BAFT_BCC_BACKUP_KEY` in the process environment; this
+is not the same as running the service with `--backup-key-file`. Do not put
+key material in command arguments, public logs or CI artifacts. Actual
+stopped-service restore, permissions on the target host, and recovery under
+systemd remain release gates.
+
 ## P0-A through P0-F release acceptance matrix
 
 | P0 | Operational criterion | Gamma status | Required next proof |
@@ -39,7 +75,7 @@ remain unverified.
 | A | Two independent Linux nodes: install, pair, EX→IR SSH blocked, reinstallation, preservation of live tunnels | PARTIAL: isolated Linux namespace pairing, port-22 filtering and service preservation PASS; real two-host installation remains BLOCKED | Disposable two-node Linux LAB and then approved real-host acceptance; prove **both** install/repair and traffic continuity |
 | B | Create/start/stop/restart/delete, reboot/crash, cross-process ownership and safe resource reconciliation | BLOCKED | End-to-end process/service crash and reboot with authoritative nft/systemd inventory, existing-service hashes |
 | C | v0.3.x→v0.4.0 upgrade and compatible downgrade, failed-upgrade rollback | BLOCKED | Snapshot-first Linux host upgrade drill with verified complete restore |
-| D | Encrypted backup, same/second-node restore, key permissions and secret-free logs | PARTIAL | Unit/race tests passed; actual stopped-BCC restore drill and artifact scans still needed |
+| D | Encrypted backup, same/second-node restore, key permissions and secret-free logs | PARTIAL: real CLI Mac LAB with wrong-key/held-lock failures, stopped-state restore and isolated fresh-directory recovery passed | Still requires real stopped-service Linux drill, separate physical node, key handling and artifact/log review |
 | E | TCP/UDP, IPv4/IPv6 when admitted, network loss, nftables, port conflicts, SSH/service preservation | PARTIAL: actual Linux nft and TCP namespace check PASS; remaining protocol and host gates OPEN | Real Linux kernel ingress LAB exists in #270; no final physical-host/network reachability or complete protocol matrix |
 | F | Exact candidate race/vet/CI plus all release gates, provenance/signatures | PARTIAL | Exact candidate hosted workflows green; Gamma local scoped race green; final integrated SHA and operational P0 gates still absent |
 

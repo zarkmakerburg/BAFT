@@ -16,7 +16,7 @@ func bindingFixture(t *testing.T) BindingV1 {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return BindingV1{NodeID: "ir-1", OperationID: "op-1", LeaseID: "lease-1", Port: 1443, ListenEndpoint: "0.0.0.0:1443", LocalTarget: "127.0.0.1:2443", Transport: "dedicated", PlanSHA256: strings.Repeat("a", 64), ListenerID: "listener-1", FirewallID: "fw-1", Spec: spec, Proof: proof}
+	return BindingV1{NodeID: "ir-1", OperationID: "op-1", LeaseID: "lease-1", Port: 1443, ConfigPort: 1443, ListenEndpoint: "0.0.0.0:1443", LocalTarget: "127.0.0.1:2443", Transport: "dedicated", PlanSHA256: strings.Repeat("a", 64), ListenerID: "listener-1", FirewallID: "fw-1", Spec: spec, Proof: proof}
 }
 
 func TestBindingV1CanonicalAndIdentity(t *testing.T) {
@@ -25,14 +25,15 @@ func TestBindingV1CanonicalAndIdentity(t *testing.T) {
 		t.Fatalf("canonical binding rejected: %v", err)
 	}
 	variants := map[string]func(*BindingV1){
-		"port mismatch":       func(v *BindingV1) { v.Port = 2053 },
-		"wrong proof":         func(v *BindingV1) { v.Proof.ConfigSHA256 = strings.Repeat("b", 64) },
-		"generation alias":    func(v *BindingV1) { v.Spec.Generation = 2 },
-		"target alias":        func(v *BindingV1) { v.LocalTarget = "127.0.0.1:2444" },
-		"noncanonical listen": func(v *BindingV1) { v.ListenEndpoint = "0.0.0.0:01443" },
-		"non-dedicated":       func(v *BindingV1) { v.Transport = "mux" },
-		"wrong plan":          func(v *BindingV1) { v.PlanSHA256 = "abcd" },
-		"invalid node":        func(v *BindingV1) { v.NodeID = "../other" },
+		"config port mismatch": func(v *BindingV1) { v.ConfigPort++ },
+		"port mismatch":        func(v *BindingV1) { v.Port = 2053 },
+		"wrong proof":          func(v *BindingV1) { v.Proof.ConfigSHA256 = strings.Repeat("b", 64) },
+		"generation alias":     func(v *BindingV1) { v.Spec.Generation = 2 },
+		"target alias":         func(v *BindingV1) { v.LocalTarget = "127.0.0.1:2444" },
+		"noncanonical listen":  func(v *BindingV1) { v.ListenEndpoint = "0.0.0.0:01443" },
+		"non-dedicated":        func(v *BindingV1) { v.Transport = "mux" },
+		"wrong plan":           func(v *BindingV1) { v.PlanSHA256 = "abcd" },
+		"invalid node":         func(v *BindingV1) { v.NodeID = "../other" },
 	}
 	for name, change := range variants {
 		t.Run(name, func(t *testing.T) {
@@ -56,7 +57,7 @@ func TestBindingV1CanonicalAndIdentity(t *testing.T) {
 func TestCommandIdentitySeparateFromLease(t *testing.T) {
 	b := bindingFixture(t)
 	start := time.Date(2026, 10, 23, 12, 0, 0, 0, time.UTC)
-	first := CommandV1{JobID: "signed-apply-1", Action: "public_ingress_apply", IssuedAt: start, ExpiresAt: start.Add(time.Minute), Binding: b}
+	first := CommandV1{IngressProtocol: ProtocolV1, JobID: "signed-apply-1", Action: "public_ingress_apply", IssuedAt: start, ExpiresAt: start.Add(time.Minute), Binding: b}
 	retire := first
 	retire.JobID = "signed-retire-2"
 	retire.Action = "public_ingress_retire"
@@ -76,7 +77,17 @@ func TestCommandIdentitySeparateFromLease(t *testing.T) {
 
 func TestNoForgedLiveLeaseFromZeroValue(t *testing.T) {
 	var lease LiveLease
-	if err := lease.CheckLockedIngress(context.Background(), bindingFixture(t)); err == nil {
+	if err := lease.CheckLockedIngress(context.Background(), CommandV1{Binding: bindingFixture(t)}); err == nil {
 		t.Fatal("unminted lease accepted")
+	}
+}
+
+func TestInternalMintFlagIsNotAnOSLock(t *testing.T) {
+	b := bindingFixture(t)
+	lease := LiveLease{minted: true, binding: b}
+	now := time.Now()
+	command := CommandV1{IngressProtocol: ProtocolV1, JobID: "signed-apply", Action: "public_ingress_apply", IssuedAt: now.Add(-time.Second), ExpiresAt: now.Add(time.Minute), Binding: b}
+	if err := lease.CheckLockedIngress(context.Background(), command); err != ErrUnverified {
+		t.Fatalf("internal flag without durable held authority allowed mutation: %v", err)
 	}
 }

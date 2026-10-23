@@ -1,4 +1,4 @@
-// Package ingressauthority defines the single Alpha-owned ingress v1 trust
+// Package ingressauthority defines the single shared ingress v1 trust
 // boundary. This data-only boundary does not enable host mutation.
 package ingressauthority
 
@@ -19,6 +19,8 @@ var ErrBinding = errors.New("invalid operational ingress binding")
 var idPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 var digestPattern = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
+const ProtocolV1 = "1"
+
 // BindingV1 identifies a persistent resource, NOT a signed job or a host
 // ownership claim. A port reserves its numeric TCP identity across families.
 type BindingV1 struct {
@@ -26,6 +28,7 @@ type BindingV1 struct {
 	OperationID    string                `json:"operation_id"`
 	LeaseID        string                `json:"lease_id"`
 	Port           uint16                `json:"public_port"`
+	ConfigPort     uint16                `json:"config_port"`
 	ListenEndpoint string                `json:"listen_endpoint"`
 	LocalTarget    string                `json:"local_target"`
 	Transport      string                `json:"transport"`
@@ -39,31 +42,50 @@ type BindingV1 struct {
 // CommandV1 has a separately signed job ID and expiration, independent of
 // the longer-lived resource binding. Retire gets a NEW signed job identity.
 type CommandV1 struct {
-	JobID     string    `json:"job_id"`
-	Action    string    `json:"action"`
-	IssuedAt  time.Time `json:"issued_at"`
-	ExpiresAt time.Time `json:"expires_at"`
-	Binding   BindingV1 `json:"binding"`
+	IngressProtocol string    `json:"ingress_protocol"`
+	JobID           string    `json:"job_id"`
+	Action          string    `json:"action"`
+	IssuedAt        time.Time `json:"issued_at"`
+	ExpiresAt       time.Time `json:"expires_at"`
+	Binding         BindingV1 `json:"binding"`
 }
 
 // ReceiptV1 is inert evidence data. Its JSON cannot authenticate an Agent,
 // authorize a host mutation or establish a live lease.
 type ReceiptV1 struct {
-	JobID            string    `json:"job_id"`
-	Action           string    `json:"action"`
-	Binding          BindingV1 `json:"binding"`
-	Phase            string    `json:"phase"`
-	ListenerEvidence string    `json:"listener_evidence,omitempty"`
-	FirewallEvidence string    `json:"firewall_evidence,omitempty"`
-	RollbackStatus   string    `json:"rollback_status,omitempty"`
+	SchemaVersion     int                  `json:"schema_version"`
+	JobID             string               `json:"job_id"`
+	Action            string               `json:"action"`
+	Binding           BindingV1            `json:"binding"`
+	Phase             string               `json:"phase"`
+	ListenerEvidence  ListenerEvidenceV1   `json:"listener_evidence"`
+	FirewallEvidence  []FirewallEvidenceV1 `json:"firewall_evidence"`
+	OwnershipVerified bool                 `json:"ownership_verified"`
+	RollbackStatus    string               `json:"rollback_status,omitempty"`
+	FailureCause      string               `json:"failure_cause,omitempty"`
 }
 
-// Lease is sealed: an external package cannot implement a production permit
-// by deserializing JSON or returning a boolean.
-type Lease interface {
-	CheckLockedIngress(context.Context, BindingV1) error
-	sealedIngressLease()
+// Evidence is inert data. Delta obtains actual observations, Alpha ties them
+// to durable authority, and Beta authenticates the node/transport and exact
+// command/binding before accepting any receipt. A boolean or JSON is not proof.
+type ListenerEvidenceV1 struct {
+	Endpoint       string `json:"endpoint"`
+	Family         string `json:"family"`
+	SocketIdentity string `json:"socket_identity"`
 }
+
+type FirewallEvidenceV1 struct {
+	Family      string `json:"family"`
+	Table       string `json:"table"`
+	Chain       string `json:"chain"`
+	ChainHandle uint64 `json:"chain_handle"`
+	RuleHandle  uint64 `json:"rule_handle"`
+	OwnerTag    string `json:"owner_tag"`
+}
+
+// Lease is a concrete opaque capability, not a caller-implementable interface.
+// Executors must accept *Lease, never an arbitrary callback returning success.
+type Lease = LiveLease
 
 // LiveLease is an inert zero value. Only a future Alpha-owned durable
 // authority can construct a valid lock-held permit. Never use as a bypass.
@@ -72,15 +94,26 @@ type LiveLease struct {
 	binding BindingV1
 }
 
-func (*LiveLease) sealedIngressLease() {}
-func (l *LiveLease) CheckLockedIngress(ctx context.Context, b BindingV1) error {
-	if l == nil || !l.minted || ctx == nil || ctx.Err() != nil || l.binding != b {
+func (l *LiveLease) CheckLockedIngress(ctx context.Context, command CommandV1) error {
+	if ctx == nil {
 		return ErrUnverified
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if l == nil || !l.minted || l.binding != command.Binding {
+		return ErrUnverified
+	}
+	if err := command.Validate(time.Now()); err != nil {
+		return err
 	}
 	// Until the durable cross-process lock and restart fences are implemented,
 	// even an internal mint flag is insufficient to permit host mutation.
 	return ErrUnverified
 }
+
+func (*LiveLease) MarshalJSON() ([]byte, error) { return nil, ErrUnverified }
+func (*LiveLease) UnmarshalJSON([]byte) error   { return ErrUnverified }
 
 func canonicalEndpoint(raw string) (string, int, net.IP, error) {
 	host, p, err := net.SplitHostPort(raw)
@@ -107,7 +140,10 @@ func (b BindingV1) Validate() error {
 			return ErrBinding
 		}
 	}
-	if !digestPattern.MatchString(b.PlanSHA256) || b.Transport != "dedicated" || b.Port < 1024 {
+	if !digestPattern.MatchString(b.PlanSHA256) || b.Transport != "dedicated" || b.Port == 0 || b.Port == 22 || b.ConfigPort != b.Port {
+		return ErrBinding
+	}
+	if b.Spec.Config.MaxClients <= 0 || b.Spec.Config.DialTimeoutMS <= 0 {
 		return ErrBinding
 	}
 	ep, port, _, err := canonicalEndpoint(b.ListenEndpoint)
@@ -147,7 +183,7 @@ func (c CommandV1) Validate(now time.Time) error {
 	if err := c.Binding.Validate(); err != nil {
 		return err
 	}
-	if !idPattern.MatchString(c.JobID) ||
+	if c.IngressProtocol != ProtocolV1 || !idPattern.MatchString(c.JobID) || now.IsZero() ||
 		(c.Action != "public_ingress_apply" && c.Action != "public_ingress_retire" && c.Action != "public_ingress_inspect") ||
 		c.IssuedAt.IsZero() || !c.ExpiresAt.After(c.IssuedAt) || now.Before(c.IssuedAt) || !now.Before(c.ExpiresAt) {
 		return ErrBinding

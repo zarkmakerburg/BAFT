@@ -142,21 +142,46 @@ func (a *Agent) loadSeen() error {
 }
 
 // markSeen records a job before it runs, so a crash mid-run cannot replay it.
+var errJobAlreadySeen = errors.New("job already recorded")
+
 func (a *Agent) markSeen(id string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if err := os.MkdirAll(a.cfg.StateDir, 0o700); err != nil {
+		return err
+	}
+	unlock, err := lockSeenJournal(a.seenPath() + ".lock")
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	// Verification's in-memory cache is only an early refusal. Another Agent
+	// may have claimed a job since this object started; the locked durable
+	// ledger is the admission authority and must also preserve its other IDs.
+	latest := make(map[string]time.Time)
+	if raw, err := os.ReadFile(a.seenPath()); err == nil {
+		if err := json.Unmarshal(raw, &latest); err != nil {
+			return err
+		}
+		if latest == nil {
+			return errors.New("invalid null seen-job journal")
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	a.seen = latest
 	now := a.cfg.Now()
 	for k, t := range a.seen {
 		if now.Sub(t) > seenRetention {
 			delete(a.seen, k)
 		}
 	}
+	if _, exists := a.seen[id]; exists {
+		return errJobAlreadySeen
+	}
 	a.seen[id] = now
 	b, err := json.Marshal(a.seen)
 	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(a.cfg.StateDir, 0o700); err != nil {
 		return err
 	}
 	f, err := os.CreateTemp(a.cfg.StateDir, ".seen-jobs-*")

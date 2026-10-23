@@ -71,8 +71,10 @@ func TestIPv6DedicatedIngressBinaryRoundtrip(t *testing.T) {
 	if err != nil {
 		t.Skipf("IPv6 loopback unavailable: %v", err)
 	}
-	defer backend.Close()
 	backendDone := make(chan struct{})
+	// Wait for the backend accept loop after closing the owned test listener;
+	// do not leave a runnable goroutine between race-test iterations.
+	defer func() { _ = backend.Close(); <-backendDone }()
 	go func() {
 		defer close(backendDone)
 		for {

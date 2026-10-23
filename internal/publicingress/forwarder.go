@@ -133,6 +133,27 @@ func (f *Forwarder) Run(ctx context.Context) error {
 	return f.Serve(ctx, ln)
 }
 
+// ValidateListener is read-only admission for a caller-owned bound socket.
+// A failed preflight never changes or closes the listener. This lets the
+// ingress runtime reject a foreign numeric-port owner BEFORE it persists a
+// generation-fenced ownership claim or acknowledges the operation.
+// A successful snapshot is NOT a durable reservation against later binds.
+func (f *Forwarder) ValidateListener(ln net.Listener) error {
+	if f == nil {
+		return errors.New("ingress forwarder is required")
+	}
+	if ln == nil {
+		return errors.New("ingress listener is required")
+	}
+	addr, ok := ln.Addr().(*net.TCPAddr)
+	if !ok || addr.Port != f.listenPort || !addr.IP.Equal(f.listenIP) {
+		return errors.New("listener does not match configured ingress endpoint")
+	}
+	// Inspect both Linux TCP socket tables; unlike net.Listen success this
+	// detects another live owner on a different IP or address family.
+	return verifyNoOtherLiveTCPListeners(ln, f.listenPort)
+}
+
 // Serve takes ownership of an already-bound matching TCP listener after
 // validation. A rejected or mismatched listener remains the caller's resource.
 // This also allows tests to retain socket ownership without bind/close races.
@@ -146,12 +167,8 @@ func (f *Forwarder) Serve(parent context.Context, ln net.Listener) error {
 		// the caller's responsibility to close it.
 		return nil
 	}
-	if ln == nil {
-		return errors.New("ingress listener is required")
-	}
-	addr, ok := ln.Addr().(*net.TCPAddr)
-	if !ok || addr.Port != f.listenPort || !addr.IP.Equal(f.listenIP) {
-		return errors.New("listener does not match configured ingress endpoint")
+	if err := f.ValidateListener(ln); err != nil {
+		return err
 	}
 	f.mu.Lock()
 	if f.running {

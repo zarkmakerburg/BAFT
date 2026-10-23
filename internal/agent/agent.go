@@ -145,7 +145,13 @@ func (a *Agent) loadSeen() error {
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal(b, &a.seen)
+	if err := json.Unmarshal(b, &a.seen); err != nil {
+		return err
+	}
+	if a.seen == nil {
+		return errors.New("invalid null seen-job journal")
+	}
+	return nil
 }
 
 // markSeen records a job before it runs, so a crash mid-run cannot replay it.

@@ -147,3 +147,33 @@ test('failed read-only inspection submission releases the client-side pending ga
  assert.equal(h.q('#tnIngressPreflightRefresh').hidden,false);
  assert.match(h.q('#tnIngressPreflightState').textContent,/job-retried/);
 });
+
+test('read-only ingress check refuses mismatched tunnel ID from detail endpoint before POST',async()=>{
+ const h=harness();
+ h.respond(async url=>{
+  if(url==='/api/tunnels?id=tun-selected')return {ok:true,json:async()=>({id:'tun-other',phase:'active',ir_node:'ir-1',route_listen:'127.0.0.1:1443'})};
+  throw Error('unexpected POST for mismatched tunnel');
+ });
+ await vm.runInContext('tnIngressPreflight("tun-selected")',h.c);
+ assert.equal(h.requests.length,1);
+ assert.equal(h.q('#tnIngressPreflightRefresh').hidden,true);
+ assert.match(h.q('#tnIngressPreflightState').textContent,/Only an active tunnel/);
+});
+
+test('late older receipt refresh cannot replace newer completed inspection evidence',async()=>{
+ const h=harness(),refreshes=[];
+ h.respond(async url=>{
+  if(url==='/api/tunnels?id=tun-active')return {ok:true,json:async()=>({id:'tun-active',phase:'active',ir_node:'ir-1',route_listen:'127.0.0.1:1443'})};
+  if(url==='/api/ingress/preflight')return {ok:true,text:async()=>JSON.stringify({job:{id:'job-stable',node_id:'ir-1'},read_only:true,ready_to_apply:false})};
+  if(url==='/api/ingress/preflight?id=job-stable')return new Promise(resolve=>refreshes.push(resolve));
+  throw Error('unexpected '+url);
+ });
+ await vm.runInContext('tnIngressPreflight("tun-active")',h.c);
+ const older=vm.runInContext('tnIngressPreflightRefresh()',h.c);
+ const newer=vm.runInContext('tnIngressPreflightRefresh()',h.c);
+ const success={job_id:'job-stable',node_id:'ir-1',read_only:true,ready_to_apply:false,status:'succeeded',evidence:{schema_version:1,scope:'agent_network_namespace_snapshot',tunnel_id:'tun-active',public_port:54619,local_target:'127.0.0.1:1443',public_port_state:'not_observed',target_listener_observed:true,ownership_verified:false,firewall_policy_verified:false,ready_to_apply:false,limitations:['manual checks required']}};
+ refreshes[1]({ok:true,text:async()=>JSON.stringify(success)});await newer;
+ assert.match(h.q('#tnIngressPreflightState').textContent,/Read-only observation/);
+ refreshes[0]({ok:true,text:async()=>JSON.stringify({...success,status:'queued',evidence:undefined})});await older;
+ assert.match(h.q('#tnIngressPreflightState').textContent,/Read-only observation/);
+});

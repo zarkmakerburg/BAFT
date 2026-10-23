@@ -108,6 +108,13 @@ func (r *Runtime) Apply(parent context.Context, spec ingressmanifest.Spec, proof
 	if err != nil {
 		return fmt.Errorf("ingress bind: %w", err)
 	}
+	// Check for live foreign owners across both TCP address families before
+	// consuming the generation or reporting Apply success. Serve repeats this
+	// read-only check after launch to narrow (not eliminate) TOCTOU exposure.
+	if err := f.ValidateListener(ln); err != nil {
+		_ = ln.Close()
+		return fmt.Errorf("ingress admission: %w", err)
+	}
 	if err := r.registry.Claim(spec.Config.Listen, proof); err != nil {
 		_ = ln.Close()
 		return err

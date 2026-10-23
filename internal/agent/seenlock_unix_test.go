@@ -259,6 +259,20 @@ func TestMarkSeenRefusesOversizedSerializedLedger(t *testing.T) {
 	}
 }
 
+func TestLoadSeenRejectsNullReplayLedger(t *testing.T) {
+	dir := t.TempDir()
+	a := &Agent{cfg: Config{StateDir: dir, Now: time.Now}, seen: map[string]time.Time{}}
+	if err := os.WriteFile(a.seenPath(), []byte("null"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.loadSeen(); err == nil {
+		t.Fatal("agent startup accepted a null replay ledger")
+	}
+	if err := a.markSeen("must-not-execute"); err == nil {
+		t.Fatal("null replay ledger admitted signed job")
+	}
+}
+
 func TestMarkSeenRefusesCorruptDiskAfterStartup(t *testing.T) {
 	for _, raw := range []string{"null", "{"} {
 		t.Run(raw, func(t *testing.T) {

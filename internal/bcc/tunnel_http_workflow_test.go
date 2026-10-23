@@ -454,3 +454,81 @@ func TestTunnelHTTPCreateRequiresReviewedPlanHash(t *testing.T) {
 	f.call(http.MethodPost, "/api/tunnels", tunnelHTTPAdmin, req, http.StatusBadRequest, nil)
 	f.unchanged(before)
 }
+
+func TestTunnelHTTPReviewedPlanReplayDoesNotDuplicatePrepare(t *testing.T) {
+	f := newTunnelHTTPFixture(t)
+	req := scopedReq("replay-guard", "ex-1", "ir-1", 9443,
+		"127.0.0.1:1444", "127.0.0.1:9202", "127.0.0.1:9302")
+	plan := f.plan(req)
+	created := f.create(plan)
+	before := f.domainState(f.store)
+	reviewed := plan.Request
+	reviewed.PlanHash = plan.Hash
+	f.call(http.MethodPost, "/api/tunnels", tunnelHTTPAdmin, reviewed, http.StatusBadRequest, nil)
+	f.unchanged(before)
+	got := f.store.ListTunnels()
+	if len(got) != 1 || got[0].ID != created.ID || got[0].PlanHash != plan.Hash {
+		t.Fatalf("replayed plan created a duplicate tunnel: %+v", got)
+	}
+	jobs := f.pull("ex-1")
+	if len(jobs) != 1 || jobs[0].Type != JobTunnelPrepareEX {
+		t.Fatalf("replayed plan queued duplicate prepare: %+v", jobs)
+	}
+}
+
+func TestTunnelHTTPConcurrentReviewedPlanStartsOnlyOnce(t *testing.T) {
+	f := newTunnelHTTPFixture(t)
+	p := f.plan(scopedReq("concurrent-review", "ex-1", "ir-1", 9443,
+		"127.0.0.1:1444", "127.0.0.1:9202", "127.0.0.1:9302"))
+	req := p.Request
+	req.PlanHash = p.Hash
+	payload, err := json.Marshal(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const attempts = 4
+	statuses := make(chan int, attempts)
+	start := make(chan struct{})
+	for i := 0; i < attempts; i++ {
+		go func() {
+			<-start
+			request, err := http.NewRequest(http.MethodPost, f.url+"/api/tunnels", bytes.NewReader(payload))
+			if err != nil {
+				statuses <- 0
+				return
+			}
+			request.Header.Set("Authorization", "Bearer "+tunnelHTTPAdmin)
+			request.Header.Set("Content-Type", "application/json")
+			resp, err := f.client.Do(request)
+			if err != nil {
+				statuses <- 0
+				return
+			}
+			defer resp.Body.Close()
+			_, _ = io.Copy(io.Discard, resp.Body)
+			statuses <- resp.StatusCode
+		}()
+	}
+	close(start)
+	accepted := 0
+	for i := 0; i < attempts; i++ {
+		status := <-statuses
+		if status == http.StatusAccepted {
+			accepted++
+			continue
+		}
+		if status != http.StatusBadRequest && status != http.StatusConflict {
+			t.Errorf("concurrent request %d returned unexpected status %d", i, status)
+		}
+	}
+	if accepted != 1 {
+		t.Fatalf("accepted %d of %d concurrent creates, want one", accepted, attempts)
+	}
+	tunnels := f.store.ListTunnels()
+	if len(tunnels) != 1 || tunnels[0].PlanHash != p.Hash || tunnels[0].Phase != TunnelPreparingEX {
+		t.Fatalf("concurrent retry corrupted tunnel state: %+v", tunnels)
+	}
+	if jobs := f.pull("ex-1"); len(jobs) != 1 || jobs[0].Type != JobTunnelPrepareEX {
+		t.Fatalf("concurrent retry dispatched unexpected jobs: %+v", jobs)
+	}
+}

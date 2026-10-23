@@ -15,6 +15,11 @@ const (
 // WizardProgress reports completed stages only after backend confirmation.
 // A failure never advances the progress bar or claims deployment success.
 func WizardProgress(phase WizardPhase, confirmed bool) (int, string, error) {
+	switch phase {
+	case WizardPreview, WizardPrepare, WizardCommit, WizardFinalize:
+	default:
+		return 0, "", fmt.Errorf("unknown wizard phase %q", phase)
+	}
 	if !confirmed {
 		return 0, "awaiting backend confirmation", nil
 	}

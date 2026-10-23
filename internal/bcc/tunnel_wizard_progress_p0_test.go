@@ -15,7 +15,9 @@ func TestWizardProgressRequiresBackendConfirmation(t *testing.T) {
 			t.Fatalf("confirmed %s: %d %v", tc.phase, p, err)
 		}
 	}
-	if _, _, err := WizardProgress("unknown", true); err == nil {
-		t.Fatal("unknown stage accepted")
+	for _, confirmed := range []bool{false, true} {
+		if _, _, err := WizardProgress("unknown", confirmed); err == nil {
+			t.Fatalf("unknown stage accepted with confirmed=%t", confirmed)
+		}
 	}
 }

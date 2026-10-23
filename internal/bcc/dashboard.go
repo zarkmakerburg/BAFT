@@ -396,7 +396,7 @@ function tnWizardGenerateServicePort(){
  }
  tell('Could not suggest a port; enter the destination manually.','پورت پیشنهادی پیدا نشد؛ مقصد را دستی وارد کنید.');
 }
-function tnWizardIngressChanged(){if(!q('#tnClientPort').value)q('#tnIngressConfirm').checked=false;tnClearPlan()}
+function tnWizardIngressChanged(){if(!q('#tnClientPort').value)q('#tnIngressConfirm').checked=false;tnIngressPreflightSeq++;tnIngressPreflightRefreshSeq++;tnIngressPreflightJobID='';tnIngressPreflightExpected=null;q('#tnIngressPreflightRefresh').hidden=true;tnIngressPreflightStatus(tnWizardText('Client port changed. Repeat read-only IR ingress inspection for the newly selected port.','پورت کانفیگ تغییر کرد؛ بررسی ورودی ایران را برای پورت جدید دوباره انجام دهید.'));tnClearPlan()}
 function tnWizardActive(t){return !['superseded','decommissioned','rolled_back'].includes(t.phase)}
 function tnWizardSharesLegacy(){const ex=q('#tnEx').value,ir=q('#tnIr').value;return tnWizardTunnels.some(t=>t.phase==='active'&&!t.instance_id&&(t.ex_node===ex||t.ir_node===ir))}
 function tnWizardEnsureID(){if(q('#tnInstance').value.trim())return;const a=new Uint32Array(2);crypto.getRandomValues(a);q('#tnInstance').value='baft-'+[...a].map(v=>v.toString(36)).join('-').slice(0,29)}
@@ -513,7 +513,7 @@ async function tnIngressPreflight(id){
   tnIngressPreflightJobID=accepted.job.id;tnIngressPreflightExpected=body;
   q('#tnIngressPreflightRefresh').hidden=false;
   tnIngressPreflightStatus(tnWizardText('Read-only inspection queued (','بررسی فقط‌خواندنی در صف (')+accepted.job.id+tnWizardText('). Refresh evidence after the IR agent responds; no port is configured.',' ). پس از پاسخ عامل ایران، شواهد را تازه‌سازی کنید؛ هیچ پورتی ایجاد نشده است.'));
- }catch(e){if(seq===tnIngressPreflightSeq)tnIngressPreflightStatus(tnWizardText('Preflight failed; no ingress has been configured.','بررسی ناموفق بود؛ ورودی عمومی تنظیم نشده است.'))}finally{if(seq===tnIngressPreflightSeq)tnIngressPreflightSubmitPending=false}
+ }catch(e){if(seq===tnIngressPreflightSeq)tnIngressPreflightStatus(tnWizardText('Preflight failed; no ingress has been configured.','بررسی ناموفق بود؛ ورودی عمومی تنظیم نشده است.'))}finally{tnIngressPreflightSubmitPending=false}
 }
 async function tnIngressPreflightRefresh(){
  const id=tnIngressPreflightJobID,seq=tnIngressPreflightSeq,refreshSeq=++tnIngressPreflightRefreshSeq,expected=tnIngressPreflightExpected;

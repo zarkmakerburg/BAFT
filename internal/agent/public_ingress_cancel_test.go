@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -148,5 +149,24 @@ func TestIngressCancelBeforeDelayedSignedPrepareCannotResurrect(t *testing.T) {
 	inspection, err := store.Inspect(proof)
 	if err != nil || inspection.PreparedBytesMatch || inspection.Manifest.Phase != ingressmanifest.PhaseCancelled {
 		t.Fatalf("fence not durable: %+v %v (original %+v)", inspection, err, expected)
+	}
+}
+
+func TestIngressCancelAlreadyCancelledContextDoesNotWriteTombstone(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Chmod(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	j, _ := prepareJob(t)
+	j.Action = agentjob.ActionPublicIngressCancel
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := (&Agent{cfg: Config{IngressManifestDir: dir}}).publicIngressCancel(ctx, j)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled request: got %v, want context.Canceled", err)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("cancelled request mutated manifest directory: %v, %v", entries, err)
 	}
 }

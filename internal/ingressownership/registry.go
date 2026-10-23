@@ -21,14 +21,17 @@ var (
 )
 
 type Registry struct {
-	mu          sync.Mutex
-	owners      map[string]ingressmanifest.Proof
+	mu     sync.Mutex
+	owners map[string]ingressmanifest.Proof
+	// endpoints fences exact listener identity, not just a numeric port;
+	// the same proof must never authorize a second IP/family alias.
+	endpoints   map[string]string
 	generations map[string]uint64
 	active      map[string]string
 }
 
 func New() *Registry {
-	return &Registry{owners: make(map[string]ingressmanifest.Proof), generations: make(map[string]uint64), active: make(map[string]string)}
+	return &Registry{owners: make(map[string]ingressmanifest.Proof), endpoints: make(map[string]string), generations: make(map[string]uint64), active: make(map[string]string)}
 }
 
 var ownerTunnelPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
@@ -66,11 +69,15 @@ func (r *Registry) Claim(endpoint string, p ingressmanifest.Proof) error {
 		return ErrInvalid
 	}
 	resource := strconv.Itoa(n)
+	canonical := net.JoinHostPort(net.ParseIP(host).String(), resource)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	// Zero-value registries must fail safely rather than panic on Claim.
 	if r.owners == nil {
 		r.owners = make(map[string]ingressmanifest.Proof)
+	}
+	if r.endpoints == nil {
+		r.endpoints = make(map[string]string)
 	}
 	if r.generations == nil {
 		r.generations = make(map[string]uint64)
@@ -85,7 +92,7 @@ func (r *Registry) Claim(endpoint string, p ingressmanifest.Proof) error {
 		return ErrConflict
 	}
 	if old, ok := r.owners[resource]; ok {
-		if old == p {
+		if old == p && r.endpoints[resource] == canonical {
 			return nil
 		}
 		return ErrConflict
@@ -94,6 +101,7 @@ func (r *Registry) Claim(endpoint string, p ingressmanifest.Proof) error {
 		return ErrStale
 	}
 	r.owners[resource] = p
+	r.endpoints[resource] = canonical
 	r.active[key(p)] = resource
 	r.generations[key(p)] = p.Generation
 	return nil
@@ -116,10 +124,12 @@ func (r *Registry) Release(endpoint string, p ingressmanifest.Proof) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	resource := strconv.Itoa(n)
-	if r.owners[resource] != p {
+	canonical := net.JoinHostPort(net.ParseIP(host).String(), resource)
+	if r.owners[resource] != p || r.endpoints[resource] != canonical {
 		return ErrUnknown
 	}
 	delete(r.owners, resource)
+	delete(r.endpoints, resource)
 	delete(r.active, key(p))
 	return nil
 }

@@ -40,7 +40,16 @@ jobs:
           sudo ip netns exec "$namespace" ip link set lo up
           sudo ip netns exec "$namespace" env BAFT_NFT_KERNEL_LAB=1 /tmp/baft-nft-lab.test -test.run '^TestNFTKernelLAB$' -test.v
           go test -c -o /tmp/baft-agent-kernel-lab.test ./internal/agent
-          sudo ip netns exec "$namespace" env BAFT_NFT_KERNEL_LAB=1 /tmp/baft-agent-kernel-lab.test -test.run '^TestPublicIngressLABKernelSignedLifecycle$' -test.v
+          # Agent TestMain builds helper binaries. Prime its dependencies before
+          # entering the offline namespace, preserve the pinned Go toolchain and
+          # cache, and run from the package directory its relative paths require.
+          go build ./cmd/baft ./cmd/baft-pair
+          go_cache="$(go env GOCACHE)"
+          go_path="$(go env GOPATH)"
+          (cd internal/agent && sudo ip netns exec "$namespace" env \
+            PATH="$PATH" GOTOOLCHAIN=local GOCACHE="$go_cache" GOPATH="$go_path" \
+            GOPROXY=off BAFT_NFT_KERNEL_LAB=1 \
+            /tmp/baft-agent-kernel-lab.test -test.run '^TestPublicIngressLABKernelSignedLifecycle$' -test.v)
       - name: Signed Agent LAB lifecycle and race acceptance
         run: |
           go test -race ./internal/agent -run 'TestPublicIngressLAB' -count=2 -timeout=10m

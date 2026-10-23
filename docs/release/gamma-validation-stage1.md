@@ -174,15 +174,19 @@ On exact QA SHA `03f9e5c42ff12159b2621e7eef24cb34a151f758`, both hosted Linux wo
 
 On subsequent integrated QA SHA `fe245f161d50821644ace410b78c2c7b3a750e6b`, independent Mac `go test -race` on Agent/Ingress Ownership and Gamma release acceptance plus `go vet` passed (exit 0); hosted P0 ingress, two-node, v0.3.7 upgrade and rollback, and static analysis succeeded, while main CI was queued and BCC UI in progress at last verification. See [HQ evidence](https://github.com/zarkmakerburg/BAFT/issues/67#issuecomment-6370860173).
 
+## Owner-authorized LAB-only environmental policy
+
+**The owner accepts representative disposable LAB results as the final environment-level evidence.** No physical host, production SSH access or production deployment is a separate release prerequisite. The **functional contract is still mandatory**: reviewed BCC request and plan hash -> signed Agent Apply with durable authoritative reservation -> real IR TCP listener/firewall and end-to-end data -> verified signed receipt -> unchanged Wizard/client config port; plus foreign/stopped-service ownership, fail-closed uncertainty, interruption/rollback, and restart recovery. The existing isolated pairing and v0.3.7 upgrade LABs do **not** prove this BCC-to-Agent vertical slice; until it passes, P0 #269 remains OPEN / NO-GO.
+
 ## P0-A through P0-F release acceptance matrix
 
 | P0 | Criterion | State | Still required |
 |---|---|---|---|
-| A | Install/pair and SSH denial with existing services safe | PARTIAL: Linux namespace pairing, SSH-port denial and real data verified | Multi-node installation and physical/service lifecycle |
-| B | Safe tunnel lifecycle, crash and reboot recovery with authoritative resource ownership | BLOCKED | End-to-end systemd and kernel resource inventory/restart acceptance |
-| C | v0.3.7 to candidate upgrade and rollback | PARTIAL: EX/IR binary continuity and BCC state rollback in Linux LAB passed | Installer/systemd migration and real host recovery |
-| D | Encrypted backup/restore and trusted secret handling | PARTIAL: restore/lock/wrong-key drills passed; QA key-file symlink/permission regression race passed | Stopped-service Linux restore and independent host recovery |
-| E | Port collision refusal, SSH protection, multiple protocols/families | PARTIAL: isolated Linux 2053/24443 preserved, 18443 rejected; other ingress LAB passed | Full ownership, UDP/IPv6 and host failure scenarios |
+| A | Install/pair and SSH denial with existing services safe | PARTIAL: Linux namespace pairing, SSH-port denial and real data verified | Representative disposable Linux multi-node/process installer and repair lifecycle, TCP continuity, and service restart/crash evidence |
+| B | Safe tunnel lifecycle, crash and reboot recovery with authoritative resource ownership | BLOCKED | Disposable Linux service/process crash, restart/reboot-equivalent recovery, durable ownership and kernel listener/firewall inventory acceptance |
+| C | v0.3.7 to candidate upgrade and rollback | PARTIAL: EX/IR binary continuity and BCC state rollback in Linux LAB passed | Disposable Linux installer/systemd-style service migration, failed-upgrade rollback, preserved active sockets where promised, and restart recovery |
+| D | Encrypted backup/restore and trusted secret handling | PARTIAL: restore/lock/wrong-key drills passed; QA key-file symlink/permission regression race passed | Stopped-service encrypted restore and independent disposable Linux node/process recovery, with key/file permissions, wrong-key atomicity and redacted logs |
+| E | Port collision refusal, SSH protection, multiple protocols/families | PARTIAL: isolated Linux 2053/24443 preserved, 18443 rejected; other ingress LAB passed | Foreign active and persistently reserved ownership across IPv4/IPv6, UDP where supported, collision/uncertainty refusal and disposable Linux network/process failure scenarios |
 | F | Exact release SHA provenance, CI and release acceptance | PARTIAL | Final integrated SHA all workflows green, remaining P0 acceptance and authorized HQ release decision |
 
 ## Reproduction and operating boundaries

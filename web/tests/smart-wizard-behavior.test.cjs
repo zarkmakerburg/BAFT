@@ -363,3 +363,19 @@ test('ambiguous POST transport failure clears reviewed deploy and reconciles inv
  assert.equal(vm.runInContext('tnPlanHash',c),'');
  assert.equal(vm.runInContext('tnDeployPending',c),false);
 });
+
+test('ambiguous deploy response never erases newer reviewed wizard plan',async()=>{
+ const fields={...defaults,tnPlan:''};let rejectFetch,inventory=0,audit=0;
+ const c=context(fields,'const esc=String;let tnPlanHash="original",tnPlanReq={instance_id:"old"},tnPlanReplaces="",tnPlanEpoch=0,tnDeployPending=false;'+fn('function tnShowPlan(p)','async function tnRotate(id)'));
+ c.confirm=()=>true;c.ah=()=>({});c.tnWizardText=(en)=>en;c.tnEditEnd=()=>{};
+ c.fetch=()=>new Promise((_,reject)=>{rejectFetch=reject});
+ c.loadTunnels=()=>{inventory++};c.loadAudit=()=>{audit++};
+ const pending=vm.runInContext('tnDeploy()',c);
+ vm.runInContext('tnClearPlan()',c);
+ vm.runInContext('tnPlanHash="new-reviewed";tnPlanReq={instance_id:"new"}',c);
+ rejectFetch(Error('connection lost after request submission'));
+ await pending;
+ assert.equal(vm.runInContext('tnPlanHash',c),'new-reviewed');
+ assert.equal(vm.runInContext('tnPlanReq.instance_id',c),'new');
+ assert.equal(inventory,1);assert.equal(audit,1);
+});

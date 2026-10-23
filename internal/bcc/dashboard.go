@@ -446,7 +446,7 @@ function tnWizardStep(i){
 }
 function tnWizardSummary(){
  const r=tnReq(),c=q('#tnClientPort').value.trim(),legacy=tnWizardSharesLegacy(),active=!!tnEditBase;
- const entry=c?tnWizardText('IR public client port '+esc(c)+' — EXTERNALLY MANAGED; not deployed by BAFT','پورت عمومی کاربران ایران '+esc(c)+' — مدیریت خارجی؛ BAFT آن را نمی‌سازد'):tnWizardText('IR public client port: not configured in BAFT','پورت عمومی کاربران ایران: در BAFT تنظیم نمی‌شود');
+ const entry=c?tnWizardText('Client configuration port = IR public ingress port: '+esc(c)+' — EXTERNALLY MANAGED; not deployed by BAFT','پورت کانفیگ کاربران = پورت ورودی عمومی ایران: '+esc(c)+' — مدیریت خارجی؛ BAFT آن را نمی‌سازد'):tnWizardText('IR public client port: not configured in BAFT','پورت عمومی کاربران ایران: در BAFT تنظیم نمی‌شود');
  q('#tnWizardSummary').innerHTML='<div><b>'+esc(tnWizardText('Driver','موتور'))+':</b> BAFT Secure (TLS + Noise) — '+esc(active?tnWizardText('Edit selected instance','ویرایش نمونه انتخاب‌شده'):tnWizardText('New independent instance','نمونه مستقل جدید'))+'</div>'
   +'<div><b>'+esc(tnWizardText('Nodes','سرورها'))+':</b> '+esc(r.ir_node)+' → '+esc(r.ex_node)+'</div>'
   +'<div><b>'+esc(tnWizardText('Tunnel connection direction','جهت اتصال بین سرورها'))+':</b> <bdi dir="ltr">IR (dialer) → EX (listener)</bdi></div>'

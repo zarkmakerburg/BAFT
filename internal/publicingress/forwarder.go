@@ -61,11 +61,9 @@ func New(cfg Config) (*Forwarder, error) {
 	if port < 1024 && port != 443 {
 		return nil, errors.New("privileged listen port is not allowed (except 443)")
 	}
-	// Imperial Crown reserves TCP/2053 even while its service is stopped.
-	// Binding an apparently free 2053 could hijack it on a later restart.
-	if port == 2053 {
-		return nil, errors.New("listen port 2053 is reserved for Imperial Crown")
-	}
+	// An ordinary service's public port is not a permanent magic number.
+	// The kernel refuses conflicts with live listeners. Persisted claims and
+	// stopped-service ownership must be verified by the admission layer.
 	if !ip.IsUnspecified() && !ip.IsGlobalUnicast() && !ip.IsLoopback() {
 		return nil, errors.New("listen IP must be unicast, loopback or wildcard")
 	}

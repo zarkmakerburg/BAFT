@@ -73,13 +73,18 @@ func TestRenderRequiresExactManifestAndDoesNotAdoptChangedUnit(t *testing.T) {
 	}
 }
 
-func TestRenderRejectsProtectedImperialCrownPort(t *testing.T) {
+func TestRenderDoesNotHardcodeLegacyServicePort(t *testing.T) {
 	spec := candidateSpec()
 	spec.Config.Listen = "0.0.0.0:2053"
-	// A valid proof must never be issued for a conflicting listener: the
-	// protection must hold at both runtime and signed-manifest boundaries.
-	if _, err := ingressmanifest.Preview(spec); err == nil {
-		t.Fatal("prepared a persistent unit for protected port 2053")
+	// Manifest render is an immutable candidate, not a live-port claim or
+	// socket reservation. A stopped or moved service requires separately
+	// persisted admission ownership, regardless of the numeric port.
+	proof, err := ingressmanifest.Preview(spec)
+	if err != nil {
+		t.Fatalf("port number alone must not be forbidden: %v", err)
+	}
+	if _, err := Render(spec, proof, "listener-1", "/usr/local/bin/baft", "baft"); err != nil {
+		t.Fatalf("rendering cannot substitute for live ownership preflight: %v", err)
 	}
 }
 

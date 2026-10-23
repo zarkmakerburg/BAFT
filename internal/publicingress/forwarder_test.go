@@ -533,18 +533,31 @@ func TestForwarderRejectsInvalidIdleTimeout(t *testing.T) {
 	}
 }
 
-func TestForwarderRejectsProtected2053(t *testing.T) {
-	for _, listen := range []string{"127.0.0.1:2053", "0.0.0.0:2053", "[::]:2053"} {
-		t.Run(listen, func(t *testing.T) {
-			if _, err := New(Config{Listen: listen, Target: "127.0.0.1:1443"}); err == nil {
-				t.Fatal("reserved Imperial Crown listen port 2053 was accepted")
-			}
-		})
+func TestForwarderProtectsDynamicallyOccupiedServicePort(t *testing.T) {
+	// The occupied port is selected at runtime, not wired to a service name
+	// or a fixed port. Bind failure must not close the unrelated service.
+	service := echoBackend(t)
+	target := echoBackend(t)
+	claimedAddress := service.Addr().String()
+	f, err := New(Config{Listen: claimedAddress, Target: target.Addr().String()})
+	if err != nil {
+		t.Fatal(err)
 	}
-	// Unrelated high ports remain valid. Protect only the reserved ingress
-	// endpoint, not every service using ports near it.
-	if _, err := New(Config{Listen: "127.0.0.1:2054", Target: "127.0.0.1:1443"}); err != nil {
-		t.Fatalf("unrelated port refused: %v", err)
+	if err := f.Run(context.Background()); err == nil {
+		t.Fatal("ingress stole an arbitrary already-owned service port")
+	}
+	c := connect(t, claimedAddress)
+	if _, err := io.WriteString(c, "still-served"); err != nil {
+		t.Fatal(err)
+	}
+	got := make([]byte, len("still-served"))
+	if _, err := io.ReadFull(c, got); err != nil || string(got) != "still-served" {
+		t.Fatalf("unrelated service affected: %q %v", got, err)
+	}
+	// A port number formerly chosen for a service must not remain reserved
+	// solely because of that convention; authoritative claims decide.
+	if _, err := New(Config{Listen: "127.0.0.1:2053", Target: "127.0.0.1:1443"}); err != nil {
+		t.Fatalf("non-reserved arbitrary port must not be hardcoded: %v", err)
 	}
 }
 

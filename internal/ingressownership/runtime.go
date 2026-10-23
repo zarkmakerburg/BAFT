@@ -17,6 +17,26 @@ import (
 // changes host firewall policy and must not be wired to signed deploy jobs.
 var ErrStopped = errors.New("ingress session has stopped; explicit retire required")
 
+// retiredWithCause is produced ONLY after exact owner proof was released
+// from the registry and the stopped listener has fully exited. It preserves
+// the terminal failure without confusing successful socket teardown with
+// uncertainty about which socket was stopped. Other failures are NOT proof
+// of retirement and must never authorize firewall cleanup.
+type retiredWithCause struct{ cause error }
+
+func (e *retiredWithCause) Error() string {
+	return "ingress listener retired with terminal failure: " + e.cause.Error()
+}
+func (e *retiredWithCause) Unwrap() error { return e.cause }
+
+func listenerRetirementVerified(err error) bool {
+	if err == nil {
+		return true
+	}
+	var stopped *retiredWithCause
+	return errors.As(err, &stopped)
+}
+
 type Runtime struct {
 	mu       sync.Mutex
 	registry *Registry
@@ -207,7 +227,7 @@ func (r *Runtime) Retire(endpoint string, proof ingressmanifest.Proof) error {
 	}
 	delete(r.sessions, endpoint)
 	if err != nil && !errors.Is(err, net.ErrClosed) {
-		return err
+		return &retiredWithCause{cause: err}
 	}
 	return nil
 }

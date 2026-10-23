@@ -92,5 +92,7 @@ for(const lang of ['fa','en'])test('combined '+lang+' review keeps endpoint dire
  assert.match(html,/<bdi dir="ltr">\[2001:db8::15\]:5432<\/bdi>/);
  assert.match(html,/<bdi dir="ltr">IR \(dialer\) → EX \(listener\)<\/bdi>/);
  assert.doesNotMatch(html,/Xray|VLESS|VMess|Trojan|integration-credential/i);
+ assert.match(html,lang==='fa'?/پورت کانفیگ کاربران = پورت ورودی عمومی ایران: 443/:/Client configuration port = IR public ingress port: 443/);
+ assert.match(html,lang==='fa'?/مدیریت خارجی/:/EXTERNALLY MANAGED/);
  assert.equal(h.requests.length,0);
 });

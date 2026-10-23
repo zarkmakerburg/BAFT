@@ -73,6 +73,10 @@ func (j *LabJournal) Advance(next MutationRecord) error {
 		j.entries[key] = next
 		return nil
 	}
+	// A retired generation must never be reopened by replaying its intent.
+	if old.Phase == PhaseRetired && next.Owner.Generation == old.Owner.Generation && next.Phase != PhaseRetired {
+		return ErrConflict
+	}
 	if next.Owner.Generation < old.Owner.Generation {
 		return ErrStale
 	}

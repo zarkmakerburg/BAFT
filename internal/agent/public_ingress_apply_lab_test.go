@@ -6,9 +6,11 @@ import (
 	"errors"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/zarkmakerburg/baft/internal/agentjob"
 	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
+	"github.com/zarkmakerburg/baft/internal/release"
 )
 
 type fakeIngressLAB struct {
@@ -36,6 +38,18 @@ func TestPublicIngressLABProofAndDisabledGate(t *testing.T) {
 	}
 	j, proof := prepareJob(t)
 	j.Action, j.JobID = agentjob.ActionPublicIngressApply, "apply-a"
+	pub, key, err := release.GenerateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, err := agentjob.Sign(key, j)
+	if err != nil {
+		t.Fatal(err)
+	}
+	j, err = (agentjob.Verifier{BCCKey: pub, NodeID: j.NodeID}).Verify(env, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
 	fake := &fakeIngressLAB{}
 	a := &Agent{cfg: Config{NodeID: j.NodeID, IngressManifestDir: dir, IngressLABExecutor: fake}}
 	if _, _, err := (&Agent{cfg: Config{NodeID: j.NodeID, IngressManifestDir: dir}}).executeFull(context.Background(), j); err == nil {

@@ -196,7 +196,21 @@ func (b *NFTLabBackend) Install(ctx context.Context, plan RulePlan) (FirewallObs
 		return FirewallObservation{}, errors.Join(ErrFirewallUnverified, err)
 	}
 	if err := b.Runner.Run(ctx, "add", "rule", "inet", "baft", "ingress", "tcp", "dport", strconv.Itoa(int(plan.Port)), "accept", "comment", plan.Tag); err != nil {
-		return FirewallObservation{}, err
+		// The kernel may have accepted the command before its response failed.
+		// Only after an attempted add with an independently empty preflight
+		// may fresh exact ownership accompany the error for bounded rollback.
+		// This never turns the failed operation into successful admission.
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		after, inspectErr := b.inspect(cleanupCtx)
+		if inspectErr != nil {
+			return FirewallObservation{}, errors.Join(err, inspectErr)
+		}
+		observed, inspectErr := ReconcileRuleObservation(plan, after)
+		if inspectErr != nil {
+			return FirewallObservation{}, errors.Join(err, inspectErr)
+		}
+		return observed, err
 	}
 	after, err := b.inspect(ctx)
 	if err != nil {

@@ -25,7 +25,8 @@ import (
 // reverified on retry. All other operations use the actual kernel backend.
 type kernelRetireFault struct {
 	ingressownership.NFTCommandRunner
-	failDelete bool
+	failDelete   bool
+	failAfterAdd bool
 }
 
 type kernelJournalFault struct {
@@ -44,7 +45,14 @@ func (r *kernelRetireFault) Run(ctx context.Context, args ...string) error {
 	if r.failDelete && len(args) > 0 && args[0] == "delete" {
 		return errors.New("LAB injected failure before kernel delete")
 	}
-	return r.NFTCommandRunner.Run(ctx, args...)
+	if err := r.NFTCommandRunner.Run(ctx, args...); err != nil {
+		return err
+	}
+	if r.failAfterAdd && len(args) > 0 && args[0] == "add" {
+		r.failAfterAdd = false
+		return errors.New("LAB injected response failure after kernel accepted add")
+	}
+	return nil
 }
 
 // This test mutates only a disposable network namespace. It deliberately uses
@@ -139,6 +147,33 @@ func TestPublicIngressLABKernelSignedLifecycle(t *testing.T) {
 	}
 	runner := &kernelRetireFault{NFTCommandRunner: ingressownership.NFTCommandRunner{Binary: binary}}
 	backend := &ingressownership.NFTLabBackend{Runner: runner, ExpectedChainHandle: handle}
+	// A command response can fail after the actual kernel accepted its rule.
+	// The transaction must stop its socket and remove only fresh exact proof,
+	// while still reporting failure and retaining unverified journal state.
+	partialSpec := ingressmanifest.Spec{TunnelID: "kernel-partial-add", Generation: 1, Config: ingressmanifest.Config{Listen: "0.0.0.0:54618", Target: "127.0.0.1:1443", MaxClients: 128, DialTimeoutMS: 3000}}
+	partialProof, err := ingressmanifest.Preview(partialSpec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	partialRuntime := ingressownership.NewRuntime()
+	defer partialRuntime.Retire(partialSpec.Config.Listen, partialProof)
+	partialTx := &ingressownership.NFTLabTransaction{Runtime: partialRuntime, Firewall: backend, Journal: new(ingressownership.LabJournal)}
+	runner.failAfterAdd = true
+	if err := partialTx.Apply(ctx, partialSpec, partialProof); err == nil {
+		t.Fatal("partial kernel add acknowledged success")
+	}
+	partialPlan, err := ingressownership.PlanIngressRule(54618, partialProof)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(run("-j", "list", "chain", "inet", "baft", "ingress"), []byte(partialPlan.Tag)) {
+		t.Fatal("partial add left owned kernel rule")
+	}
+	partialListener, err := net.Listen("tcp4", partialSpec.Config.Listen)
+	if err != nil {
+		t.Fatalf("partial add left owned listener: %v", err)
+	}
+	_ = partialListener.Close()
 	journalFault := &kernelJournalFault{MutationJournal: journal}
 	tx := &ingressownership.NFTLabTransaction{Runtime: ingressownership.NewRuntime(), Firewall: backend, Journal: journalFault}
 	manifestDir := filepath.Join(dir, "manifest")

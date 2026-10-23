@@ -101,7 +101,13 @@ func (t *NFTLabTransaction) Apply(ctx context.Context, spec ingressmanifest.Spec
 	}
 	observed, err := t.Firewall.Install(ctx, plan)
 	if err != nil {
-		return errors.Join(err, t.Runtime.Retire(endpoint, proof))
+		stopErr := t.Runtime.Retire(endpoint, proof)
+		if stopErr != nil || observed.Handle == 0 {
+			return errors.Join(err, stopErr)
+		}
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		return errors.Join(err, t.Firewall.Remove(cleanupCtx, plan, observed.Handle))
 	}
 	record.FirewallHandle = observed.Handle
 	rollback := func(cause error) error {

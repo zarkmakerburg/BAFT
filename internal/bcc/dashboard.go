@@ -420,7 +420,7 @@ function tnWizardValidateStep(i){
  }
  if(i===2){
   const port=Number(q('#tnPort').value);if(!Number.isInteger(port)||port<1||port>65535){alert(tnWizardText('Enter a valid BAFT port (1–65535).','پورت معتبر BAFT را وارد کنید (۱ تا ۶۵۵۳۵).'));return false}
-  if(q('#tnClientPort').value){const n=Number(q('#tnClientPort').value);if(!Number.isInteger(n)||n<1||n>65535){alert(tnWizardText('Enter a valid public IR port.','پورت عمومی ایران معتبر نیست.'));return false}}
+  const clientPortText=String(q('#tnClientPort').value||'').trim(),clientPort=Number(clientPortText);if(!/^[0-9]{1,5}$/.test(clientPortText)||!Number.isInteger(clientPort)||clientPort<1||clientPort>65535||clientPort===22){alert(tnWizardText('Select a valid client configuration port (1–65535 except reserved SSH port 22). The same port is the intended public IR ingress port.','یک پورت معتبر کانفیگ کاربران انتخاب کنید (۱ تا ۶۵۵۳۵ به‌جز پورت مدیریتی ۲۲). همین پورت باید ورودی عمومی ایران باشد.'));return false}
   if(!q('#tnIngressConfirm').checked){alert(tnWizardText('Confirm that BAFT does not create the public IR client ingress.','تأیید کنید که BAFT در این نسخه پورت عمومی کاربران ایران را ایجاد نمی‌کند.'));return false}
  }
  if(i===3){

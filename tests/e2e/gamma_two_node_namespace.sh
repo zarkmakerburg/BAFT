@@ -135,9 +135,42 @@ kill -0 "$IR_PID"
 AFTER=$(sha256sum "$EX/baft.yaml" "$IR/baft.yaml" \
   "$EX/noise-key.json" "$IR/noise-key.json" | sha256sum)
 test "$BEFORE" = "$AFTER" || { echo "FAIL: config/key drift" >&2; exit 1; }
+# Cold process restart: no new PairCode or regenerated key is permitted.
+# This checks re-establishing NEW connections with the original pair, not
+# continuity of a socket during a crash or systemd's restart policy.
 kill "$IR_PID" "$EX_PID"
 wait "$IR_PID" 2>/dev/null || true
 wait "$EX_PID" 2>/dev/null || true
 ip netns exec "$NS_EX" curl -fsS --max-time 3 -o /dev/null \
   http://10.221.52.2:2053/
-echo "PASS: two isolated Linux namespaces, EX->IR port22 blocked, IR->EX transport, 2x1MiB SHA transport, unchanged configs/keys, 2053 preserved"
+
+ip netns exec "$NS_EX" "$BAFT" run --file "$EX/baft.yaml" \
+  >"$WORK/ex-restart.log" 2>&1 &
+EX_RESTART_PID=$!
+PIDS="$PIDS $EX_RESTART_PID"
+wait_port "$NS_EX" 10.221.52.1 "$EX_PORT"
+ip netns exec "$NS_IR" "$BAFT" run --file "$IR/baft.yaml" \
+  >"$WORK/ir-restart.log" 2>&1 &
+IR_RESTART_PID=$!
+PIDS="$PIDS $IR_RESTART_PID"
+wait_port "$NS_IR" 127.0.0.1 "$IR_PORT"
+ip netns exec "$NS_IR" python3 "$ROOT/tests/e2e/echo.py" send "$IR_PORT" 1 2
+kill -0 "$EX_RESTART_PID"
+kill -0 "$IR_RESTART_PID"
+RESTART_HASH=$(sha256sum "$EX/baft.yaml" "$IR/baft.yaml" \
+  "$EX/noise-key.json" "$IR/noise-key.json" | sha256sum)
+test "$BEFORE" = "$RESTART_HASH" || { echo "FAIL: restart changed config/key" >&2; exit 1; }
+if ip netns exec "$NS_EX" python3 -c \
+    'import socket;socket.create_connection(("10.221.52.2",22),0.5)' \
+    >/dev/null 2>&1; then
+  echo "FAIL: EX->IR blocked port22 opened after restart" >&2
+  exit 1
+fi
+ip netns exec "$NS_EX" curl -fsS --max-time 3 -o /dev/null \
+  http://10.221.52.2:2053/
+kill "$IR_RESTART_PID" "$EX_RESTART_PID"
+wait "$IR_RESTART_PID" 2>/dev/null || true
+wait "$EX_RESTART_PID" 2>/dev/null || true
+ip netns exec "$NS_EX" curl -fsS --max-time 3 -o /dev/null \
+  http://10.221.52.2:2053/
+echo "PASS: isolated Linux one-way pairing, 2x2x1MiB SHA transport including cold process restart, blocked EX->IR:22, unchanged configs/keys and preserved IR:2053"

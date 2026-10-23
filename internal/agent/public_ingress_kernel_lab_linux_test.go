@@ -210,6 +210,12 @@ func TestPublicIngressLABKernelSignedLifecycle(t *testing.T) {
 	if observed, err := backend.Inspect(ctx, plan); err != nil || observed.Handle == 0 {
 		t.Fatalf("kernel ownership: %+v %v", observed, err)
 	}
+	cancelJob := j
+	cancelJob.Action, cancelJob.JobID = agentjob.ActionPublicIngressCancel, "kernel-cancel"
+	execute(cancelJob)
+	if _, output, err := a.executeFull(ctx, verify(j)); err == nil || output != "" {
+		t.Fatalf("cancelled generation reapplied: %q %v", output, err)
+	}
 	j.Action, j.JobID = agentjob.ActionPublicIngressRetire, "kernel-retire"
 	runner.failDelete = true
 	if _, output, err := a.executeFull(ctx, verify(j)); err == nil || output != "" {

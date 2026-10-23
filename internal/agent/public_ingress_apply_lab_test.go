@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -136,6 +137,83 @@ func TestPublicIngressLABCancelledGenerationCannotApply(t *testing.T) {
 	a := &Agent{cfg: Config{NodeID: j.NodeID, IngressManifestDir: dir, IngressLABExecutor: fake}}
 	if _, err := a.publicIngressLAB(context.Background(), j); err == nil || fake.apply != 0 {
 		t.Fatal("cancelled generation resurrected")
+	}
+}
+
+func TestPublicIngressLABCancelledGenerationStillAllowsExactRetire(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Chmod(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	j, proof := prepareJob(t)
+	fake := &fakeIngressLAB{}
+	a := &Agent{cfg: Config{NodeID: j.NodeID, IngressManifestDir: dir, IngressLABExecutor: fake}}
+	if _, err := a.publicIngressPrepare(context.Background(), j); err != nil {
+		t.Fatal(err)
+	}
+	j.Action = agentjob.ActionPublicIngressApply
+	if _, err := a.publicIngressLAB(context.Background(), j); err != nil {
+		t.Fatal(err)
+	}
+	j.Action = agentjob.ActionPublicIngressCancel
+	if _, err := a.publicIngressCancel(context.Background(), j); err != nil {
+		t.Fatal(err)
+	}
+	j.Action = agentjob.ActionPublicIngressRetire
+	fake.err = errors.New("live owner cannot be verified")
+	if output, err := a.publicIngressLAB(context.Background(), j); err == nil || output != "" {
+		t.Fatalf("tombstone bypassed executor ownership: %q %v", output, err)
+	}
+	fake.err = nil
+	output, err := a.publicIngressLAB(context.Background(), j)
+	if err != nil {
+		t.Fatalf("tombstone prevented exact-owner cleanup: %v", err)
+	}
+	var receipt publicIngressLABReceipt
+	if err := json.Unmarshal([]byte(output), &receipt); err != nil || receipt.Proof != proof || receipt.LiveOwnershipVerified || fake.retire != 2 {
+		t.Fatalf("unsafe retire receipt: %s %v", output, err)
+	}
+	j.Action = agentjob.ActionPublicIngressApply
+	if _, err := a.publicIngressLAB(context.Background(), j); err == nil || fake.apply != 1 {
+		t.Fatal("retirement resurrected cancelled generation")
+	}
+}
+
+func TestPublicIngressLABRetireRejectsForeignOrCorruptTombstone(t *testing.T) {
+	for _, corrupt := range []bool{false, true} {
+		t.Run(map[bool]string{false: "foreign", true: "corrupt"}[corrupt], func(t *testing.T) {
+			dir := t.TempDir()
+			if err := os.Chmod(dir, 0700); err != nil {
+				t.Fatal(err)
+			}
+			j, _ := prepareJob(t)
+			store, err := ingressmanifest.Open(dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Same owner and generation, but a different target: this is a valid
+			// canonical tombstone and cannot authorize the original signed job.
+			foreign := ingressmanifest.Spec{TunnelID: "tun-a", Generation: 1, Config: ingressmanifest.Config{Listen: "0.0.0.0:54619", Target: "127.0.0.1:2443", MaxClients: 128, DialTimeoutMS: 3000}}
+			if _, err := store.FenceUnseen(foreign); err != nil {
+				t.Fatal(err)
+			}
+			_ = store.Close()
+			if corrupt {
+				files, err := filepath.Glob(filepath.Join(dir, "*.json"))
+				if err != nil || len(files) != 1 {
+					t.Fatalf("manifest files: %v %v", files, err)
+				}
+				if err := os.WriteFile(files[0], []byte("{"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			j.Action = agentjob.ActionPublicIngressRetire
+			fake := &fakeIngressLAB{}
+			a := &Agent{cfg: Config{NodeID: j.NodeID, IngressManifestDir: dir, IngressLABExecutor: fake}}
+			if output, err := a.publicIngressLAB(context.Background(), j); err == nil || output != "" || fake.apply != 0 || fake.retire != 0 {
+				t.Fatalf("invalid tombstone reached executor: %q %v %+v", output, err, fake)
+			}
+		})
 	}
 }
 

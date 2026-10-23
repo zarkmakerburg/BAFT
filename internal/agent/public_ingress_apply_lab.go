@@ -65,7 +65,21 @@ func (a *Agent) publicIngressLAB(ctx context.Context, j agentjob.Job) (string, e
 	defer store.Close()
 	inspection, err := store.Inspect(proof)
 	if err != nil || !inspection.ManifestBytesMatch || !inspection.PreparedBytesMatch || inspection.Manifest.Phase != ingressmanifest.PhasePrepared || inspection.Manifest.Spec != spec {
-		return "", errors.New("exact prepared ingress manifest is unavailable")
+		// Cancellation fences future Apply, but must not block an explicitly
+		// signed Retire from cleaning resources this exact proof still owns.
+		// The executor independently verifies live ownership; a tombstone alone
+		// never authorizes adoption or removal after restart.
+		if j.Action != agentjob.ActionPublicIngressRetire {
+			return "", errors.New("exact prepared ingress manifest is unavailable")
+		}
+		tombstone, previewErr := ingressmanifest.PreviewCancellation(spec)
+		if previewErr != nil {
+			return "", previewErr
+		}
+		cancelled, inspectErr := store.Inspect(tombstone)
+		if inspectErr != nil || !cancelled.ManifestBytesMatch || cancelled.Manifest.Phase != ingressmanifest.PhaseCancelled || cancelled.Manifest.Spec != spec || cancelled.Manifest.CancelledFromSHA256 != proof.ManifestSHA256 {
+			return "", errors.New("exact ingress retirement proof is unavailable")
+		}
 	}
 	if err := ctx.Err(); err != nil {
 		return "", err

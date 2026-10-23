@@ -47,6 +47,7 @@ type Config struct {
 	StateDir             string                                      // seen-job log
 	IngressManifestDir   string                                      // trusted, private prepared-manifest directory; optional
 	IngressExpectedProof func(string) (ingressmanifest.Proof, error) // independent persisted proof resolver; optional
+	IngressLABExecutor   IngressLABExecutor                          // explicitly injected isolated LAB executor; nil disables live ingress jobs
 	Service              string                                      // systemd unit, e.g. "baft"
 
 	// Updates.

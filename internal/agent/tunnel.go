@@ -57,6 +57,10 @@ func (a *Agent) executeFull(ctx context.Context, j agentjob.Job) (detail, output
 		output, err = a.publicIngressCancel(ctx, j)
 		return "private ingress generation fenced; listener and firewall unchanged", output, err
 	}
+	if j.Action == agentjob.ActionPublicIngressApply || j.Action == agentjob.ActionPublicIngressRetire {
+		output, err = a.publicIngressLAB(ctx, j)
+		return "isolated LAB ingress transaction completed", output, err
+	}
 	if strings.HasPrefix(j.Action, "ssh_migrate_") {
 		if e := a.sshMigration(ctx, j); e != nil {
 			return "", "", e

@@ -14,8 +14,8 @@ for family in ProvisionInstalledPolicyLAB InstalledPolicyBindingLAB CommandInten
     matched=1
     # Go test verbose output uses exact test names followed by time/status.
     if ! grep -Eq "^--- PASS: ${testname}([[:space:]]|$)" "$log" ||
-       grep -Eq "^--- SKIP: ${testname}([[:space:]]|$)" "$log" ||
-       grep -Eq "^--- FAIL: ${testname}([[:space:]]|$)" "$log"; then
+       grep -Eq "^[[:space:]]*--- SKIP: ${testname}(/|[[:space:]]|$)" "$log" ||
+       grep -Eq "^[[:space:]]*--- FAIL: ${testname}(/|[[:space:]]|$)" "$log"; then
       echo "BLOCKED: guarded test ${testname} did not PASS without SKIP/FAIL" >&2
       exit 1
     fi
@@ -25,7 +25,7 @@ for family in ProvisionInstalledPolicyLAB InstalledPolicyBindingLAB CommandInten
     exit 1
   fi
   # Catch skipped/failed suffixed family members even without RUN.
-  if grep -Eq "^--- (SKIP|FAIL): Test${family}[[:alnum:]_]*([[:space:]]|$)" "$log"; then
+  if grep -Eq "^[[:space:]]*--- (SKIP|FAIL): Test${family}[[:alnum:]_]*(/|[[:space:]]|$)" "$log"; then
     echo "BLOCKED: skipped or failed family Test${family}" >&2
     exit 1
   fi

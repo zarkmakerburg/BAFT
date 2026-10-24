@@ -189,3 +189,35 @@ func TestGammaBCCReceiverRejectsUntrustedReceiptJSON(t *testing.T) {
 	send("duplicate job_id", strings.TrimSuffix(string(b), "}")+",\"job_id\":\"j\"}")
 	send("duplicate binding config_port", strings.Replace(string(b), `"config_port":24443`, `"config_port":24443,"config_port":24443`, 1))
 }
+
+// Oversized whitespace must be refused because the body exceeds the limit, not
+// because trailing whitespace is a parse error; whitespace padding that stays
+// within the limit is valid JSON and is accepted, and 4097 bytes is the first
+// refused size. This pins the boundary both ways.
+func TestGammaBCCReceiverWhitespaceBoundary(t *testing.T) {
+	reviewed := ingressauthority.ReceiptV1{SchemaVersion: 1, JobID: "j", Action: "apply", Phase: "applied", OwnershipVerified: true, Binding: ingressauthority.BindingV1{NodeID: "ir", OperationID: "op", Port: 24443, ConfigPort: 24443, PlanSHA256: strings.Repeat("b", 64)}}
+	srv := httptest.NewTLSServer(gammaReceiptReceiver("enrolled", reviewed))
+	defer srv.Close()
+	b, _ := json.Marshal(reviewed)
+	post := func(body string) int {
+		t.Helper()
+		req, _ := http.NewRequest(http.MethodPost, srv.URL, strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer enrolled")
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := srv.Client().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		return resp.StatusCode
+	}
+	if got := post(string(b)); got != http.StatusNoContent {
+		t.Fatalf("exact reviewed receipt: %d", got)
+	}
+	if got := post(string(b) + strings.Repeat(" ", 4096-len(b))); got != http.StatusNoContent {
+		t.Fatalf("4096-byte whitespace-padded receipt: %d", got)
+	}
+	if got := post(string(b) + strings.Repeat(" ", 4097-len(b))); got != http.StatusRequestEntityTooLarge {
+		t.Fatalf("4097-byte receipt must be 413, got %d", got)
+	}
+}

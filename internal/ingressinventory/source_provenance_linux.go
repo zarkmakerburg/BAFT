@@ -52,7 +52,7 @@ func protectedSourceRootIdentity(source string) (uint64, uint64, error) {
 // non-root-owned, symlinked, modified or writable source content.
 // It is a read-only second independent observation AFTER the socket scanner
 // has parsed effective stopped-service port claims.
-func scanPinnedSourceFiles(directory string) ([]SourceFileIdentity, map[string]os.FileInfo, error) {
+func scanPinnedSourceFiles(directory string) ([]SourceFileIdentity, map[string]sourceObjectIdentity, error) {
 	root, err := os.OpenRoot(directory)
 	if err != nil {
 		return nil, nil, ErrCoverageIncomplete
@@ -70,7 +70,7 @@ func scanPinnedSourceFiles(directory string) ([]SourceFileIdentity, map[string]o
 	if err != nil || len(entries) > 2048 {
 		return nil, nil, ErrCoverageIncomplete
 	}
-	directories := make(map[string]os.FileInfo)
+	directories := make(map[string]sourceObjectIdentity)
 	var names []string
 	for _, e := range entries {
 		if strings.HasSuffix(e.Name(), ".socket") {
@@ -86,7 +86,11 @@ func scanPinnedSourceFiles(directory string) ([]SourceFileIdentity, map[string]o
 			if !ok || st.Uid != 0 {
 				return nil, nil, ErrCoverageIncomplete
 			}
-			directories[sub] = info
+			identity, err := stableSourceIdentity(info)
+			if err != nil {
+				return nil, nil, ErrCoverageIncomplete
+			}
+			directories[sub] = identity
 			children, err := openEntries(sub)
 			if err != nil || len(children) > 128 {
 				return nil, nil, ErrCoverageIncomplete

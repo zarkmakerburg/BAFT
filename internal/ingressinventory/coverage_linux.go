@@ -19,7 +19,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -250,12 +249,11 @@ func sourceFingerprint(source SystemdSocketInventory) (SourceIdentity, error) {
 	}
 	fi, err := os.Lstat(root)
 	if err != nil || !fi.IsDir() || fi.Mode()&os.ModeSymlink != 0 || fi.Mode().Perm()&0022 != 0 ||
-		!source.ScopedComplete || source.parsedRoot == nil || source.parsedFiles == nil ||
-		!os.SameFile(source.parsedRoot, fi) || !source.parsedRoot.ModTime().Equal(fi.ModTime()) {
+		!source.ScopedComplete || source.parsedFiles == nil {
 		return SourceIdentity{}, ErrCoverageIncomplete
 	}
-	st, ok := fi.Sys().(*syscall.Stat_t)
-	if !ok || uint64(st.Dev) != dev || st.Ino != inode {
+	rootIdentity, err := stableSourceIdentity(fi)
+	if err != nil || rootIdentity != source.parsedRoot || rootIdentity.device != dev || rootIdentity.inode != inode {
 		return SourceIdentity{}, ErrCoverageIncomplete
 	}
 	files, directories, err := scanPinnedSourceFiles(root)
@@ -266,8 +264,8 @@ func sourceFingerprint(source SystemdSocketInventory) (SourceIdentity, error) {
 		return SourceIdentity{}, ErrCoverageIncomplete
 	}
 	for name, directory := range directories {
-		parsed := source.parsedDirectories[name]
-		if parsed == nil || !os.SameFile(parsed, directory) || !parsed.ModTime().Equal(directory.ModTime()) {
+		parsed, ok := source.parsedDirectories[name]
+		if !ok || parsed != directory {
 			return SourceIdentity{}, ErrCoverageIncomplete
 		}
 	}
@@ -276,16 +274,15 @@ func sourceFingerprint(source SystemdSocketInventory) (SourceIdentity, error) {
 	}
 	for _, file := range files {
 		parsed, ok := source.parsedFiles[file.Path]
-		if !ok || parsed.info == nil || parsed.sha256 != file.SHA256 || parsed.info.ModTime().UnixNano() != file.ModUnixNS {
+		if !ok || parsed.sha256 != file.SHA256 || parsed.info.modUnixNS != file.ModUnixNS {
 			return SourceIdentity{}, ErrCoverageIncomplete
 		}
-		st, ok := parsed.info.Sys().(*syscall.Stat_t)
-		if !ok || uint64(st.Dev) != file.Device || st.Ino != file.Inode {
+		if parsed.info.device != file.Device || parsed.info.inode != file.Inode {
 			return SourceIdentity{}, ErrCoverageIncomplete
 		}
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "%s\x00%d\x00%d\x00%d", root, st.Dev, st.Ino, fi.ModTime().UnixNano())
+	fmt.Fprintf(&b, "%s\x00%d\x00%d\x00%d", root, rootIdentity.device, rootIdentity.inode, rootIdentity.modUnixNS)
 	for _, c := range claims {
 		fmt.Fprintf(&b, "\x00%d:%s:%s:%s", c.Port, c.Unit, c.Source, c.Definition)
 	}
@@ -296,11 +293,7 @@ func sourceFingerprint(source SystemdSocketInventory) (SourceIdentity, error) {
 	sort.Strings(names)
 	for _, name := range names {
 		directory := directories[name]
-		st, ok := directory.Sys().(*syscall.Stat_t)
-		if !ok {
-			return SourceIdentity{}, ErrCoverageIncomplete
-		}
-		fmt.Fprintf(&b, "\x00%s:%d:%d:%d", name, st.Dev, st.Ino, directory.ModTime().UnixNano())
+		fmt.Fprintf(&b, "\x00%s:%d:%d:%d", name, directory.device, directory.inode, directory.modUnixNS)
 	}
 	for _, file := range files {
 		fmt.Fprintf(&b, "\x00%s:%s:%d:%d:%d", file.Path, file.SHA256, file.Device, file.Inode, file.ModUnixNS)

@@ -223,7 +223,7 @@ func (b *bccRig) reserve(tn bcc.Tunnel, planHash string, port, want int) {
 // stage turns the reviewed reservation into the immutable, held, signed-able
 // Apply command: durable operation, canonical binding, staged command, held
 // dispatch. Nothing is queued yet (see enqueue).
-func (b *bccRig) stage(tn bcc.Tunnel, jobID string) ingressauthority.CommandV1 {
+func (b *bccRig) stageFor(tn bcc.Tunnel, jobID string, validity time.Duration) ingressauthority.CommandV1 {
 	b.t.Helper()
 	now := time.Now().UTC()
 	spec, err := bcc.PlanPublicIngress(tn.IRNode, tn.ID, tn.ClientPort, tn.RouteListen)
@@ -242,7 +242,7 @@ func (b *bccRig) stage(tn bcc.Tunnel, jobID string) ingressauthority.CommandV1 {
 	}
 	cmd := ingressauthority.CommandV1{
 		IngressProtocol: ingressauthority.ProtocolV1, JobID: jobID, Action: agentjob.ActionPublicIngressApply,
-		IssuedAt: now.Truncate(time.Second).Add(-time.Second), ExpiresAt: now.Truncate(time.Second).Add(2 * time.Minute),
+		IssuedAt: now.Truncate(time.Second).Add(-time.Second), ExpiresAt: now.Truncate(time.Second).Add(validity),
 		Binding: ingressauthority.BindingV1{
 			NodeID: tn.IRNode, OperationID: op.OperationID, LeaseID: op.LeaseID,
 			Port: uint16(spec.PublicPort), ConfigPort: uint16(spec.PublicPort),
@@ -333,6 +333,7 @@ type agentRig struct {
 	Store  *ingressauthority.ReservationStore
 	Runner *nftFaults
 	J      *journalFaults
+	D      *ingressownership.DurableJournal
 	proc   context.Context
 	stop   context.CancelFunc
 	client *http.Client
@@ -387,6 +388,7 @@ func startAgent(t *testing.T, b *bccRig, h *host, dir string, o *agentOpt) *agen
 		t.Fatal(err)
 	}
 	r.Store = store
+	r.D = journal
 	r.J = &journalFaults{MutationJournal: journal}
 	r.Runner = &nftFaults{NFTCommandRunner: ingressownership.NFTCommandRunner{Binary: "/usr/sbin/nft"}}
 	backend := &ingressownership.NFTLabBackend{Runner: r.Runner, ExpectedChainHandle: h.handle}
@@ -431,9 +433,13 @@ func (r *agentRig) openGate() {
 // release/signing helper for forged jobs.
 func (b *bccRig) sign(j agentjob.Job) release.Envelope {
 	b.t.Helper()
-	env, err := agentjob.Sign(b.key, j)
+	// release.Sign directly: agentjob.Sign would refuse (Validate) the very
+	// malformed jobs a compromised signer or key thief could still emit.
+	j.SchemaVersion = agentjob.SchemaVersion
+	j.IssuedAt, j.ExpiresAt = j.IssuedAt.UTC().Truncate(time.Second), j.ExpiresAt.UTC().Truncate(time.Second)
+	payload, err := json.Marshal(j)
 	if err != nil {
 		b.t.Fatal(err)
 	}
-	return env
+	return release.Sign(agentjob.PayloadType, payload, b.key)
 }

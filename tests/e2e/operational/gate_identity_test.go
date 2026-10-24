@@ -122,7 +122,7 @@ func isFailure(res []agent.Result) bool {
 
 func TestOperationalIngressV1Gate_RefusesWrongNode(t *testing.T) {
 	f := setupFullPath(t, 54711, "127.0.0.1:1443")
-	f.cmd = f.b.stage(f.tn, "apply-wrong-node")
+	f.cmd = f.b.stageFor(f.tn, "apply-wrong-node", 2*time.Minute)
 	f.a.openGate()
 	// A correctly signed job addressed to a different node.
 	res := f.deliver(t, forgedJob(f.cmd, func(j *agentjob.Job) { j.NodeID = "ir-other" }))
@@ -190,7 +190,7 @@ func TestOperationalIngressV1Gate_RefusesWrongPlanHash(t *testing.T) {
 
 func TestOperationalIngressV1Gate_RefusesWrongPort(t *testing.T) {
 	f := setupFullPath(t, 54713, "127.0.0.1:1443")
-	f.cmd = f.b.stage(f.tn, "apply-wrong-port")
+	f.cmd = f.b.stageFor(f.tn, "apply-wrong-port", 2*time.Minute)
 	f.a.openGate()
 	for name, mutate := range map[string]func(j *agentjob.Job){
 		"public_port differs from listen_endpoint": func(j *agentjob.Job) { j.JobID = "wp-1"; j.Params["public_port"] = "54999" },
@@ -332,7 +332,7 @@ func TestOperationalIngressV1Gate_RefusesWrongGeneration(t *testing.T) {
 
 func TestOperationalIngressV1Gate_RefusesWrongEnrollment(t *testing.T) {
 	f := setupFullPath(t, 54716, "127.0.0.1:1443")
-	f.cmd = f.b.stage(f.tn, "apply-wrong-enrollment")
+	f.cmd = f.b.stageFor(f.tn, "apply-wrong-enrollment", 2*time.Minute)
 	closed := func(what string) {
 		t.Helper()
 		if err := f.b.store.EnqueueOperationalIngress(f.tn.ID); !errors.Is(err, bcc.ErrIngressAuthorityUnavailable) {
@@ -382,7 +382,7 @@ func TestOperationalIngressV1Gate_RefusesWrongEnrollment(t *testing.T) {
 func TestOperationalIngressV1Gate_RefusesWrongEnrollmentPinnedSigner(t *testing.T) {
 	// (Not in the manifest; kept separate so a failure names the cause.)
 	f := setupFullPath(t, 54717, "127.0.0.1:1443")
-	f.cmd = f.b.stage(f.tn, "apply-wrong-signer")
+	f.cmd = f.b.stageFor(f.tn, "apply-wrong-signer", 2*time.Minute)
 	otherPub, _, _ := ed25519.GenerateKey(rand.Reader)
 	imposter := startAgent(t, f.b, f.h, t.TempDir(), &agentOpt{key: otherPub, url: f.tap.srv.URL, client: f.b.cl})
 	imposter.openGate()
@@ -400,7 +400,7 @@ func TestOperationalIngressV1Gate_RefusesWrongEnrollmentPinnedSigner(t *testing.
 
 func TestOperationalIngressV1Gate_RefusesWrongTLSIdentity(t *testing.T) {
 	f := setupFullPath(t, 54718, "127.0.0.1:1443")
-	f.cmd = f.b.stage(f.tn, "apply-wrong-tls")
+	f.cmd = f.b.stageFor(f.tn, "apply-wrong-tls", 2*time.Minute)
 	// 1. An Agent that does not trust BCC's CA cannot poll, so BCC never
 	//    learns a capability and the gate stays closed.
 	noTrust := startAgent(t, f.b, f.h, t.TempDir(), &agentOpt{client: &http.Client{Timeout: 5 * time.Second}})

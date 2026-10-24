@@ -51,8 +51,8 @@ func newHost(t *testing.T) *host {
 	oplab.Require(t)
 	ip := oplab.IPBinary()
 	sh(t, ip, "link", "set", "lo", "up")
-	if out, err := exec.Command(ip, "addr", "add", irAddr+"/32", "dev", "lo").CombinedOutput(); err != nil && !strings.Contains(string(out), "File exists") {
-		t.Fatalf("ip addr add: %v: %s", err, out)
+	if have := sh(t, ip, "-4", "addr", "show", "dev", "lo"); !strings.Contains(string(have), irAddr+"/32") {
+		sh(t, ip, "addr", "add", irAddr+"/32", "dev", "lo")
 	}
 	h := &host{t: t}
 	_ = exec.Command(oplab.NFT, "delete", "table", "inet", "baft").Run()

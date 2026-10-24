@@ -14,11 +14,11 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"sort"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -118,6 +118,33 @@ func readProtectedInstalledPolicy(path string) (installedProfileIdentity, error)
 
 func parseInstalledPolicy(raw []byte, expectedNodeID string, actualNetNS string) (installedPolicyV1, error) {
 	var p installedPolicyV1
+	// encoding/json accepts duplicate and case-insensitive struct keys.
+	// The installed trust contract requires one exact spelling per field.
+	keys := json.NewDecoder(bytes.NewReader(raw))
+	if token, err := keys.Token(); err != nil || token != json.Delim('{') {
+		return p, ErrUnsupportedManagedNode
+	}
+	seenKeys := make(map[string]bool)
+	for keys.More() {
+		token, err := keys.Token()
+		key, ok := token.(string)
+		if err != nil || !ok || seenKeys[key] {
+			return p, ErrUnsupportedManagedNode
+		}
+		switch key {
+		case "schema_version", "node_id", "platform", "netns", "transport", "inventory_version", "manager", "source_roots":
+		default:
+			return p, ErrUnsupportedManagedNode
+		}
+		seenKeys[key] = true
+		var value json.RawMessage
+		if err := keys.Decode(&value); err != nil {
+			return p, ErrUnsupportedManagedNode
+		}
+	}
+	if token, err := keys.Token(); err != nil || token != json.Delim('}') {
+		return p, ErrUnsupportedManagedNode
+	}
 	d := json.NewDecoder(bytes.NewReader(raw))
 	d.DisallowUnknownFields()
 	if err := d.Decode(&p); err != nil {
@@ -211,27 +238,62 @@ func liveTCPPort(ctx context.Context, port uint16) ([]ActiveTCPClaim, []string) 
 	return out, unknown
 }
 
-func sourceFingerprint(root string, claims []PersistentTCPPortClaim) (SourceIdentity, error) {
+// sourceFingerprint checks that the protected source still has exactly the
+// file identities and byte digests captured by the parser. Hashing a later
+// independent read alone must not attach new bytes to stale parsed claims.
+func sourceFingerprint(source SystemdSocketInventory) (SourceIdentity, error) {
+	root, claims := source.Root, source.Claims
 	dev, inode, err := protectedSourceRootIdentity(root)
 	if err != nil {
 		return SourceIdentity{}, ErrCoverageIncomplete
 	}
 	fi, err := os.Lstat(root)
-	if err != nil || !fi.IsDir() || fi.Mode()&os.ModeSymlink != 0 || fi.Mode().Perm()&0022 != 0 {
+	if err != nil || !fi.IsDir() || fi.Mode()&os.ModeSymlink != 0 || fi.Mode().Perm()&0022 != 0 ||
+		!source.ScopedComplete || source.parsedFiles == nil {
 		return SourceIdentity{}, ErrCoverageIncomplete
 	}
-	st, ok := fi.Sys().(*syscall.Stat_t)
-	if !ok || uint64(st.Dev) != dev || st.Ino != inode {
+	rootIdentity, err := stableSourceIdentity(fi)
+	if err != nil || rootIdentity != source.parsedRoot || rootIdentity.device != dev || rootIdentity.inode != inode {
 		return SourceIdentity{}, ErrCoverageIncomplete
 	}
-	files, err := scanPinnedSourceFiles(root)
+	files, directories, err := scanPinnedSourceFiles(root)
 	if err != nil {
 		return SourceIdentity{}, err
 	}
+	if len(directories) != len(source.parsedDirectories) {
+		return SourceIdentity{}, ErrCoverageIncomplete
+	}
+	for name, directory := range directories {
+		parsed, ok := source.parsedDirectories[name]
+		if !ok || parsed != directory {
+			return SourceIdentity{}, ErrCoverageIncomplete
+		}
+	}
+	if len(files) != len(source.parsedFiles) {
+		return SourceIdentity{}, ErrCoverageIncomplete
+	}
+	for _, file := range files {
+		parsed, ok := source.parsedFiles[file.Path]
+		if !ok || parsed.sha256 != file.SHA256 || parsed.info.modUnixNS != file.ModUnixNS {
+			return SourceIdentity{}, ErrCoverageIncomplete
+		}
+		if parsed.info.device != file.Device || parsed.info.inode != file.Inode {
+			return SourceIdentity{}, ErrCoverageIncomplete
+		}
+	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "%s\x00%d\x00%d\x00%d", root, st.Dev, st.Ino, fi.ModTime().UnixNano())
+	fmt.Fprintf(&b, "%s\x00%d\x00%d\x00%d", root, rootIdentity.device, rootIdentity.inode, rootIdentity.modUnixNS)
 	for _, c := range claims {
 		fmt.Fprintf(&b, "\x00%d:%s:%s:%s", c.Port, c.Unit, c.Source, c.Definition)
+	}
+	names := make([]string, 0, len(directories))
+	for name := range directories {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		directory := directories[name]
+		fmt.Fprintf(&b, "\x00%s:%d:%d:%d", name, directory.device, directory.inode, directory.modUnixNS)
 	}
 	for _, file := range files {
 		fmt.Fprintf(&b, "\x00%s:%s:%d:%d:%d", file.Path, file.SHA256, file.Device, file.Inode, file.ModUnixNS)
@@ -315,7 +377,7 @@ func collectFromInstalledPath(ctx context.Context, policyPath, expectedNodeID st
 	}
 	result.Stopped = append(result.Stopped, source.Claims...)
 	for _, s := range source.Sources {
-		fingerprint, err := sourceFingerprint(s.Root, s.Claims)
+		fingerprint, err := sourceFingerprint(s)
 		if err != nil {
 			return coverageError(result, "installed source fingerprint invalid")
 		}
@@ -351,6 +413,15 @@ func collectFromInstalledPath(ctx context.Context, policyPath, expectedNodeID st
 		labNow, err := measurePrivateLinuxLAB(ctx, profile.NetworkNamespace)
 		if err != nil || !lab.matches(labNow) {
 			return coverageError(result, "managed LAB execution scope changed during observation")
+		}
+	}
+	// Recheck complete relevant file membership, identities and bytes after
+	// kernel/profile observation. This is conservative drift detection, not an
+	// atomic host snapshot: transient ABA and future changes remain possible.
+	for i, observed := range source.Sources {
+		freshSource, err := sourceFingerprint(observed)
+		if err != nil || !reflect.DeepEqual(freshSource, result.Sources[i]) {
+			return coverageError(result, "installed source changed during observation")
 		}
 	}
 	result.FreshUntil = result.CollectedAt.Add(2 * time.Second)

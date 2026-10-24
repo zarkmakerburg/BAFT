@@ -40,6 +40,11 @@ func (a *Agent) publicIngressLAB(ctx context.Context, j agentjob.Job) (string, e
 	if err := j.Validate(); err != nil {
 		return "", err
 	}
+	// Operational v1 MUST never borrow the caller-injected LAB executor.
+	// An authenticated job is not a live lease or independent host proof.
+	if j.Params["ingress_protocol"] != "" {
+		return "", errors.New("operational ingress requires durable authority; LAB executor cannot admit v1")
+	}
 	if a == nil || a.cfg.IngressLABExecutor == nil || a.cfg.IngressManifestDir == "" || a.cfg.NodeID == "" || a.cfg.NodeID != j.NodeID {
 		return "", errors.New("isolated ingress LAB execution is not configured for this node")
 	}

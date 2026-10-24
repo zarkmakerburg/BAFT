@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -69,8 +70,18 @@ func BackupKeyFromEnv()([]byte,error){
 // BackupKeyFromEnv (base64-encoded 32 bytes). Using a file keeps the key out
 // of the process environment (not visible in /proc/<pid>/environ or ps auxe).
 func BackupKeyFromFile(path string)([]byte,error){
-	b,err:=os.ReadFile(path)
+	f,err:=openTrustedBackupKey(path)
 	if err!=nil{return nil,fmt.Errorf("backup key file: %w",err)}
+	defer f.Close()
+	// The key is 44 base64 characters; cap reads even if the file changes
+	// after fstat, without retaining arbitrary-sized untrusted content.
+	const maxBackupKeyFileBytes=4096
+	st,err:=f.Stat()
+	if err!=nil{return nil,fmt.Errorf("backup key file: %w",err)}
+	if st.Size()>maxBackupKeyFileBytes{return nil,errors.New("backup key file too large")}
+	b,err:=io.ReadAll(io.LimitReader(f,maxBackupKeyFileBytes+1))
+	if err!=nil{return nil,fmt.Errorf("backup key file: %w",err)}
+	if len(b)>maxBackupKeyFileBytes{return nil,errors.New("backup key file too large")}
 	raw:=strings.TrimSpace(string(b))
 	if raw==""{return nil,errors.New("backup key file is empty")}
 	key,err:=base64.StdEncoding.DecodeString(raw)

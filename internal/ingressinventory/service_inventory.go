@@ -1,6 +1,8 @@
 package ingressinventory
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -27,6 +29,22 @@ type PersistentTCPPortClaim struct {
 	Definition string // normalized ListenStream value, never executable content
 }
 
+// sourceObjectIdentity retains only stable provenance, never complete FileInfo.
+type sourceObjectIdentity struct {
+	device    uint64
+	inode     uint64
+	mode      os.FileMode
+	size      int64
+	modUnixNS int64
+}
+
+// parsedSourceFile binds provenance to the exact bytes handed to the parser.
+// It is private observation state, not a caller-supplied coverage assertion.
+type parsedSourceFile struct {
+	info   sourceObjectIdentity
+	sha256 string
+}
+
 // SystemdSocketInventory is ONE READ-ONLY source of stopped service claims.
 // ScopedComplete means the selected directory's socket units/drop-ins were
 // exhaustively enumerated and understood. It does NOT mean that all stopped
@@ -34,9 +52,12 @@ type PersistentTCPPortClaim struct {
 // service ExecStart direct binds, containers and other registries must be
 // independently reconciled by the Alpha-owned durable admission authority.
 type SystemdSocketInventory struct {
-	Claims         []PersistentTCPPortClaim
-	ScopedComplete bool
-	Root           string
+	Claims            []PersistentTCPPortClaim
+	ScopedComplete    bool
+	Root              string
+	parsedRoot        sourceObjectIdentity
+	parsedFiles       map[string]parsedSourceFile
+	parsedDirectories map[string]sourceObjectIdentity
 }
 
 // InspectSystemdSocketUnits observes one trusted, explicit unit directory.
@@ -44,7 +65,7 @@ type SystemdSocketInventory struct {
 // empty-success. It DOES NOT reserve a port or prove full host completeness.
 // os.OpenRoot bounds all path access; symlinks and modified files are rejected.
 func InspectSystemdSocketUnits(directory string) (SystemdSocketInventory, error) {
-	out := SystemdSocketInventory{Root: directory}
+	out := SystemdSocketInventory{Root: directory, parsedFiles: make(map[string]parsedSourceFile), parsedDirectories: make(map[string]sourceObjectIdentity)}
 	info, err := os.Lstat(directory)
 	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0022 != 0 {
 		return out, fmt.Errorf("%w: untrusted systemd directory: %v (mode=%v)", ErrPersistentServiceInventoryIncomplete, err, func() any {
@@ -53,6 +74,10 @@ func InspectSystemdSocketUnits(directory string) (SystemdSocketInventory, error)
 			}
 			return info.Mode()
 		}())
+	}
+	out.parsedRoot, err = stableSourceIdentity(info)
+	if err != nil {
+		return out, err
 	}
 	root, err := os.OpenRoot(directory)
 	if err != nil {
@@ -90,10 +115,12 @@ func InspectSystemdSocketUnits(directory string) (SystemdSocketInventory, error)
 		return out, fmt.Errorf("%w: too many socket units", ErrPersistentServiceInventoryIncomplete)
 	}
 	for _, unit := range sorted {
-		content, err := safeReadUnit(root, unit, 64<<10)
+		content, identity, err := safeReadUnit(root, unit, 64<<10)
 		if err != nil {
 			return out, fmt.Errorf("%w: %s: %v", ErrPersistentServiceInventoryIncomplete, unit, err)
 		}
+		sum := sha256.Sum256(content)
+		out.parsedFiles[unit] = parsedSourceFile{identity, hex.EncodeToString(sum[:])}
 		values, err := parseSystemdListenStream(content, nil, unit)
 		if err != nil {
 			return out, fmt.Errorf("%w: %s: %v", ErrPersistentServiceInventoryIncomplete, unit, err)
@@ -104,6 +131,11 @@ func InspectSystemdSocketUnits(directory string) (SystemdSocketInventory, error)
 			if !dropInfo.IsDir() || dropInfo.Mode()&os.ModeSymlink != 0 || dropInfo.Mode().Perm()&0022 != 0 {
 				return out, fmt.Errorf("%w: untrusted override directory %s", ErrPersistentServiceInventoryIncomplete, dropDir)
 			}
+			identity, identityErr := stableSourceIdentity(dropInfo)
+			if identityErr != nil {
+				return out, identityErr
+			}
+			out.parsedDirectories[dropDir] = identity
 			d, openErr := root.Open(dropDir)
 			if openErr != nil {
 				return out, fmt.Errorf("%w: cannot open override directory %s: %v", ErrPersistentServiceInventoryIncomplete, dropDir, openErr)
@@ -121,10 +153,12 @@ func InspectSystemdSocketUnits(directory string) (SystemdSocketInventory, error)
 			}
 			sort.Strings(overrides)
 			for _, drop := range overrides {
-				data, err := safeReadUnit(root, drop, 64<<10)
+				data, identity, err := safeReadUnit(root, drop, 64<<10)
 				if err != nil {
 					return out, fmt.Errorf("%w: unsafe override %s: %v", ErrPersistentServiceInventoryIncomplete, drop, err)
 				}
+				sum := sha256.Sum256(data)
+				out.parsedFiles[drop] = parsedSourceFile{identity, hex.EncodeToString(sum[:])}
 				values, err = parseSystemdListenStream(data, values, drop)
 				if err != nil {
 					return out, fmt.Errorf("%w: malformed override %s: %v", ErrPersistentServiceInventoryIncomplete, drop, err)
@@ -157,31 +191,35 @@ func InspectSystemdSocketUnits(directory string) (SystemdSocketInventory, error)
 	return out, nil
 }
 
-func safeReadUnit(root *os.Root, name string, max int64) ([]byte, error) {
+func safeReadUnit(root *os.Root, name string, max int64) ([]byte, sourceObjectIdentity, error) {
 	// os.OpenRoot bounds symlinks to the root; reject any symlink at the
 	// requested file path and any file that changed identity during open.
 	fi, err := root.Lstat(name)
 	if err != nil || !fi.Mode().IsRegular() || fi.Mode().Perm()&0022 != 0 || fi.Size() > max || fi.Size() < 0 {
-		return nil, fmt.Errorf("untrusted unit file: %v", err)
+		return nil, sourceObjectIdentity{}, fmt.Errorf("untrusted unit file: %v", err)
 	}
 	f, err := root.Open(name)
 	if err != nil {
-		return nil, err
+		return nil, sourceObjectIdentity{}, err
 	}
 	defer f.Close()
 	opened, err := f.Stat()
 	if err != nil || !os.SameFile(fi, opened) {
-		return nil, errors.New("unit file was replaced")
+		return nil, sourceObjectIdentity{}, errors.New("unit file was replaced")
 	}
 	raw, err := io.ReadAll(io.LimitReader(f, max+1))
 	if err != nil || int64(len(raw)) > max {
-		return nil, errors.New("oversized or unreadable unit")
+		return nil, sourceObjectIdentity{}, errors.New("oversized or unreadable unit")
 	}
 	latest, err := root.Lstat(name)
 	if err != nil || !os.SameFile(fi, latest) || !opened.ModTime().Equal(latest.ModTime()) || opened.Size() != latest.Size() {
-		return nil, errors.New("unit changed during inventory")
+		return nil, sourceObjectIdentity{}, errors.New("unit changed during inventory")
 	}
-	return raw, nil
+	identity, err := stableSourceIdentity(opened)
+	if err != nil {
+		return nil, sourceObjectIdentity{}, err
+	}
+	return raw, identity, nil
 }
 
 // parseSystemdListenStream reads persistent TCP ListenStream= directives,

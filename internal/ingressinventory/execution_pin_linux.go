@@ -31,7 +31,7 @@ func pinInstalledManagedLABExecution(ctx context.Context, path, nodeID string) (
 	}
 	fingerprints := make([]SourceIdentity, 0, len(source.Sources))
 	for _, observation := range source.Sources {
-		fingerprint, err := sourceFingerprint(observation.Root, observation.Claims)
+		fingerprint, err := sourceFingerprint(observation)
 		if err != nil {
 			return zero, errors.Join(ErrCoverageIncomplete, err)
 		}
@@ -42,7 +42,7 @@ func pinInstalledManagedLABExecution(ctx context.Context, path, nodeID string) (
 		return zero, ErrCoverageIncomplete
 	}
 	for i, observation := range source.Sources {
-		now, err := sourceFingerprint(observation.Root, observation.Claims)
+		now, err := sourceFingerprint(observation)
 		if err != nil || !reflect.DeepEqual(now, fingerprints[i]) {
 			return zero, ErrCoverageIncomplete
 		}
@@ -54,7 +54,7 @@ func pinInstalledManagedLABExecution(ctx context.Context, path, nodeID string) (
 	return ManagedLABExecutionPin{
 		Policy: policy, Sources: fingerprints,
 		Stopped: append([]PersistentTCPPortClaim(nil), source.Claims...),
-		LAB: first,
+		LAB:     first,
 	}, nil
 }
 

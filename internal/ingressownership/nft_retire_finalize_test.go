@@ -46,7 +46,7 @@ func TestNFTLabRetireFinalizesAfterJournalFailure(t *testing.T) {
 	if err != nil || current.Phase != PhaseRetireIntent || fake.ruleHandle != 0 {
 		t.Fatalf("wrong interrupted state: %+v %v", current, err)
 	}
-	foreign, err := net.Listen("tcp4", spec.Config.Listen)
+	foreign, err := listenWithForensics(t, "tcp4", spec.Config.Listen)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -411,14 +411,14 @@ func (s *Store) resolveTunnelLocked(req TunnelRequest, now time.Time) (Tunnel, N
 	if r := s.rotationOnNodesLocked(req.EXNode, req.IRNode); r != nil {
 		return Tunnel{}, Node{}, Node{}, fmt.Errorf("certificate rotation %s is %s on one of these nodes", r.ID, r.Phase)
 	}
-	// An already reviewed client/config port is a durable BCC claim, even
-	// before the ingress listener is provisioned. Keep new internal listeners
-	// and unrelated tenant client ports away from that numeric TCP port.
+	// Client ingress claims are numeric TCP-port claims on their historical IR
+	// node, regardless of whether a new tunnel uses that node as EX or IR.
+	// Include effective default listeners and cross-role resource allocations.
 	for _, other := range s.st.Tunnels {
-		if other.IRNode != t.IRNode || other.ClientPort == 0 || !tunnelKeepsPorts(other) || sameManagedSlot(t, other) {
+		if other.ClientPort == 0 || !tunnelKeepsPorts(other) || sameManagedSlot(t, other) {
 			continue
 		}
-		if t.ClientPort == other.ClientPort {
+		if t.IRNode == other.IRNode && t.ClientPort != 0 && t.ClientPort == other.ClientPort {
 			return Tunnel{}, Node{}, Node{}, fmt.Errorf("IR client configuration port %d is claimed by tunnel %s", t.ClientPort, other.ID)
 		}
 		ports, err := tunnelPortsOnNode(t, other.IRNode)
@@ -430,9 +430,29 @@ func (s *Store) resolveTunnelLocked(req TunnelRequest, now time.Time) (Tunnel, N
 				return Tunnel{}, Node{}, Node{}, fmt.Errorf("listener port %d is claimed by tunnel %s for IR client ingress", port, other.ID)
 			}
 		}
+		if t.ClientPort != 0 {
+			oldPorts, err := tunnelPortsOnNode(other, t.IRNode)
+			if err != nil {
+				return Tunnel{}, Node{}, Node{}, err
+			}
+			for _, port := range oldPorts {
+				if port == t.ClientPort {
+					return Tunnel{}, Node{}, Node{}, fmt.Errorf("IR client configuration port %d conflicts with listener of tunnel %s", port, other.ID)
+				}
+			}
+		}
 	}
-	// The reviewed client port still does NOT authorize any Agent listener.
+	// The reviewed client port does NOT authorize an Agent listener.
 	if t.ClientPort != 0 {
+		ownPorts, err := tunnelPortsOnNode(t, t.IRNode)
+		if err != nil {
+			return Tunnel{}, Node{}, Node{}, err
+		}
+		for _, port := range ownPorts {
+			if port == t.ClientPort {
+				return Tunnel{}, Node{}, Node{}, fmt.Errorf("IR client configuration port %d aliases this tunnel's own IR route or metrics listener", port)
+			}
+		}
 		spec, err := PlanPublicIngress(t.IRNode, "reviewed-plan-candidate", t.ClientPort, t.RouteListen)
 		if err != nil {
 			return Tunnel{}, Node{}, Node{}, fmt.Errorf("invalid client ingress port: %w", err)

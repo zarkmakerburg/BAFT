@@ -1,6 +1,7 @@
 package bcc
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -191,5 +192,85 @@ func TestReviewedClientPortClaimAlsoProtectsAgainstLaterInternalListeners(t *tes
 				t.Fatal("new internal listener stole a persisted client-port claim")
 			}
 		})
+	}
+}
+
+func TestHQReviewedClientPortCannotAliasOwnIRListeners(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		client int
+		req    TunnelRequest
+	}{
+		{"explicit IR metrics", 9302, scopedReq("hq-own-metrics", "ex-1", "ir-1", 8443, "127.0.0.1:1443", "127.0.0.1:9202", "127.0.0.1:9302")},
+		{"IR route", 1443, scopedReq("hq-own-route", "ex-1", "ir-1", 8443, "127.0.0.1:1443", "127.0.0.1:9202", "127.0.0.1:9302")},
+		{"legacy default IR metrics", 9191, TunnelRequest{EXNode: "ex-1", IRNode: "ir-1", RouteListen: "127.0.0.1:1443"}},
+		{"legacy default IR route", 1443, TunnelRequest{EXNode: "ex-1", IRNode: "ir-1"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := multiInstanceStore(t)
+			req := tc.req
+			req.ClientPort = tc.client
+			now := time.Now()
+			before := stateJSONForTest(t, s)
+			if _, err := s.BuildPlan(req, now); err == nil {
+				t.Fatal("reviewed plan accepted self-aliasing IR ingress")
+			}
+			if _, err := s.CreateTunnel(req, now); err == nil {
+				t.Fatal("CreateTunnel accepted self-aliasing IR ingress")
+			}
+			if got := stateJSONForTest(t, s); !bytes.Equal(before, got) {
+				t.Fatal("rejected candidate mutated durable state/jobs")
+			}
+		})
+	}
+}
+
+func TestHQReviewedClientPortBlocksHistoricalCrossRoleIRToEX(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		port    int
+		metrics string
+	}{
+		{"EX transport", 54619, "127.0.0.1:9212"},
+		{"EX metrics", 8444, "127.0.0.1:54619"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := multiInstanceStore(t)
+			s.mu.Lock()
+			if s.st.Tunnels == nil {
+				s.st.Tunnels = map[string]Tunnel{}
+			}
+			s.st.Tunnels["old-ir"] = Tunnel{ID: "old-ir", InstanceID: "old", IRNode: "ex-1", EXNode: "ex-2", ClientPort: 54619, RouteListen: "127.0.0.1:1449", IRMetricsListen: "127.0.0.1:9319", Port: 8449, EXMetricsListen: "127.0.0.1:9219", Phase: TunnelActive}
+			s.mu.Unlock()
+			req := scopedReq("cross-role-new", "ex-1", "ir-2", tc.port, "127.0.0.1:1445", tc.metrics, "127.0.0.1:9305")
+			before := stateJSONForTest(t, s)
+			if _, err := s.BuildPlan(req, time.Now()); err == nil {
+				t.Fatal("plan ignores existing IR client claim when new role is EX")
+			}
+			if _, err := s.CreateTunnel(req, time.Now()); err == nil {
+				t.Fatal("create steals historical IR client port from EX role")
+			}
+			if got := stateJSONForTest(t, s); !bytes.Equal(before, got) {
+				t.Fatal("blocked cross-role operation changed state")
+			}
+		})
+	}
+}
+
+func TestHQReviewedClientPortAllowsExactManagedSlotReplacement(t *testing.T) {
+	s := multiInstanceStore(t)
+	req := scopedReq("slot-owner", "ex-1", "ir-1", 8443, "127.0.0.1:1443", "127.0.0.1:9202", "127.0.0.1:9302")
+	req.ClientPort = 54619
+	first, err := s.CreateTunnel(req, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.mu.Lock()
+	saved := s.st.Tunnels[first.ID]
+	saved.Phase = TunnelActive
+	s.st.Tunnels[first.ID] = saved
+	s.mu.Unlock()
+	if _, err := s.BuildPlan(req, time.Now()); err != nil {
+		t.Fatalf("same-slot replacement falsely rejected: %v", err)
 	}
 }

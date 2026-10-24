@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/zarkmakerburg/baft/internal/ingressauthority"
+	"github.com/zarkmakerburg/baft/internal/ingressinventory"
 	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
 )
 
@@ -50,13 +52,64 @@ func nftTransactionRecord(spec ingressmanifest.Spec, proof ingressmanifest.Proof
 	return MutationRecord{Port: uint16(port), Owner: proof, Phase: PhaseIntent}, plan, err
 }
 
+// effectLeaseFence is private to this implementation. Callers cannot supply
+// a test double, Boolean or authorization callback: the ONLY positive guard
+// is Alpha's concrete held *Lease, rechecked before every effect boundary.
+type effectLeaseFence struct {
+	lease   *ingressauthority.Lease
+	command ingressauthority.CommandV1
+	// Private per-operation observation: never caller-supplied and never a permit.
+	pin ingressinventory.ManagedLABExecutionPin
+}
+
+func (f *effectLeaseFence) check(ctx context.Context) error {
+	if f == nil {
+		// Legacy LAB rollback may use a fresh cleanup context after
+		// the original Apply context is cancelled. Preserve existing
+		// LAB cancellation/rollback behavior; only live operational
+		// leases get the additional per-effect authority fence.
+		return nil
+	}
+	if err := CheckIngressExecutorAuthority(ctx, f.lease, f.command); err != nil {
+		return err
+	}
+	// Reobserve installed profile, exact parsed source file membership/bytes,
+	// current executable, cgroup and namespace BEFORE each owned mutation.
+	// On drift, do not continue effects or attempt unleased cleanup.
+	return ingressinventory.CheckInstalledManagedLABAtEffect(ctx, f.command.Binding.NodeID, f.pin)
+}
+
+func (t *NFTLabTransaction) ApplyWithLease(ctx context.Context, spec ingressmanifest.Spec, proof ingressmanifest.Proof, cmd ingressauthority.CommandV1, lease *ingressauthority.Lease) error {
+	if lease == nil || cmd.Action != "public_ingress_apply" || cmd.Binding.Spec != spec || cmd.Binding.Proof != proof {
+		return ErrExecutorTrustUnavailable
+	}
+	// Refuse unsigned/unheld operations before even capturing private scope.
+	if err := CheckIngressExecutorAuthority(ctx, lease, cmd); err != nil {
+		return err
+	}
+	pin, err := ingressinventory.PinInstalledManagedLABExecution(ctx, cmd.Binding.NodeID)
+	if err != nil {
+		return err
+	}
+	fence := &effectLeaseFence{lease: lease, command: cmd, pin: pin}
+	if err := fence.check(ctx); err != nil {
+		return err
+	}
+	return t.apply(ctx, spec, proof, fence)
+}
 func (t *NFTLabTransaction) Apply(ctx context.Context, spec ingressmanifest.Spec, proof ingressmanifest.Proof) error {
+	return t.apply(ctx, spec, proof, nil)
+}
+func (t *NFTLabTransaction) apply(ctx context.Context, spec ingressmanifest.Spec, proof ingressmanifest.Proof, fence *effectLeaseFence) error {
 	if t == nil || ctx == nil || t.Runtime == nil || t.Firewall == nil || t.Journal == nil {
 		return ErrInvalid
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := fence.check(ctx); err != nil {
 		return err
 	}
 	record, plan, err := nftTransactionRecord(spec, proof)
@@ -82,31 +135,64 @@ func (t *NFTLabTransaction) Apply(ctx context.Context, spec ingressmanifest.Spec
 		if err != nil || observed.Handle != current.FirewallHandle {
 			return errors.Join(ErrFirewallUnverified, err)
 		}
+		if err := fence.check(ctx); err != nil {
+			return err
+		}
 		return t.Runtime.Apply(ctx, spec, proof)
 	}
 	if found && (current.Owner != proof || current.Port != plan.Port || current.Phase != PhaseIntent) {
 		return ErrUnverified
 	}
+	if err := fence.check(ctx); err != nil {
+		return err
+	}
 	if err := t.Journal.Advance(record); err != nil {
+		return err
+	}
+	if err := fence.check(ctx); err != nil {
 		return err
 	}
 	if err := t.Runtime.Apply(ctx, spec, proof); err != nil {
 		return err
 	}
 	record.Phase = PhaseListenerBound
+	if err := fence.check(ctx); err != nil {
+		return err
+	}
 	if err := t.Journal.Advance(record); err != nil {
+		if fence != nil {
+			// Operational lease might have disappeared while recording.
+			// Do not close even our own listener without first checking
+			// the original held lock under a fresh valid operation context.
+			// Leave the pending claimed state for Alpha reconciliation.
+			if leaseErr := fence.check(ctx); leaseErr != nil {
+				return errors.Join(err, leaseErr)
+			}
+		}
 		return errors.Join(err, t.Runtime.Retire(endpoint, proof))
 	}
 	if err := ctx.Err(); err != nil {
+		if fence != nil {
+			return err
+		}
 		return errors.Join(err, t.Runtime.Retire(endpoint, proof))
+	}
+	if err := fence.check(ctx); err != nil {
+		// Do not roll back without the held lock. Durable recovery retains
+		// the exact in-progress operation as uncertain.
+		return err
 	}
 	observed, err := t.Firewall.Install(ctx, plan)
 	rollback := func(cause error) error {
-		if stopErr := t.Runtime.Retire(endpoint, proof); stopErr != nil {
+		if err := fence.check(ctx); err != nil {
+			return errors.Join(cause, err)
+		}
+		stopErr := t.Runtime.Retire(endpoint, proof)
+		if !listenerRetirementVerified(stopErr) {
 			return errors.Join(cause, stopErr)
 		}
 		if observed.Handle == 0 {
-			return cause
+			return errors.Join(cause, stopErr)
 		}
 		if t.stopped == nil {
 			t.stopped = make(map[ingressmanifest.Proof]stoppedIngressSocket)
@@ -116,44 +202,80 @@ func (t *NFTLabTransaction) Apply(ctx context.Context, spec ingressmanifest.Spec
 		// transaction lock indefinitely if the kernel backend is unresponsive.
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		return errors.Join(cause, t.retireLocked(cleanupCtx, spec, proof))
+		return errors.Join(cause, stopErr, t.retireLocked(cleanupCtx, spec, proof, fence))
 	}
 	if err != nil {
 		return rollback(err)
 	}
 	record.FirewallHandle = observed.Handle
 	record.Phase = PhaseFirewallInstalled
+	if err := fence.check(ctx); err != nil {
+		return err
+	}
 	if err := t.Journal.Advance(record); err != nil {
 		return rollback(err)
 	}
 	if err := ctx.Err(); err != nil {
 		return rollback(err)
+	}
+	if err := fence.check(ctx); err != nil {
+		return err
 	}
 	if latest, err := t.Firewall.Inspect(ctx, plan); err != nil || latest.Handle != observed.Handle {
 		return rollback(errors.Join(ErrFirewallUnverified, err))
 	}
 	record.Phase = PhaseVerified
+	if err := fence.check(ctx); err != nil {
+		return err
+	}
 	if err := t.Journal.Advance(record); err != nil {
 		return rollback(err)
 	}
 	if err := ctx.Err(); err != nil {
 		return rollback(err)
 	}
+	if err := fence.check(ctx); err != nil {
+		return err
+	}
 	return nil
 }
 
+func (t *NFTLabTransaction) RetireWithLease(ctx context.Context, spec ingressmanifest.Spec, proof ingressmanifest.Proof, cmd ingressauthority.CommandV1, lease *ingressauthority.Lease) error {
+	if lease == nil || cmd.Action != "public_ingress_retire" || cmd.Binding.Spec != spec || cmd.Binding.Proof != proof {
+		return ErrExecutorTrustUnavailable
+	}
+	// Refuse unsigned/unheld operations before even capturing private scope.
+	if err := CheckIngressExecutorAuthority(ctx, lease, cmd); err != nil {
+		return err
+	}
+	pin, err := ingressinventory.PinInstalledManagedLABExecution(ctx, cmd.Binding.NodeID)
+	if err != nil {
+		return err
+	}
+	fence := &effectLeaseFence{lease: lease, command: cmd, pin: pin}
+	if err := fence.check(ctx); err != nil {
+		return err
+	}
+	return t.retire(ctx, spec, proof, fence)
+}
 func (t *NFTLabTransaction) Retire(ctx context.Context, spec ingressmanifest.Spec, proof ingressmanifest.Proof) error {
+	return t.retire(ctx, spec, proof, nil)
+}
+func (t *NFTLabTransaction) retire(ctx context.Context, spec ingressmanifest.Spec, proof ingressmanifest.Proof, fence *effectLeaseFence) error {
 	if t == nil || ctx == nil || t.Runtime == nil || t.Firewall == nil || t.Journal == nil {
 		return ErrInvalid
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	return t.retireLocked(ctx, spec, proof)
+	return t.retireLocked(ctx, spec, proof, fence)
 }
 
 // retireLocked shares exact-owner cleanup with failed Apply while t.mu is held.
-func (t *NFTLabTransaction) retireLocked(ctx context.Context, spec ingressmanifest.Spec, proof ingressmanifest.Proof) error {
+func (t *NFTLabTransaction) retireLocked(ctx context.Context, spec ingressmanifest.Spec, proof ingressmanifest.Proof, fence *effectLeaseFence) error {
 	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := fence.check(ctx); err != nil {
 		return err
 	}
 	record, plan, err := nftTransactionRecord(spec, proof)
@@ -183,6 +305,9 @@ func (t *NFTLabTransaction) retireLocked(ctx context.Context, spec ingressmanife
 			return err
 		}
 		record.Phase, record.FirewallHandle = PhaseRetireIntent, stopped.handle
+		if err := fence.check(ctx); err != nil {
+			return err
+		}
 		if err := t.Journal.Advance(record); err != nil {
 			return err
 		}
@@ -195,6 +320,9 @@ func (t *NFTLabTransaction) retireLocked(ctx context.Context, spec ingressmanife
 		if current.Phase != PhaseRetireIntent && current.Phase != PhaseRetired {
 			return ErrUnverified
 		}
+		if err := fence.check(ctx); err != nil {
+			return err
+		}
 		if err := t.Firewall.verifyAbsent(ctx, plan, stopped.handle); err != nil {
 			return err
 		}
@@ -202,6 +330,9 @@ func (t *NFTLabTransaction) retireLocked(ctx context.Context, spec ingressmanife
 			return err
 		}
 		record.Phase, record.FirewallHandle = PhaseRetired, current.FirewallHandle
+		if err := fence.check(ctx); err != nil {
+			return err
+		}
 		if err := t.Journal.Advance(record); err != nil {
 			return err
 		}
@@ -217,15 +348,27 @@ func (t *NFTLabTransaction) retireLocked(ctx context.Context, spec ingressmanife
 	}
 	record.Phase = PhaseRetireIntent
 	record.FirewallHandle = current.FirewallHandle
+	if err := fence.check(ctx); err != nil {
+		return err
+	}
 	if err := t.Journal.Advance(record); err != nil {
 		return err
 	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	// A terminal transport error must not mask *successful exact socket
+	// retirement*. Only a typed verified retirement permits deleting the
+	// independently inspected exact-owned nft rule; preserve that cause in
+	// the outcome even when firewall/journal cleanup completes.
+	var retireErr error
 	if !alreadyStopped {
-		if err := t.Runtime.Retire(spec.Config.Listen, proof); err != nil {
+		if err := fence.check(ctx); err != nil {
 			return err
+		}
+		retireErr = t.Runtime.Retire(spec.Config.Listen, proof)
+		if !listenerRetirementVerified(retireErr) {
+			return retireErr
 		}
 		if t.stopped == nil {
 			t.stopped = make(map[ingressmanifest.Proof]stoppedIngressSocket)
@@ -233,15 +376,21 @@ func (t *NFTLabTransaction) retireLocked(ctx context.Context, spec ingressmanife
 		stopped = stoppedIngressSocket{runtime: t.Runtime, firewall: t.Firewall, handle: current.FirewallHandle, chainHandle: t.Firewall.ExpectedChainHandle}
 		t.stopped[proof] = stopped
 	}
+	if err := fence.check(ctx); err != nil {
+		return errors.Join(retireErr, err)
+	}
 	if err := t.Firewall.Remove(ctx, plan, observed.Handle); err != nil {
-		return err
+		return errors.Join(retireErr, err)
 	}
 	stopped.removed = true
 	t.stopped[proof] = stopped
 	record.Phase = PhaseRetired
-	if err := t.Journal.Advance(record); err != nil {
+	if err := fence.check(ctx); err != nil {
 		return err
 	}
+	if err := t.Journal.Advance(record); err != nil {
+		return errors.Join(retireErr, err)
+	}
 	delete(t.stopped, proof)
-	return nil
+	return retireErr
 }

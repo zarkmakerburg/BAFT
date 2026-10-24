@@ -3,6 +3,10 @@ on:
   pull_request:
     paths:
       - 'internal/ingressownership/**'
+      - 'internal/ingressauthority/**'
+      - 'internal/ingressinventory/**'
+      - 'cmd/baft-agent/**'
+      - 'tests/e2e/managed_ingress_policy_lab.sh'
       - 'internal/ingressmanifest/**'
       - 'internal/publicingress/**'
       - 'internal/agentjob/**'
@@ -27,6 +31,8 @@ jobs:
         run: |
           go test ./internal/agentjob -run '^TestP0PublicIngressMutationActionsRemainDisabled$' -count=1
           go test ./internal/ingressownership -run 'TestRestartPreparedManifestDoesNotAuthorizeSocket|TestRegistryPort443OwnershipWithoutSocket|TestCanonicalEndpointAllows443WithoutBinding' -count=1
+      - name: Protected managed ingress policy and held journal LAB
+        run: ./tests/e2e/managed_ingress_policy_lab.sh
       - name: LAB ingress ownership and manifest race acceptance
         run: go test -race ./internal/ingressownership ./internal/ingressmanifest ./internal/publicingress -count=3 -timeout=15m
       - name: Isolated Linux nftables kernel LAB

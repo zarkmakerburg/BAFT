@@ -327,7 +327,11 @@ for d in ("/etc/baft-ex", "/etc/baft-ir"):
 PY
 
 log "a bad change (EX port taken by BCC) must roll back on both sides"
-T2="$(api -d '{"ex_node":"ex-e2e","ir_node":"ir-e2e","public_address":"127.0.0.1","port":18200}' "$BCC/api/tunnels" | jfield '["id"]')"
+REQ2='{"ex_node":"ex-e2e","ir_node":"ir-e2e","public_address":"127.0.0.1","port":18200}'
+PLAN2="$(api -d "$REQ2" "$BCC/api/tunnels/plan")"
+[[ "$(printf '%s' "$PLAN2" | jfield '["ok"]')" == "True" ]] || fail "rollback scenario plan was blocked by preflight: $PLAN2"
+HASH2="$(printf '%s' "$PLAN2" | jfield '["hash"]')"
+T2="$(api -d "${REQ2%\}},\"plan_hash\":\"$HASH2\"}" "$BCC/api/tunnels" | jfield '["id"]')"
 phase="$(wait_tunnel "$T2" 300 active rolled_back rollback_failed)" || true
 [[ "$phase" == "rolled_back" ]] || fail "tunnel 2 ended as '$phase', want rolled_back"
 [[ "$(sha256sum /etc/baft-ex/baft.yaml | cut -d' ' -f1)" == "$EX_CFG_SUM" ]] || fail "EX config was not restored"

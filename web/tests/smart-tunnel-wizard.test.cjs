@@ -47,13 +47,15 @@ test('only Native BAFT is runnable: engine is fixed by a hidden field; catalog r
  assert.doesNotMatch(html,/<option[^>]*value="(frp|rathole|wss)"/);
  assert.match(js,/if\(id!=='baft'/);
 });
-test('IR public client port is visibly unmanaged and never sent as BAFT tunnel API data',()=>{
+test('IR public client port is reviewed as data but no ingress listener is provisioned',()=>{
  assert.match(html,/BAFT.*does NOT create the public IR client listener/);
  assert.match(html,/id="tnClientPort"/);
  assert.match(html,/id="tnIngressConfirm"/);
  assert.match(js,/if\(!q\('#tnIngressConfirm'\)\.checked\)/);
  const request=js.slice(js.indexOf('function tnReq()'),js.indexOf('function tnModeChanged()'));
- assert.doesNotMatch(request,/tnClientPort|tnUserProtocol|tnIngressConfirm|client_listen_port|public_ir_port/);
+ assert.match(request,/client_port:clientPort/);
+ assert.match(request,/tnClientPort/);
+ assert.doesNotMatch(request,/tnUserProtocol|tnIngressConfirm|client_listen_port|public_ir_port/);
  assert.match(request,/r\.route_listen=/);
  assert.match(request,/r\.ex_metrics_listen=/);
  assert.match(request,/r\.ir_metrics_listen=/);

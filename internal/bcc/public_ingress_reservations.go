@@ -114,6 +114,26 @@ func (s *Store) validateTunnelPublicIngressReservationsLocked(t Tunnel) error {
 }
 
 func (s *Store) ReservePublicIngress(spec PublicIngressSpec, now time.Time, audit AuditEntry) (PublicIngressReservation, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.reservePublicIngressLocked(spec, now, audit)
+}
+
+// ReserveReviewedPublicIngress is the BCC-side durable desired-only seam.
+// It requires the actual persisted active tunnel, unchanged reviewed hash and
+// the same canonical client/config port. The check and reservation commit
+// occur under one Store lock. This is NOT an Agent apply or lease proof.
+func (s *Store) ReserveReviewedPublicIngress(spec PublicIngressSpec, planHash string, now time.Time, audit AuditEntry) (PublicIngressReservation, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	t, ok := s.st.Tunnels[spec.TunnelID]
+	if !ok || t.Phase != TunnelActive || t.PlanHash == "" || t.PlanHash != planHash || t.ClientPort == 0 || t.ClientPort != spec.PublicPort || t.IRNode != spec.IRNode || t.RouteListen != spec.LocalTarget {
+		return PublicIngressReservation{}, errors.New("reviewed tunnel identity, active status, hash or client port mismatch")
+	}
+	return s.reservePublicIngressLocked(spec, now, audit)
+}
+
+func (s *Store) reservePublicIngressLocked(spec PublicIngressSpec, now time.Time, audit AuditEntry) (PublicIngressReservation, error) {
 	spec, err := PlanPublicIngress(spec.IRNode, spec.TunnelID, spec.PublicPort, spec.LocalTarget)
 	if err != nil {
 		return PublicIngressReservation{}, err
@@ -126,8 +146,6 @@ func (s *Store) ReservePublicIngress(spec PublicIngressSpec, now time.Time, audi
 	if spec.PublicPort == 22 {
 		return PublicIngressReservation{}, errors.New("port 22 is reserved for SSH management")
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	n, ok := s.st.Nodes[spec.IRNode]
 	if !ok || n.Revoked || n.AgentTokenHash == "" || (n.Role != "worker" && n.Role != "master") {
 		return PublicIngressReservation{}, errors.New("reservation requires an active enrolled IR node")

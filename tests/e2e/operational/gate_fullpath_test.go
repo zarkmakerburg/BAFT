@@ -39,7 +39,7 @@ func setupFullPath(t *testing.T, clientPort int, route string) *fullPath {
 	f.tn, f.plan = f.b.wizard(scoped("main-de", "ex-opv1", irNode, 8443, clientPort, route, "127.0.0.1:"+strconv.Itoa(rp+8000), "127.0.0.1:"+strconv.Itoa(rp+8100)))
 	f.b.reserve(f.tn, f.plan.Hash, clientPort, 200)
 	f.tap = newTap(t, f.b)
-	f.a = startAgent(t, f.b, h, t.TempDir(), &agentOpt{url: f.tap.srv.URL, client: f.tap.srv.Client()})
+	f.a = startAgent(t, f.b, h, t.TempDir(), &agentOpt{url: f.tap.srv.URL, client: f.b.cl})
 	f.job = "apply-" + strconv.Itoa(clientPort)
 	return f
 }

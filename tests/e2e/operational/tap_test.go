@@ -46,7 +46,7 @@ func newTap(t *testing.T, b *bccRig) *tap {
 		t.Fatal(err)
 	}
 	p := httputil.NewSingleHostReverseProxy(target)
-	p.Transport = b.srv.Client().Transport
+	p.Transport = b.cl.Transport
 	tp := &tap{b: b}
 	p.ModifyResponse = func(resp *http.Response) error {
 		if resp.Request.URL.Path != "/api/agent/jobs" || resp.StatusCode != http.StatusOK {
@@ -71,13 +71,12 @@ func newTap(t *testing.T, b *bccRig) *tap {
 		resp.Header.Set("Content-Length", strconv.Itoa(len(body)))
 		return nil
 	}
-	tp.srv = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	tp.srv = b.pki.server(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tp.mu.Lock()
 		tp.auth = append(tp.auth, r.Header.Get("Authorization"))
 		tp.mu.Unlock()
 		p.ServeHTTP(w, r)
 	}))
-	t.Cleanup(tp.srv.Close)
 	return tp
 }
 
@@ -93,12 +92,17 @@ func (tp *tap) lastCaptured() []byte {
 }
 
 // serve makes the poll return exactly the given signed envelopes.
-func serve(envs ...release.Envelope) func([]byte) []byte {
+type signedJob struct {
+	id  string
+	env release.Envelope
+}
+
+func serve(jobs ...signedJob) func([]byte) []byte {
 	return func([]byte) []byte {
 		var list []bcc.AgentJob
-		for i := range envs {
-			env := envs[i]
-			list = append(list, bcc.AgentJob{Job: bcc.Job{ID: jobIDOf(env)}, Signed: &env})
+		for i := range jobs {
+			env := jobs[i].env
+			list = append(list, bcc.AgentJob{Job: bcc.Job{ID: jobs[i].id}, Signed: &env})
 		}
 		out, _ := json.Marshal(list)
 		return out

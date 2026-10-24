@@ -40,6 +40,8 @@ type bccRig struct {
 	store *bcc.Store
 	app   *bcc.Server
 	srv   *httptest.Server
+	pki   *pki
+	cl    *http.Client
 	pub   ed25519.PublicKey
 	key   ed25519.PrivateKey
 }
@@ -68,9 +70,9 @@ func newBCC(t *testing.T, nodes map[string]string) *bccRig {
 		t.Fatal(err)
 	}
 	app.ConfigureJobSigning(key)
-	srv := httptest.NewTLSServer(app.Handler())
-	t.Cleanup(srv.Close)
-	b := &bccRig{t: t, store: store, app: app, srv: srv, pub: pub, key: key}
+	pk := newPKI(t, "bcc-ca")
+	srv := pk.server(t, app.Handler())
+	b := &bccRig{t: t, store: store, app: app, srv: srv, pki: pk, cl: pk.client(), pub: pub, key: key}
 	for id := range nodes {
 		if jobs := b.pull(id); len(jobs) != 0 { // first authenticated agent contact
 			t.Fatalf("unexpected initial jobs for %s: %+v", id, jobs)
@@ -97,7 +99,7 @@ func (b *bccRig) call(method, path, token string, in any, want int, out any) []b
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
-	resp, err := b.srv.Client().Do(req)
+	resp, err := b.cl.Do(req)
 	if err != nil {
 		b.t.Fatal(err)
 	}
@@ -349,7 +351,7 @@ type agentOpt struct {
 // startAgent builds a fresh Agent "process" over the durable state in dir.
 func startAgent(t *testing.T, b *bccRig, h *host, dir string, o *agentOpt) *agentRig {
 	t.Helper()
-	r := &agentRig{t: t, b: b, h: h, dir: dir, node: irNode, token: nodeToken(irNode), client: b.srv.Client()}
+	r := &agentRig{t: t, b: b, h: h, dir: dir, node: irNode, token: nodeToken(irNode), client: b.cl}
 	pub, bccURL := b.pub, b.srv.URL
 	if o != nil {
 		if o.node != "" {

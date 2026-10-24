@@ -243,6 +243,7 @@ func OpenStore(path string) (*Store, error) {
 	case !errors.Is(err,os.ErrNotExist):
 		return nil,err
 	}
+	if err := validatePersistedIngressOperations(s.st); err != nil { return nil, fmt.Errorf("invalid persisted ingress operational state: %w", err) }
 	return s,nil
 }
 

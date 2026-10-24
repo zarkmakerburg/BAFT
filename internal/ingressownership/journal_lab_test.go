@@ -42,6 +42,29 @@ func TestLABJournalTransitionsAndGenerationFence(t *testing.T) {
 	}
 }
 
+func TestLABJournalCurrentRequiresExactOwnerGeneration(t *testing.T) {
+	j := new(LabJournal)
+	first := proof("current-generation", 1)
+	record := MutationRecord{Port: 54619, Owner: first, Phase: PhaseIntent}
+	for _, phase := range []MutationPhase{PhaseIntent, PhaseListenerBound, PhaseFirewallInstalled, PhaseVerified, PhaseRetireIntent, PhaseRetired} {
+		record.Phase = phase
+		if err := j.Advance(record); err != nil {
+			t.Fatal(err)
+		}
+	}
+	second := proof("current-generation", 2)
+	next := MutationRecord{Port: 54619, Owner: second, Phase: PhaseIntent}
+	if err := j.Advance(next); err != nil {
+		t.Fatal(err)
+	}
+	if got, found, err := j.Current(first); err != nil || found {
+		t.Fatalf("stale owner generation received current claim: found=%v record=%+v err=%v", found, got, err)
+	}
+	if got, found, err := j.Current(second); err != nil || !found || got != next {
+		t.Fatalf("current owner claim unavailable: found=%v record=%+v err=%v", found, got, err)
+	}
+}
+
 func TestLABJournalAdvanceRejectsPrematureFirewallHandle(t *testing.T) {
 	for _, phase := range []MutationPhase{PhaseIntent, PhaseListenerBound} {
 		j := new(LabJournal)

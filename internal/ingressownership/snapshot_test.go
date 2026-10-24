@@ -111,3 +111,30 @@ func TestSnapshotRejectsOrphanActiveIndex(t *testing.T) {
 		t.Fatalf("accepted orphan active index: %v", err)
 	}
 }
+
+// A registry may not serialize a snapshot as trustworthy if its in-memory
+// exact endpoint index no longer agrees with the numeric port owner.
+func TestSnapshotRejectsForgedOrMissingExactListenerIdentity(t *testing.T) {
+	for _, mutation := range []struct {
+		name  string
+		apply func(*Registry)
+	}{
+		{"missing", func(r *Registry) { delete(r.endpoints, "38473") }},
+		{"wrong-port", func(r *Registry) { r.endpoints["38473"] = "127.0.0.1:38474" }},
+		{"noncanonical", func(r *Registry) { r.endpoints["38473"] = "127.0.0.1:038473" }},
+		{"extra", func(r *Registry) { r.endpoints["38474"] = "127.0.0.1:38474" }},
+	} {
+		t.Run(mutation.name, func(t *testing.T) {
+			r := New()
+			if err := r.Claim("127.0.0.1:38473", proof("snapshot-exact", 1)); err != nil {
+				t.Fatal(err)
+			}
+			r.mu.Lock()
+			mutation.apply(r)
+			r.mu.Unlock()
+			if _, err := r.Snapshot(); !errors.Is(err, ErrInvalid) {
+				t.Fatalf("accepted mismatched listener identity: %v", err)
+			}
+		})
+	}
+}

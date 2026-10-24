@@ -69,7 +69,7 @@ func parseIngressSocketTable(raw []byte, ipv6 bool) ([]ingressSocket, error) {
 	}
 	lines := strings.Split(string(raw), "\n")
 	header := strings.Fields(lines[0])
-	if len(header) < 4 || header[0] != "sl" || header[1] != "local_address" || header[2] != "rem_address" || header[3] != "st" {
+	if len(header) < 4 || header[0] != "sl" || header[1] != "local_address" || (header[2] != "rem_address" && header[2] != "remote_address") || header[3] != "st" {
 		return nil, fmt.Errorf("invalid socket table header")
 	}
 	if len(lines) > 65538 {

@@ -102,11 +102,12 @@ func (t *NFTLabTransaction) Apply(ctx context.Context, spec ingressmanifest.Spec
 	}
 	observed, err := t.Firewall.Install(ctx, plan)
 	rollback := func(cause error) error {
-		if stopErr := t.Runtime.Retire(endpoint, proof); stopErr != nil {
+		stopErr := t.Runtime.Retire(endpoint, proof)
+		if !listenerRetirementVerified(stopErr) {
 			return errors.Join(cause, stopErr)
 		}
 		if observed.Handle == 0 {
-			return cause
+			return errors.Join(cause, stopErr)
 		}
 		if t.stopped == nil {
 			t.stopped = make(map[ingressmanifest.Proof]stoppedIngressSocket)
@@ -116,7 +117,7 @@ func (t *NFTLabTransaction) Apply(ctx context.Context, spec ingressmanifest.Spec
 		// transaction lock indefinitely if the kernel backend is unresponsive.
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		return errors.Join(cause, t.retireLocked(cleanupCtx, spec, proof))
+		return errors.Join(cause, stopErr, t.retireLocked(cleanupCtx, spec, proof))
 	}
 	if err != nil {
 		return rollback(err)
@@ -223,9 +224,15 @@ func (t *NFTLabTransaction) retireLocked(ctx context.Context, spec ingressmanife
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	// A terminal transport error must not mask *successful exact socket
+	// retirement*. Only a typed verified retirement permits deleting the
+	// independently inspected exact-owned nft rule; preserve that cause in
+	// the outcome even when firewall/journal cleanup completes.
+	var retireErr error
 	if !alreadyStopped {
-		if err := t.Runtime.Retire(spec.Config.Listen, proof); err != nil {
-			return err
+		retireErr = t.Runtime.Retire(spec.Config.Listen, proof)
+		if !listenerRetirementVerified(retireErr) {
+			return retireErr
 		}
 		if t.stopped == nil {
 			t.stopped = make(map[ingressmanifest.Proof]stoppedIngressSocket)
@@ -234,14 +241,14 @@ func (t *NFTLabTransaction) retireLocked(ctx context.Context, spec ingressmanife
 		t.stopped[proof] = stopped
 	}
 	if err := t.Firewall.Remove(ctx, plan, observed.Handle); err != nil {
-		return err
+		return errors.Join(retireErr, err)
 	}
 	stopped.removed = true
 	t.stopped[proof] = stopped
 	record.Phase = PhaseRetired
 	if err := t.Journal.Advance(record); err != nil {
-		return err
+		return errors.Join(retireErr, err)
 	}
 	delete(t.stopped, proof)
-	return nil
+	return retireErr
 }

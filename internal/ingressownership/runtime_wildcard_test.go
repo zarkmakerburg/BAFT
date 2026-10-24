@@ -2,6 +2,7 @@ package ingressownership
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net"
 	"testing"
@@ -43,6 +44,13 @@ func TestRuntimeIPv4WildcardForwardsAndRetires(t *testing.T) {
 	if err := r.Apply(context.Background(), s, p); err != nil {
 		t.Fatal(err)
 	}
+	// Keep an identity for the original bound TCP socket BEFORE Retire:
+	// a subsequent bind to this numeric port cannot distinguish an actual
+	// leaked listener from an unrelated service that acquired the freed port.
+	r.mu.Lock()
+	owned := r.sessions[s.Config.Listen].listener.(*net.TCPListener)
+	r.mu.Unlock()
+	assertKernelClosed := ownedListenerKernelClosureCheck(t, owned)
 	defer r.Retire(s.Config.Listen, p)
 	c, err := net.DialTimeout("tcp4", net.JoinHostPort("127.0.0.1", port), time.Second)
 	if err != nil {
@@ -61,9 +69,14 @@ func TestRuntimeIPv4WildcardForwardsAndRetires(t *testing.T) {
 	if err := r.Retire(s.Config.Listen, p); err != nil {
 		t.Fatal(err)
 	}
-	rebound, err := net.Listen("tcp4", s.Config.Listen)
-	if err != nil {
-		t.Fatalf("retire leaked wildcard socket: %v", err)
+	// A completed Retire must close the *original socket identity*, rather
+	// than assume this port remains free after retirement. Other processes
+	// can legitimately bind it immediately and cause EADDRINUSE.
+	if file, err := owned.File(); err == nil {
+		_ = file.Close()
+		t.Fatal("retired wildcard listener still exposes a live socket FD")
+	} else if !errors.Is(err, net.ErrClosed) {
+		t.Fatalf("retired listener File did not prove a closed socket: %v", err)
 	}
-	_ = rebound.Close()
+	assertKernelClosed()
 }

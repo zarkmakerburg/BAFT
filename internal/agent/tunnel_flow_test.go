@@ -23,6 +23,11 @@ import (
 var flowBaft, flowPair string
 
 func TestMain(m *testing.M) {
+	// Disposable scratch-rootfs LABs have no Go toolchain; they run only filtered
+	// tests that never use the flow binaries.
+	if os.Getenv("BAFT_AGENT_TEST_SKIP_FLOW_BINARIES") == "1" {
+		os.Exit(m.Run())
+	}
 	dir, err := os.MkdirTemp("", "agent-flow-bin")
 	if err != nil {
 		panic(err)

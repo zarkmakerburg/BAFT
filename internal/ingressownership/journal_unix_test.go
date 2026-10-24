@@ -4,9 +4,11 @@ package ingressownership
 
 import (
 	"errors"
+	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -111,6 +113,63 @@ func TestDurableJournalRetiredGenerationReplayFence(t *testing.T) {
 	got, err = reopened.Recover()
 	if err != nil || len(got.Records) != 2 || len(got.NeedsReconciliation) != 1 || got.NeedsReconciliation[0] != replacement {
 		t.Fatalf("restarted ownership/recovery not preserved: %+v %v", got, err)
+	}
+}
+
+func TestJournalCapacityPreservesIdempotentReplay(t *testing.T) {
+	record := MutationRecord{Port: 54619, Owner: proof("journal-capacity", 1), Phase: PhaseIntent}
+	snapshot := []MutationRecord{record}
+	if replay, err := planJournalMutation(maxJournalEntries, snapshot, record); err != nil || !replay {
+		t.Fatalf("journal full but current phase replay rejected: replay=%v err=%v", replay, err)
+	}
+	other := MutationRecord{Port: 54620, Owner: proof("journal-next", 1), Phase: PhaseIntent}
+	if replay, err := planJournalMutation(maxJournalEntries, snapshot, other); replay || !errors.Is(err, ErrInvalid) {
+		t.Fatalf("journal capacity allowed new entry: replay=%v err=%v", replay, err)
+	}
+	if replay, err := planJournalMutation(maxJournalEntries-1, snapshot, other); replay || err != nil {
+		t.Fatalf("journal below capacity rejected new intent: replay=%v err=%v", replay, err)
+	}
+}
+
+func TestDurableJournalCurrentRejectsStaleProofAfterRestart(t *testing.T) {
+	dir := newJournalTestDir(t)
+	j, err := OpenDurableJournal(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := proof("durable-current-fence", 1)
+	rec := MutationRecord{Port: 54619, Owner: old}
+	for _, phase := range []MutationPhase{PhaseIntent, PhaseListenerBound, PhaseFirewallInstalled, PhaseVerified, PhaseRetireIntent, PhaseRetired} {
+		rec.Phase = phase
+		if err := j.Advance(rec); err != nil {
+			t.Fatal(err)
+		}
+	}
+	next := proof("durable-current-fence", 2)
+	newRecord := MutationRecord{Port: 54619, Owner: next, Phase: PhaseIntent}
+	if err := j.Advance(newRecord); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := OpenDurableJournal(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, stale := range []struct {
+		name  string
+		proof ingressmanifest.Proof
+	}{
+		{"old-generation", old},
+		{"wrong-config", func() ingressmanifest.Proof { p := next; p.ConfigSHA256 = strings.Repeat("c", 64); return p }()},
+		{"wrong-manifest", func() ingressmanifest.Proof { p := next; p.ManifestSHA256 = strings.Repeat("d", 64); return p }()},
+	} {
+		t.Run(stale.name, func(t *testing.T) {
+			if got, found, err := reopened.Current(stale.proof); err != nil || found {
+				t.Fatalf("unverified proof got current journal record: %+v found=%v err=%v", got, found, err)
+			}
+		})
+	}
+	if got, found, err := reopened.Current(next); err != nil || !found || got != newRecord {
+		t.Fatalf("exact proof not found after restart: %+v found=%v err=%v", got, found, err)
 	}
 }
 

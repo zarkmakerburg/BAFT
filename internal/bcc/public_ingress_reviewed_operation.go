@@ -35,7 +35,7 @@ func (s *Store) RecordReviewedPublicIngressOperation(spec PublicIngressSpec, pla
 			if !ok || reservation.Spec != spec {
 				return PublicIngressOperation{}, errors.New("inconsistent operation and reservation")
 			}
-			return existing, nil
+			return cloneIngressOperation(existing), nil
 		}
 		return PublicIngressOperation{}, errors.New("ingress operation already fenced")
 	}

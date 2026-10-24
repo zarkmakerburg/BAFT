@@ -17,6 +17,26 @@ import (
 // changes host firewall policy and must not be wired to signed deploy jobs.
 var ErrStopped = errors.New("ingress session has stopped; explicit retire required")
 
+// retiredWithCause is produced ONLY after exact owner proof was released
+// from the registry and the stopped listener has fully exited. It preserves
+// the terminal failure without confusing successful socket teardown with
+// uncertainty about which socket was stopped. Other failures are NOT proof
+// of retirement and must never authorize firewall cleanup.
+type retiredWithCause struct{ cause error }
+
+func (e *retiredWithCause) Error() string {
+	return "ingress listener retired with terminal failure: " + e.cause.Error()
+}
+func (e *retiredWithCause) Unwrap() error { return e.cause }
+
+func listenerRetirementVerified(err error) bool {
+	if err == nil {
+		return true
+	}
+	var stopped *retiredWithCause
+	return errors.As(err, &stopped)
+}
+
 type Runtime struct {
 	mu       sync.Mutex
 	registry *Registry
@@ -24,7 +44,15 @@ type Runtime struct {
 }
 type session struct {
 	proof  ingressmanifest.Proof
+	ctx    context.Context // original lifecycle, including cancellation before done
 	cancel context.CancelFunc
+	// The exact listener/forwarder are retained only for read-only replay
+	// verification. Neither is a durable host or firewall ownership claim.
+	listener  net.Listener
+	forwarder *publicingress.Forwarder
+	// A lost live-port claim found by replay is immutable evidence until
+	// exact-owner Retire, even if cancellation makes Serve exit cleanly.
+	violation error
 	// done is a broadcast completion signal, not a consumable error queue.
 	// Multiple health checks must not drain the terminal outcome before
 	// exact-owner Retire has inspected it.
@@ -89,8 +117,24 @@ func (r *Runtime) Apply(parent context.Context, spec ingressmanifest.Spec, proof
 			case <-s.done:
 				return ErrStopped
 			default:
-				// Cancellation may race with the initial check. Never ACK
-				// a cancelled replay as an active, healthy listener.
+				// The original owner's cancellation must be visible even
+				// before Serve has acquired r.mu to publish its terminal
+				// result. A fresh replay context cannot revive it.
+				if s.ctx.Err() != nil {
+					return ErrStopped
+				}
+				// A foreign process may have bound another IP/family since
+				// admission and before the 1-second watchdog tick. Never
+				// claim a healthy replay without re-verifying the exact
+				// listener's current live TCP-port ownership.
+				if err := s.forwarder.ValidateListener(s.listener); err != nil {
+					s.violation = err
+					s.cancel()
+					return errors.Join(ErrStopped, err)
+				}
+				if s.ctx.Err() != nil {
+					return ErrStopped
+				}
 				if err := parent.Err(); err != nil {
 					return err
 				}
@@ -128,7 +172,7 @@ func (r *Runtime) Apply(parent context.Context, spec ingressmanifest.Spec, proof
 	// A concurrently cancelled parent is represented by a stopped session,
 	// which can only be retired with its exact proof.
 	ctx, cancel := context.WithCancel(parent)
-	s := &session{proof: proof, cancel: cancel, done: make(chan struct{})}
+	s := &session{proof: proof, ctx: ctx, cancel: cancel, listener: ln, forwarder: f, done: make(chan struct{})}
 	r.sessions[spec.Config.Listen] = s
 	go func() {
 		err := f.Serve(ctx, ln)
@@ -172,12 +216,18 @@ func (r *Runtime) Retire(endpoint string, proof ingressmanifest.Proof) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	err = s.result
+	// If a health read detected lost ownership and canceled Serve before
+	// its watchdog reported failure, retain that cause across any number
+	// of intervening health checks and cleanup.
+	if s.violation != nil {
+		err = errors.Join(err, s.violation)
+	}
 	if releaseErr := r.registry.Release(endpoint, proof); releaseErr != nil {
 		return releaseErr
 	}
 	delete(r.sessions, endpoint)
 	if err != nil && !errors.Is(err, net.ErrClosed) {
-		return err
+		return &retiredWithCause{cause: err}
 	}
 	return nil
 }

@@ -165,60 +165,101 @@ Changes: `tests/e2e/gamma_two_node_namespace.sh`,
 `tests/e2e/gamma_v037_tunnel_upgrade_namespace.sh`,
 `.github/workflows/gamma-two-node-lab.yml` and
 `.github/workflows/gamma-v037-tunnel-upgrade-lab.yml`.
-Exact Gamma SHA `4251eef3a775c5ad9e8f78b6b9ced0dc811e2a14`
-passed `bash -n` (both scripts),
-`go test ./tests/release -run '^TestGammaV037UpgradeWorkflowSyntaxAndCommands
+### Verified results on integrated QA candidate
 
-| P0 | Operational criterion | Gamma status | Required next proof |
+On exact QA SHA `03f9e5c42ff12159b2621e7eef24cb34a151f758`, both hosted Linux workflows passed:
+- [Two-node isolated LAB](https://github.com/zarkmakerburg/BAFT/actions/runs/39992929862), with services preserved on **2053 and 24443**, blocked EX→IR TCP/22, process restart and rejected conflicting service port 18443.
+- [Genuine v0.3.7 EX/IR upgrade LAB](https://github.com/zarkmakerburg/BAFT/actions/runs/39992929849), with original pairing secrets/configs preserved and both service-port scenarios accepted.
+- [v0.3.7 BCC upgrade/rollback](https://github.com/zarkmakerburg/BAFT/actions/runs/39992929851), [Public Ingress LAB](https://github.com/zarkmakerburg/BAFT/actions/runs/39992929836), [BCC UI](https://github.com/zarkmakerburg/BAFT/actions/runs/39992929959) and static analysis also passed. The **main CI** was queued at observation.
+
+On subsequent integrated QA SHA `fe245f161d50821644ace410b78c2c7b3a750e6b`, independent Mac `go test -race` on Agent/Ingress Ownership and Gamma release acceptance plus `go vet` passed (exit 0); hosted P0 ingress, two-node, v0.3.7 upgrade and rollback, and static analysis succeeded, while main CI was queued and BCC UI in progress at last verification. See [HQ evidence](https://github.com/zarkmakerburg/BAFT/issues/67#issuecomment-6370860173).
+
+## Owner-authorized LAB-only environmental policy
+
+**The owner accepts representative disposable LAB results as the final environment-level evidence.** No physical host, production SSH access or production deployment is a separate release prerequisite. The **functional contract is still mandatory**: reviewed BCC request and plan hash -> signed Agent Apply with durable authoritative reservation -> real IR TCP listener/firewall and end-to-end data -> verified signed receipt -> unchanged Wizard/client config port; plus foreign/stopped-service ownership, fail-closed uncertainty, interruption/rollback, and restart recovery. The existing isolated pairing and v0.3.7 upgrade LABs do **not** prove this BCC-to-Agent vertical slice; until it passes, P0 #269 remains OPEN / NO-GO.
+
+## P0 #269 — frozen operational dependency map (HQ #6379745406 / #6379807771)
+
+This is a **dependency ledger, not an Apply simulator**. Owner accepts
+representative disposable Linux LAB evidence; the actual authenticated
+BCC-to-Agent-to-kernel functional path and safe rollback/restart remain required.
+Existing HTTPS ReceiptV1 fixtures validate transport/negative parsing only.
+Do not infer operational success from a trusted certificate, a status flag,
+a read-only preflight, or a structurally matching ReceiptV1.
+
+| Owner | Exact known seam / required publication | Gamma real-LAB assertion | Current gate |
 |---|---|---|---|
-| A | Two independent Linux nodes: install, pair, EX→IR SSH blocked, reinstallation, preservation of live tunnels | PARTIAL: isolated Linux namespace pairing, port-22 filtering and service preservation PASS; real two-host installation remains BLOCKED | Disposable two-node Linux LAB and then approved real-host acceptance; prove **both** install/repair and traffic continuity |
-| B | Create/start/stop/restart/delete, reboot/crash, cross-process ownership and safe resource reconciliation | BLOCKED | End-to-end process/service crash and reboot with authoritative nft/systemd inventory, existing-service hashes |
-| C | v0.3.x→v0.4.0 upgrade and compatible downgrade, failed-upgrade rollback | PARTIAL: genuine v0.3.7 BCC migration/rollback plus stopped EX/IR v0.3.7→candidate binary recovery with pairing/config/key preservation PASS in isolated LAB | Still requires installer/systemd upgrade, active socket continuity and physical-host recovery; no unsafe in-place downgrade |
-| D | Encrypted backup, same/second-node restore, key permissions and secret-free logs | PARTIAL: real CLI Mac LAB with wrong-key/held-lock failures, stopped-state restore and isolated fresh-directory recovery passed | Still requires real stopped-service Linux drill, separate physical node, key handling and artifact/log review |
-| E | TCP/UDP, IPv4/IPv6 when admitted, network loss, nftables, port conflicts, SSH/service preservation | PARTIAL: Linux nft and one-port preservation PASS earlier; new dynamic-port matrix added with Linux CI pending | Exact-SHA 2053/24443/18443 dynamic port jobs, then real host resource ownership, UDP/IPv6 and network failure acceptance |
-| F | Exact candidate race/vet/CI plus all release gates, provenance/signatures | PARTIAL | Exact candidate hosted workflows green; Gamma local scoped race green; final integrated SHA and operational P0 gates still absent |
+| **Delta** | Dependency-leaf `internal/ingressinventory`: `ingressinventory.CollectInstalledManagedTCP(ctx, expectedNodeID, port)`. Decoder/version contract for locally installed `/etc/baft/ingress/managed-node.json`, with independent Linux namespace, source identity/freshness, active AND stopped claims and explicit unsupported/unknown coverage. No caller-supplied trusted roots, `supported` assertion, or permissive fallback. | Assert trusted profile plus inventory/aliases/restart; unsupported/unreadable/drifted manager/runtime/container source refuses mutation. Check actual listener and owned nft/firewall readback. | **BLOCKED** until collector/decoder and guarded executor are published |
+| **Alpha** | Protected installer/bootstrap profile provisioning using Delta's *same* decoder; actual shared `ingressauthority.BindingV1`, `CommandV1`, `ReceiptV1`, durable held lease/journal and signed `public_ingress_apply` admission. Bind exact node, namespace, resource, PlanSHA256 and operation/job/lease identity; Retire gets a new signed job ID. Publish executable dispatch/admission interface and ownership lifecycle. | Signed Apply must require held independent authority, refuse lost lock/restart uncertainty; interrupted Apply/rollback and separate signed Retire never delete sibling or foreign resources. | **BLOCKED** until durable hold/dispatch and installer profile provisioning |
+| **Beta** | Publish the actual BCC reviewed plan/queue-to-signed-Agent route/constructor, canonical client/config-port persistence, enrolled per-node Agent credential verifier and **Agent POST -> BCC HTTPS** ReceiptV1 receiver. TLS authenticates BCC server; enrolled credential authenticates Agent independently. Publish persisted receipt/verified-active/config readback APIs. | Same exact persisted BCC `Plan.Hash` (PlanSHA256), command/job/operation/generation, node and canonical port from Review through listener/TCP and authenticated ReceiptV1/config. Wrong credential/hash/identity, duplicate/stale receipt remain fail-closed. | **BLOCKED** until actual queue/receiver/readback APIs are published |
+| **Gamma** | Consume owners' published APIs only in `tests/e2e`, `tests/release` and dedicated Gamma workflows; no local second authority, mirror schema, invented positive Apply/Receipt or production service mutation. | Real isolated Linux vertical slice plus falsification matrix: stopped foreign claim, live cross-family alias, lost lock, crash/restart, partial rollback, sibling service, mismatch and missing/unsafe inventory; exact on-wire receipt/config port. | **RED / UNVERIFIED** for complete operational path |
 
-## Reproduction and operating boundaries
+**Profile acceptance boundary:** `/etc/baft/ingress/managed-node.json` is
+local installed trusted configuration, *never* supplied by a signed BCC job.
+The fixed path or a boolean cannot prove supported environment. An actual
+verified owner/mode/inode/profile version, operating system/namespace and
+independent source inventory are required. Uncertainty always blocks.
 
-Run from repository root. Use only private disposable LAB nodes, no production host:
+**Published owner APIs (HQ canonical QA `ea10b249`; do not mirror):**
+- **Alpha:** `ingressauthority.ProvisionInstalledManagedNodePolicy(ctx,nodeID)`;
+  `(*PendingGuard).BindInstalledPolicy(ctx)`, `CheckInstalledPolicy(ctx)`,
+  `MarkApplying(ctx,BindingV1)`, and `RecordCommandIntent` persist held,
+  fail-closed evidence. `(*ReservationStore).InspectRecovery(BindingV1)` and
+  `InspectCommandIntents` inspect uncertainty; neither grants a LiveLease.
+  **Still needed:** the actual authenticated signed `public_ingress_apply`
+  Agent admission/dispatch wiring, held concrete Lease issuance and verified
+  reconciliation/retirement lifecycle.
+- **Delta:** `ingressinventory.LoadInstalledManagedNodePolicy(ctx,expectedNodeID)`,
+  `CollectInstalledManagedTCP(ctx,expectedNodeID,port uint16)`, and
+  `MarshalInstalledManagedNodePolicyV1(ctx,policy)` use the sole protected
+  `/etc/baft/ingress/managed-node.json` wire contract. Actual adapter:
+  `ingressownership.NewOperationalExecutor(runtime,nft,journal)`,
+  `(*OperationalExecutor).Apply(ctx,CommandV1,*ingressauthority.Lease)`,
+  `Retire(ctx,CommandV1,*ingressauthority.Lease)`. **Still needed:** actual
+  fully authorized lease and complete supported-environment observation;
+  merely constructing the adapter is not Apply permission.
+- **Beta:** `RecordReviewedPublicIngressOperation` and
+  `StageReviewedIngressCommand` durably bind the reviewed BCC plan/job to
+  canonical `ingressauthority.CommandV1/BindingV1`.
+  Enrolled Agent POSTs `ingressauthority.ReceiptV1` to
+  `POST /api/ingress/operational-receipt` over certificate-verified HTTPS
+  with the enrolled Bearer credential. Stored receipt remains
+  **UNVERIFIED/PENDING** (not active). **Still needed:** concrete reviewed-plan
+  queue -> signed Agent delivery constructor/route, verified effect/receipt
+  promotion/readback and exact Wizard/client config port acceptance API.
+- **Agent/HQ integrated QA:** blocked operational `RunOnce -> executeFull`
+  can POST a real blocked receipt; this proves failure transport, not real
+  Apply/Retire success or client reachability.
 
-```sh
-E2E_MIB=1 E2E_CONNS=2 bash tests/e2e/pair_and_run.sh
-# root-only disposable Linux GitHub runner (not macOS/production):
-sudo bash tests/e2e/gamma_two_node_namespace.sh /path/to/compiled/baft-binaries
-go test -race ./tests/release -run '^TestGammaRejectedPairCodeDoesNotCreateIRState$' -count=1 -v
-go test -race ./cmd/baft-pair ./tests/release ./internal/bcc -run 'TestGeneratedConfigsLoadAndPinEachOther|TestEncryptedBackupFreshRestoreFullStateAndAudit|TestRestoreFaultInjectionLeavesStateAndAuditUnchanged' -count=1
-```
-
-Secrets are generated only in temporary directories, not uploaded or logged. A macOS loopback test does not simulate the Linux firewall, network namespaces, physical routes or loss of EX→IR SSH. Keep PR #270 Draft, #269 OPEN, and do not merge/tag/release/deploy until separate HQ authorization and accepted final gates.
- -count=1`,
-`go vet ./tests/release` and `git diff --check` on Mac (exit 0).
-Hosted Linux on this new port matrix SHA was **queued** at observation;
-do not promote the new `24443` or collision claims to PASS until the
-exact Linux job succeeds. Earlier Linux success only established `2053`
-on older SHA. No physical host or existing Imperial Crown service touched.
+**Gamma next-test entry point:** consume those *exact* owner APIs and assert
+`BLOCKED` on absent LiveLease, incomplete collector evidence, missing signed
+dispatch, and unverified receipt. Require a disposable Linux actual listener/nft
+and TCP/config-port readback before asserting any positive operational path.
+Do not add a standalone parser, local authority, second profile schema,
+synthetic lease, or successful receipt fixture. Preserve Gamma WIP; HQ alone
+writes QA/main. P0 #269 remains OPEN / NO-GO.
 
 ## P0-A through P0-F release acceptance matrix
 
-| P0 | Operational criterion | Gamma status | Required next proof |
+| P0 | Criterion | State | Still required |
 |---|---|---|---|
-| A | Two independent Linux nodes: install, pair, EX→IR SSH blocked, reinstallation, preservation of live tunnels | PARTIAL: isolated Linux namespace pairing, port-22 filtering and service preservation PASS; real two-host installation remains BLOCKED | Disposable two-node Linux LAB and then approved real-host acceptance; prove **both** install/repair and traffic continuity |
-| B | Create/start/stop/restart/delete, reboot/crash, cross-process ownership and safe resource reconciliation | BLOCKED | End-to-end process/service crash and reboot with authoritative nft/systemd inventory, existing-service hashes |
-| C | v0.3.x→v0.4.0 upgrade and compatible downgrade, failed-upgrade rollback | PARTIAL: genuine v0.3.7 BCC migration/rollback plus stopped EX/IR v0.3.7→candidate binary recovery with pairing/config/key preservation PASS in isolated LAB | Still requires installer/systemd upgrade, active socket continuity and physical-host recovery; no unsafe in-place downgrade |
-| D | Encrypted backup, same/second-node restore, key permissions and secret-free logs | PARTIAL: real CLI Mac LAB with wrong-key/held-lock failures, stopped-state restore and isolated fresh-directory recovery passed | Still requires real stopped-service Linux drill, separate physical node, key handling and artifact/log review |
-| E | TCP/UDP, IPv4/IPv6 when admitted, network loss, nftables, port conflicts, SSH/service preservation | PARTIAL: actual Linux nft and TCP namespace check PASS; remaining protocol and host gates OPEN | Real Linux kernel ingress LAB exists in #270; no final physical-host/network reachability or complete protocol matrix |
-| F | Exact candidate race/vet/CI plus all release gates, provenance/signatures | PARTIAL | Exact candidate hosted workflows green; Gamma local scoped race green; final integrated SHA and operational P0 gates still absent |
+| A | Install/pair and SSH denial with existing services safe | PARTIAL: Linux namespace pairing, SSH-port denial and real data verified | Representative disposable Linux multi-node/process installer and repair lifecycle, TCP continuity, and service restart/crash evidence |
+| B | Safe tunnel lifecycle, crash and reboot recovery with authoritative resource ownership | BLOCKED | Disposable Linux service/process crash, restart/reboot-equivalent recovery, durable ownership and kernel listener/firewall inventory acceptance |
+| C | v0.3.7 to candidate upgrade and rollback | PARTIAL: EX/IR binary continuity and BCC state rollback in Linux LAB passed | Disposable Linux installer/systemd-style service migration, failed-upgrade rollback, preserved active sockets where promised, and restart recovery |
+| D | Encrypted backup/restore and trusted secret handling | PARTIAL: restore/lock/wrong-key drills passed; QA key-file symlink/permission regression race passed | Stopped-service encrypted restore and independent disposable Linux node/process recovery, with key/file permissions, wrong-key atomicity and redacted logs |
+| E | Port collision refusal, SSH protection, multiple protocols/families | PARTIAL: isolated Linux 2053/24443 preserved, 18443 rejected; other ingress LAB passed | Foreign active and persistently reserved ownership across IPv4/IPv6, UDP where supported, collision/uncertainty refusal and disposable Linux network/process failure scenarios |
+| F | Exact release SHA provenance, CI and release acceptance | PARTIAL | Final integrated SHA all workflows green, remaining P0 acceptance and authorized HQ release decision |
 
 ## Reproduction and operating boundaries
 
-Run from repository root. Use only private disposable LAB nodes, no production host:
+From the repository root, run **only in isolated disposable LAB environments**, not production:
 
 ```sh
-E2E_MIB=1 E2E_CONNS=2 bash tests/e2e/pair_and_run.sh
-# root-only disposable Linux GitHub runner (not macOS/production):
-sudo bash tests/e2e/gamma_two_node_namespace.sh /path/to/compiled/baft-binaries
-go test -race ./tests/release -run '^TestGammaRejectedPairCodeDoesNotCreateIRState$' -count=1 -v
-go test -race ./cmd/baft-pair ./tests/release ./internal/bcc -run 'TestGeneratedConfigsLoadAndPinEachOther|TestEncryptedBackupFreshRestoreFullStateAndAudit|TestRestoreFaultInjectionLeavesStateAndAuditUnchanged' -count=1
+go test -race ./tests/release -run '^TestGamma' -count=1 -timeout=6m
+bash -n tests/e2e/gamma_two_node_namespace.sh
+bash -n tests/e2e/gamma_v037_tunnel_upgrade_namespace.sh
+# Dedicated Linux namespace host as root, with disposable binaries only:
+sudo env GAMMA_EXISTING_PORT=24443 bash tests/e2e/gamma_two_node_namespace.sh /path/to/baft-bin
 ```
 
-Secrets are generated only in temporary directories, not uploaded or logged. A macOS loopback test does not simulate the Linux firewall, network namespaces, physical routes or loss of EX→IR SSH. Keep PR #270 Draft, #269 OPEN, and do not merge/tag/release/deploy until separate HQ authorization and accepted final gates.
+A Linux network namespace is **not a physical host** and proves neither independent server reachability nor systemd/whole-host rollback. Temporary generated secrets stay local. Keep integrations in Draft; **NO-GO**, with no merge/tag/release/deploy without HQ authorization.

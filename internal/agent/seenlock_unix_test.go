@@ -273,6 +273,48 @@ func TestLoadSeenRejectsNullReplayLedger(t *testing.T) {
 	}
 }
 
+func TestSeenJournalRejectsInvalidTimestamps(t *testing.T) {
+	for _, raw := range []string{
+		`{"previous-job":null}`,
+		`{"previous-job":"0001-01-01T00:00:00Z"}`,
+	} {
+		t.Run(raw, func(t *testing.T) {
+			dir := t.TempDir()
+			a := &Agent{cfg: Config{StateDir: dir, Now: time.Now}, seen: map[string]time.Time{}}
+			if err := os.WriteFile(a.seenPath(), []byte(raw), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if err := a.loadSeen(); err == nil {
+				t.Fatal("startup accepted invalid replay-fence timestamp")
+			}
+			if err := a.markSeen("previous-job"); err == nil {
+				t.Fatal("invalid timestamp let previously claimed job execute")
+			}
+			if stored, err := os.ReadFile(a.seenPath()); err != nil || string(stored) != raw {
+				t.Fatalf("invalid replay ledger overwritten: %q %v", stored, err)
+			}
+		})
+	}
+}
+
+func TestSeenJournalRejectsDuplicateJobKeys(t *testing.T) {
+	dir := t.TempDir()
+	a := &Agent{cfg: Config{StateDir: dir, Now: time.Now}, seen: map[string]time.Time{}}
+	raw := []byte(`{"claimed":"2026-10-23T00:00:00Z","claimed":"2000-01-01T00:00:00Z"}`)
+	if err := os.WriteFile(a.seenPath(), raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.loadSeen(); err == nil {
+		t.Fatal("duplicate job keys accepted on startup")
+	}
+	if err := a.markSeen("claimed"); err == nil {
+		t.Fatal("duplicate job keys allowed replay admission")
+	}
+	if got, err := os.ReadFile(a.seenPath()); err != nil || string(got) != string(raw) {
+		t.Fatalf("corrupt ledger overwritten: %q %v", got, err)
+	}
+}
+
 func TestMarkSeenRefusesCorruptDiskAfterStartup(t *testing.T) {
 	for _, raw := range []string{"null", "{"} {
 		t.Run(raw, func(t *testing.T) {

@@ -21,7 +21,7 @@ func pinInstalledManagedLABExecution(ctx context.Context, path, nodeID string) (
 	if err != nil {
 		return zero, errors.Join(ErrCoverageIncomplete, err)
 	}
-	first, err := measurePrivateLinuxLAB(ctx, policy.NetworkNamespace)
+	first, err := measurePinnedLinuxLAB(ctx, policy.NetworkNamespace)
 	if err != nil {
 		return zero, err
 	}
@@ -47,7 +47,7 @@ func pinInstalledManagedLABExecution(ctx context.Context, path, nodeID string) (
 			return zero, ErrCoverageIncomplete
 		}
 	}
-	second, err := measurePrivateLinuxLAB(ctx, policy.NetworkNamespace)
+	second, err := measurePinnedLinuxLAB(ctx, policy.NetworkNamespace)
 	if err != nil || !first.matches(second) {
 		return zero, ErrCoverageIncomplete
 	}

@@ -200,14 +200,44 @@ The fixed path or a boolean cannot prove supported environment. An actual
 verified owner/mode/inode/profile version, operating system/namespace and
 independent source inventory are required. Uncertainty always blocks.
 
-**Frozen request for HQ/owners:** report the exact Go constructor/function
-signatures or authenticated HTTP route+method, request/response types, and
-fixture setup for (1) reviewed-plan and queue; (2) signed Agent dispatch and
-held lease; (3) Delta listener/nft executor and coverage decoder; and (4)
-Agent-to-BCC enrolled-credential ReceiptV1 ingest and verified config readback.
-Do not assume method names where none have been published. No new standalone
-parser/contract tests while these owner APIs are absent. QA integration is
-solely HQ-owned and P0 #269 remains OPEN / NO-GO.
+**Published owner APIs (HQ canonical QA `ea10b249`; do not mirror):**
+- **Alpha:** `ingressauthority.ProvisionInstalledManagedNodePolicy(ctx,nodeID)`;
+  `(*PendingGuard).BindInstalledPolicy(ctx)`, `CheckInstalledPolicy(ctx)`,
+  `MarkApplying(ctx,BindingV1)`, and `RecordCommandIntent` persist held,
+  fail-closed evidence. `(*ReservationStore).InspectRecovery(BindingV1)` and
+  `InspectCommandIntents` inspect uncertainty; neither grants a LiveLease.
+  **Still needed:** the actual authenticated signed `public_ingress_apply`
+  Agent admission/dispatch wiring, held concrete Lease issuance and verified
+  reconciliation/retirement lifecycle.
+- **Delta:** `ingressinventory.LoadInstalledManagedNodePolicy(ctx,expectedNodeID)`,
+  `CollectInstalledManagedTCP(ctx,expectedNodeID,port uint16)`, and
+  `MarshalInstalledManagedNodePolicyV1(ctx,policy)` use the sole protected
+  `/etc/baft/ingress/managed-node.json` wire contract. Actual adapter:
+  `ingressownership.NewOperationalExecutor(runtime,nft,journal)`,
+  `(*OperationalExecutor).Apply(ctx,CommandV1,*ingressauthority.Lease)`,
+  `Retire(ctx,CommandV1,*ingressauthority.Lease)`. **Still needed:** actual
+  fully authorized lease and complete supported-environment observation;
+  merely constructing the adapter is not Apply permission.
+- **Beta:** `RecordReviewedPublicIngressOperation` and
+  `StageReviewedIngressCommand` durably bind the reviewed BCC plan/job to
+  canonical `ingressauthority.CommandV1/BindingV1`.
+  Enrolled Agent POSTs `ingressauthority.ReceiptV1` to
+  `POST /api/ingress/operational-receipt` over certificate-verified HTTPS
+  with the enrolled Bearer credential. Stored receipt remains
+  **UNVERIFIED/PENDING** (not active). **Still needed:** concrete reviewed-plan
+  queue -> signed Agent delivery constructor/route, verified effect/receipt
+  promotion/readback and exact Wizard/client config port acceptance API.
+- **Agent/HQ integrated QA:** blocked operational `RunOnce -> executeFull`
+  can POST a real blocked receipt; this proves failure transport, not real
+  Apply/Retire success or client reachability.
+
+**Gamma next-test entry point:** consume those *exact* owner APIs and assert
+`BLOCKED` on absent LiveLease, incomplete collector evidence, missing signed
+dispatch, and unverified receipt. Require a disposable Linux actual listener/nft
+and TCP/config-port readback before asserting any positive operational path.
+Do not add a standalone parser, local authority, second profile schema,
+synthetic lease, or successful receipt fixture. Preserve Gamma WIP; HQ alone
+writes QA/main. P0 #269 remains OPEN / NO-GO.
 
 ## P0-A through P0-F release acceptance matrix
 

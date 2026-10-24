@@ -29,7 +29,7 @@ func validatePersistedIngressOperations(st state) error {
 			return errors.New("persisted ingress manifest mismatch")
 		}
 		if op.ReviewedPlanHash == "" {
-			if op.OperationID != "" || op.LeaseID != "" || op.Command != nil || op.Receipt != nil {
+			if op.OperationID != "" || op.LeaseID != "" || op.Command != nil || op.Receipt != nil || op.Dispatch != nil {
 				return errors.New("legacy operation cannot contain reviewed command or receipt")
 			}
 			continue
@@ -41,7 +41,7 @@ func validatePersistedIngressOperations(st state) error {
 			return errors.New("incomplete operation identity")
 		}
 		if op.OperationID == "" {
-			if op.Command != nil || op.Receipt != nil {
+			if op.Command != nil || op.Receipt != nil || op.Dispatch != nil {
 				return errors.New("command before operation identity")
 			}
 			continue // legacy reviewed desired-only record, never dispatched
@@ -58,8 +58,8 @@ func validatePersistedIngressOperations(st state) error {
 		}
 		leaseIDs[op.LeaseID] = id
 		if op.Command == nil {
-			if op.Receipt != nil {
-				return errors.New("receipt without command")
+			if op.Receipt != nil || op.Dispatch != nil {
+				return errors.New("receipt or dispatch without command")
 			}
 			continue
 		}
@@ -71,6 +71,17 @@ func validatePersistedIngressOperations(st state) error {
 			return errors.New("duplicate staged command ID")
 		}
 		jobIDs[cmd.JobID] = id
+		if op.Dispatch != nil {
+			d := *op.Dispatch
+			if d.Phase != "held" || d.JobID != cmd.JobID || d.OperationID != op.OperationID || d.LeaseID != op.LeaseID || d.CreatedAt.IsZero() {
+				return errors.New("persisted held dispatch differs from staged reviewed command")
+			}
+			for _, job := range st.Jobs {
+				if job.ID == d.JobID {
+					return errors.New("held ingress job collides with runnable queue")
+				}
+			}
+		}
 		if op.Receipt != nil {
 			r := *op.Receipt
 			if r.SchemaVersion != 1 || r.JobID != cmd.JobID || r.Action != cmd.Action || r.Binding != cmd.Binding {
@@ -85,6 +96,10 @@ func cloneIngressOperation(op PublicIngressOperation) PublicIngressOperation {
 	if op.Command != nil {
 		cmd := *op.Command
 		op.Command = &cmd
+	}
+	if op.Dispatch != nil {
+		d := *op.Dispatch
+		op.Dispatch = &d
 	}
 	if op.Receipt != nil {
 		r := *op.Receipt

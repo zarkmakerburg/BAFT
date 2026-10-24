@@ -434,6 +434,14 @@ func TestCommandIntentLABSurvivesRestartAndFencesReplays(t *testing.T) {
 	if err := g.RecordCommandIntent(context.Background(), apply); err != nil {
 		t.Fatal(err)
 	}
+	if err := g.CheckHeldCommand(context.Background(), apply); err != nil {
+		t.Fatalf("exact held policy-bound command unavailable: %v", err)
+	}
+	wrongJob := apply
+	wrongJob.JobID = "different-signed-job"
+	if err := g.CheckHeldCommand(context.Background(), wrongJob); err == nil {
+		t.Fatal("nonmatching signed job accessed held authority")
+	}
 	if err := g.RecordCommandIntent(context.Background(), apply); err != nil {
 		t.Fatalf("identical command retry failed: %v", err)
 	}
@@ -460,6 +468,9 @@ func TestCommandIntentLABSurvivesRestartAndFencesReplays(t *testing.T) {
 	}
 	if err := g.MarkApplying(context.Background(), b); err != nil {
 		t.Fatal(err)
+	}
+	if err := g.RecordReconciliationNeeded(context.Background(), apply); err != nil {
+		t.Fatalf("could not durably fence uncertain owned resource: %v", err)
 	}
 	if err := g.Close(); err != nil {
 		t.Fatal(err)

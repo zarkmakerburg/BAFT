@@ -9,11 +9,101 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
 )
+
+// Probe frame shared with BCC's IngressObserver: ProbePrefix + 32 lowercase hex
+// characters + "\n". The responder echoes exactly the frame it received.
+const (
+	ProbePrefix   = "BAFT-INGRESS-PROBE/1 "
+	ProbeNonceLen = 32
+	ProbeFrameLen = len(ProbePrefix) + ProbeNonceLen + 1
+
+	// probePeekWindow is the TOTAL time a new client may take to reveal its
+	// first bytes before the connection is treated as ordinary traffic.
+	probePeekWindow = 50 * time.Millisecond
+	probePeekBuffer = 64
+	probeWriteLimit = 250 * time.Millisecond
+
+	probeBurst       = 5
+	probeRefill      = time.Second
+	probeMaxSources  = 4096
+	probeSourceStale = time.Minute
+)
+
+// probeBytePossible reports whether b may sit at offset i of a probe frame.
+func probeBytePossible(i int, b byte) bool {
+	switch {
+	case i < len(ProbePrefix):
+		return b == ProbePrefix[i]
+	case i < ProbeFrameLen-1:
+		return (b >= '0' && b <= '9') || (b >= 'a' && b <= 'f')
+	default:
+		return b == '\n'
+	}
+}
+
+// IsProbeFrame is the strict validator: exactly the frame, nothing after it.
+func IsProbeFrame(b []byte) bool {
+	if len(b) != ProbeFrameLen {
+		return false
+	}
+	for i, c := range b {
+		if !probeBytePossible(i, c) {
+			return false
+		}
+	}
+	return true
+}
+
+type probeBucket struct {
+	tokens float64
+	last   time.Time
+}
+
+// probeLimiter is a bounded per-source token bucket.
+type probeLimiter struct {
+	mu      sync.Mutex
+	sources map[netip.Addr]*probeBucket
+}
+
+func (l *probeLimiter) allow(src netip.Addr, now time.Time) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.sources == nil {
+		l.sources = make(map[netip.Addr]*probeBucket)
+	}
+	b := l.sources[src]
+	if b == nil {
+		if len(l.sources) >= probeMaxSources {
+			for k, v := range l.sources {
+				if now.Sub(v.last) > probeSourceStale {
+					delete(l.sources, k)
+				}
+			}
+			if len(l.sources) >= probeMaxSources {
+				return false // fail closed rather than grow without bound
+			}
+		}
+		b = &probeBucket{tokens: probeBurst, last: now}
+		l.sources[src] = b
+	} else {
+		b.tokens += float64(now.Sub(b.last)) / float64(probeRefill)
+		if b.tokens > probeBurst {
+			b.tokens = probeBurst
+		}
+		b.last = now
+	}
+	if b.tokens < 1 {
+		return false
+	}
+	b.tokens--
+	return true
+}
 
 type Config struct {
 	Listen      string
@@ -35,6 +125,7 @@ type Forwarder struct {
 	running       bool
 	active        atomic.Int64
 	rejected      atomic.Uint64
+	probes        probeLimiter
 }
 
 func literalEndpoint(raw string) (net.IP, int, error) {
@@ -240,6 +331,11 @@ func (f *Forwarder) forward(ctx context.Context, client net.Conn) {
 	defer client.Close()
 	stopClient := context.AfterFunc(ctx, func() { _ = client.Close() })
 	defer stopClient()
+	peeked, isProbe := f.peekFirstBytes(client)
+	if isProbe {
+		f.answerProbe(client, peeked)
+		return
+	}
 	dialer := net.Dialer{Timeout: f.cfg.DialTimeout}
 	upstream, err := dialer.DialContext(ctx, f.targetNetwork, f.cfg.Target)
 	if err != nil {
@@ -257,6 +353,15 @@ func (f *Forwarder) forward(ctx context.Context, client net.Conn) {
 	})
 	defer idle.Stop()
 	touch := func() { idle.Reset(f.cfg.IdleTimeout) }
+	if len(peeked) > 0 {
+		// Peeked bytes go first, unmodified, before any further client data.
+		_ = upstream.SetWriteDeadline(time.Now().Add(f.cfg.IdleTimeout))
+		if _, err := upstream.Write(peeked); err != nil {
+			return
+		}
+		_ = upstream.SetWriteDeadline(time.Time{})
+		touch()
+	}
 	// EOF half-closes only the destination write side. The opposite direction
 	// stays alive until its own EOF; request EOF may trigger a delayed response.
 	copyDirection := func(dst, src net.Conn) {
@@ -277,4 +382,48 @@ func (f *Forwarder) forward(ctx context.Context, client net.Conn) {
 	go func() { defer close(done); copyDirection(client, upstream) }()
 	copyDirection(upstream, client)
 	<-done
+}
+
+// peekFirstBytes reads the client's first bytes for at most probePeekWindow in
+// total. It stops early once the bytes cannot be a probe frame, so ordinary
+// clients that speak first are not delayed; only silent clients or clients
+// whose bytes so far are a valid probe prefix wait (at most the window). The
+// deadline is always cleared, and a timeout is not an error. It reports true
+// only for an exact probe frame with nothing after it.
+func (f *Forwarder) peekFirstBytes(client net.Conn) ([]byte, bool) {
+	var buf [probePeekBuffer]byte
+	n := 0
+	_ = client.SetReadDeadline(time.Now().Add(probePeekWindow))
+	defer func() { _ = client.SetReadDeadline(time.Time{}) }()
+	for n < len(buf) {
+		m, err := client.Read(buf[n:])
+		for i := n; i < n+m; i++ {
+			if i >= ProbeFrameLen || !probeBytePossible(i, buf[i]) {
+				return append([]byte(nil), buf[:n+m]...), false
+			}
+		}
+		n += m
+		if n == ProbeFrameLen {
+			return append([]byte(nil), buf[:n]...), true
+		}
+		if err != nil {
+			break
+		}
+	}
+	return append([]byte(nil), buf[:n]...), false
+}
+
+// answerProbe echoes the identical frame, rate limited per source IP. A
+// limited probe is dropped (closed) and never forwarded to the target.
+func (f *Forwarder) answerProbe(client net.Conn, frame []byte) {
+	ta, ok := client.RemoteAddr().(*net.TCPAddr)
+	if !ok {
+		return
+	}
+	src, ok := netip.AddrFromSlice(ta.IP)
+	if !ok || !f.probes.allow(src.Unmap(), time.Now()) {
+		return
+	}
+	_ = client.SetWriteDeadline(time.Now().Add(probeWriteLimit))
+	_, _ = client.Write(frame)
 }

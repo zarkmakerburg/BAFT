@@ -1,0 +1,27 @@
+name: Delta Ingress Pin LAB
+on:
+  pull_request:
+    paths: ['internal/ingressinventory/**', '.github/workflows/delta-ingress-pin.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: go.mod
+          cache: false
+      - run: |
+          set -euo pipefail
+          sudo apt-get update -qq && sudo apt-get install -y -qq iproute2
+          go test -c -o /tmp/delta-pin.test ./internal/ingressinventory
+          sudo ip netns add baft-delta-pin
+          trap 'sudo ip netns del baft-delta-pin' EXIT
+          sudo ip netns exec baft-delta-pin ip link set lo up
+          sudo ip netns exec baft-delta-pin /tmp/delta-pin.test -test.run '^Test(ManagedExecutionPin|KernelProcessStartStrict)' -test.v -test.count=1 | tee /tmp/delta-pin.log
+          for name in TestManagedExecutionPinStableAndTamperedLAB TestManagedExecutionPinRefusesRealLateSourcesLAB TestKernelProcessStartStrict; do
+            grep -Fq -- "--- PASS: $name" /tmp/delta-pin.log
+          done

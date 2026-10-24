@@ -38,6 +38,10 @@ func TestInstalledSourceFingerprintRejectsParseHashDrift(t *testing.T) {
 			if err != nil || len(before.Files) != 1 || len(observed.Claims) != 1 || observed.Claims[0].Port != 54619 {
 				t.Fatalf("unchanged protected source lost its parsed claim/provenance: %v %+v", err, before)
 			}
+			originalRoot, err := os.Stat(root)
+			if err != nil {
+				t.Fatal(err)
+			}
 			original, err := os.Stat(file)
 			if err != nil {
 				t.Fatal(err)
@@ -90,7 +94,7 @@ func TestInstalledSourceFingerprintRejectsParseHashDrift(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if err := os.Chtimes(root, observed.parsedRoot.ModTime(), observed.parsedRoot.ModTime()); err != nil {
+			if err := os.Chtimes(root, originalRoot.ModTime(), originalRoot.ModTime()); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := sourceFingerprint(observed); !errors.Is(err, ErrCoverageIncomplete) {

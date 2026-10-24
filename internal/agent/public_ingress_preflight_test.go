@@ -113,6 +113,42 @@ func TestPublicIngressPreflightSocketParser(t *testing.T) {
 	}
 }
 
+// Linux procfs emits rem_address for tcp4 and remote_address for tcp6 on
+// supported kernels. Rejecting the second spelling turns a complete socket
+// inventory into UNKNOWN and breaks the signed read-only IR preflight.
+func TestPublicIngressPreflightAcceptsLinuxTCP6Header(t *testing.T) {
+	tcp6Header := "sl local_address remote_address st\n"
+	v6line := "0: 00000000000000000000000001000000:05A3 00000000000000000000000000000000:0000 0A\n"
+	sockets, err := parseIngressSocketTable([]byte(tcp6Header+v6line), true)
+	if err != nil || len(sockets) != 1 || !sockets[0].ip.Equal(net.IPv6loopback) || sockets[0].port != 1443 {
+		t.Fatalf("real Linux tcp6 header rejected: sockets=%+v err=%v", sockets, err)
+	}
+	ev, err := collectPublicIngressPreflight(context.Background(), ingressPreflightJob(), func(path string) ([]byte, error) {
+		if path == "/proc/net/tcp6" {
+			return []byte(tcp6Header), nil
+		}
+		return []byte(ingressSocketHeader), nil
+	}, func(string) (string, error) { return "", errors.New("unavailable") })
+	if err != nil || !ev.SocketInventoryComplete || ev.PublicPortState != "not_observed" || ev.ReadyToApply {
+		t.Fatalf("valid Linux procfs inventory incorrectly marked incomplete: ev=%+v err=%v", ev, err)
+	}
+	for _, bad := range []string{"rem_address_changed", "remote_address_typo"} {
+		raw := []byte("sl local_address " + bad + " st\n")
+		if _, err := parseIngressSocketTable(raw, true); err == nil {
+			t.Fatalf("unknown kernel header accepted: %s", bad)
+		}
+	}
+	if runtime.GOOS == "linux" {
+		raw, err := readIngressSocketTable("/proc/net/tcp6")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := parseIngressSocketTable(raw, true); err != nil {
+			t.Fatalf("current Linux tcp6 table not parsed: %v", err)
+		}
+	}
+}
+
 func TestSignedPublicIngressPreflightObservesRealListenerWithoutMutation(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("Linux procfs socket inventory")

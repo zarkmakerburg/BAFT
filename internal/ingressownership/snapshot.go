@@ -1,6 +1,7 @@
 package ingressownership
 
 import (
+	"net"
 	"sort"
 	"strconv"
 
@@ -46,7 +47,7 @@ func (r *Registry) Snapshot() (FenceSnapshot, error) {
 		}
 		out.Generations = append(out.Generations, GenerationFence{k[:index], k[index+1:], g})
 	}
-	if len(r.active) != len(r.owners) {
+	if len(r.active) != len(r.owners) || len(r.endpoints) != len(r.owners) {
 		return FenceSnapshot{}, ErrInvalid
 	}
 	for port, p := range r.owners {
@@ -55,6 +56,14 @@ func (r *Registry) Snapshot() (FenceSnapshot, error) {
 		}
 		n, err := strconv.Atoi(port)
 		if err != nil || n < 1 || n > 65535 {
+			return FenceSnapshot{}, ErrInvalid
+		}
+		canonical, err := canonicalEndpoint(r.endpoints[port])
+		if err != nil || canonical != r.endpoints[port] {
+			return FenceSnapshot{}, ErrInvalid
+		}
+		_, endpointPort, err := net.SplitHostPort(canonical)
+		if err != nil || endpointPort != port {
 			return FenceSnapshot{}, ErrInvalid
 		}
 		out.Active = append(out.Active, ActiveFence{uint16(n), p})

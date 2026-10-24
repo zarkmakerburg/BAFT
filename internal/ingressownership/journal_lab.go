@@ -73,6 +73,10 @@ func (j *LabJournal) Advance(next MutationRecord) error {
 		j.entries[key] = next
 		return nil
 	}
+	// A retired generation must never be reopened by replaying its intent.
+	if old.Phase == PhaseRetired && next.Owner.Generation == old.Owner.Generation && next.Phase != PhaseRetired {
+		return ErrConflict
+	}
 	if next.Owner.Generation < old.Owner.Generation {
 		return ErrStale
 	}
@@ -120,5 +124,8 @@ func (j *LabJournal) Current(owner ingressmanifest.Proof) (MutationRecord, bool,
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	r, ok := j.entries[journalKey(owner)]
-	return r, ok, nil
+	if !ok || r.Owner != owner {
+		return MutationRecord{}, false, nil
+	}
+	return r, true, nil
 }

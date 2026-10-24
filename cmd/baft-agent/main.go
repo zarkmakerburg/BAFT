@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/zarkmakerburg/baft/internal/agent"
+	"github.com/zarkmakerburg/baft/internal/ingressauthority"
 	"github.com/zarkmakerburg/baft/internal/release"
 	"github.com/zarkmakerburg/baft/internal/tunnelnode"
 )
@@ -85,10 +86,24 @@ func run(ctx context.Context, args []string, stderr io.Writer) int {
 	metricsListen := fs.String("metrics-listen", "127.0.0.1:9191", "loopback metrics address given to tunnels this agent builds")
 	serviceUser := fs.String("service-user", "baft", "user the BAFT service runs as")
 	interval := fs.Duration("interval", 30*time.Second, "poll interval")
+	provisionPolicy := fs.Bool("provision-ingress-policy", false, "local root-only managed ingress policy bootstrap; does not enable Apply")
 	once := fs.Bool("once", false, "handle pending jobs once and exit")
 	allowHTTP := fs.Bool("allow-insecure-http", false, "allow a plain-HTTP BCC URL (testing only)")
 	if err := fs.Parse(args); err != nil || fs.NArg() != 0 {
 		return 2
+	}
+	if *provisionPolicy {
+		if *nodeID == "" {
+			fmt.Fprintln(stderr, "baft-agent: --provision-ingress-policy requires --node-id")
+			return 2
+		}
+		p, err := ingressauthority.ProvisionInstalledManagedNodePolicy(ctx, *nodeID)
+		if err != nil {
+			fmt.Fprintln(stderr, "baft-agent: ingress policy:", err)
+			return 1
+		}
+		fmt.Fprintf(stderr, "baft-agent: installed managed ingress policy for %s at %s; operational Apply remains blocked pending complete coverage and held authority\n", p.NodeID, p.ProfilePath)
+		return 0
 	}
 	if *bccURL == "" || *nodeID == "" {
 		fmt.Fprintln(stderr, "baft-agent: --bcc-url and --node-id are required")

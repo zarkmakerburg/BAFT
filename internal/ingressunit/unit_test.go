@@ -73,6 +73,21 @@ func TestRenderRequiresExactManifestAndDoesNotAdoptChangedUnit(t *testing.T) {
 	}
 }
 
+func TestRenderDoesNotHardcodeLegacyServicePort(t *testing.T) {
+	spec := candidateSpec()
+	spec.Config.Listen = "0.0.0.0:2053"
+	// Manifest render is an immutable candidate, not a live-port claim or
+	// socket reservation. A stopped or moved service requires separately
+	// persisted admission ownership, regardless of the numeric port.
+	proof, err := ingressmanifest.Preview(spec)
+	if err != nil {
+		t.Fatalf("port number alone must not be forbidden: %v", err)
+	}
+	if _, err := Render(spec, proof, "listener-1", "/usr/local/bin/baft", "baft"); err != nil {
+		t.Fatalf("rendering cannot substitute for live ownership preflight: %v", err)
+	}
+}
+
 func TestRenderRejectsUnsafeManifestIdentityInSystemdMetadata(t *testing.T) {
 	for _, id := range []string{"bad\n[Service]\nExecStart=/bin/false", "bad\runit", "bad\x00id"} {
 		spec := candidateSpec()

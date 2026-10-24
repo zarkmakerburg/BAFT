@@ -441,6 +441,178 @@ func TestForwarderDoesNotTakeOwnershipOfMismatchedListener(t *testing.T) {
 	}
 }
 
+// Idle clients must not hold the bounded capacity of an ingress indefinitely.
+func TestForwarderIdleClientsReleaseCapacity(t *testing.T) {
+	backend := echoBackend(t)
+	ln := tcpListener(t)
+	f, err := New(Config{
+		Listen: ln.Addr().String(), Target: backend.Addr().String(),
+		MaxClients: 1, DialTimeout: 100 * time.Millisecond, IdleTimeout: 100 * time.Millisecond,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- f.Serve(ctx, ln) }()
+	defer func() {
+		cancel()
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Errorf("forwarder shutdown: %v", err)
+			}
+		case <-time.After(3 * time.Second):
+			t.Error("idle forwarder failed to shut down")
+		}
+	}()
+	client := connect(t, ln.Addr().String())
+	if _, err := client.Write([]byte("hi")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.ReadFull(client, make([]byte, 2)); err != nil {
+		t.Fatal(err)
+	}
+	// Client holds the connection open but sends no more bytes; read must
+	// finish with EOF/reset rather than stay pinned until client cancellation.
+	if _, err := client.Read(make([]byte, 1)); err == nil {
+		t.Fatal("idle client did not expire")
+	} else if ne, ok := err.(net.Error); ok && ne.Timeout() {
+		t.Fatalf("idle client retained capacity until caller deadline: %v", err)
+	}
+	deadline := time.Now().Add(time.Second)
+	for f.ActiveConnections() != 0 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if f.ActiveConnections() != 0 {
+		t.Fatal("idle client retained an ingress slot")
+	}
+	fresh := connect(t, ln.Addr().String())
+	if _, err := fresh.Write([]byte("ok")); err != nil {
+		t.Fatal(err)
+	}
+	got := make([]byte, 2)
+	if _, err := io.ReadFull(fresh, got); err != nil || string(got) != "ok" {
+		t.Fatalf("replacement connection did not forward: %q %v", got, err)
+	}
+}
+
+func TestForwarderActivityExtendsIdleWindow(t *testing.T) {
+	backend := echoBackend(t)
+	ln := tcpListener(t)
+	f, err := New(Config{
+		Listen: ln.Addr().String(), Target: backend.Addr().String(),
+		MaxClients: 1, IdleTimeout: 400 * time.Millisecond,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- f.Serve(ctx, ln) }()
+	defer func() { cancel(); <-done }()
+	client := connect(t, ln.Addr().String())
+	for i := 0; i < 7; i++ {
+		if _, err := client.Write([]byte("x")); err != nil {
+			t.Fatal(err)
+		}
+		got := make([]byte, 1)
+		if _, err := io.ReadFull(client, got); err != nil || string(got) != "x" {
+			t.Fatalf("active stream expired after %d replies: %v", i, err)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+// Invalid or already canceled lifecycle contexts must not panic, bind or
+// close a caller-owned TCP socket before successful Serve admission.
+func TestForwarderRejectsNilContextWithoutOwnership(t *testing.T) {
+	ln := tcpListener(t)
+	f, err := New(Config{Listen: ln.Addr().String(), Target: "127.0.0.1:1443"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Run(nil); err == nil {
+		t.Fatal("nil Run context accepted")
+	}
+	if err := f.Serve(nil, ln); err == nil {
+		t.Fatal("nil Serve context accepted")
+	}
+	// Rejected Serve must leave the original listener untouched.
+	probe, err := net.DialTimeout("tcp4", ln.Addr().String(), time.Second)
+	if err != nil {
+		t.Fatalf("invalid context closed caller listener: %v", err)
+	}
+	defer probe.Close()
+	_ = ln.(*net.TCPListener).SetDeadline(time.Now().Add(time.Second))
+	accepted, err := ln.Accept()
+	if err != nil {
+		t.Fatalf("caller listener did not accept after rejected Serve: %v", err)
+	}
+	_ = accepted.Close()
+}
+
+func TestForwarderRejectsCanceledServeWithoutOwnership(t *testing.T) {
+	ln := tcpListener(t)
+	f, err := New(Config{Listen: ln.Addr().String(), Target: "127.0.0.1:1443"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := f.Serve(ctx, ln); err != nil {
+		t.Fatalf("Serve with canceled context must complete without taking ownership: %v", err)
+	}
+	// A rejected Serve must not close the still-held, already-bound listener.
+	probe, err := net.DialTimeout("tcp4", ln.Addr().String(), time.Second)
+	if err != nil {
+		t.Fatalf("canceled Serve closed caller listener: %v", err)
+	}
+	defer probe.Close()
+	_ = ln.(*net.TCPListener).SetDeadline(time.Now().Add(time.Second))
+	accepted, err := ln.Accept()
+	if err != nil {
+		t.Fatalf("caller listener unavailable after rejection: %v", err)
+	}
+	_ = accepted.Close()
+}
+
+func TestForwarderRejectsInvalidIdleTimeout(t *testing.T) {
+	for _, idle := range []time.Duration{-time.Second, time.Millisecond, 31 * time.Minute} {
+		if _, err := New(Config{Listen: "127.0.0.1:15555", Target: "127.0.0.1:1443", IdleTimeout: idle}); err == nil {
+			t.Fatalf("accepted unsafe idle timeout %s", idle)
+		}
+	}
+}
+
+func TestForwarderProtectsDynamicallyOccupiedServicePort(t *testing.T) {
+	// The occupied port is selected at runtime, not wired to a service name
+	// or a fixed port. Bind failure must not close the unrelated service.
+	service := echoBackend(t)
+	target := echoBackend(t)
+	claimedAddress := service.Addr().String()
+	f, err := New(Config{Listen: claimedAddress, Target: target.Addr().String()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Run(context.Background()); err == nil {
+		t.Fatal("ingress stole an arbitrary already-owned service port")
+	}
+	c := connect(t, claimedAddress)
+	if _, err := io.WriteString(c, "still-served"); err != nil {
+		t.Fatal(err)
+	}
+	got := make([]byte, len("still-served"))
+	if _, err := io.ReadFull(c, got); err != nil || string(got) != "still-served" {
+		t.Fatalf("unrelated service affected: %q %v", got, err)
+	}
+	// A port number formerly chosen for a service must not remain reserved
+	// solely because of that convention; authoritative claims decide.
+	if _, err := New(Config{Listen: "127.0.0.1:2053", Target: "127.0.0.1:1443"}); err != nil {
+		t.Fatalf("non-reserved arbitrary port must not be hardcoded: %v", err)
+	}
+}
+
 func TestNewAllowsPrivileged443WithoutBinding(t *testing.T) {
 	f, err := New(Config{Listen: "127.0.0.1:443", Target: "127.0.0.1:1443"})
 	if err != nil || f == nil {

@@ -252,6 +252,21 @@ func (j *DurableJournal) writeAtomic(d *os.File, root *os.Root, name string, raw
 	return d.Sync()
 }
 
+// planJournalMutation decides whether the current phase is an idempotent
+// replay before enforcing the append cap. A full journal must still allow a
+// crash-retry to repair its durable head without allocating a new entry.
+func planJournalMutation(entryCount int, snapshot []MutationRecord, next MutationRecord) (bool, error) {
+	for _, current := range snapshot {
+		if journalKey(current.Owner) == journalKey(next.Owner) && current == next {
+			return true, nil
+		}
+	}
+	if entryCount >= maxJournalEntries {
+		return false, ErrInvalid
+	}
+	return false, nil
+}
+
 // Advance persists one validated phase before its corresponding host action.
 // Replaying the current record is idempotent, but never skips an earlier step.
 func (j *DurableJournal) Advance(next MutationRecord) error {
@@ -260,18 +275,17 @@ func (j *DurableJournal) Advance(next MutationRecord) error {
 		if err != nil {
 			return err
 		}
-		if len(entries) == maxJournalEntries {
-			return ErrInvalid
+		replay, err := planJournalMutation(len(entries), lab.Snapshot(), next)
+		if err != nil {
+			return err
 		}
-		for _, current := range lab.Snapshot() {
-			if journalKey(current.Owner) == journalKey(next.Owner) && current == next {
-				if len(entries) == 0 {
-					return ErrInvalid
-				}
-				last := entries[len(entries)-1]
-				head, _ := json.Marshal(journalHead{Sequence: last.Sequence, Digest: last.Digest})
-				return j.writeAtomic(d, root, "head.json", head, true)
+		if replay {
+			if len(entries) == 0 {
+				return ErrInvalid
 			}
+			last := entries[len(entries)-1]
+			head, _ := json.Marshal(journalHead{Sequence: last.Sequence, Digest: last.Digest})
+			return j.writeAtomic(d, root, "head.json", head, true)
 		}
 		if err := lab.Advance(next); err != nil {
 			return err

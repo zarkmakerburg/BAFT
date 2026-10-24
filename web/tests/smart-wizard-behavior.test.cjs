@@ -8,7 +8,7 @@ const src=fs.readFileSync(path.resolve(__dirname,'../../internal/bcc/dashboard.g
 const js=src.slice(src.indexOf('<script>')+8,src.indexOf('</script>'));
 function fn(from,to){const start=js.indexOf(from),end=js.indexOf(to,start);assert.ok(start>=0&&end>start);return js.slice(start,end)}
 function context(fields,prelude){
- const c={q:selector=>({get value(){return fields[selector.slice(1)]},set value(v){fields[selector.slice(1)]=v},get checked(){return fields[selector.slice(1)]},set checked(v){fields[selector.slice(1)]=v},get textContent(){return fields[selector.slice(1)]},set textContent(v){fields[selector.slice(1)]=v},scrollIntoView(){}}),document:{documentElement:{lang:'fa'}},alert(){},tnClearPlan(){},console};
+ const c={q:selector=>({get value(){return fields[selector.slice(1)]},set value(v){fields[selector.slice(1)]=v},get checked(){return fields[selector.slice(1)]},set checked(v){fields[selector.slice(1)]=v},get textContent(){return fields[selector.slice(1)]},set textContent(v){fields[selector.slice(1)]=v},get innerHTML(){return fields[selector.slice(1)]},set innerHTML(v){fields[selector.slice(1)]=v},scrollIntoView(){}}),document:{documentElement:{lang:'fa'}},alert(){},tnClearPlan(){},console};
  vm.createContext(c);vm.runInContext(fn('function tnWizardTargetChanged()','function tnWizardGenerateServicePort()')+prelude,c);return c;
 }
 const req=fn('function tnReq()','function tnModeChanged()');
@@ -39,13 +39,14 @@ for(const target of ['127.0.0.1:30000','192.0.2.15:5432','[2001:db8::15]:8443'])
 });
 for(const instance of ['', 'existing-managed'])test('editing '+(instance?'managed':'legacy')+' tunnel keeps non-loopback IPv6 target reviewable',async()=>{
  const fields={...defaults};
- const old={instance_id:instance,ex_node:'ex-de-1',ir_node:'ir-arno-1',public_address:'203.0.113.5',port:2053,target:'[2001:db8::15]:5432',route_id:'service-main',route_listen:'127.0.0.1:1443'};
- const c=context(fields,'let tnEditBase=null;const tnWizardText=(en,fa)=>fa;'+req+fn('async function tnEdit(id)','function tnEditEnd()')+fn('function tnWizardValidateStep(i)','function tnWizardStep(i)'));
+ const old={id:'tun-existing',phase:'active',instance_id:instance,ex_node:'ex-de-1',ir_node:'ir-arno-1',public_address:'203.0.113.5',port:2053,target:'[2001:db8::15]:5432',route_id:'service-main',route_listen:'127.0.0.1:1443'};
+ const c=context(fields,'let tnEditBase=null,tnPlanEpoch=0;const tnWizardText=(en,fa)=>fa;'+req+fn('async function tnEdit(id)','function tnEditEnd()')+fn('function tnWizardValidateStep(i)','function tnWizardStep(i)'));
  c.fetch=async()=>({ok:true,json:async()=>old});c.ah=()=>({});c.esc=String;c.tnModeChanged=()=>{};c.tnWizardStep=()=>{};
  await vm.runInContext('tnEdit("tun-existing")',c);
  assert.equal(fields.tnTarget,old.target);
  assert.equal(fields.tnPort,old.port);
  fields.tnIngressConfirm=true;
+ fields.tnClientPort='443'; // Edit resets client port; operator must select it again.
  assert.equal(vm.runInContext('tnWizardValidateStep(2)',c),true);
  const result=vm.runInContext('tnReq()',c);
  assert.equal(result.target,old.target);
@@ -141,4 +142,240 @@ test('new tunnel resets direction and engine and requires an explicit destinatio
  c.tnModeChanged=()=>{};c.tnWizardStep=()=>{};vm.runInContext('tnNew()',c);
  assert.equal(fields.tnDirection,'ir-to-ex');assert.equal(fields.tnEngine,'baft');
  assert.equal(fields.tnTarget,'');assert.equal(fields.tnServicePortHint,'');
+});
+
+test('blocked backend plan cannot leave a deployable plan hash',()=>{
+ const fields={tnPlan:''};const c=context(fields,'let tnPlanHash="stale",tnPlanReq={stale:true},tnPlanReplaces="old",tnPlanEpoch=0;const esc=String;'+fn('function tnShowPlan(p)','function tnClearPlan()'));
+ vm.runInContext('tnShowPlan({ok:false,hash:"blocked",request:{},gates:[],nodes:[],steps:[],verify:[],rollback:[]})',c);
+ assert.equal(vm.runInContext('tnPlanHash',c),'');
+ assert.equal(vm.runInContext('tnPlanReq',c),null);
+});
+
+test('stale async plan response cannot restore deploy state after user edits',async()=>{
+ const fields={...defaults,tnPlan:'',tnIngressConfirm:true};let resolveFetch;
+ const c=context(fields,'const esc=String;let tnEditBase=null;let tnWizardTunnels=[];const tnWizardText=en=>en;const tnWizardSharesLegacy=()=>false;const tnWizardEnsureID=()=>{};'+req+fn('function tnWizardValidateStep(i)','function tnWizardStep(i)')+'let tnPlanHash="",tnPlanReq=null,tnPlanReplaces="",tnPlanEpoch=0;'+fn('function tnShowPlan(p)','async function tnDeploy()'));
+ c.fetch=()=>new Promise(resolve=>{resolveFetch=resolve});c.ah=()=>({});c.loadAudit=()=>{};
+ const pending=vm.runInContext('tnPlan()',c);
+ vm.runInContext('tnClearPlan()',c);
+ resolveFetch({ok:true,text:async()=>JSON.stringify({ok:true,hash:'stale-hash',request:{},gates:[],nodes:[],steps:[],verify:[],rollback:[]})});
+ await pending;
+ assert.equal(vm.runInContext('tnPlanHash',c),'');
+ assert.equal(vm.runInContext('tnPlanReq',c),null);
+});
+
+test('starting a new backend plan invalidates previously deployable plan immediately',async()=>{
+ const fields={...defaults,tnPlan:'old rendered plan',tnIngressConfirm:true};let resolveFetch;
+ const c=context(fields,'const esc=String;let tnEditBase=null;let tnWizardTunnels=[];const tnWizardText=en=>en;const tnWizardSharesLegacy=()=>false;const tnWizardEnsureID=()=>{};'+req+fn('function tnWizardValidateStep(i)','function tnWizardStep(i)')+'let tnPlanHash="old-hash",tnPlanReq={old:true},tnPlanReplaces="",tnPlanEpoch=0;'+fn('function tnShowPlan(p)','async function tnDeploy()'));
+ c.fetch=()=>new Promise(resolve=>{resolveFetch=resolve});c.ah=()=>({});c.loadAudit=()=>{};
+ const pending=vm.runInContext('tnPlan()',c);
+ assert.equal(vm.runInContext('tnPlanHash',c),'');
+ assert.equal(vm.runInContext('tnPlanReq',c),null);
+ resolveFetch({ok:false,text:async()=> 'unavailable'});await pending;
+});
+test('double-click deploy submits only one backend mutation while pending',async()=>{
+ const fields={...defaults,tnPlan:''};let resolveFetch;let calls=0;
+ const c=context(fields,'let tnPlanHash="valid",tnPlanReq={instance_id:"test"},tnPlanReplaces="",tnPlanEpoch=0,tnDeployPending=false;'+fn('async function tnDeploy()','async function tnRotate(id)'));
+ c.confirm=()=>true;c.ah=()=>({});c.fetch=()=>{calls++;return new Promise(resolve=>{resolveFetch=resolve})};c.tnClearPlan=()=>{};c.tnEditEnd=()=>{};c.loadTunnels=()=>{};c.loadAudit=()=>{};
+ const first=vm.runInContext('tnDeploy()',c);
+ const second=vm.runInContext('tnDeploy()',c);
+ assert.equal(calls,1);
+ resolveFetch({ok:true,status:200,text:async()=>'{"id":"job"}'});
+ await Promise.all([first,second]);
+});
+test('stale deploy conflict response cannot resurrect plan after form change',async()=>{
+ const fields={...defaults,tnPlan:''};let resolveFetch;
+ const c=context(fields,'const esc=String;let tnPlanHash="reviewed",tnPlanReq={instance_id:"test"},tnPlanReplaces="",tnPlanEpoch=0,tnDeployPending=false;'+fn('function tnShowPlan(p)','async function tnRotate(id)'));
+ c.confirm=()=>true;c.ah=()=>({});c.fetch=()=>new Promise(resolve=>{resolveFetch=resolve});c.loadAudit=()=>{};c.loadTunnels=()=>{};c.tnEditEnd=()=>{};
+ const pending=vm.runInContext('tnDeploy()',c);
+ vm.runInContext('tnClearPlan()',c);
+ resolveFetch({ok:false,status:409,text:async()=>JSON.stringify({error:'stale',plan:{ok:true,hash:'outdated',request:{},gates:[],nodes:[],steps:[],verify:[],rollback:[]}})});
+ await pending;
+ assert.equal(vm.runInContext('tnPlanHash',c),'');
+ assert.equal(vm.runInContext('tnPlanReq',c),null);
+});
+
+test('Stop editing discards the reviewed replacement plan and its credentials',()=>{
+ const fields={...defaults,tnPlan:'reviewed replacement'};
+ const c=context(fields,'let tnEditBase={instance_id:"old"},tnPlanHash="replacement",tnPlanReq={instance_id:"old"},tnPlanReplaces="tun-old",tnPlanEpoch=0;'+fn('function tnEditEnd()','function tnShowPlan(p)')+fn('function tnClearPlan()','async function tnPlan()'));
+ vm.runInContext('tnEditEnd()',c);
+ assert.equal(vm.runInContext('tnEditBase',c),null);
+ assert.equal(fields.tnTarget,'');
+ assert.equal(vm.runInContext('tnPlanHash',c),'');
+ assert.equal(vm.runInContext('tnPlanReq',c),null);
+ assert.equal(vm.runInContext('tnPlanReplaces',c),'');
+});
+
+test('choosing Edit invalidates previous deployable plan before detail request returns',async()=>{
+ const fields={...defaults,tnPlan:'previous plan'};
+ let resolveFetch;
+ const c=context(fields,'let tnEditBase=null,tnPlanHash="old-plan",tnPlanReq={old:true},tnPlanReplaces="",tnPlanEpoch=0;'+fn('async function tnEdit(id)','function tnEditEnd()')+fn('function tnClearPlan()','async function tnPlan()'));
+ c.ah=()=>({});c.fetch=()=>new Promise(resolve=>{resolveFetch=resolve});
+ const pending=vm.runInContext('tnEdit("tun-selected")',c);
+ assert.equal(vm.runInContext('tnPlanHash',c),'');
+ assert.equal(vm.runInContext('tnPlanReq',c),null);
+ resolveFetch({ok:false,text:async()=> 'unable to load'});
+ await pending;
+});
+
+test('late Edit response never overwrites a newer selected tunnel',async()=>{
+ const fields={...defaults,tnTarget:'not yet edited'};
+ const inflight=new Map();
+ const c=context(fields,'let tnEditBase=null,tnPlanHash="",tnPlanReq=null,tnPlanReplaces="",tnPlanEpoch=0;const esc=String;'+fn('async function tnEdit(id)','function tnEditEnd()')+fn('function tnClearPlan()','async function tnPlan()'));
+ c.ah=()=>({});c.tnModeChanged=()=>{};c.tnWizardStep=()=>{};
+ c.fetch=url=>new Promise(resolve=>inflight.set(decodeURIComponent(url.split('id=')[1]),resolve));
+ const older=vm.runInContext('tnEdit("tun-old")',c);
+ const newer=vm.runInContext('tnEdit("tun-new")',c);
+ const tunnel=(id,target)=>({id:'tun-'+id,phase:'active',instance_id:id,ex_node:'ex-de-1',ir_node:'ir-arno-1',port:8443,target});
+ inflight.get('tun-new')({ok:true,json:async()=>tunnel('new','192.0.2.20:4000')});
+ await newer;
+ inflight.get('tun-old')({ok:true,json:async()=>tunnel('old','192.0.2.20:3000')});
+ await older;
+ assert.equal(fields.tnTarget,'192.0.2.20:4000');
+ assert.equal(vm.runInContext('tnEditBase.instance_id',c),'new');
+});
+
+test('new independent Wizard plan cannot replace a tunnel unless Edit explicitly selected it',()=>{
+ const fields={tnPlan:''};
+ const c=context(fields,'let tnEditBase=null,tnEditSelectedID="",tnPlanHash="",tnPlanReq=null,tnPlanReplaces="";const esc=String;'+fn('function tnShowPlan(p)','function tnClearPlan()'));
+ const p={ok:true,hash:'backend-ready',request:{instance_id:'reused'},replaces:'tun-active',gates:[],nodes:[],steps:[],verify:[],rollback:[]};
+ vm.runInContext('tnShowPlan('+JSON.stringify(p)+')',c);
+ assert.equal(vm.runInContext('tnPlanHash',c),'');
+ assert.equal(vm.runInContext('tnPlanReq',c),null);
+ assert.match(fields.tnPlan,/disabled onclick="tnDeploy\(\)"/);
+ assert.match(fields.tnPlan,/Choose Edit on that exact tunnel/);
+});
+
+test('review may replace only the precise selected Edit tunnel, not a different active tunnel',()=>{
+ const fields={tnPlan:''};
+ const c=context(fields,'let tnEditBase={instance_id:"managed"},tnEditSelectedID="tun-first",tnPlanHash="",tnPlanReq=null,tnPlanReplaces="";const esc=String;'+fn('function tnShowPlan(p)','function tnClearPlan()'));
+ const p={ok:true,hash:'valid',request:{instance_id:'managed'},replaces:'tun-other',gates:[],nodes:[],steps:[],verify:[],rollback:[]};
+ vm.runInContext('tnShowPlan('+JSON.stringify(p)+')',c);
+ assert.equal(vm.runInContext('tnPlanHash',c),'');
+ p.replaces='tun-first';vm.runInContext('tnShowPlan('+JSON.stringify(p)+')',c);
+ assert.equal(vm.runInContext('tnPlanHash',c),'valid');
+ assert.equal(vm.runInContext('tnPlanReplaces',c),'tun-first');
+ assert.doesNotMatch(fields.tnPlan,/disabled onclick="tnDeploy\(\)"/);
+});
+
+test('changing from Edit to new mode revokes replacement selection',()=>{
+ const fields={...defaults,tnMode:'replace'};
+ const c=context(fields,'let tnEditBase={instance_id:"managed"},tnEditSelectedID="tun-first";'+fn('function tnModeChanged()','function tnNew()'));
+ vm.runInContext('tnModeChanged()',c);
+ assert.equal(vm.runInContext('tnEditBase',c),null);
+ assert.equal(vm.runInContext('tnEditSelectedID',c),'');
+});
+
+test('Edit review refuses a plan that no longer replaces the selected active tunnel',()=>{
+ const fields={tnPlan:''};
+ const c=context(fields,'let tnEditBase={instance_id:"managed"},tnEditSelectedID="tun-first",tnPlanHash="",tnPlanReq=null,tnPlanReplaces="";const esc=String;'+fn('function tnShowPlan(p)','function tnClearPlan()'));
+ const p={ok:true,hash:'ready-but-unrelated',request:{instance_id:'managed'},replaces:'',gates:[],nodes:[],steps:[],verify:[],rollback:[]};
+ vm.runInContext('tnShowPlan('+JSON.stringify(p)+')',c);
+ assert.equal(vm.runInContext('tnPlanHash',c),'');
+ assert.equal(vm.runInContext('tnPlanReq',c),null);
+ assert.match(fields.tnPlan,/disabled onclick="tnDeploy\(\)"/);
+ assert.match(fields.tnPlan,/no longer the target/);
+});
+
+test('Edit refuses non-active or mismatched tunnel API response without selecting a replacement',async()=>{
+ for(const result of [
+  {id:'tun-other',phase:'active',instance_id:'managed'},
+  {id:'tun-selected',phase:'decommission_failed',instance_id:'managed'},
+  {id:'tun-selected',phase:'rolled_back',instance_id:'managed'},
+  null
+ ]){
+  const fields={...defaults,tnTarget:'127.0.0.1:9000',tnPlan:''};
+  let alerted=0;
+  const c=context(fields,'let tnEditBase=null,tnEditSelectedID="",tnPlanHash="",tnPlanReq=null,tnPlanReplaces="",tnPlanEpoch=0;'+fn('async function tnEdit(id)','function tnEditEnd()')+fn('function tnClearPlan()','async function tnPlan()'));
+  c.ah=()=>({});c.alert=()=>{alerted++};
+  c.fetch=async()=>({ok:true,json:async()=>result});c.esc=String;
+  c.tnWizardStep=()=>{};c.tnModeChanged=()=>{};
+  await vm.runInContext('tnEdit("tun-selected")',c);
+  assert.equal(vm.runInContext('tnEditBase',c),null);
+  assert.equal(vm.runInContext('tnEditSelectedID',c),'');
+  assert.equal(fields.tnTarget,'127.0.0.1:9000');
+  assert.equal(alerted,1);
+ }
+});
+
+test('Wizard requires one explicit usable IR client configuration port before reviewed planning',()=>{
+ const fields={...defaults,tnIngressConfirm:true};
+ const c=context(fields,'const tnWizardText=en=>en;'+fn('function tnWizardValidateStep(i)','function tnWizardStep(i)'));
+ for(const input of ['', '0', '22', '65536', '8.5', '  ', '0x50']){
+  fields.tnClientPort=input;
+  assert.equal(vm.runInContext('tnWizardValidateStep(2)',c),false,'should refuse client config port '+input);
+ }
+ for(const port of ['443', '2053', '24443']){
+  fields.tnClientPort=port;
+  assert.equal(vm.runInContext('tnWizardValidateStep(2)',c),true,'valid free candidate '+port);
+ }
+});
+
+test('successful deploy still refreshes inventory and audit if operator edits form while request is pending',async()=>{
+ const fields={...defaults,tnPlan:''};let resolveFetch,refreshTunnels=0,refreshAudit=0;
+ const c=context(fields,'const esc=String;let tnPlanHash="reviewed",tnPlanReq={instance_id:"test"},tnPlanReplaces="",tnPlanEpoch=0,tnDeployPending=false;'+fn('function tnShowPlan(p)','async function tnRotate(id)'));
+ c.confirm=()=>true;c.ah=()=>({});
+ c.fetch=()=>new Promise(resolve=>{resolveFetch=resolve});
+ c.loadTunnels=()=>{refreshTunnels++};c.loadAudit=()=>{refreshAudit++};c.tnEditEnd=()=>{};
+ const pending=vm.runInContext('tnDeploy()',c);
+ vm.runInContext('tnClearPlan()',c);
+ resolveFetch({ok:true,status:202,text:async()=>'{"id":"durable-job"}'});
+ await pending;
+ assert.equal(refreshTunnels,1,'accepted mutation must be visible despite later form edit');
+ assert.equal(refreshAudit,1,'accepted mutation must trigger audit refresh');
+ assert.equal(vm.runInContext('tnPlanHash',c),'','old reviewed plan must remain invalid');
+ assert.equal(vm.runInContext('tnPlanReq',c),null);
+});
+test('failed stale deploy response must not refresh inventory or resurrect plan',async()=>{
+ const fields={...defaults,tnPlan:''};let resolveFetch,refreshTunnels=0,refreshAudit=0;
+ const c=context(fields,'const esc=String;let tnPlanHash="reviewed",tnPlanReq={instance_id:"test"},tnPlanReplaces="",tnPlanEpoch=0,tnDeployPending=false;'+fn('function tnShowPlan(p)','async function tnRotate(id)'));
+ c.confirm=()=>true;c.ah=()=>({});c.tnEditEnd=()=>{};
+ c.fetch=()=>new Promise(resolve=>{resolveFetch=resolve});
+ c.loadTunnels=()=>{refreshTunnels++};c.loadAudit=()=>{refreshAudit++};
+ const pending=vm.runInContext('tnDeploy()',c);
+ vm.runInContext('tnClearPlan()',c);
+ resolveFetch({ok:false,status:409,text:async()=>JSON.stringify({error:'stale',plan:{ok:true,hash:'obsolete',request:{},gates:[],nodes:[],steps:[],verify:[],rollback:[]}})});
+ await pending;
+ assert.equal(refreshTunnels,0);assert.equal(refreshAudit,0);
+ assert.equal(vm.runInContext('tnPlanHash',c),'');
+});
+
+// Regression: a successful deploy must reconcile even if body stream fails.
+test('accepted deploy refreshes inventory on response parse failure',async()=>{
+ const fields={...defaults,tnPlan:''};let tunnels=0,audit=0;
+ const c=context(fields,'const esc=String;let tnPlanHash="reviewed",tnPlanReq={instance_id:"test"},tnPlanReplaces="",tnPlanEpoch=0,tnDeployPending=false;'+fn('function tnShowPlan(p)','async function tnRotate(id)'));
+ c.confirm=()=>true;c.ah=()=>({});c.tnEditEnd=()=>{};
+ c.fetch=async()=>({ok:true,status:202,text:async()=>{throw Error('unreadable')}});
+ c.loadTunnels=()=>{tunnels++};c.loadAudit=()=>{audit++};
+ await vm.runInContext('tnDeploy()',c);
+ assert.equal(tunnels,1);assert.equal(audit,1);
+ assert.equal(vm.runInContext('tnDeployPending',c),false);
+});
+
+test('ambiguous POST transport failure clears reviewed deploy and reconciles inventory',async()=>{
+ const fields={...defaults,tnPlan:''};let tunnels=0,audit=0;
+ const c=context(fields,'const esc=String;let tnPlanHash="reviewed",tnPlanReq={instance_id:"test"},tnPlanReplaces="",tnPlanEpoch=0,tnDeployPending=false;'+fn('function tnShowPlan(p)','async function tnRotate(id)'));
+ c.confirm=()=>true;c.ah=()=>({});c.tnEditEnd=()=>{};
+ c.tnWizardText=(en)=>en;
+ c.fetch=async()=>{throw Error('connection lost after send')};
+ c.loadTunnels=()=>{tunnels++};c.loadAudit=()=>{audit++};
+ await vm.runInContext('tnDeploy()',c);
+ assert.equal(tunnels,1);assert.equal(audit,1);
+ assert.equal(vm.runInContext('tnPlanHash',c),'');
+ assert.equal(vm.runInContext('tnDeployPending',c),false);
+});
+
+test('ambiguous deploy response never erases newer reviewed wizard plan',async()=>{
+ const fields={...defaults,tnPlan:''};let rejectFetch,inventory=0,audit=0;
+ const c=context(fields,'const esc=String;let tnPlanHash="original",tnPlanReq={instance_id:"old"},tnPlanReplaces="",tnPlanEpoch=0,tnDeployPending=false;'+fn('function tnShowPlan(p)','async function tnRotate(id)'));
+ c.confirm=()=>true;c.ah=()=>({});c.tnWizardText=(en)=>en;c.tnEditEnd=()=>{};
+ c.fetch=()=>new Promise((_,reject)=>{rejectFetch=reject});
+ c.loadTunnels=()=>{inventory++};c.loadAudit=()=>{audit++};
+ const pending=vm.runInContext('tnDeploy()',c);
+ vm.runInContext('tnClearPlan()',c);
+ vm.runInContext('tnPlanHash="new-reviewed";tnPlanReq={instance_id:"new"}',c);
+ rejectFetch(Error('connection lost after request submission'));
+ await pending;
+ assert.equal(vm.runInContext('tnPlanHash',c),'new-reviewed');
+ assert.equal(vm.runInContext('tnPlanReq.instance_id',c),'new');
+ assert.equal(inventory,1);assert.equal(audit,1);
 });

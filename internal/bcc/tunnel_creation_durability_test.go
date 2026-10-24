@@ -33,10 +33,17 @@ func TestTunnelCreateAuditAppendFailureReportsCommittedState(t *testing.T) {
     store:=tunnelStore(t)
     path:=store.path
     app,err:=NewServer(store,"admin");if err!=nil{t.Fatal(err)}
+    // The HTTP create contract requires fresh agent contact and a reviewed
+    // plan. Keep the audit append failure injection focused on durability.
+    for _, nodeID := range []string{"ex-1","ir-1"} {
+        if _,err:=store.PullJobs(nodeID,"tok-"+nodeID);err!=nil{t.Fatal(err)}
+    }
+    plan,err:=store.BuildPlan(TunnelRequest{EXNode:"ex-1",IRNode:"ir-1"},time.Now().UTC())
+    if err!=nil||!plan.OK||plan.Hash==""{t.Fatalf("review plan: err=%v plan=%+v",err,plan)}
     breakAuditAppend(t,app.audit)
     rr:=httptest.NewRecorder()
     app.Handler().ServeHTTP(rr,authReq(http.MethodPost,"/api/tunnels","admin",map[string]any{
-        "ex_node":"ex-1","ir_node":"ir-1",
+        "ex_node":"ex-1","ir_node":"ir-1","plan_hash":plan.Hash,
     }))
     if rr.Code!=http.StatusAccepted||rr.Header().Get("X-BAFT-Audit-State")!="pending"{
         t.Fatalf("tunnel status=%d audit=%q body=%s",rr.Code,rr.Header().Get("X-BAFT-Audit-State"),rr.Body.String())

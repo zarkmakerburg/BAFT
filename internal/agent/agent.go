@@ -100,6 +100,10 @@ var errAckRefused = errors.New("BCC refused the result")
 
 const seenRetention = 7 * 24 * time.Hour
 
+// Bound replay-ledger I/O and refuse admission instead of accepting an
+// unreadable on-disk state file. This comfortably covers normal 7-day job IDs.
+const maxSeenJournalBytes = 16 << 20
+
 func New(cfg Config) (*Agent, error) {
 	if cfg.BCCURL == "" || cfg.NodeID == "" || cfg.Token == "" || len(cfg.BCCJobKey) != ed25519.PublicKeySize || cfg.StateDir == "" {
 		return nil, errors.New("agent needs BCC URL, node ID, token, pinned BCC job key and state dir")
@@ -131,14 +135,34 @@ func New(cfg Config) (*Agent, error) {
 func (a *Agent) seenPath() string { return filepath.Join(a.cfg.StateDir, "seen-jobs.json") }
 
 func (a *Agent) loadSeen() error {
-	b, err := os.ReadFile(a.seenPath())
+	if err := validateSeenStateDir(a.cfg.StateDir); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	b, err := readSeenJournal(a.seenPath())
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal(b, &a.seen)
+	if err := json.Unmarshal(b, &a.seen); err != nil {
+		return err
+	}
+	if a.seen == nil {
+		return errors.New("invalid null seen-job journal")
+	}
+	return validateSeenTimestamps(a.seen)
+}
+
+// validateSeenTimestamps prevents malformed zero-valued entries from being
+// pruned as expired, which could otherwise re-admit a previously claimed job.
+func validateSeenTimestamps(seen map[string]time.Time) error {
+	for _, recordedAt := range seen {
+		if recordedAt.IsZero() {
+			return errors.New("invalid zero timestamp in seen-job journal")
+		}
+	}
+	return nil
 }
 
 // markSeen records a job before it runs, so a crash mid-run cannot replay it.
@@ -150,6 +174,9 @@ func (a *Agent) markSeen(id string) error {
 	if err := os.MkdirAll(a.cfg.StateDir, 0o700); err != nil {
 		return err
 	}
+	if err := validateSeenStateDir(a.cfg.StateDir); err != nil {
+		return err
+	}
 	unlock, err := lockSeenJournal(a.seenPath() + ".lock")
 	if err != nil {
 		return err
@@ -159,12 +186,15 @@ func (a *Agent) markSeen(id string) error {
 	// may have claimed a job since this object started; the locked durable
 	// ledger is the admission authority and must also preserve its other IDs.
 	latest := make(map[string]time.Time)
-	if raw, err := os.ReadFile(a.seenPath()); err == nil {
+	if raw, err := readSeenJournal(a.seenPath()); err == nil {
 		if err := json.Unmarshal(raw, &latest); err != nil {
 			return err
 		}
 		if latest == nil {
 			return errors.New("invalid null seen-job journal")
+		}
+		if err := validateSeenTimestamps(latest); err != nil {
+			return err
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return err
@@ -179,10 +209,20 @@ func (a *Agent) markSeen(id string) error {
 	if _, exists := a.seen[id]; exists {
 		return errJobAlreadySeen
 	}
-	a.seen[id] = now
-	b, err := json.Marshal(a.seen)
+	// Stage the new claim separately; a failed write must never mark an
+	// unexecuted job as seen in this process.
+	next := make(map[string]time.Time, len(a.seen)+1)
+	for k, seenAt := range a.seen {
+		next[k] = seenAt
+	}
+	next[id] = now
+	b, err := json.Marshal(next)
 	if err != nil {
 		return err
+	}
+	// Refuse admission rather than persist a ledger that startup cannot read.
+	if len(b) > maxSeenJournalBytes {
+		return errors.New("seen-job replay journal exceeds size limit")
 	}
 	f, err := os.CreateTemp(a.cfg.StateDir, ".seen-jobs-*")
 	if err != nil {
@@ -213,7 +253,11 @@ func (a *Agent) markSeen(id string) error {
 		return err
 	}
 	defer dir.Close()
-	return dir.Sync()
+	if err := dir.Sync(); err != nil {
+		return err
+	}
+	a.seen = next
+	return nil
 }
 
 func (a *Agent) isSeen(id string) bool {

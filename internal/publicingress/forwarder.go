@@ -20,6 +20,7 @@ type Config struct {
 	Target      string
 	MaxClients  int
 	DialTimeout time.Duration
+	IdleTimeout time.Duration // Maximum silence across both directions; zero uses 5 minutes
 }
 
 // Forwarder owns one listener while running. The configuration is immutable;
@@ -60,6 +61,9 @@ func New(cfg Config) (*Forwarder, error) {
 	if port < 1024 && port != 443 {
 		return nil, errors.New("privileged listen port is not allowed (except 443)")
 	}
+	// An ordinary service's public port is not a permanent magic number.
+	// The kernel refuses conflicts with live listeners. Persisted claims and
+	// stopped-service ownership must be verified by the admission layer.
 	if !ip.IsUnspecified() && !ip.IsGlobalUnicast() && !ip.IsLoopback() {
 		return nil, errors.New("listen IP must be unicast, loopback or wildcard")
 	}
@@ -88,6 +92,12 @@ func New(cfg Config) (*Forwarder, error) {
 	if cfg.DialTimeout < 10*time.Millisecond || cfg.DialTimeout > 10*time.Second {
 		return nil, errors.New("dial timeout must be between 10ms and 10s")
 	}
+	if cfg.IdleTimeout == 0 {
+		cfg.IdleTimeout = 5 * time.Minute
+	}
+	if cfg.IdleTimeout < 50*time.Millisecond || cfg.IdleTimeout > 30*time.Minute {
+		return nil, errors.New("idle timeout must be between 50ms and 30m")
+	}
 	cfg.Listen = net.JoinHostPort(ip.String(), strconv.Itoa(port))
 	cfg.Target = net.JoinHostPort(target.String(), strconv.Itoa(targetPort))
 	network := func(ip net.IP) string {
@@ -105,6 +115,9 @@ func (f *Forwarder) RejectedConnections() uint64 { return f.rejected.Load() }
 // Run binds only the configured endpoint. A bind conflict leaves the existing
 // listener untouched. Context cancellation is a clean shutdown, not an error.
 func (f *Forwarder) Run(ctx context.Context) error {
+	if ctx == nil {
+		return errors.New("ingress context is required")
+	}
 	if ctx.Err() != nil {
 		return nil
 	}
@@ -120,16 +133,42 @@ func (f *Forwarder) Run(ctx context.Context) error {
 	return f.Serve(ctx, ln)
 }
 
-// Serve takes ownership of an already-bound matching TCP listener after
-// validation. A rejected or mismatched listener remains the caller's resource.
-// This also allows tests to retain socket ownership without bind/close races.
-func (f *Forwarder) Serve(parent context.Context, ln net.Listener) error {
+// ValidateListener is read-only admission for a caller-owned bound socket.
+// A failed preflight never changes or closes the listener. This lets the
+// ingress runtime reject a foreign numeric-port owner BEFORE it persists a
+// generation-fenced ownership claim or acknowledges the operation.
+// A successful snapshot is NOT a durable reservation against later binds.
+func (f *Forwarder) ValidateListener(ln net.Listener) error {
+	if f == nil {
+		return errors.New("ingress forwarder is required")
+	}
 	if ln == nil {
 		return errors.New("ingress listener is required")
 	}
 	addr, ok := ln.Addr().(*net.TCPAddr)
 	if !ok || addr.Port != f.listenPort || !addr.IP.Equal(f.listenIP) {
 		return errors.New("listener does not match configured ingress endpoint")
+	}
+	// Inspect both Linux TCP socket tables; unlike net.Listen success this
+	// detects another live owner on a different IP or address family.
+	return verifyNoOtherLiveTCPListeners(ln, f.listenPort)
+}
+
+// Serve takes ownership of an already-bound matching TCP listener after
+// validation. A rejected or mismatched listener remains the caller's resource.
+// This also allows tests to retain socket ownership without bind/close races.
+func (f *Forwarder) Serve(parent context.Context, ln net.Listener) error {
+	if parent == nil {
+		return errors.New("ingress context is required")
+	}
+	if parent.Err() != nil {
+		// Like Run on an already-canceled context, this is a clean
+		// shutdown. No listener was accepted or owned, so it remains
+		// the caller's responsibility to close it.
+		return nil
+	}
+	if err := f.ValidateListener(ln); err != nil {
+		return err
 	}
 	f.mu.Lock()
 	if f.running {
@@ -142,11 +181,24 @@ func (f *Forwarder) Serve(parent context.Context, ln net.Listener) error {
 	ctx, cancel := context.WithCancel(parent)
 	var clients sync.WaitGroup
 	stopListener := context.AfterFunc(ctx, func() { _ = ln.Close() })
-	defer func() { cancel(); _ = ln.Close(); clients.Wait(); stopListener() }()
+	// Periodically recheck for foreign listeners on the same numeric port.
+	// A successful bind or initial inventory snapshot alone is insufficient:
+	// another process may later bind a different IP/family.
+	liveFailures := make(chan error, 1)
+	watchDone := watchLiveTCPListener(ctx, f, ln, liveFailures)
+	defer func() { cancel(); _ = ln.Close(); clients.Wait(); stopListener(); <-watchDone }()
 	slots := make(chan struct{}, f.cfg.MaxClients)
 	for {
 		client, err := ln.Accept()
 		if err != nil {
+			// On conflict, the watchdog sends its evidence before closing
+			// our listener. Report a hard ownership error instead of
+			// treating it as an ordinary graceful shutdown.
+			select {
+			case liveErr := <-liveFailures:
+				return liveErr
+			default:
+			}
 			if ctx.Err() != nil {
 				return nil
 			}
@@ -167,6 +219,23 @@ func (f *Forwarder) Serve(parent context.Context, ln net.Listener) error {
 	}
 }
 
+// activityReader records successful stream reads, regardless of direction.
+// An idle peer cannot indefinitely exhaust the bounded connection budget.
+// The window is refreshed by real bytes, not by a connection merely staying
+// open; a write stalled by backpressure eventually expires too.
+type activityReader struct {
+	io.Reader
+	touch func()
+}
+
+func (r activityReader) Read(p []byte) (int, error) {
+	n, err := r.Reader.Read(p)
+	if n > 0 {
+		r.touch()
+	}
+	return n, err
+}
+
 func (f *Forwarder) forward(ctx context.Context, client net.Conn) {
 	defer client.Close()
 	stopClient := context.AfterFunc(ctx, func() { _ = client.Close() })
@@ -179,10 +248,19 @@ func (f *Forwarder) forward(ctx context.Context, client net.Conn) {
 	defer upstream.Close()
 	stopUpstream := context.AfterFunc(ctx, func() { _ = upstream.Close() })
 	defer stopUpstream()
+	// One idle budget covers traffic in either direction. Timeout closes both
+	// peers to release io.Copy goroutines and the admission slot. Successful
+	// reads reset the timer; inactivity cannot keep a slot indefinitely.
+	idle := time.AfterFunc(f.cfg.IdleTimeout, func() {
+		_ = client.Close()
+		_ = upstream.Close()
+	})
+	defer idle.Stop()
+	touch := func() { idle.Reset(f.cfg.IdleTimeout) }
 	// EOF half-closes only the destination write side. The opposite direction
 	// stays alive until its own EOF; request EOF may trigger a delayed response.
 	copyDirection := func(dst, src net.Conn) {
-		if _, err := io.Copy(dst, src); err != nil {
+		if _, err := io.Copy(dst, activityReader{Reader: src, touch: touch}); err != nil {
 			_ = client.Close()
 			_ = upstream.Close()
 			return

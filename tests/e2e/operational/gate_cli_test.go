@@ -91,7 +91,7 @@ func TestOperationalIngressV1Gate_CLIPairingWithInaccessibleBCCAndRepair(t *test
 	// pairing CLIs must never need it.
 	dead, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		t.Skipf("no loopback networking: %v", err)
+		t.Fatalf("loopback networking is required: %v", err)
 	}
 	deadAddr := dead.Addr().String()
 	dead.Close()

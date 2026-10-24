@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -23,6 +24,7 @@ import (
 	"github.com/zarkmakerburg/baft/internal/ingressauthority"
 	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
 	"github.com/zarkmakerburg/baft/internal/publicingress"
+	"github.com/zarkmakerburg/baft/tests/e2e/operational/oplab"
 )
 
 // stageGateIngress records the durable reviewed operation for an ACTIVE
@@ -339,6 +341,14 @@ func TestOperationalIngressV1Gate_AuthenticatedHTTPSReceiptFromEnrolledAgent(t *
 // own fresh nonce round trip through the real forwarder agreeing with the
 // receipt. Every earlier stage must show no card.
 func TestOperationalIngressV1Gate_VerifiedConfigCardOnlyAfterPhysicalProofAndReceipt(t *testing.T) {
+	// The real forwarder fails closed without the kernel's IPv6 TCP table
+	// (it must see every family to prove it owns the port).
+	if _, err := os.Stat("/proc/net/tcp6"); err != nil {
+		if oplab.Gate() {
+			t.Fatalf("the LAB needs /proc/net/tcp6: %v", err)
+		}
+		t.Skipf("no /proc/net/tcp6 (IPv6-less host): %v", err)
+	}
 	openIngressGateForTest(t)
 	s, spec, cmd, token := heldIngress(t)
 	now := time.Now().UTC()

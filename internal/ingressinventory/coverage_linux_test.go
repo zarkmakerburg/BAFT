@@ -195,3 +195,51 @@ func TestInstalledManagedPublicEntrypointIgnoresCallerRoot(t *testing.T) {
 		t.Fatal("mutable policy directory")
 	}
 }
+
+func TestInstalledCoverageLABSourceProvenanceRejectsNonRootOrWritableFiles(t *testing.T) {
+	policyFile, source, profile := installedFixture(t)
+	unit := filepath.Join(source, "foreign.socket")
+	if err := os.WriteFile(unit, []byte("[Socket]\nListenStream=54619\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	writeProfileFixture(t, policyFile, profile)
+	observe := func() (CoverageEvidence, error) {
+		return collectFromInstalledPath(context.Background(), policyFile, profile.NodeID, 54619)
+	}
+	first, err := observe()
+	if !errors.Is(err, ErrClaimConflict) || len(first.Sources) != 1 || len(first.Sources[0].Files) != 1 || len(first.Sources[0].Files[0].SHA256) != 64 {
+		t.Fatalf("source content/inode was not independently observed: %+v %v", first, err)
+	}
+	before := first.Sources[0].SHA256
+	if err := os.WriteFile(unit, []byte("[Socket]\nListenStream=54619\n# changed-byte-fingerprint\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	second, err := observe()
+	if !errors.Is(err, ErrClaimConflict) || len(second.Sources) != 1 || before == second.Sources[0].SHA256 {
+		t.Fatalf("changed effective stopped-source bytes were not fingerprinted: %+v %v", second, err)
+	}
+	if err := os.Chown(unit, 501, 501); err != nil {
+		t.Fatal(err)
+	}
+	if e, err := observe(); !errors.Is(err, ErrCoverageIncomplete) || e.CoverageComplete {
+		t.Fatalf("non-root-owned stopped service file accepted: %+v %v", e, err)
+	}
+	if err := os.Chown(unit, 0, 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chown(source, 501, 501); err != nil {
+		t.Fatal(err)
+	}
+	if e, err := observe(); !errors.Is(err, ErrCoverageIncomplete) || e.CoverageComplete {
+		t.Fatalf("non-root-owned source directory accepted: %+v %v", e, err)
+	}
+	if err := os.Chown(source, 0, 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(source, 0777); err != nil {
+		t.Fatal(err)
+	}
+	if e, err := observe(); !errors.Is(err, ErrCoverageIncomplete) || e.CoverageComplete {
+		t.Fatalf("writable installed service root accepted: %+v %v", e, err)
+	}
+}

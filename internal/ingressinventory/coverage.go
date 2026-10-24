@@ -49,6 +49,14 @@ func LoadInstalledManagedNodePolicy(ctx context.Context, expectedNodeID string) 
 	return loadInstalledManagedNodePolicy(ctx, InstalledPolicyPath, expectedNodeID)
 }
 
+type SourceFileIdentity struct {
+	Path      string
+	SHA256    string
+	Device    uint64
+	Inode     uint64
+	ModUnixNS int64
+}
+
 type SourceIdentity struct {
 	ID         string
 	Root       string
@@ -57,6 +65,7 @@ type SourceIdentity struct {
 	Inode      uint64
 	ModUnixNS  int64
 	ClaimCount int
+	Files      []SourceFileIdentity // actual source bytes and root-owned file identity
 }
 
 // ActiveTCPClaim is one observed kernel entry on the requested numeric

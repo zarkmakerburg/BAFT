@@ -14,6 +14,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -211,25 +212,44 @@ func liveTCPPort(ctx context.Context, port uint16) ([]ActiveTCPClaim, []string) 
 }
 
 func sourceFingerprint(root string, claims []PersistentTCPPortClaim) (SourceIdentity, error) {
+	dev, inode, err := protectedSourceRootIdentity(root)
+	if err != nil {
+		return SourceIdentity{}, ErrCoverageIncomplete
+	}
 	fi, err := os.Lstat(root)
 	if err != nil || !fi.IsDir() || fi.Mode()&os.ModeSymlink != 0 || fi.Mode().Perm()&0022 != 0 {
 		return SourceIdentity{}, ErrCoverageIncomplete
 	}
 	st, ok := fi.Sys().(*syscall.Stat_t)
-	if !ok {
+	if !ok || uint64(st.Dev) != dev || st.Ino != inode {
 		return SourceIdentity{}, ErrCoverageIncomplete
+	}
+	files, err := scanPinnedSourceFiles(root)
+	if err != nil {
+		return SourceIdentity{}, err
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s\x00%d\x00%d\x00%d", root, st.Dev, st.Ino, fi.ModTime().UnixNano())
 	for _, c := range claims {
 		fmt.Fprintf(&b, "\x00%d:%s:%s:%s", c.Port, c.Unit, c.Source, c.Definition)
 	}
+	for _, file := range files {
+		fmt.Fprintf(&b, "\x00%s:%s:%d:%d:%d", file.Path, file.SHA256, file.Device, file.Inode, file.ModUnixNS)
+	}
 	sum := sha256.Sum256([]byte(b.String()))
+	newDev, newInode, err := protectedSourceRootIdentity(root)
+	if err != nil || newDev != dev || newInode != inode {
+		return SourceIdentity{}, ErrCoverageIncomplete
+	}
 	newfi, err := os.Lstat(root)
 	if err != nil || !os.SameFile(fi, newfi) || !fi.ModTime().Equal(newfi.ModTime()) {
 		return SourceIdentity{}, ErrCoverageIncomplete
 	}
-	return SourceIdentity{ID: root, Root: root, SHA256: hex.EncodeToString(sum[:]), Device: uint64(st.Dev), Inode: st.Ino, ModUnixNS: fi.ModTime().UnixNano(), ClaimCount: len(claims)}, nil
+	return SourceIdentity{
+		ID: root, Root: root, SHA256: hex.EncodeToString(sum[:]),
+		Device: dev, Inode: inode, ModUnixNS: fi.ModTime().UnixNano(),
+		ClaimCount: len(claims), Files: files,
+	}, nil
 }
 
 // Only the fixed-path exported entrypoint uses this function. The path
@@ -318,6 +338,16 @@ func collectFromInstalledPath(ctx context.Context, policyPath, expectedNodeID st
 	// Missing independent proof of these classes still refuses mint.
 	for _, category := range []string{"systemd direct ExecStart binds", "systemd runtime/generated or masked units", "container/other supervisor listeners", "other network namespaces", "Alpha durable BAFT claims"} {
 		result.UnknownSources = append(result.UnknownSources, category+": independent exclusion not established")
+	}
+	// Reopen the installed on-node profile through pinned protected path
+	// components after independently collecting source/kernel state. Detect
+	// policy, inode and namespace drift instead of trusting its first read.
+	fresh, err := loadInstalledManagedNodePolicy(ctx, policyPath, expectedNodeID)
+	if err != nil || fresh.ProfileSHA256 != profile.ProfileSHA256 ||
+		fresh.ProfileDevice != profile.ProfileDevice || fresh.ProfileInode != profile.ProfileInode ||
+		fresh.NetworkNamespace != profile.NetworkNamespace ||
+		!slices.Equal(fresh.SourceRoots, profile.SourceRoots) {
+		return coverageError(result, "installed profile or node namespace changed during observation")
 	}
 	result.FreshUntil = result.CollectedAt.Add(2 * time.Second)
 	return result, fmt.Errorf("%w: %s", ErrCoverageIncomplete, strings.Join(result.UnknownSources, ", "))

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -172,8 +173,8 @@ func TestInstalledCoverageLABSourceAndGenerationRefusal(t *testing.T) {
 	}
 	_ = os.Remove(file)
 	e, err = collectFromInstalledPath(context.Background(), policyFile, p.NodeID, 54619)
-	if !errors.Is(err, ErrCoverageIncomplete) || e.CoverageComplete || len(e.UnknownSources) < 3 {
-		t.Fatalf("unsupported non-socket service managers erased without proof: %v %v", err, e)
+	if !errors.Is(err, ErrCoverageIncomplete) || e.CoverageComplete || len(e.UnknownSources) < 1 {
+		t.Fatalf("unmeasured managed execution scope was promoted to complete coverage: %v %v", err, e)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -241,5 +242,52 @@ func TestInstalledCoverageLABSourceProvenanceRejectsNonRootOrWritableFiles(t *te
 	}
 	if e, err := observe(); !errors.Is(err, ErrCoverageIncomplete) || e.CoverageComplete {
 		t.Fatalf("writable installed service root accepted: %+v %v", e, err)
+	}
+}
+
+// This is NOT the host/VPS path: tests explicitly launch under a disposable,
+// loopback-only Linux network namespace with no other namespace occupants.
+// Every executor/manager class exclusion is measured again after the scan.
+func TestManagedLABMeasuredExecutionOnlyInPrivateNamespace(t *testing.T) {
+	current, err := namespaceIdentity()
+	if err != nil {
+		t.Fatal(err)
+	}
+	initNS, err := os.Readlink("/proc/1/ns/net")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current == initNS {
+		t.Skip("requires disposable private Linux netns")
+	}
+	profilePath, _, profile := installedFixture(t)
+	writeProfileFixture(t, profilePath, profile)
+	e, err := collectFromInstalledPath(context.Background(), profilePath, profile.NodeID, 54619)
+	if err != nil || !e.CoverageComplete || len(e.UnknownSources) != 0 ||
+		e.LABExecution.OwnPID != os.Getpid() || e.LABExecution.CurrentNetNS != current ||
+		len(e.LABExecution.Interfaces) != 1 || e.LABExecution.Interfaces[0] != "lo" {
+		t.Fatalf("independently measured isolated LAB baseline did not pass: %+v err=%v", e, err)
+	}
+	// A second process running inside the SAME network namespace is a
+	// measured unsupported execution source, not something that can be
+	// waived by a profile field or a previously clean baseline.
+	peer := exec.Command("/bin/sleep", "10")
+	if err := peer.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = peer.Process.Kill(); _ = peer.Wait() }()
+	if e, err := collectFromInstalledPath(context.Background(), profilePath, profile.NodeID, 54619); !errors.Is(err, ErrCoverageIncomplete) || e.CoverageComplete || len(e.UnknownSources) == 0 {
+		t.Fatalf("concurrent same-netns process was silently accepted: %+v err=%v", e, err)
+	}
+	_ = peer.Process.Kill()
+	_ = peer.Wait()
+	ln, err := net.Listen("tcp4", "127.0.0.1:54619")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	e, err = collectFromInstalledPath(context.Background(), profilePath, profile.NodeID, 54619)
+	if !errors.Is(err, ErrClaimConflict) || !e.CoverageComplete || len(e.ActiveTCP) == 0 {
+		t.Fatalf("live foreign listener not vetoed under complete LAB observation: %+v err=%v", e, err)
 	}
 }

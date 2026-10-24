@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"time"
 )
 
@@ -83,6 +84,21 @@ type ActiveTCPClaim struct {
 // verified installed policy and complete trustworthy host discovery are
 // needed before Alpha can even evaluate minting a *Lease*. A policy cannot
 // confer completeness by merely claiming "supported=true".
+// PrivateLABExecutionEvidence describes independently observed singleton
+// execution in a disposable loopback-only Linux network namespace. It never
+// serves as authority or anticipates processes that may start later.
+type PrivateLABExecutionEvidence struct {
+	CurrentNetNS string
+	InitNetNS    string
+	OwnPID       int
+	Interfaces   []string
+	Processes    []int
+}
+
+func (e PrivateLABExecutionEvidence) matches(other PrivateLABExecutionEvidence) bool {
+	return reflect.DeepEqual(e, other)
+}
+
 type CoverageEvidence struct {
 	NodeID            string
 	Port              uint16
@@ -97,6 +113,7 @@ type CoverageEvidence struct {
 	Sources           []SourceIdentity
 	Stopped           []PersistentTCPPortClaim
 	ActiveTCP         []ActiveTCPClaim
+	LABExecution      PrivateLABExecutionEvidence
 	UnknownSources    []string
 	SupportedEnvelope bool // policy+platform checks; does NOT imply complete
 	CoverageComplete  bool // remains false until all unsupported classes independently excluded

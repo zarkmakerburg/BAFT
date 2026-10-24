@@ -35,6 +35,119 @@ func NewOperationalExecutor(runtime *Runtime, nft *NFTLabBackend, journal Mutati
 	}}, nil
 }
 
+// ownedRetireListener classifies one real kernel socket as ours only when
+// the local Runtime session, immutable proof, verified operation journal,
+// exact bound listener and observed kernel inode ALL agree. The caller
+// cannot provide a trusted inode or a Boolean permission. Every other
+// numeric-port LISTEN (even another IP/family) remains foreign.
+func (x *OperationalExecutor) ownedRetireListener(ctx context.Context, b ingressauthority.BindingV1, observed ingressinventory.CoverageEvidence) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	_, plan, err := nftTransactionRecord(b.Spec, b.Proof)
+	if err != nil || plan.Port != b.Port {
+		return ErrUnverified
+	}
+	record, found, err := x.transaction.Journal.Current(b.Proof)
+	if err != nil || !found || record.Owner != b.Proof || record.Port != b.Port ||
+		record.Phase != PhaseVerified || record.FirewallHandle == 0 {
+		return errors.Join(ErrUnverified, err)
+	}
+	r := x.transaction.Runtime
+	r.mu.Lock()
+	s, ok := r.sessions[b.ListenEndpoint]
+	if !ok || s.proof != b.Proof || s.listener == nil || s.forwarder == nil ||
+		s.retiring || s.ctx.Err() != nil {
+		r.mu.Unlock()
+		return ErrUnverified
+	}
+	tcp, ok := s.listener.(*net.TCPListener)
+	if !ok || tcp.Addr().String() != b.ListenEndpoint {
+		r.mu.Unlock()
+		return ErrUnverified
+	}
+	// ValidateListener independently inventories the same numeric port and
+	// rejects other live owners in both families, not merely same IP.
+	if err := s.forwarder.ValidateListener(s.listener); err != nil {
+		r.mu.Unlock()
+		return errors.Join(ErrConflict, err)
+	}
+	duplicate, err := tcp.File()
+	r.mu.Unlock()
+	if err != nil {
+		return errors.Join(ErrUnverified, err)
+	}
+	info, statErr := duplicate.Stat()
+	_ = duplicate.Close()
+	if statErr != nil {
+		return errors.Join(ErrUnverified, statErr)
+	}
+	st, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || st.Ino == 0 {
+		return ErrUnverified
+	}
+	host, _, err := net.SplitHostPort(b.ListenEndpoint)
+	if err != nil {
+		return ErrUnverified
+	}
+	expectedFamily := "tcp6"
+	if net.ParseIP(host).To4() != nil {
+		expectedFamily = "tcp4"
+	}
+	matches := 0
+	for _, claim := range observed.Stopped {
+		if claim.Port == b.Port {
+			return ErrConflict
+		}
+	}
+	for _, entry := range observed.ActiveTCP {
+		if entry.Port != b.Port {
+			return ErrUnverified
+		}
+		if entry.State != "0A" {
+			continue
+		}
+		if entry.Inode == st.Ino && entry.Family == expectedFamily {
+			matches++
+			continue
+		}
+		return fmt.Errorf("%w: foreign kernel listener %s inode=%d on shared port %d", ErrConflict, entry.Family, entry.Inode, b.Port)
+	}
+	if matches != 1 {
+		return ErrUnverified
+	}
+	return ctx.Err()
+}
+
+func (x *OperationalExecutor) preflightRetire(ctx context.Context, cmd ingressauthority.CommandV1, lease *ingressauthority.Lease) error {
+	if x == nil || x.transaction == nil || x.transaction.Runtime == nil || x.transaction.Firewall == nil || x.transaction.Journal == nil {
+		return ErrExecutorTrustUnavailable
+	}
+	if cmd.Action != "public_ingress_retire" {
+		return ingressauthority.ErrBinding
+	}
+	if err := CheckIngressExecutorAuthority(ctx, lease, cmd); err != nil {
+		return err
+	}
+	observed, scanErr := ingressinventory.CollectInstalledManagedTCP(ctx, cmd.Binding.NodeID, cmd.Binding.Port)
+	// A normal collector observes our original bound listener as an active
+	// LISTEN conflict. This is not authorization to ignore the numeric port.
+	// Independently prove the exact journal+runtime+kernel identity first.
+	if err := x.ownedRetireListener(ctx, cmd.Binding, observed); err != nil {
+		if scanErr != nil && !errors.Is(scanErr, ingressinventory.ErrClaimConflict) {
+			return errors.Join(err, scanErr)
+		}
+		return err
+	}
+	if scanErr != nil && !errors.Is(scanErr, ingressinventory.ErrClaimConflict) {
+		return scanErr
+	}
+	if !observed.CoverageComplete || len(observed.UnknownSources) != 0 {
+		return ingressinventory.ErrCoverageIncomplete
+	}
+	return CheckIngressExecutorAuthority(ctx, lease, cmd)
+}
+
 func (x *OperationalExecutor) preflight(ctx context.Context, cmd ingressauthority.CommandV1, lease *ingressauthority.Lease, action string) error {
 	if x == nil || x.transaction == nil || x.transaction.Runtime == nil || x.transaction.Firewall == nil || x.transaction.Journal == nil {
 		return ErrExecutorTrustUnavailable
@@ -67,7 +180,7 @@ func (x *OperationalExecutor) Apply(ctx context.Context, cmd ingressauthority.Co
 	if err := x.preflight(ctx, cmd, lease, "public_ingress_apply"); err != nil {
 		return ObservedIngressV1{}, err
 	}
-	if err := x.transaction.Apply(ctx, cmd.Binding.Spec, cmd.Binding.Proof); err != nil {
+	if err := x.transaction.ApplyWithLease(ctx, cmd.Binding.Spec, cmd.Binding.Proof, cmd, lease); err != nil {
 		return ObservedIngressV1{}, err
 	}
 	if err := CheckIngressExecutorAuthority(ctx, lease, cmd); err != nil {
@@ -95,7 +208,7 @@ type RetiredIngressEvidence struct {
 }
 
 func (x *OperationalExecutor) Retire(ctx context.Context, cmd ingressauthority.CommandV1, lease *ingressauthority.Lease) (RetiredIngressEvidence, error) {
-	if err := x.preflight(ctx, cmd, lease, "public_ingress_retire"); err != nil {
+	if err := x.preflightRetire(ctx, cmd, lease); err != nil {
 		return RetiredIngressEvidence{}, err
 	}
 	_, plan, err := nftTransactionRecord(cmd.Binding.Spec, cmd.Binding.Proof)
@@ -109,7 +222,7 @@ func (x *OperationalExecutor) Retire(ctx context.Context, cmd ingressauthority.C
 	if err := CheckIngressExecutorAuthority(ctx, lease, cmd); err != nil {
 		return RetiredIngressEvidence{}, err
 	}
-	retireErr := x.transaction.Retire(ctx, cmd.Binding.Spec, cmd.Binding.Proof)
+	retireErr := x.transaction.RetireWithLease(ctx, cmd.Binding.Spec, cmd.Binding.Proof, cmd, lease)
 	if !listenerRetirementVerified(retireErr) {
 		return RetiredIngressEvidence{}, retireErr
 	}

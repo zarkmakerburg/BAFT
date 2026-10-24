@@ -53,3 +53,32 @@ func TestOperationalExecutorNoMutationWithoutConcreteAlphaLease(t *testing.T) {
 		t.Fatal("nil durable journal accepted")
 	}
 }
+
+// Operational nft transaction methods accept only Alpha's concrete lease:
+// the older LAB methods remain separate and cannot accidentally be called
+// as the signed operational executor's effectful path.
+func TestGuardedNFTTransactionFencesEveryMutationBeforeFirstEffect(t *testing.T) {
+	cmd := executorCommandV1(t)
+	journal := new(LabJournal)
+	rt := NewRuntime()
+	fake := &nftLabFake{chainHandle: 7}
+	tx := &NFTLabTransaction{Runtime: rt, Firewall: &NFTLabBackend{
+		Runner: fake, ExpectedChainHandle: 7,
+	}, Journal: journal}
+	var unminted ingressauthority.Lease
+	if err := tx.ApplyWithLease(context.Background(), cmd.Binding.Spec, cmd.Binding.Proof, cmd, &unminted); !errors.Is(err, ingressauthority.ErrUnverified) {
+		t.Fatalf("unminted concrete lease reached effectful Apply: %v", err)
+	}
+	retire := cmd
+	retire.JobID = "independent-retire"
+	retire.Action = "public_ingress_retire"
+	if err := tx.RetireWithLease(context.Background(), retire.Binding.Spec, retire.Binding.Proof, retire, &unminted); !errors.Is(err, ingressauthority.ErrUnverified) {
+		t.Fatalf("unminted concrete lease reached effectful Retire: %v", err)
+	}
+	if len(rt.sessions) != 0 || len(journal.Snapshot()) != 0 || fake.ruleHandle != 0 {
+		t.Fatal("operational transaction changed listener/journal/nft without held Alpha lease")
+	}
+	if err := tx.ApplyWithLease(context.Background(), cmd.Binding.Spec, cmd.Binding.Proof, cmd, nil); !errors.Is(err, ErrExecutorTrustUnavailable) {
+		t.Fatalf("nil live lease reached effectful transaction: %v", err)
+	}
+}

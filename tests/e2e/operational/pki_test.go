@@ -85,3 +85,15 @@ func (p *pki) server(t *testing.T, h http.Handler) *httptest.Server {
 	t.Cleanup(srv.Close)
 	return srv
 }
+
+// serverOn is server() on an existing listener (same address across a restart).
+func (p *pki) serverOn(t *testing.T, h http.Handler, ln net.Listener) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewUnstartedServer(h)
+	srv.Listener.Close()
+	srv.Listener = ln
+	srv.TLS = p.serverConfig()
+	srv.StartTLS()
+	t.Cleanup(srv.Close)
+	return srv
+}

@@ -154,7 +154,7 @@ func reDigest(j *agentjob.Job, instance string) {
 	proof, err := ingressmanifest.Preview(ingressmanifest.Spec{TunnelID: j.Params["tunnel_id"], InstanceID: instance, Generation: gen,
 		Config: ingressmanifest.Config{Listen: j.Params["listen_endpoint"], Target: j.Params["local_target"], MaxClients: 128, DialTimeoutMS: 3000}})
 	if err != nil {
-		panic(err)
+		return // not even canonical (e.g. a privileged port): the digests stay stale
 	}
 	j.Params["manifest_digest"], j.Params["config_sha256"] = proof.ManifestSHA256, proof.ConfigSHA256
 }

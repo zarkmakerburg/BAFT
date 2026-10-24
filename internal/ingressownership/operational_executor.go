@@ -40,87 +40,73 @@ func NewOperationalExecutor(runtime *Runtime, nft *NFTLabBackend, journal Mutati
 // exact bound listener and observed kernel inode ALL agree. The caller
 // cannot provide a trusted inode or a Boolean permission. Every other
 // numeric-port LISTEN (even another IP/family) remains foreign.
+//
+// A journaled PhaseRetireIntent with the SAME live exact socket is accepted
+// too: the intent was durably written but the process stopped before closing
+// the listener. The identical inode/session/foreign checks still apply.
 func (x *OperationalExecutor) ownedRetireListener(ctx context.Context, b ingressauthority.BindingV1, observed ingressinventory.CoverageEvidence) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
 	// Proving a single exact own inode never erases unknown or partially
 	// inspected services, source trees or a concurrent namespace occupant.
 	// Only the actual protected collector can populate this observation.
+	_, err := x.transaction.exactOwnedListener(ctx, b, observed, PhaseVerified, PhaseRetireIntent)
+	return err
+}
+
+// reconcileStoppedRetire authorizes ONLY the continuation of a partial retire
+// whose exact owned socket this very process already closed (a Runtime.Retire
+// success recorded in the transaction with the closed socket's kernel inode)
+// but whose exact-handle nft Remove or final journal step did not finish.
+// Evidence required, none inferred from a missing map entry or a journal phase:
+//   - complete protected collector coverage, no stopped foreign claim on the port;
+//   - durable PhaseRetireIntent with the same owner, port and nft handle;
+//   - process-local stopped record bound to this Runtime, backend, chain handle,
+//     nft handle and a nonzero closed inode;
+//   - no Runtime session for the endpoint and the closed inode absent from
+//     every numeric-port kernel row (a different, foreign LISTEN is never
+//     adopted or touched).
+//
+// The exact nft handle readback / absence proof stays in retireLocked, and every
+// nft effect is separately re-fenced with a fresh socket inventory.
+func (x *OperationalExecutor) reconcileStoppedRetire(ctx context.Context, b ingressauthority.BindingV1, observed ingressinventory.CoverageEvidence) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if !observed.CoverageComplete || len(observed.UnknownSources) != 0 {
 		return ingressinventory.ErrCoverageIncomplete
 	}
+	t := x.transaction
 	_, plan, err := nftTransactionRecord(b.Spec, b.Proof)
 	if err != nil || plan.Port != b.Port {
 		return ErrUnverified
 	}
-	record, found, err := x.transaction.Journal.Current(b.Proof)
+	record, found, err := t.Journal.Current(b.Proof)
 	if err != nil || !found || record.Owner != b.Proof || record.Port != b.Port ||
-		record.Phase != PhaseVerified || record.FirewallHandle == 0 {
+		record.Phase != PhaseRetireIntent || record.FirewallHandle == 0 {
 		return errors.Join(ErrUnverified, err)
 	}
-	r := x.transaction.Runtime
-	r.mu.Lock()
-	s, ok := r.sessions[b.ListenEndpoint]
-	if !ok || s.proof != b.Proof || s.listener == nil || s.forwarder == nil ||
-		s.retiring || s.ctx.Err() != nil {
-		r.mu.Unlock()
+	t.mu.Lock()
+	stopped, ok := t.stopped[b.Proof]
+	t.mu.Unlock()
+	if !ok || stopped.runtime != t.Runtime || stopped.firewall != t.Firewall ||
+		stopped.chainHandle != t.Firewall.ExpectedChainHandle ||
+		stopped.handle != record.FirewallHandle || stopped.inode == 0 {
 		return ErrUnverified
 	}
-	tcp, ok := s.listener.(*net.TCPListener)
-	if !ok || tcp.Addr().String() != b.ListenEndpoint {
-		r.mu.Unlock()
+	t.Runtime.mu.Lock()
+	_, bound := t.Runtime.sessions[b.ListenEndpoint]
+	t.Runtime.mu.Unlock()
+	if bound {
 		return ErrUnverified
 	}
-	// ValidateListener independently inventories the same numeric port and
-	// rejects other live owners in both families, not merely same IP.
-	if err := s.forwarder.ValidateListener(s.listener); err != nil {
-		r.mu.Unlock()
-		return errors.Join(ErrConflict, err)
-	}
-	duplicate, err := tcp.File()
-	r.mu.Unlock()
-	if err != nil {
-		return errors.Join(ErrUnverified, err)
-	}
-	info, statErr := duplicate.Stat()
-	_ = duplicate.Close()
-	if statErr != nil {
-		return errors.Join(ErrUnverified, statErr)
-	}
-	st, ok := info.Sys().(*syscall.Stat_t)
-	if !ok || st.Ino == 0 {
-		return ErrUnverified
-	}
-	host, _, err := net.SplitHostPort(b.ListenEndpoint)
-	if err != nil {
-		return ErrUnverified
-	}
-	expectedFamily := "tcp6"
-	if net.ParseIP(host).To4() != nil {
-		expectedFamily = "tcp4"
-	}
-	matches := 0
 	for _, claim := range observed.Stopped {
 		if claim.Port == b.Port {
 			return ErrConflict
 		}
 	}
 	for _, entry := range observed.ActiveTCP {
-		if entry.Port != b.Port {
+		if entry.Port != b.Port || entry.Inode == stopped.inode {
 			return ErrUnverified
 		}
-		if entry.State != "0A" {
-			continue
-		}
-		if entry.Inode == st.Ino && entry.Family == expectedFamily {
-			matches++
-			continue
-		}
-		return fmt.Errorf("%w: foreign kernel listener %s inode=%d on shared port %d", ErrConflict, entry.Family, entry.Inode, b.Port)
-	}
-	if matches != 1 {
-		return ErrUnverified
 	}
 	return ctx.Err()
 }
@@ -139,11 +125,17 @@ func (x *OperationalExecutor) preflightRetire(ctx context.Context, cmd ingressau
 	// A normal collector observes our original bound listener as an active
 	// LISTEN conflict. This is not authorization to ignore the numeric port.
 	// Independently prove the exact journal+runtime+kernel identity first.
-	if err := x.ownedRetireListener(ctx, cmd.Binding, observed); err != nil {
-		if scanErr != nil && !errors.Is(scanErr, ingressinventory.ErrClaimConflict) {
-			return errors.Join(err, scanErr)
+	owned := x.ownedRetireListener(ctx, cmd.Binding, observed)
+	if owned != nil {
+		// The socket is not live. Only a process-local verified stop plus a
+		// journaled RetireIntent may continue; otherwise the original
+		// refusal stands.
+		if reconcile := x.reconcileStoppedRetire(ctx, cmd.Binding, observed); reconcile != nil {
+			if scanErr != nil && !errors.Is(scanErr, ingressinventory.ErrClaimConflict) {
+				return errors.Join(owned, scanErr)
+			}
+			return owned
 		}
-		return err
 	}
 	if scanErr != nil && !errors.Is(scanErr, ingressinventory.ErrClaimConflict) {
 		return scanErr
@@ -222,7 +214,7 @@ func (x *OperationalExecutor) Retire(ctx context.Context, cmd ingressauthority.C
 		return RetiredIngressEvidence{}, err
 	}
 	before, found, err := x.transaction.Journal.Current(cmd.Binding.Proof)
-	if err != nil || !found || before.Phase != PhaseVerified || before.Port != plan.Port || before.FirewallHandle == 0 {
+	if err != nil || !found || (before.Phase != PhaseVerified && before.Phase != PhaseRetireIntent) || before.Port != plan.Port || before.FirewallHandle == 0 {
 		return RetiredIngressEvidence{}, errors.Join(ErrUnverified, err)
 	}
 	if err := CheckIngressExecutorAuthority(ctx, lease, cmd); err != nil {

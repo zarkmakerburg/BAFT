@@ -33,7 +33,7 @@ func TestNFTLabRetireRetriesAfterOwnedSocketStopped(t *testing.T) {
 	}
 	// Rebinding proves the original listener is gone. The retry must not
 	// stop this unrelated service just because it now occupies the old port.
-	foreign, err := net.Listen("tcp4", spec.Config.Listen)
+	foreign, err := listenWithForensics(t, "tcp4", spec.Config.Listen)
 	if err != nil {
 		t.Fatalf("owned listener did not stop: %v", err)
 	}

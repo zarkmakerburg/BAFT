@@ -57,7 +57,7 @@ func TestNFTLabRollbackRetriesDurableIntentAndFinalizationFaults(t *testing.T) {
 				t.Fatalf("wrong fault boundary: %+v rule=%d err=%v", current, fake.ruleHandle, err)
 			}
 			journal.fault = nil
-			foreign, err := net.Listen("tcp4", spec.Config.Listen)
+			foreign, err := listenWithForensics(t, "tcp4", spec.Config.Listen)
 			if err != nil {
 				t.Fatal(err)
 			}

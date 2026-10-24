@@ -79,8 +79,10 @@ func (s *site) apply(t *testing.T) {
 	t.Helper()
 	s.stage(t)
 	f := s.f
-	if err := f.b.store.EnqueueOperationalIngress(s.tn.ID); err == nil {
-		t.Fatal("enqueue succeeded before the Agent declared operational-ingress-v1 (gate must be closed)")
+	if !f.a.gate {
+		if err := f.b.store.EnqueueOperationalIngress(s.tn.ID); err == nil {
+			t.Fatal("enqueue succeeded before the Agent declared operational-ingress-v1 (gate must be closed)")
+		}
 	}
 	f.a.openGate()
 	if err := f.b.store.EnqueueOperationalIngress(s.tn.ID); err != nil {

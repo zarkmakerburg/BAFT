@@ -339,6 +339,7 @@ type agentRig struct {
 	client *http.Client
 	token  string
 	node   string
+	gate   bool // the Agent has polled with its capability at least once
 }
 
 type agentOpt struct {
@@ -425,6 +426,7 @@ func (r *agentRig) runOnce() []agent.Result {
 // operational-ingress-v1 capability (the production enqueue gate).
 func (r *agentRig) openGate() {
 	r.t.Helper()
+	r.gate = true
 	if jobs := r.runOnce(); len(jobs) != 0 {
 		r.t.Fatalf("unexpected jobs while opening the gate: %+v", jobs)
 	}

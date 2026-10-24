@@ -23,9 +23,13 @@ type Runtime struct {
 	sessions map[string]*session
 }
 type session struct {
-	proof    ingressmanifest.Proof
-	cancel   context.CancelFunc
-	done     chan error
+	proof  ingressmanifest.Proof
+	cancel context.CancelFunc
+	// done is a broadcast completion signal, not a consumable error queue.
+	// Multiple health checks must not drain the terminal outcome before
+	// exact-owner Retire has inspected it.
+	done     chan struct{}
+	result   error
 	retiring bool
 }
 
@@ -108,6 +112,13 @@ func (r *Runtime) Apply(parent context.Context, spec ingressmanifest.Spec, proof
 	if err != nil {
 		return fmt.Errorf("ingress bind: %w", err)
 	}
+	// Check for live foreign owners across both TCP address families before
+	// consuming the generation or reporting Apply success. Serve repeats this
+	// read-only check after launch to narrow (not eliminate) TOCTOU exposure.
+	if err := f.ValidateListener(ln); err != nil {
+		_ = ln.Close()
+		return fmt.Errorf("ingress admission: %w", err)
+	}
 	if err := r.registry.Claim(spec.Config.Listen, proof); err != nil {
 		_ = ln.Close()
 		return err
@@ -117,7 +128,7 @@ func (r *Runtime) Apply(parent context.Context, spec ingressmanifest.Spec, proof
 	// A concurrently cancelled parent is represented by a stopped session,
 	// which can only be retired with its exact proof.
 	ctx, cancel := context.WithCancel(parent)
-	s := &session{proof: proof, cancel: cancel, done: make(chan error, 1)}
+	s := &session{proof: proof, cancel: cancel, done: make(chan struct{})}
 	r.sessions[spec.Config.Listen] = s
 	go func() {
 		err := f.Serve(ctx, ln)
@@ -127,7 +138,7 @@ func (r *Runtime) Apply(parent context.Context, spec ingressmanifest.Spec, proof
 		r.mu.Lock()
 		// Retain a completed session until explicit exact-owner retirement.
 		// Otherwise an unexpected exit could allow a stale same-proof retry.
-		s.done <- err
+		s.result = err
 		close(s.done)
 		r.mu.Unlock()
 	}()
@@ -157,9 +168,10 @@ func (r *Runtime) Retire(endpoint string, proof ingressmanifest.Proof) error {
 	s.retiring = true
 	s.cancel()
 	r.mu.Unlock()
-	err = <-s.done
+	<-s.done
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	err = s.result
 	if releaseErr := r.registry.Release(endpoint, proof); releaseErr != nil {
 		return releaseErr
 	}

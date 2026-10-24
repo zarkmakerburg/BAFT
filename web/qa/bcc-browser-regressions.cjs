@@ -191,7 +191,7 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       const endpoint=f.base+'api/tunnels/plan';
       await page.route(endpoint,r=>r.fulfill({status:503,contentType:'text/plain',body:'QA failure fixture'}));
       await Promise.all([page.waitForResponse(r=>r.url()===endpoint&&r.status()===503),review.click()]);
-      // Failed re-planning must discard the earlier deployable hash and button.
+      // Failed re-planning must invalidate the old hash and its deploy action.
       await page.waitForFunction(hash=>!(document.querySelector('#ops_tnPlan')?.textContent||'').includes(hash),plan.hash);
       assert.equal((await page.locator('#ops_tnPlan').textContent()).includes(plan.hash),false);
       assert.equal(await page.locator('#ops_tnPlan [onclick="tnDeploy()"]').count(),0);

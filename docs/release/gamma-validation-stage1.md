@@ -178,6 +178,37 @@ On subsequent integrated QA SHA `fe245f161d50821644ace410b78c2c7b3a750e6b`, inde
 
 **The owner accepts representative disposable LAB results as the final environment-level evidence.** No physical host, production SSH access or production deployment is a separate release prerequisite. The **functional contract is still mandatory**: reviewed BCC request and plan hash -> signed Agent Apply with durable authoritative reservation -> real IR TCP listener/firewall and end-to-end data -> verified signed receipt -> unchanged Wizard/client config port; plus foreign/stopped-service ownership, fail-closed uncertainty, interruption/rollback, and restart recovery. The existing isolated pairing and v0.3.7 upgrade LABs do **not** prove this BCC-to-Agent vertical slice; until it passes, P0 #269 remains OPEN / NO-GO.
 
+## P0 #269 — frozen operational dependency map (HQ #6379745406 / #6379807771)
+
+This is a **dependency ledger, not an Apply simulator**. Owner accepts
+representative disposable Linux LAB evidence; the actual authenticated
+BCC-to-Agent-to-kernel functional path and safe rollback/restart remain required.
+Existing HTTPS ReceiptV1 fixtures validate transport/negative parsing only.
+Do not infer operational success from a trusted certificate, a status flag,
+a read-only preflight, or a structurally matching ReceiptV1.
+
+| Owner | Exact known seam / required publication | Gamma real-LAB assertion | Current gate |
+|---|---|---|---|
+| **Delta** | Dependency-leaf `internal/ingressinventory`: `ingressinventory.CollectInstalledManagedTCP(ctx, expectedNodeID, port)`. Decoder/version contract for locally installed `/etc/baft/ingress/managed-node.json`, with independent Linux namespace, source identity/freshness, active AND stopped claims and explicit unsupported/unknown coverage. No caller-supplied trusted roots, `supported` assertion, or permissive fallback. | Assert trusted profile plus inventory/aliases/restart; unsupported/unreadable/drifted manager/runtime/container source refuses mutation. Check actual listener and owned nft/firewall readback. | **BLOCKED** until collector/decoder and guarded executor are published |
+| **Alpha** | Protected installer/bootstrap profile provisioning using Delta's *same* decoder; actual shared `ingressauthority.BindingV1`, `CommandV1`, `ReceiptV1`, durable held lease/journal and signed `public_ingress_apply` admission. Bind exact node, namespace, resource, PlanSHA256 and operation/job/lease identity; Retire gets a new signed job ID. Publish executable dispatch/admission interface and ownership lifecycle. | Signed Apply must require held independent authority, refuse lost lock/restart uncertainty; interrupted Apply/rollback and separate signed Retire never delete sibling or foreign resources. | **BLOCKED** until durable hold/dispatch and installer profile provisioning |
+| **Beta** | Publish the actual BCC reviewed plan/queue-to-signed-Agent route/constructor, canonical client/config-port persistence, enrolled per-node Agent credential verifier and **Agent POST -> BCC HTTPS** ReceiptV1 receiver. TLS authenticates BCC server; enrolled credential authenticates Agent independently. Publish persisted receipt/verified-active/config readback APIs. | Same exact persisted BCC `Plan.Hash` (PlanSHA256), command/job/operation/generation, node and canonical port from Review through listener/TCP and authenticated ReceiptV1/config. Wrong credential/hash/identity, duplicate/stale receipt remain fail-closed. | **BLOCKED** until actual queue/receiver/readback APIs are published |
+| **Gamma** | Consume owners' published APIs only in `tests/e2e`, `tests/release` and dedicated Gamma workflows; no local second authority, mirror schema, invented positive Apply/Receipt or production service mutation. | Real isolated Linux vertical slice plus falsification matrix: stopped foreign claim, live cross-family alias, lost lock, crash/restart, partial rollback, sibling service, mismatch and missing/unsafe inventory; exact on-wire receipt/config port. | **RED / UNVERIFIED** for complete operational path |
+
+**Profile acceptance boundary:** `/etc/baft/ingress/managed-node.json` is
+local installed trusted configuration, *never* supplied by a signed BCC job.
+The fixed path or a boolean cannot prove supported environment. An actual
+verified owner/mode/inode/profile version, operating system/namespace and
+independent source inventory are required. Uncertainty always blocks.
+
+**Frozen request for HQ/owners:** report the exact Go constructor/function
+signatures or authenticated HTTP route+method, request/response types, and
+fixture setup for (1) reviewed-plan and queue; (2) signed Agent dispatch and
+held lease; (3) Delta listener/nft executor and coverage decoder; and (4)
+Agent-to-BCC enrolled-credential ReceiptV1 ingest and verified config readback.
+Do not assume method names where none have been published. No new standalone
+parser/contract tests while these owner APIs are absent. QA integration is
+solely HQ-owned and P0 #269 remains OPEN / NO-GO.
+
 ## P0-A through P0-F release acceptance matrix
 
 | P0 | Criterion | State | Still required |

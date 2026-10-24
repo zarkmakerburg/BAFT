@@ -47,6 +47,11 @@ func (s *Store) StageHeldIngressDispatch(tunnelID string, now time.Time) (Ingres
 		}
 		return IngressDispatchIntent{}, errors.New("immutable ingress dispatch intent differs")
 	}
+	for otherID, other := range s.st.PublicIngressOperations {
+		if otherID != tunnelID && other.Command != nil && other.Command.JobID == cmd.JobID {
+			return IngressDispatchIntent{}, errors.New("staged ingress JobID belongs to another operation")
+		}
+	}
 	for _, job := range s.st.Jobs {
 		if job.ID == cmd.JobID {
 			return IngressDispatchIntent{}, errors.New("ingress command JobID collides with ordinary BCC queue")

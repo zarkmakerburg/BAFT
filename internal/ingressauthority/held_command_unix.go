@@ -67,7 +67,9 @@ func (g *PendingGuard) RecordReconciliationNeeded(ctx context.Context, command C
 	if err := command.Binding.MatchReviewed(g.binding); err != nil {
 		return err
 	}
-	if err := command.Validate(time.Now()); err != nil {
+	// Historical identity can record uncertainty after execution expires;
+	// CheckHeldCommand still requires the live command lifetime.
+	if err := command.Validate(command.IssuedAt); err != nil {
 		return err
 	}
 	policy, err := g.observeInstalledPolicyLocked(ctx)

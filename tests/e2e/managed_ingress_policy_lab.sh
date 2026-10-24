@@ -47,7 +47,7 @@ DOCKERFILE
 docker build --quiet --target tests -t "$tests_image" "$lab_dir"
 docker build --quiet --target cli -t "$cli_image" "$lab_dir"
 docker run --rm --network none --name "${lab_name}-authority" "$tests_image" \
-  -test.run '^Test(ProvisionInstalledPolicyLAB|InstalledPolicyBindingLAB|CommandIntent|DurableLifecycle|Lifecycle)' -test.count=1 -test.v
+  -test.run '^Test(ProvisionInstalledPolicyLAB|InstalledPolicyBindingLAB|CommandIntent|ExpiredRecordedCommandLAB|DurableLifecycle|Lifecycle)' -test.count=1 -test.v
 docker run --rm --network none --name "${lab_name}-inventory" --entrypoint /inventory.test "$tests_image" \
   -test.run '^Test' -test.count=1 -test.v
 docker run --rm --network none --name "${lab_name}-cli" --entrypoint /baft-agent "$cli_image" \

@@ -14,8 +14,10 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
+	"github.com/zarkmakerburg/baft/internal/ingressauthority"
 	"github.com/zarkmakerburg/baft/internal/telemetry"
 )
 
@@ -220,6 +222,9 @@ type Store struct {
 	// DriftEvery is how often active tunnels are checked for drift; zero
 	// disables the automatic check (a check can still be requested).
 	DriftEvery time.Duration
+	// signingCmds is the immutable snapshot of operational ingress commands
+	// for the jobs being signed inside one pullJobs call (which holds mu).
+	signingCmds atomic.Pointer[map[string]ingressauthority.CommandV1]
 }
 
 func OpenStore(path string) (*Store, error) {
@@ -578,13 +583,32 @@ func (s *Store) pullJobs(nodeID,token string,prepare func([]Job)error) ([]Job,er
 			if _,err:=s.enqueueSecurityAuditLocked(AuditEntry{Timestamp:now,Actor:"bcc",Action:action,Target:j.Params["tunnel_id"],Outcome:"expired",Details:map[string]any{"job_id":j.ID,"ir_node":j.NodeID,"public_port":j.Params["public_port"]}});err!=nil{s.st=before;return nil,err}
 			continue
 		}
+		if isOperationalIngressJob(j) {
+			cmd,known:=s.operationalIngressWindowLocked(j)
+			if !known || !now.Before(cmd.ExpiresAt) {
+				changed=true
+				phase,message:=ingressPhaseExpired,"operational ingress job expired before dispatch"
+				if j.Status=="dispatched"{phase,message=ingressPhaseUncertain,"operational ingress job expired before acknowledgement; host state uncertain"}
+				if !known{message="operational ingress job has no matching staged command"}
+				s.settleOperationalIngressJobLocked(j,phase,message,now)
+				if _,err:=s.enqueueSecurityAuditLocked(AuditEntry{Timestamp:now,Actor:"bcc",Action:"public_ingress.operational.expire",Target:j.Params["tunnel_id"],Outcome:"expired",Details:map[string]any{"job_id":j.ID,"ir_node":j.NodeID,"phase":phase}});err!=nil{s.st=before;return nil,err}
+				continue
+			}
+		}
 		if j.Status!="queued"{continue}
 		changed=true
 		if j.Type==jobEnrollPeerLegacy{j.Status="failed";j.Message="retired job type: build tunnels with /api/tunnels";j.UpdatedAt=time.Now().UTC();s.st.Jobs[id]=j;continue}
 		j.Status="dispatched";j.UpdatedAt=time.Now().UTC();s.st.Jobs[id]=j;out=append(out,j)
 	}
 	sort.Slice(out,func(i,j int)bool{return out[i].CreatedAt.Before(out[j].CreatedAt)})
-	if prepare!=nil {if err:=prepare(out);err!=nil{s.st=before;return nil,err}}
+	if prepare!=nil {
+		cmds:=map[string]ingressauthority.CommandV1{}
+		for _,j:=range out{if isOperationalIngressJob(j){if cmd,ok:=s.operationalIngressWindowLocked(j);ok{cmds[j.ID]=cmd}}}
+		s.signingCmds.Store(&cmds)
+		err:=prepare(out)
+		s.signingCmds.Store(nil)
+		if err!=nil{s.st=before;return nil,err}
+	}
 	if changed{if err:=s.saveLocked();err!=nil{s.st=before;return nil,err}}
 	return out,nil
 }
@@ -604,6 +628,7 @@ func (s *Store) AckJobOutput(nodeID,token,jobID,status,message,output string) er
 	if !s.authorizedLocked(nodeID,token){return ErrAgentAuthentication}
 	j,ok:=s.st.Jobs[jobID];if !ok||j.NodeID!=nodeID{return errors.New("job not found")}
 	if j.Status!="dispatched"&&j.Status!="queued"{return errors.New("job already completed")}
+	if isOperationalIngressJob(j) {return s.ackOperationalIngressLocked(j,status,message,time.Now().UTC())}
 	if (j.Type=="public_ingress_preflight" || j.Type=="public_ingress_inspect" || j.Type=="public_ingress_prepare" || j.Type=="public_ingress_cancel") && !time.Now().Before(publicIngressPreflightDeadline(j)) {
 		before, err := cloneState(s.st)
 		if err != nil { return err }

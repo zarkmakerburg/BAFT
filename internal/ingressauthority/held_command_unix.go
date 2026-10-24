@@ -19,35 +19,44 @@ func (g *PendingGuard) CheckHeldCommand(ctx context.Context, command CommandV1) 
 	}
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	_, _, err := g.checkHeldCommandLocked(ctx, command)
+	return err
+}
+
+func (g *PendingGuard) checkHeldCommandLocked(ctx context.Context, command CommandV1) (map[string]lifecycleEntry, lifecycleEntry, error) {
+	var zero lifecycleEntry
 	if err := g.checkPolicyPendingLocked(ctx); err != nil {
-		return err
+		return nil, zero, err
 	}
 	if err := command.Binding.MatchReviewed(g.binding); err != nil {
-		return err
+		return nil, zero, err
 	}
 	if err := command.Validate(time.Now()); err != nil {
-		return err
+		return nil, zero, err
 	}
 	policy, err := g.observeInstalledPolicyLocked(ctx)
 	if err != nil {
-		return err
+		return nil, zero, err
 	}
 	records, err := readLifecycle(g.root)
 	if err != nil {
-		return err
+		return nil, zero, err
 	}
 	entry, ok := records[reservationKey(g.binding)]
 	if !ok || entry.Binding != g.binding || entry.Policy == nil || *entry.Policy != policy {
-		return ErrUnverified
+		return nil, zero, ErrUnverified
 	}
 	stored, ok := entry.Commands[command.Action]
 	if !ok || !sameCommandIntent(stored, command) {
-		return ErrUnverified
+		return nil, zero, ErrUnverified
 	}
 	if entry.State != StateApplying && entry.State != StateNeedsReconciliation {
-		return ErrUnverified
+		return nil, zero, ErrUnverified
 	}
-	return g.checkPolicyPendingLocked(ctx)
+	if err := g.checkPolicyPendingLocked(ctx); err != nil {
+		return nil, zero, err
+	}
+	return records, entry, nil
 }
 
 // RecordReconciliationNeeded durably records an uncertain resource outcome

@@ -24,6 +24,14 @@ func validCommandIntents(entry lifecycleEntry) bool {
 			return false
 		}
 	}
+	if len(entry.Leased) > 2 {
+		return false
+	}
+	for action, jobID := range entry.Leased {
+		if cmd, ok := entry.Commands[action]; !ok || cmd.JobID != jobID {
+			return false
+		}
+	}
 	if retire, ok := entry.Commands[commandIntentRetire]; ok {
 		apply, ok := entry.Commands[commandIntentApply]
 		if !ok || retire.JobID == apply.JobID {

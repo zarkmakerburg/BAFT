@@ -90,8 +90,14 @@ type Lease = LiveLease
 // LiveLease is an inert zero value. Only a future Alpha-owned durable
 // authority can construct a valid lock-held permit. Never use as a bypass.
 type LiveLease struct {
-	minted  bool
-	binding BindingV1
+	minted    bool
+	binding   BindingV1
+	authority leaseAuthority
+}
+
+// leaseAuthority is implemented only by a held PendingGuard lease (unix).
+type leaseAuthority interface {
+	checkLease(ctx context.Context, command CommandV1) error
 }
 
 func (l *LiveLease) CheckLockedIngress(ctx context.Context, command CommandV1) error {
@@ -107,9 +113,12 @@ func (l *LiveLease) CheckLockedIngress(ctx context.Context, command CommandV1) e
 	if err := command.Validate(time.Now()); err != nil {
 		return err
 	}
-	// Until the durable cross-process lock and restart fences are implemented,
-	// even an internal mint flag is insufficient to permit host mutation.
-	return ErrUnverified
+	// A flag alone never suffices: a live lease must re-prove, under the
+	// still-held OS lock, the exact durable intent, policy and state.
+	if l.authority == nil {
+		return ErrUnverified
+	}
+	return l.authority.checkLease(ctx, command)
 }
 
 func (*LiveLease) MarshalJSON() ([]byte, error) { return nil, ErrUnverified }

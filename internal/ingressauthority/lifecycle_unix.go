@@ -27,6 +27,9 @@ type lifecycleEntry struct {
 	State    RecoveryState              `json:"state"`
 	Policy   *InstalledPolicyIdentityV1 `json:"installed_policy,omitempty"`
 	Commands map[string]CommandV1       `json:"command_intents,omitempty"`
+	// Leased maps action to the one signed JobID whose live lease was ever
+	// minted. It is a durable single-use fence: restart never re-mints.
+	Leased map[string]string `json:"leased_jobs,omitempty"`
 }
 
 func readLifecycle(root *os.Root) (map[string]lifecycleEntry, error) {

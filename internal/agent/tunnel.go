@@ -58,6 +58,9 @@ func (a *Agent) executeFull(ctx context.Context, j agentjob.Job) (detail, output
 		return "private ingress generation fenced; listener and firewall unchanged", output, err
 	}
 	if j.Action == agentjob.ActionPublicIngressApply || j.Action == agentjob.ActionPublicIngressRetire {
+		if j.Params["ingress_protocol"] != "" {
+			return "operational ingress remains blocked", "", a.publicIngressOperationalRefusal(ctx, j)
+		}
 		output, err = a.publicIngressLAB(ctx, j)
 		return "isolated LAB ingress transaction completed", output, err
 	}

@@ -25,6 +25,7 @@ type PublicIngressOperation struct {
 	OperationID      string                      `json:"operation_id,omitempty"`
 	LeaseID          string                      `json:"lease_id,omitempty"`
 	Command          *ingressauthority.CommandV1 `json:"command,omitempty"`
+	Dispatch         *IngressDispatchIntent      `json:"dispatch,omitempty"`
 	Receipt          *ingressauthority.ReceiptV1 `json:"receipt,omitempty"`
 	ReviewedPlanHash string                      `json:"reviewed_plan_hash,omitempty"` // Exact BCC-reviewed tunnel plan; legacy desired-only intents omit it.
 	Spec             PublicIngressSpec           `json:"spec"`
@@ -91,7 +92,7 @@ func mergePublicIngressOperations(restored *state, current state) error {
 		merged[id] = op
 	}
 	for id, op := range current.PublicIngressOperations {
-		if old, ok := merged[id]; ok && (old.Spec != op.Spec || old.Proof != op.Proof || old.ReviewedPlanHash != op.ReviewedPlanHash || old.OperationID != op.OperationID || old.LeaseID != op.LeaseID || !reflect.DeepEqual(old.Command, op.Command) || !reflect.DeepEqual(old.Receipt, op.Receipt)) {
+		if old, ok := merged[id]; ok && (old.Spec != op.Spec || old.Proof != op.Proof || old.ReviewedPlanHash != op.ReviewedPlanHash || old.OperationID != op.OperationID || old.LeaseID != op.LeaseID || !reflect.DeepEqual(old.Command, op.Command) || !reflect.DeepEqual(old.Dispatch, op.Dispatch) || !reflect.DeepEqual(old.Receipt, op.Receipt)) {
 			return errors.New("backup changes a current public ingress operation proof")
 		}
 		merged[id] = op

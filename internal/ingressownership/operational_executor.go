@@ -44,6 +44,12 @@ func (x *OperationalExecutor) ownedRetireListener(ctx context.Context, b ingress
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	// Proving a single exact own inode never erases unknown or partially
+	// inspected services, source trees or a concurrent namespace occupant.
+	// Only the actual protected collector can populate this observation.
+	if !observed.CoverageComplete || len(observed.UnknownSources) != 0 {
+		return ingressinventory.ErrCoverageIncomplete
+	}
 	_, plan, err := nftTransactionRecord(b.Spec, b.Proof)
 	if err != nil || plan.Port != b.Port {
 		return ErrUnverified

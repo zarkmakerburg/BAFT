@@ -53,11 +53,21 @@ func TestOperationalRetireExactOwnedKernelInodeNeverWaivesForeignListener(t *tes
 		t.Fatal(err)
 	}
 	inode := st.Sys().(*syscall.Stat_t).Ino
-	observed := ingressinventory.CoverageEvidence{Port: uint16(port), ActiveTCP: []ingressinventory.ActiveTCPClaim{
+	observed := ingressinventory.CoverageEvidence{Port: uint16(port), CoverageComplete: true, ActiveTCP: []ingressinventory.ActiveTCPClaim{
 		{Port: uint16(port), Family: "tcp4", State: "0A", Inode: inode},
 	}}
 	if err := x.ownedRetireListener(context.Background(), b, observed); err != nil {
 		t.Fatalf("actual live owner misclassified foreign: %v", err)
+	}
+	unknown := observed
+	unknown.UnknownSources = []string{"uninspectable systemd/runtime source"}
+	if err := x.ownedRetireListener(context.Background(), b, unknown); !errors.Is(err, ingressinventory.ErrCoverageIncomplete) {
+		t.Fatalf("owned inode waived unknown source: %v", err)
+	}
+	incomplete := observed
+	incomplete.CoverageComplete = false
+	if err := x.ownedRetireListener(context.Background(), b, incomplete); !errors.Is(err, ingressinventory.ErrCoverageIncomplete) {
+		t.Fatalf("owned inode waived incomplete scope: %v", err)
 	}
 	bad := observed
 	bad.ActiveTCP = []ingressinventory.ActiveTCPClaim{{Port: uint16(port), Family: "tcp4", State: "0A", Inode: inode + 1}}

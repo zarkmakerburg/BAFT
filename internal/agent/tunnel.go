@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/zarkmakerburg/baft/internal/agentjob"
+	"github.com/zarkmakerburg/baft/internal/release"
 	"github.com/zarkmakerburg/baft/internal/tunnelnode"
 )
 
@@ -45,6 +46,12 @@ func (a *Agent) sshMigration(ctx context.Context, j agentjob.Job) error {
 }
 
 func (a *Agent) executeFull(ctx context.Context, j agentjob.Job) (detail, output string, err error) {
+	return a.executeFullSigned(ctx, j, nil)
+}
+
+// executeFullSigned also receives the exact signed envelope that carried j, which
+// operational ingress v1 needs to mint a lease. Nil means no lease can be minted.
+func (a *Agent) executeFullSigned(ctx context.Context, j agentjob.Job, env *release.Envelope) (detail, output string, err error) {
 	if j.Action == agentjob.ActionPublicIngressPreflight || j.Action == agentjob.ActionPublicIngressInspect {
 		output, err = a.publicIngressPreflight(ctx, j)
 		return "read-only public ingress preflight recorded; application remains blocked", output, err
@@ -59,7 +66,8 @@ func (a *Agent) executeFull(ctx context.Context, j agentjob.Job) (detail, output
 	}
 	if j.Action == agentjob.ActionPublicIngressApply || j.Action == agentjob.ActionPublicIngressRetire {
 		if j.Params["ingress_protocol"] != "" {
-			return "operational ingress remains blocked", "", a.publicIngressOperationalRefusal(ctx, j)
+			detail, err = a.publicIngressOperational(ctx, j, env)
+			return detail, "", err
 		}
 		output, err = a.publicIngressLAB(ctx, j)
 		return "isolated LAB ingress transaction completed", output, err

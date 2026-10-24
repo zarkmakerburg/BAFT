@@ -93,6 +93,9 @@ func (s *Store) RecordIngressAgentReceipt(receipt ingressauthority.ReceiptV1, to
 	if !ok || op.Command == nil || op.Status != PublicIngressPending {
 		return errors.New("missing staged command or duplicate receipt")
 	}
+	if op.RetireCommand != nil && receipt.JobID == op.RetireCommand.JobID {
+		return s.recordRetireReceiptLocked(op, receipt, now)
+	}
 	cmd := *op.Command
 	if cmd.JobID != receipt.JobID || cmd.Action != receipt.Action || cmd.Binding != b ||
 		b.PlanSHA256 != op.ReviewedPlanHash || b.OperationID != op.OperationID || b.LeaseID != op.LeaseID ||
@@ -120,6 +123,36 @@ func (s *Store) RecordIngressAgentReceipt(receipt ingressauthority.ReceiptV1, to
 	op.Receipt = &receipt
 	// Even Phase=applied does not change the PENDING state.
 	s.st.PublicIngressOperations[b.Spec.TunnelID] = op
+	if err := s.saveLocked(); err != nil {
+		s.st = before
+		return err
+	}
+	return nil
+}
+
+// recordRetireReceiptLocked stores an exact Retire receipt as inert evidence.
+// It never marks the ingress REMOVED; absence must be independently observed.
+func (s *Store) recordRetireReceiptLocked(op PublicIngressOperation, receipt ingressauthority.ReceiptV1, now time.Time) error {
+	rc := *op.RetireCommand
+	if op.Receipt == nil || rc.Action != receipt.Action || rc.Binding != receipt.Binding || receipt.SchemaVersion != 1 {
+		return errors.New("retire receipt not bound to stored retire command")
+	}
+	if op.RetireReceipt != nil {
+		if reflect.DeepEqual(*op.RetireReceipt, receipt) {
+			return nil
+		}
+		return errors.New("conflicting ingress retire receipt replay")
+	}
+	if now.IsZero() || now.Before(rc.IssuedAt) || !now.Before(rc.ExpiresAt) {
+		return errors.New("retire receipt outside command lifetime")
+	}
+	before, err := cloneState(s.st)
+	if err != nil {
+		return err
+	}
+	receipt.FirewallEvidence = append([]ingressauthority.FirewallEvidenceV1(nil), receipt.FirewallEvidence...)
+	op.RetireReceipt = &receipt
+	s.st.PublicIngressOperations[rc.Binding.Spec.TunnelID] = op
 	if err := s.saveLocked(); err != nil {
 		s.st = before
 		return err

@@ -85,6 +85,9 @@ type Agent struct {
 	unacked                    []pendingAck
 	lastComponentReportAttempt time.Time
 	lastComponentReportError   string
+	// policyProvisioned reports whether this host has a loadable trusted
+	// managed-node policy; nil uses the real installed-policy loader.
+	policyProvisioned func(ctx context.Context, nodeID string) error
 }
 
 type pendingAck struct {
@@ -320,6 +323,10 @@ type pulledJob struct {
 }
 
 func (a *Agent) request(ctx context.Context, method, path string, body any) (*http.Response, error) {
+	return a.requestWithHeaders(ctx, method, path, body, nil)
+}
+
+func (a *Agent) requestWithHeaders(ctx context.Context, method, path string, body any, headers map[string]string) (*http.Response, error) {
 	var rd io.Reader
 	if body != nil {
 		b, err := json.Marshal(body)
@@ -334,11 +341,14 @@ func (a *Agent) request(ctx context.Context, method, path string, body any) (*ht
 	}
 	req.Header.Set("Authorization", "Bearer "+a.cfg.Token)
 	req.Header.Set("Content-Type", "application/json")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
 	return a.cfg.HTTP.Do(req)
 }
 
 func (a *Agent) pull(ctx context.Context) ([]pulledJob, error) {
-	resp, err := a.request(ctx, http.MethodGet, "/api/agent/jobs?node_id="+url.QueryEscape(a.cfg.NodeID), nil)
+	resp, err := a.requestWithHeaders(ctx, http.MethodGet, "/api/agent/jobs?node_id="+url.QueryEscape(a.cfg.NodeID), nil, a.capabilityHeaders(ctx))
 	if err != nil {
 		return nil, err
 	}

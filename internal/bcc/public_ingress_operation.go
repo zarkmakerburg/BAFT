@@ -19,10 +19,11 @@ func publicIngressManifestSpec(spec PublicIngressSpec, instance string, generati
 // PublicIngressOperation is BCC's durable expected proof for one reserved
 // ingress. PENDING does not authorize or prove any agent-side host change.
 type PublicIngressOperation struct {
-	Spec      PublicIngressSpec          `json:"spec"`
-	Proof     PublicIngressExpectedProof `json:"proof"`
-	Status    string                     `json:"status"`
-	CreatedAt time.Time                  `json:"created_at"`
+	ReviewedPlanHash string                     `json:"reviewed_plan_hash,omitempty"` // Exact BCC-reviewed tunnel plan; legacy desired-only intents omit it.
+	Spec             PublicIngressSpec          `json:"spec"`
+	Proof            PublicIngressExpectedProof `json:"proof"`
+	Status           string                     `json:"status"`
+	CreatedAt        time.Time                  `json:"created_at"`
 }
 
 // RecordPublicIngressOperationIntent fences a reservation to one generation
@@ -83,7 +84,7 @@ func mergePublicIngressOperations(restored *state, current state) error {
 		merged[id] = op
 	}
 	for id, op := range current.PublicIngressOperations {
-		if old, ok := merged[id]; ok && (old.Spec != op.Spec || old.Proof != op.Proof) {
+		if old, ok := merged[id]; ok && (old.Spec != op.Spec || old.Proof != op.Proof || old.ReviewedPlanHash != op.ReviewedPlanHash) {
 			return errors.New("backup changes a current public ingress operation proof")
 		}
 		merged[id] = op
@@ -98,6 +99,9 @@ func mergePublicIngressOperations(restored *state, current state) error {
 		tunnel, exists := restored.Tunnels[id]
 		if !exists || tunnel.IRNode != op.Spec.IRNode || tunnel.RouteListen != op.Spec.LocalTarget || !tunnelKeepsPorts(tunnel) {
 			return errors.New("restored public ingress operation has no matching active tunnel")
+		}
+		if op.ReviewedPlanHash != "" && (tunnel.PlanHash != op.ReviewedPlanHash || tunnel.ClientPort != op.Spec.PublicPort || tunnel.Phase != TunnelActive) {
+			return errors.New("restored reviewed ingress operation is no longer bound to active tunnel plan and client port")
 		}
 		preview, err := ingressmanifest.Preview(publicIngressManifestSpec(op.Spec, tunnel.InstanceID, op.Proof.Generation))
 		if err != nil || preview.ManifestSHA256 != op.Proof.ManifestDigest {

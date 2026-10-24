@@ -77,6 +77,7 @@ type Tunnel struct {
 	IRNode          string `json:"ir_node"`
 	PublicAddress   string `json:"public_address"`
 	Port            int    `json:"port"`
+	ClientPort      int    `json:"client_port,omitempty"` // Reviewed desired IR public ingress; NOT an applied listener.
 	Target          string `json:"target"`
 	RouteID         string `json:"route_id"`
 	RouteListen     string `json:"route_listen"`
@@ -156,6 +157,7 @@ type TunnelRequest struct {
 	IRNode                 string `json:"ir_node"`
 	PublicAddress          string `json:"public_address"`
 	Port                   int    `json:"port"`
+	ClientPort             int    `json:"client_port,omitempty"` // Same numeric TCP port as the eventual IR client configuration.
 	Target                 string `json:"target"`
 	RouteListen            string `json:"route_listen"`
 	RouteID                string `json:"route_id"`
@@ -338,7 +340,7 @@ func (s *Store) resolveTunnelLocked(req TunnelRequest, now time.Time) (Tunnel, N
 	}
 	t := Tunnel{
 		ID: newTunnelID(), InstanceID: strings.TrimSpace(req.InstanceID), EXNode: req.EXNode, IRNode: req.IRNode,
-		PublicAddress: req.PublicAddress, Port: req.Port, Target: req.Target, RouteID: req.RouteID, RouteListen: req.RouteListen,
+		PublicAddress: req.PublicAddress, Port: req.Port, ClientPort: req.ClientPort, Target: req.Target, RouteID: req.RouteID, RouteListen: req.RouteListen,
 		EXMetricsListen: req.EXMetricsListen, IRMetricsListen: req.IRMetricsListen, RecordShaping: req.RecordShaping,
 		CreatedAt: now.UTC(), UpdatedAt: now.UTC(),
 	}
@@ -408,6 +410,59 @@ func (s *Store) resolveTunnelLocked(req TunnelRequest, now time.Time) (Tunnel, N
 	}
 	if r := s.rotationOnNodesLocked(req.EXNode, req.IRNode); r != nil {
 		return Tunnel{}, Node{}, Node{}, fmt.Errorf("certificate rotation %s is %s on one of these nodes", r.ID, r.Phase)
+	}
+	// Client ingress claims are numeric TCP-port claims on their historical IR
+	// node, regardless of whether a new tunnel uses that node as EX or IR.
+	// Include effective default listeners and cross-role resource allocations.
+	for _, other := range s.st.Tunnels {
+		if other.ClientPort == 0 || !tunnelKeepsPorts(other) || sameManagedSlot(t, other) {
+			continue
+		}
+		if t.IRNode == other.IRNode && t.ClientPort != 0 && t.ClientPort == other.ClientPort {
+			return Tunnel{}, Node{}, Node{}, fmt.Errorf("IR client configuration port %d is claimed by tunnel %s", t.ClientPort, other.ID)
+		}
+		ports, err := tunnelPortsOnNode(t, other.IRNode)
+		if err != nil {
+			return Tunnel{}, Node{}, Node{}, err
+		}
+		for _, port := range ports {
+			if port == other.ClientPort {
+				return Tunnel{}, Node{}, Node{}, fmt.Errorf("listener port %d is claimed by tunnel %s for IR client ingress", port, other.ID)
+			}
+		}
+		if t.ClientPort != 0 {
+			oldPorts, err := tunnelPortsOnNode(other, t.IRNode)
+			if err != nil {
+				return Tunnel{}, Node{}, Node{}, err
+			}
+			for _, port := range oldPorts {
+				if port == t.ClientPort {
+					return Tunnel{}, Node{}, Node{}, fmt.Errorf("IR client configuration port %d conflicts with listener of tunnel %s", port, other.ID)
+				}
+			}
+		}
+	}
+	// The reviewed client port does NOT authorize an Agent listener.
+	if t.ClientPort != 0 {
+		ownPorts, err := tunnelPortsOnNode(t, t.IRNode)
+		if err != nil {
+			return Tunnel{}, Node{}, Node{}, err
+		}
+		for _, port := range ownPorts {
+			if port == t.ClientPort {
+				return Tunnel{}, Node{}, Node{}, fmt.Errorf("IR client configuration port %d aliases this tunnel's own IR route or metrics listener", port)
+			}
+		}
+		spec, err := PlanPublicIngress(t.IRNode, "reviewed-plan-candidate", t.ClientPort, t.RouteListen)
+		if err != nil {
+			return Tunnel{}, Node{}, Node{}, fmt.Errorf("invalid client ingress port: %w", err)
+		}
+		if err := s.validatePublicIngressPortSetLocked(t.IRNode, t.ClientPort); err != nil {
+			return Tunnel{}, Node{}, Node{}, err
+		}
+		if err := s.validateIngressReservationResourcesLocked(spec); err != nil {
+			return Tunnel{}, Node{}, Node{}, err
+		}
 	}
 	if err := s.validateTunnelPublicIngressReservationsLocked(t); err != nil {
 		return Tunnel{}, Node{}, Node{}, err

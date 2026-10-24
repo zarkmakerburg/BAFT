@@ -97,6 +97,9 @@ func TestOperationalIngressV1Gate_PartialNFTAddRollsBackOwnedHandlesOnly(t *test
 	if err := roundTrip(t, f.addr(), []byte("sibling-ok")); err != nil {
 		t.Fatalf("sibling tunnel disturbed by the failed install: %v", err)
 	}
+	ph0, found0 := f.journalPhase(t, b)
+	st0, _ := f.leftoverState(t, b)
+	t.Logf("after rolled-back partial add: result=%+v journal=%s(found=%v) reservation=%s", res, ph0, found0, st0)
 	if ph, found := f.journalPhase(t, b); found && ph == ingressownership.PhaseVerified {
 		t.Fatalf("journal claims a verified owner after rollback: %s", ph)
 	}
@@ -240,6 +243,10 @@ func TestOperationalIngressV1Gate_AgentRestartKeepsFencedOwnership(t *testing.T)
 		j.IssuedAt = time.Now().Add(-time.Second)
 		j.ExpiresAt = time.Now().Add(time.Minute)
 	}))
+	t.Logf("fresh signed Apply after restart: %+v", res)
+	if len(res) != 1 || res[0].Status == "succeeded" {
+		t.Fatalf("a restarted Agent accepted a fresh Apply over fenced ownership: %+v", res)
+	}
 	if len(res) == 1 && res[0].Status == "succeeded" && !portFree(f.port) {
 		t.Fatalf("a restarted Agent silently re-adopted fenced ownership: %+v", res)
 	}
@@ -250,6 +257,7 @@ func TestOperationalIngressV1Gate_AgentRestartKeepsFencedOwnership(t *testing.T)
 	// proved it stopped: the rule stays until an operator reconciles.
 	f.enqueueRetire(t)
 	res = f.a.runOnce()
+	t.Logf("Retire after restart: %+v", res)
 	if !isFailure(res) {
 		t.Fatalf("Retire after restart claimed cleanup without proof: %+v", res)
 	}

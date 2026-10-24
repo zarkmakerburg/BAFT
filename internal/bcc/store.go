@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -50,6 +51,10 @@ type Node struct {
 	// AppliedGeneration is the legacy singleton generation. Multi-instance
 	// tunnels keep independent generation baselines in AppliedGenerations.
 	AgentSeen                time.Time      `json:"agent_seen,omitempty"`
+	// Capabilities is what the node's agent last declared on an authenticated
+	// poll. Every poll replaces it, so an old or downgraded agent that sends
+	// nothing never keeps a capability it no longer advertises.
+	Capabilities             []string       `json:"capabilities,omitempty"`
 	AppliedGeneration        int            `json:"applied_generation,omitempty"`
 	AppliedGenerations       map[string]int `json:"applied_generations,omitempty"`
 	Health                   string         `json:"health"`
@@ -561,6 +566,12 @@ func (s *Store) PullJobs(nodeID,token string) ([]Job,error) {
 // reversible. A signing failure must never persist a dispatched job that the
 // agent never received. The response is returned only after the state commits.
 func (s *Store) pullJobs(nodeID,token string,prepare func([]Job)error) ([]Job,error) {
+	return s.pullJobsReporting(nodeID,token,nil,prepare)
+}
+
+// pullJobsReporting is pullJobs plus the agent's validated capability report,
+// recorded only after the bearer credential authenticated.
+func (s *Store) pullJobsReporting(nodeID,token string,caps []string,prepare func([]Job)error) ([]Job,error) {
 	s.mu.Lock();defer s.mu.Unlock()
 	if !s.authorizedLocked(nodeID,token){return nil,ErrAgentAuthentication}
 	before,err:=cloneState(s.st);if err!=nil{return nil,err}
@@ -568,6 +579,9 @@ func (s *Store) pullJobs(nodeID,token string,prepare func([]Job)error) ([]Job,er
 	s.noteAgentSeenLocked(nodeID,now)
 	var out []Job
 	changed:=false
+	if n,ok:=s.st.Nodes[nodeID];ok && !slices.Equal(n.Capabilities,caps){
+		n.Capabilities=slices.Clone(caps);s.st.Nodes[nodeID]=n;changed=true
+	}
 	for id,j:=range s.st.Jobs{
 		if j.NodeID!=nodeID || (j.Status!="queued" && j.Status!="dispatched"){continue}
 		if (j.Type=="public_ingress_preflight" || j.Type=="public_ingress_inspect" || j.Type=="public_ingress_prepare" || j.Type=="public_ingress_cancel") && !now.Before(publicIngressPreflightDeadline(j)) {

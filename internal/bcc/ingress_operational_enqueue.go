@@ -101,11 +101,11 @@ func (s *Store) EnqueueOperationalIngress(tunnelID string) error {
 }
 
 func (s *Store) enqueueOperationalIngress(tunnelID string, now time.Time) error {
-	if err := ingressEnqueueGate(); err != nil {
-		return err
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := s.ingressEnqueueGateLocked(tunnelID, now); err != nil {
+		return err
+	}
 	op, err := s.operationalIngressContextLocked(tunnelID)
 	if err != nil {
 		return err
@@ -173,11 +173,11 @@ func (s *Store) EnqueueOperationalIngressRetire(tunnelID string) error {
 }
 
 func (s *Store) enqueueOperationalIngressRetire(tunnelID string, now time.Time) error {
-	if err := ingressEnqueueGate(); err != nil {
-		return err
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := s.ingressEnqueueGateLocked(tunnelID, now); err != nil {
+		return err
+	}
 	op, err := s.operationalIngressContextLocked(tunnelID)
 	if err != nil {
 		return err

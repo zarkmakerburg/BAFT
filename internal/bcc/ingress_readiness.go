@@ -51,37 +51,11 @@ func notReady(reason string) IngressReadiness { return IngressReadiness{Reason: 
 func (s *Store) EvaluateIngressReadiness(tunnelID string, obs *IndependentIngressObservation, now time.Time) IngressReadiness {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	op, ok := s.st.PublicIngressOperations[tunnelID]
-	if !ok || op.Status != PublicIngressPending || op.Command == nil || op.Dispatch == nil || op.Dispatch.Phase != ingressPhaseQueued {
-		return notReady("no dispatched operational ingress command")
+	ev, reason := s.ingressReceiptEvidenceLocked(tunnelID)
+	if reason != "" {
+		return notReady(reason)
 	}
-	if op.RetireCommand != nil {
-		return notReady("retire in progress or completed")
-	}
-	if _, queued := s.st.Jobs[op.Command.JobID]; !queued {
-		return notReady("dispatched job missing")
-	}
-	cmd, r := *op.Command, op.Receipt
-	if r == nil {
-		return notReady("no authenticated Agent receipt")
-	}
-	if r.SchemaVersion != 1 || r.JobID != cmd.JobID || r.Action != cmd.Action || r.Binding != cmd.Binding || r.Phase != "applied" || !r.OwnershipVerified || r.FailureCause != "" || r.RollbackStatus != "" {
-		return notReady("receipt is not an exact applied ownership-verified receipt")
-	}
-	l := r.ListenerEvidence
-	if l.Endpoint != cmd.Binding.ListenEndpoint || l.SocketIdentity == "" || len(r.FirewallEvidence) == 0 {
-		return notReady("receipt evidence incomplete")
-	}
-	var fw *ingressauthority.FirewallEvidenceV1
-	for i := range r.FirewallEvidence {
-		e := &r.FirewallEvidence[i]
-		if e.Table == "" || e.Chain == "" || e.OwnerTag == "" || e.ChainHandle == 0 || e.RuleHandle == 0 {
-			return notReady("receipt firewall evidence incomplete")
-		}
-		if fw == nil {
-			fw = e
-		}
-	}
+	cmd, l, fw := ev.cmd, ev.listener, ev.fw
 	if obs == nil {
 		return IngressReadiness{Reason: "awaiting independent verification"}
 	}
@@ -92,4 +66,50 @@ func (s *Store) EvaluateIngressReadiness(tunnelID string, obs *IndependentIngres
 	return IngressReadiness{Verified: true, Ready: true, Card: &IngressConfigCard{
 		TunnelID: tunnelID, IRNode: cmd.Binding.NodeID, ConfigPort: cmd.Binding.ConfigPort, PublicPort: cmd.Binding.Port, PlanSHA256: cmd.Binding.PlanSHA256,
 	}}
+}
+
+// ingressReceiptEvidence is the exact authenticated applied-receipt evidence
+// that an independent observation must agree with.
+type ingressReceiptEvidence struct {
+	cmd      ingressauthority.CommandV1
+	listener ingressauthority.ListenerEvidenceV1
+	fw       ingressauthority.FirewallEvidenceV1
+}
+
+// ingressReceiptEvidenceLocked returns the evidence, or a non-empty reason why
+// the dispatched command / receipt cannot support any readiness claim.
+func (s *Store) ingressReceiptEvidenceLocked(tunnelID string) (ingressReceiptEvidence, string) {
+	none := ingressReceiptEvidence{}
+	op, ok := s.st.PublicIngressOperations[tunnelID]
+	if !ok || op.Status != PublicIngressPending || op.Command == nil || op.Dispatch == nil || op.Dispatch.Phase != ingressPhaseQueued {
+		return none, "no dispatched operational ingress command"
+	}
+	if op.RetireCommand != nil {
+		return none, "retire in progress or completed"
+	}
+	if _, queued := s.st.Jobs[op.Command.JobID]; !queued {
+		return none, "dispatched job missing"
+	}
+	cmd, r := *op.Command, op.Receipt
+	if r == nil {
+		return none, "no authenticated Agent receipt"
+	}
+	if r.SchemaVersion != 1 || r.JobID != cmd.JobID || r.Action != cmd.Action || r.Binding != cmd.Binding || r.Phase != "applied" || !r.OwnershipVerified || r.FailureCause != "" || r.RollbackStatus != "" {
+		return none, "receipt is not an exact applied ownership-verified receipt"
+	}
+	l := r.ListenerEvidence
+	if l.Endpoint != cmd.Binding.ListenEndpoint || l.SocketIdentity == "" || len(r.FirewallEvidence) == 0 {
+		return none, "receipt evidence incomplete"
+	}
+	var fw *ingressauthority.FirewallEvidenceV1
+	for i := range r.FirewallEvidence {
+		e := &r.FirewallEvidence[i]
+		if e.Table == "" || e.Chain == "" || e.OwnerTag == "" || e.ChainHandle == 0 || e.RuleHandle == 0 {
+			return none, "receipt firewall evidence incomplete"
+		}
+		if fw == nil {
+			fw = e
+		}
+	}
+	return ingressReceiptEvidence{cmd: cmd, listener: l, fw: *fw}, ""
 }

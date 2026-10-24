@@ -58,6 +58,9 @@ type Alert struct {
 
 type Server struct {
 	store                   *Store
+	ingressObserver         *IngressObserver
+	ingressObsMu            sync.Mutex
+	ingressObsCache         map[string]ingressObsEntry
 	version                 string
 	verifiedCatalog         *VerifiedReleaseCatalog
 	adminToken              string
@@ -119,6 +122,7 @@ func NewServer(store *Store, adminToken string) (*Server, error) {
 		smartIngressHTTPClient:  &http.Client{Timeout: 5 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
 		smartIngressLiveEnabled: strings.TrimSpace(os.Getenv("BAFT_SMART_INGRESS_LIVE")) == "1", smartIngressTokenEnv: strings.TrimSpace(os.Getenv("BAFT_CLOUDFLARE_API_TOKEN_ENV")), smartIngressRouteLocks: map[string]*sync.Mutex{},
 		auditAnchorRetryBase: time.Second, auditAnchorRetryMax: time.Minute, anchorOutbox: outbox, anchorWake: make(chan struct{}, 1),
+		ingressObserver: NewIngressObserver(), ingressObsCache: map[string]ingressObsEntry{},
 		now:      func() time.Time { return time.Now().UTC() },
 		loginLim: newLoginLimiter(), hashing: newHashSlots(2),
 	}
@@ -259,6 +263,7 @@ func (s *Server) Handler() http.Handler {
 	m.HandleFunc("/api/ingress/reservations", s.publicIngressReservationsAPI)
 	m.HandleFunc("/api/ingress/reviewed-reservations", s.reviewedPublicIngressReservationAPI)
 	m.HandleFunc("/api/ingress/operational-receipt", s.operationalIngressReceiptAPI)
+	m.HandleFunc("/api/ingress/readiness", s.ingressReadinessAPI)
 	m.HandleFunc("/api/ingress/evaluate", s.ingressEvaluateAPI)
 	m.HandleFunc("/api/ingress/distribution", s.distributionAPI)
 	m.HandleFunc("/api/ingress/distribution/evaluate", s.distributionEvaluateAPI)
@@ -432,7 +437,12 @@ func (s *Server) agentJobs(w http.ResponseWriter, r *http.Request) {
 	}
 	nodeID := r.URL.Query().Get("node_id")
 	var signed []AgentJob
-	_, err := s.store.pullJobs(nodeID, bearer(r), func(jobs []Job) error {
+	caps, capErr := parseAgentCapabilities(r.Header.Values(agentCapabilitiesHeader))
+	if capErr != nil {
+		http.Error(w, "invalid capability report", http.StatusBadRequest)
+		return
+	}
+	_, err := s.store.pullJobsReporting(nodeID, bearer(r), caps, func(jobs []Job) error {
 		var signErr error
 		signed, signErr = s.signAgentJobs(jobs)
 		return signErr

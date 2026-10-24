@@ -32,16 +32,10 @@ if ! bash "$policy_harness" >"$policy_log" 2>&1; then
   echo "BLOCKED: canonical scratch policy LAB failed, no policy PASS" >&2
   exit 1
 fi
-# Exit 0 and === RUN alone are insufficient: Go may mark a guarded
-# family SKIP while reporting package PASS. Require at least one actual
-# individual PASS per family, and reject any skipped matching guarded test.
-for name in ProvisionInstalledPolicyLAB InstalledPolicyBindingLAB CommandIntent; do
-  if ! grep -Eq "^=== RUN[[:space:]]+Test${name}" "$policy_log" ||
-     ! grep -Eq "^--- PASS: Test${name}([^[:alnum:]_]|$)" "$policy_log" ||
-     grep -Eq "^--- SKIP: Test${name}([^[:alnum:]_]|$)" "$policy_log"; then
-    cat "$policy_log" >&2
-    echo "BLOCKED: policy LAB family Test${name} not proven executed and passing without skips" >&2
-    exit 1
-  fi
-done
+# Require actual named PASS and no SKIP for every observed guarded test.
+# The helper is independently falsified with full/suffixed-skip/RUN-only logs.
+bash tests/e2e/gamma_policy_log_assert.sh "$policy_log" || {
+  cat "$policy_log" >&2
+  exit 1
+}
 echo "PASS: actual signed blocked-refusal path and isolated-container policy tests executed; operational Apply/listener/TCP/receipt remains BLOCKED"

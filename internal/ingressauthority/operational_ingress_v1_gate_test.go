@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -37,7 +38,7 @@ func gateBinding(t *testing.T, port int) ingressauthority.BindingV1 {
 		t.Fatal(err)
 	}
 	return ingressauthority.BindingV1{NodeID: gateNode, OperationID: "op-held-1", LeaseID: "lease-held-1", Port: uint16(port), ConfigPort: uint16(port),
-		ListenEndpoint: spec.Config.Listen, LocalTarget: spec.Config.Target, Transport: "dedicated", PlanSHA256: "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f9",
+		ListenEndpoint: spec.Config.Listen, LocalTarget: spec.Config.Target, Transport: "dedicated", PlanSHA256: strings.Repeat("a1", 32),
 		ListenerID: "listener-1", FirewallID: "firewall-1", Spec: spec, Proof: proof}
 }
 

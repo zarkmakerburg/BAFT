@@ -220,9 +220,15 @@ func TestOperationalIngressV1Gate_NormalSignedAgentAdmitsReviewedApply(t *testin
 	if r.Phase != "applied" || !r.OwnershipVerified || r.JobID != g.job.JobID || r.Binding != command.Binding || r.FailureCause != "" || len(r.FirewallEvidence) != 1 {
 		t.Fatalf("applied receipt: %+v", r)
 	}
-	state, err := g.store.InspectRecovery(command.Binding)
-	if err != nil || state != ingressauthority.StateApplying {
-		t.Fatalf("durable lifecycle after admission: %v %v", state, err)
+	// The durable record admitted before any effect stays fenced as
+	// APPLYING_UNVERIFIED; a restart may only interpret it as needing
+	// reconciliation, never as ownership or availability.
+	left, err := g.store.InspectFencedLeftovers()
+	if err != nil || len(left) != 1 || left[0].Binding != command.Binding || left[0].State != ingressauthority.StateApplying {
+		t.Fatalf("durable lifecycle after admission: %+v %v", left, err)
+	}
+	if state, err := g.store.InspectRecovery(command.Binding); err != nil || state != ingressauthority.StateNeedsReconciliation {
+		t.Fatalf("restart interpretation: %v %v", state, err)
 	}
 	// Single use, durably: the replay is refused and does not reach the executor.
 	res = g.deliver(env, g.job.JobID)

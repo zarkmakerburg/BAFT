@@ -3,14 +3,19 @@
 package ingressauthority
 
 import (
+	"context"
 	"errors"
 	"os"
+	"sync"
 	"syscall"
 )
 
 var ErrGuardBusy = errors.New("ingress authority mutation lock busy")
 
+// PendingGuard holds a private OS-level lock over a durable pending claim.
+// It is not a LiveLease and never grants permission for host mutation.
 type PendingGuard struct {
+	mu      sync.Mutex
 	fd      *os.File
 	root    *os.Root
 	store   *ReservationStore
@@ -24,7 +29,7 @@ func (s *ReservationStore) HoldPending(b BindingV1) (*PendingGuard, error) {
 	if err := b.Validate(); err != nil {
 		return nil, err
 	}
-	fd, err := os.Open(s.dir)
+	fd, err := openPinnedAuthorityDir(s.dir, s.identity)
 	if err != nil {
 		return nil, err
 	}
@@ -32,20 +37,14 @@ func (s *ReservationStore) HoldPending(b BindingV1) (*PendingGuard, error) {
 		fd.Close()
 		return nil, ErrGuardBusy
 	}
-	release := func() { syscall.Flock(int(fd.Fd()), syscall.LOCK_UN); fd.Close() }
-	info, err := fd.Stat()
-	if err != nil || !info.IsDir() || info.Mode().Perm() != 0700 ||
-		!os.SameFile(info, s.identity) {
-		release()
-		return nil, ErrUnverified
-	}
-	pathInfo, err := os.Lstat(s.dir)
-	if err != nil || !os.SameFile(info, pathInfo) {
-		release()
-		return nil, ErrUnverified
-	}
+	release := func() { _ = syscall.Flock(int(fd.Fd()), syscall.LOCK_UN); _ = fd.Close() }
 	root, err := os.OpenRoot(s.dir)
 	if err != nil {
+		release()
+		return nil, err
+	}
+	if err := checkAuthorityRoot(fd, root, s.dir, s.identity); err != nil {
+		root.Close()
 		release()
 		return nil, err
 	}
@@ -55,8 +54,8 @@ func (s *ReservationStore) HoldPending(b BindingV1) (*PendingGuard, error) {
 		release()
 		return nil, err
 	}
-	current, found := claims[reservationKey(b)]
-	if !found || current != b {
+	old, ok := claims[reservationKey(b)]
+	if !ok || old != b {
 		root.Close()
 		release()
 		return nil, ErrUnverified
@@ -64,13 +63,46 @@ func (s *ReservationStore) HoldPending(b BindingV1) (*PendingGuard, error) {
 	return &PendingGuard{fd: fd, root: root, store: s, binding: b}, nil
 }
 
+func (g *PendingGuard) CheckPending(ctx context.Context, b BindingV1) error {
+	if g == nil {
+		return ErrUnverified
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if ctx == nil || ctx.Err() != nil || g.fd == nil || g.root == nil || g.store == nil ||
+		b != g.binding {
+		return ErrUnverified
+	}
+	if err := checkAuthorityRoot(g.fd, g.root, g.store.dir, g.store.identity); err != nil {
+		return err
+	}
+	claims, err := loadPending(g.root)
+	if err != nil {
+		return err
+	}
+	if current, ok := claims[reservationKey(b)]; !ok || current != b {
+		return ErrUnverified
+	}
+	return nil
+}
+
+// Close serializes with CheckPending, and never deletes a durable claim.
 func (g *PendingGuard) Close() error {
-	if g == nil || g.fd == nil {
+	if g == nil {
+		return ErrUnverified
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.fd == nil {
 		return ErrUnverified
 	}
 	err := syscall.Flock(int(g.fd.Fd()), syscall.LOCK_UN)
-	g.root.Close()
-	g.fd.Close()
+	if closeErr := g.root.Close(); err == nil {
+		err = closeErr
+	}
+	if closeErr := g.fd.Close(); err == nil {
+		err = closeErr
+	}
 	g.fd = nil
 	g.root = nil
 	return err

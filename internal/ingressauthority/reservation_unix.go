@@ -53,7 +53,7 @@ func (s *ReservationStore) withLock(run func(*os.File, *os.Root) error) error {
 	if s == nil {
 		return ErrUnverified
 	}
-	d, err := os.Open(s.dir)
+	d, err := openPinnedAuthorityDir(s.dir, s.identity)
 	if err != nil {
 		return err
 	}
@@ -81,9 +81,8 @@ func (s *ReservationStore) withLock(run func(*os.File, *os.Root) error) error {
 		return err
 	}
 	defer root.Close()
-	anchored, err := root.Stat(".")
-	if err != nil || !os.SameFile(info, anchored) {
-		return ErrUnverified
+	if err := checkAuthorityRoot(d, root, s.dir, s.identity); err != nil {
+		return err
 	}
 	if err := run(d, root); err != nil {
 		return err

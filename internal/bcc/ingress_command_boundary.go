@@ -56,6 +56,14 @@ func (s *Store) StageReviewedIngressCommand(tunnelID string, command ingressauth
 		}
 		return errors.New("staged command cannot change identity")
 	}
+	// A signed job ID is an immutable replay identity shared by all staged
+	// operations. Refuse collisions before persisting a state OpenStore
+	// would reject, or an Agent replay ledger would conflate.
+	for otherID, other := range s.st.PublicIngressOperations {
+		if otherID != tunnelID && other.Command != nil && other.Command.JobID == command.JobID {
+			return errors.New("signed ingress job ID already belongs to another operation")
+		}
+	}
 	before, err := cloneState(s.st)
 	if err != nil {
 		return err

@@ -57,7 +57,7 @@ func (s *Store) RecordPublicIngressOperationIntent(spec PublicIngressSpec, proof
 	}
 	if existing, ok := s.st.PublicIngressOperations[spec.TunnelID]; ok {
 		if existing.Spec == spec && existing.Proof == proof && existing.Status == PublicIngressPending {
-			return existing, nil
+			return cloneIngressOperation(existing), nil
 		}
 		return PublicIngressOperation{}, errors.New("public ingress operation already fenced to another proof or state")
 	}

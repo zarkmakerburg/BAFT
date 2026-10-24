@@ -86,3 +86,16 @@ Retire additionally needs exact owned-listener distinction and host readback.
 If installer-selected baseline/enforcement metadata is introduced, it needs a
 versioned contract; no exclusion or supported boolean can replace measurement.
 All presently unknown source classes and LiveLease denial remain in force.
+
+## Agent startup provisioning (fail-closed)
+
+On start, `baft-agent` builds the operational ingress executor only if all of
+these hold: the installed managed node policy loads for this `--node-id`; the
+`<state-dir>/ingress-authority` and `<state-dir>/ingress-journal` directories
+are private (`0700`, owned by the agent user) and open; the journal chain
+validates; and `/usr/sbin/nft` (or `/sbin/nft`) reports exactly one pre-provisioned
+`inet baft ingress` chain (filter, input hook, priority -100, policy accept)
+with the same handle on two reads. The agent never creates that table/chain.
+Otherwise the executor stays nil: the capability header is not sent and v1 jobs
+are BLOCKED. The LAB executor is never used. Leftover pending/APPLYING/
+NEEDS_RECONCILIATION claims and journal entries are only logged and stay fenced.

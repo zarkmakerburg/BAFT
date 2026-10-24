@@ -642,3 +642,80 @@ func TestCommandIntentLABRejectsMalformedDurableRequest(t *testing.T) {
 		}
 	}
 }
+
+func TestExpiredRecordedCommandLABPersistsReconciliationWithoutExecution(t *testing.T) {
+	isolatedPolicyBootstrapLAB(t)
+	ctx := context.Background()
+	if _, err := ProvisionInstalledManagedNodePolicy(ctx, "ir-policy"); err != nil {
+		t.Fatal(err)
+	}
+	b := bindingFixture(t)
+	b.NodeID = "ir-policy"
+	store, err := OpenReservationStore(privateReservationDir(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.ReservePending(b); err != nil {
+		t.Fatal(err)
+	}
+	g, err := store.HoldPending(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.BindInstalledPolicy(ctx); err != nil {
+		t.Fatal(err)
+	}
+	cmd := commandIntentFixture(t, b)
+	cmd.IssuedAt = time.Now().Add(-time.Second)
+	cmd.ExpiresAt = time.Now().Add(2 * time.Second)
+	if err := g.RecordCommandIntent(ctx, cmd); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.MarkApplying(ctx, b); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(time.Until(cmd.ExpiresAt) + 20*time.Millisecond)
+	if err := g.CheckHeldCommand(ctx, cmd); err == nil {
+		t.Fatal("expired command still eligible for execution")
+	}
+	if err := g.RecordReconciliationNeeded(ctx, cmd); err != nil {
+		t.Fatalf("historically valid expired command cannot fence uncertain outcome: %v", err)
+	}
+	if err := g.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := OpenReservationStore(store.dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state, err := reopened.InspectRecovery(b)
+	if err != nil || state != StateNeedsReconciliation {
+		t.Fatalf("reopen lost reconciliation fence: %s %v", state, err)
+	}
+	g, err = reopened.HoldPending(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer g.Close()
+	if err := g.CheckHeldCommand(ctx, cmd); err == nil {
+		t.Fatal("reopened expired command granted execution")
+	}
+	if err := g.RecordReconciliationNeeded(ctx, cmd); err != nil {
+		t.Fatalf("identical historical reconciliation retry refused: %v", err)
+	}
+	changed := cmd
+	changed.JobID = "unrecorded-recovery"
+	if err := g.RecordReconciliationNeeded(ctx, changed); err == nil {
+		t.Fatal("changed immutable command altered reconciliation")
+	}
+	// ReservePending acquires the same OS lock through a different file
+	// descriptor. Release this guard before checking the durable fence.
+	if err := g.Close(); err != nil {
+		t.Fatal(err)
+	}
+	other := b
+	other.LeaseID = "expired-command-other-lease"
+	if err := reopened.ReservePending(other); err == nil {
+		t.Fatal("expired command released resource claim")
+	}
+}

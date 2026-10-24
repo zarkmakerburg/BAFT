@@ -153,3 +153,16 @@ func TestIngressDispatchStageConcurrentImmutableRetries(t *testing.T) {
 		t.Fatal("held staging not durable")
 	}
 }
+
+func TestIngressDispatchStageRejectsCrossOperationJobID(t *testing.T) {
+	s, spec, cmd, _ := stagedIngressBoundary(t)
+	s.mu.Lock()
+	s.st.PublicIngressOperations["sibling"] = PublicIngressOperation{Command: &cmd}
+	s.mu.Unlock()
+	if _, err := s.StageHeldIngressDispatch(spec.TunnelID, time.Now()); err == nil {
+		t.Fatal("cross-operation command JobID collision accepted")
+	}
+	if len(s.st.Jobs) != 0 {
+		t.Fatal("collision queued executable job")
+	}
+}

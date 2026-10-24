@@ -129,7 +129,18 @@ func TestAuditNamesTheJobsAnActionCreated(t *testing.T) {
 	if rr := r.do(authReq(http.MethodPost, "/api/deploy", "admin-secret", map[string]any{"node_ids": []string{"ex-1"}, "version": "v1.0.0"})); rr.Code != http.StatusAccepted {
 		t.Fatalf("deploy: %d", rr.Code)
 	}
-	if rr := r.do(authReq(http.MethodPost, "/api/tunnels", "admin-secret", map[string]any{"ex_node": "ex-1", "ir_node": "ir-1"})); rr.Code != http.StatusAccepted {
+	// Simulate fresh authenticated agent contact so the reviewed create plan
+	// can pass preflight without bypassing the production plan-hash gate.
+	r.app.store.mu.Lock()
+	for _, id := range []string{"ex-1", "ir-1"} {
+		r.app.store.noteAgentSeenLocked(id, r.clock)
+	}
+	r.app.store.mu.Unlock()
+	plan, err := r.app.store.BuildPlan(TunnelRequest{EXNode: "ex-1", IRNode: "ir-1"}, r.clock)
+	if err != nil || !plan.OK || plan.Hash == "" {
+		t.Fatalf("review audit tunnel plan: err=%v plan=%+v", err, plan)
+	}
+	if rr := r.do(authReq(http.MethodPost, "/api/tunnels", "admin-secret", map[string]any{"ex_node": "ex-1", "ir_node": "ir-1", "plan_hash": plan.Hash})); rr.Code != http.StatusAccepted {
 		t.Fatalf("tunnel: %d %s", rr.Code, rr.Body.String())
 	}
 	entries, _ := r.app.audit.List(0)

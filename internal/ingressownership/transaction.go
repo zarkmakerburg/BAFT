@@ -218,15 +218,19 @@ func (t *LabTransaction) Retire(endpoint string, proof ingressmanifest.Proof) er
 			return err
 		}
 	}
-	// Fail closed: never remove a firewall rule until exact-owner socket retire succeeds.
-	if err := t.Runtime.Retire(endpoint, proof); err != nil {
-		return err
+	// Fail closed: never remove a firewall rule unless exact owner retirement
+	// is VERIFIED. A stopped listener's terminal error is not a failed
+	// retirement: Runtime returns a typed verified outcome after releasing
+	// the exact owner, so removal may proceed while preserving that cause.
+	retireErr := t.Runtime.Retire(endpoint, proof)
+	if !listenerRetirementVerified(retireErr) {
+		return retireErr
 	}
 	if err := t.Firewall.Remove(uint16(n), proof); err != nil {
-		return err
+		return errors.Join(retireErr, err)
 	}
 	if t.Journal != nil {
-		return t.Journal.Advance(MutationRecord{Port: uint16(n), Owner: proof, Phase: PhaseRetired})
+		return errors.Join(retireErr, t.Journal.Advance(MutationRecord{Port: uint16(n), Owner: proof, Phase: PhaseRetired}))
 	}
-	return nil
+	return retireErr
 }

@@ -18,8 +18,8 @@ func TestClaimConflictReplayAndRelease(t *testing.T) {
 	if err := r.Claim("0.0.0.0:2053", a); err != nil {
 		t.Fatal(err)
 	}
-	if err := r.Claim("127.0.0.1:2053", a); err != nil {
-		t.Fatal(err)
+	if err := r.Claim("127.0.0.1:2053", a); !errors.Is(err, ErrConflict) {
+		t.Fatalf("same proof cannot acquire a second listener address: %v", err)
 	}
 	if err := r.Claim("[::]:2053", b); !errors.Is(err, ErrConflict) {
 		t.Fatalf("dual stack conflict: %v", err)
@@ -98,7 +98,10 @@ func TestRegistryPort443OwnershipWithoutSocket(t *testing.T) {
 	if err := r.Claim("[::]:443", proof("foreign", 1)); !errors.Is(err, ErrConflict) {
 		t.Fatalf("dual-stack 443 conflict: %v", err)
 	}
-	if err := r.Release("127.0.0.1:443", p); err != nil {
+	if err := r.Release("127.0.0.1:443", p); !errors.Is(err, ErrUnknown) {
+		t.Fatalf("release of different address must fail: %v", err)
+	}
+	if err := r.Release("0.0.0.0:443", p); err != nil {
 		t.Fatal(err)
 	}
 	if err := r.Claim("127.0.0.1:443", p); !errors.Is(err, ErrStale) {
@@ -181,5 +184,38 @@ func TestRegistryRejectsManifestInvalidOwnerIDs(t *testing.T) {
 		if err := r.Release("127.0.0.1:443", p); !errors.Is(err, ErrInvalid) {
 			t.Fatalf("released invalid owner %q/%q: %v", tc.tunnel, tc.instance, err)
 		}
+	}
+}
+
+// A signed proof covers one listener endpoint, not merely a TCP port number.
+// Treating the same proof on another IP as idempotent lets an alternate
+// listener silently acquire the resource (or release its actual owner).
+func TestRegistryExactOwnerCannotMoveAddressWithoutNewGeneration(t *testing.T) {
+	r := New()
+	owner := proof("dynamic-owner", 1)
+	const port = "38473" // arbitrary fixture, never an intrinsically reserved port
+	const actual = "0.0.0.0:" + port
+	for _, alias := range []string{"127.0.0.1:" + port, "[::1]:" + port, "[::]:" + port} {
+		if err := r.Claim(actual, owner); err != nil {
+			t.Fatal(err)
+		}
+		if err := r.Claim(alias, owner); !errors.Is(err, ErrConflict) {
+			t.Fatalf("same-proof different-address claim %q accepted: %v", alias, err)
+		}
+		if err := r.Release(alias, owner); !errors.Is(err, ErrUnknown) {
+			t.Fatalf("different-address release %q accepted: %v", alias, err)
+		}
+		if err := r.Claim(actual, owner); err != nil {
+			t.Fatalf("exact endpoint replay is not idempotent: %v", err)
+		}
+		if _, err := r.Snapshot(); err != nil {
+			t.Fatalf("failed alias changed trusted snapshot: %v", err)
+		}
+	}
+	if err := r.Release(actual, owner); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Claim(actual, owner); !errors.Is(err, ErrStale) {
+		t.Fatalf("retired proof must remain fenced: %v", err)
 	}
 }

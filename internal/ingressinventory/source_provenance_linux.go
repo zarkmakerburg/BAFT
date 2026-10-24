@@ -29,7 +29,9 @@ func protectedSourceRootIdentity(source string) (uint64, uint64, error) {
 	if err != nil {
 		return 0, 0, errors.Join(ErrCoverageIncomplete, err)
 	}
-	defer unix.Close(fd)
+	// Traversal replaces fd; close the final owned descriptor, not the
+	// initial descriptor number which may already have been reused.
+	defer func() { _ = unix.Close(fd) }()
 	var st unix.Stat_t
 	for _, component := range components {
 		next, err := unix.Openat(fd, component, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW|unix.O_NONBLOCK|unix.O_CLOEXEC, 0)

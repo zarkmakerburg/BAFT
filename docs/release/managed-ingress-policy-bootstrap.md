@@ -99,3 +99,41 @@ with the same handle on two reads. The agent never creates that table/chain.
 Otherwise the executor stays nil: the capability header is not sent and v1 jobs
 are BLOCKED. The LAB executor is never used. Leftover pending/APPLYING/
 NEEDS_RECONCILIATION claims and journal entries are only logged and stay fenced.
+
+## Installer: ingress chain and policy (`install.sh --agent-only`)
+
+The agent never creates the chain, so the installer does. During
+`install.sh --agent-only` it writes `/usr/local/lib/baft/ingress-chain.sh`
+(the `baft-ingress-chain` helper, embedded in `install.sh`) and runs
+`ensure`:
+
+- If `inet baft ingress` is absent it creates `table inet baft` (a no-op if
+  the table exists) and the empty chain
+  `{ type filter hook input priority -100; policy accept; }` in one `nft -f -`
+  transaction, then re-reads the ruleset and requires exactly the pinned layout
+  that `ingressownership.ReadNFTLabChainHandle` accepts. It records ownership
+  in `<agent-state-dir>/ingress-chain.owner` (`handle=`, `table_created=`).
+- If the chain exists with the pinned layout it is left as is and is NOT
+  claimed (no marker). If it exists with any other layout, or more than one
+  matches, the helper exits 3, reports `REFUSED`, and changes nothing; the
+  installer warns and continues, and the agent keeps the executor disabled.
+- Foreign tables, chains and rules are never read-modified; `/etc/nftables.conf`
+  is never edited. `--no-ingress-chain` skips all of this.
+- Persistence: only when the marker exists, `baft-ingress-chain.service`
+  (oneshot, `Before=baft-agent.service`, gated by `ConditionPathExists` on the
+  marker) re-runs `ensure --boot` after a reboot. The agent unit is not
+  modified. Without the marker the boot run is a no-op.
+- `--provision-ingress-policy` (default OFF, `--agent-only` only) additionally
+  runs `baft-agent --provision-ingress-policy --node-id <id>`. It never runs
+  implicitly.
+
+`baft uninstall` (agent in scope) runs `ingress-chain.sh remove` after a
+successful uninstall: it deletes the chain only if the marker's handle and the
+pinned layout match and the chain holds no rules (and deletes `table inet baft`
+only if the installer created it and it is then empty), then disables and
+removes the boot unit. Otherwise it leaves everything and reports why. If the
+agent state directory was deleted first the marker is gone and the chain is
+left in place.
+
+Verification: `sudo tests/e2e/installer_ingress_chain.sh` (real nft in a private
+netns) and `go test ./tests/docs`.

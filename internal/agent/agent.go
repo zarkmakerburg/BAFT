@@ -48,6 +48,7 @@ type Config struct {
 	IngressManifestDir   string                                      // trusted, private prepared-manifest directory; optional
 	IngressExpectedProof func(string) (ingressmanifest.Proof, error) // independent persisted proof resolver; optional
 	IngressLABExecutor   IngressLABExecutor                          // explicitly injected isolated LAB executor; nil disables live ingress jobs
+	IngressOperational   *IngressOperational                         // real signed v1 ingress path; nil keeps v1 jobs release-closed (never falls back to LAB)
 	Service              string                                      // systemd unit, e.g. "baft"
 
 	// Updates.
@@ -442,7 +443,7 @@ func (a *Agent) RunOnce(ctx context.Context) ([]Result, error) {
 			out = append(out, r)
 			continue
 		}
-		detail, output, err := a.executeFull(ctx, job)
+		detail, output, err := a.executeFullSigned(ctx, job, pj.Signed)
 		r.Status, r.Detail = "succeeded", detail
 		if err != nil {
 			r.Status, r.Detail, output = "failed", err.Error(), ""

@@ -51,3 +51,20 @@ preservation, installed inventory and descriptor cleanup, then executes the
 actual CLI. The P0 ingress workflow runs this harness. No production policy is
 created by ordinary tests: privileged bootstrap tests require both explicit LAB
 environment opt-in and a sentinel in the disposable filesystem.
+
+## Durable command correlation
+
+A policy-pinned held guard can record `RecordCommandIntent(ctx, command)`.
+This persists a canonical request, not signature authentication or permission.
+The caller must separately verify the signed Agent job. Apply identity cannot
+be replaced; Retire requires a distinct job ID for the same binding and an
+existing Apply intent. Job IDs cannot be shared by independent operations.
+Exact retries do not renew timestamps, leases or readiness. Commands survive
+`MarkApplying` and restart; malformed or mismatched durable requests refuse
+recovery while pending reservations remain fenced.
+
+`ReservationStore.InspectCommandIntents(binding)` returns detached Apply/Retire
+correlation data for recovery, including after policy drift. Reading an intent
+never declares effects verified or releases resources. LiveLease admission is
+still disabled until complete supported-environment coverage and real owned
+listener/firewall/reconciliation contracts exist.

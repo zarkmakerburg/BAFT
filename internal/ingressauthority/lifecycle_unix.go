@@ -23,9 +23,10 @@ const lifecycleFile = "lifecycle.json"
 // Lifecycle entries record incomplete effects only. Neither a journal value
 // nor PendingGuard authorizes applying, releasing, or minting a live Lease.
 type lifecycleEntry struct {
-	Binding BindingV1                  `json:"binding"`
-	State   RecoveryState              `json:"state"`
-	Policy  *InstalledPolicyIdentityV1 `json:"installed_policy,omitempty"`
+	Binding  BindingV1                  `json:"binding"`
+	State    RecoveryState              `json:"state"`
+	Policy   *InstalledPolicyIdentityV1 `json:"installed_policy,omitempty"`
+	Commands map[string]CommandV1       `json:"command_intents,omitempty"`
 }
 
 func readLifecycle(root *os.Root) (map[string]lifecycleEntry, error) {
@@ -58,6 +59,7 @@ func readLifecycle(root *os.Root) (map[string]lifecycleEntry, error) {
 	if err != nil || !bytes.Equal(canonical, raw) {
 		return nil, ErrUnverified
 	}
+	jobs := make(map[string]bool)
 	for key, value := range result {
 		if value.Binding.Validate() != nil || key != reservationKey(value.Binding) ||
 			value.State != StateApplying && value.State != StateNeedsReconciliation {
@@ -65,6 +67,15 @@ func readLifecycle(root *os.Root) (map[string]lifecycleEntry, error) {
 		}
 		if value.Policy != nil && !value.Policy.validFor(value.Binding) {
 			return nil, ErrUnverified
+		}
+		if !validCommandIntents(value) {
+			return nil, ErrUnverified
+		}
+		for _, command := range value.Commands {
+			if jobs[command.JobID] {
+				return nil, ErrUnverified
+			}
+			jobs[command.JobID] = true
 		}
 	}
 	return result, nil

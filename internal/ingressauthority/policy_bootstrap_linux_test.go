@@ -11,12 +11,14 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 	"testing"
 
 	"github.com/zarkmakerburg/baft/internal/ingressinventory"
+	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
 )
 
 func isolatedPolicyBootstrapLAB(t *testing.T) {
@@ -402,6 +404,227 @@ func TestInstalledPolicyBindingLABRejectsMalformedDurableIdentity(t *testing.T) 
 		}
 		if _, err := store.InspectRecovery(b); err == nil {
 			t.Fatal("malformed durable installed-policy identity accepted")
+		}
+	}
+}
+
+func TestCommandIntentLABSurvivesRestartAndFencesReplays(t *testing.T) {
+	isolatedPolicyBootstrapLAB(t)
+	if _, err := ProvisionInstalledManagedNodePolicy(context.Background(), "ir-policy"); err != nil {
+		t.Fatal(err)
+	}
+	b := bindingFixture(t)
+	b.NodeID = "ir-policy"
+	store, err := OpenReservationStore(privateReservationDir(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.ReservePending(b); err != nil {
+		t.Fatal(err)
+	}
+	g, err := store.HoldPending(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.BindInstalledPolicy(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	apply := commandIntentFixture(t, b)
+	if err := g.RecordCommandIntent(context.Background(), apply); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.RecordCommandIntent(context.Background(), apply); err != nil {
+		t.Fatalf("identical command retry failed: %v", err)
+	}
+	changed := apply
+	changed.JobID = "replacement-apply"
+	if err := g.RecordCommandIntent(context.Background(), changed); err == nil {
+		t.Fatal("new job silently replaced immutable Apply intent")
+	}
+	changed = apply
+	changed.Binding.PlanSHA256 = strings.Repeat("b", 64)
+	if err := g.RecordCommandIntent(context.Background(), changed); err == nil {
+		t.Fatal("reviewed binding drift recorded")
+	}
+	retire := apply
+	retire.Action = "public_ingress_retire"
+	if err := g.RecordCommandIntent(context.Background(), retire); err == nil {
+		t.Fatal("Retire reused Apply signed job identity")
+	}
+	retire.JobID = "retire-intent-2"
+	if err := g.RecordCommandIntent(context.Background(), retire); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.MarkApplying(context.Background(), b); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := OpenReservationStore(store.dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	intents, err := reopened.InspectCommandIntents(b)
+	if err != nil || len(intents) != 2 || intents[0].JobID != apply.JobID || intents[1].JobID != retire.JobID || intents[0].Binding != b || intents[1].Binding != b {
+		t.Fatalf("restart lost exact signed-command correlation: %+v %v", intents, err)
+	}
+	intents[0].JobID = "caller-mutated"
+	again, err := reopened.InspectCommandIntents(b)
+	if err != nil || again[0].JobID != apply.JobID {
+		t.Fatal("readback exposed mutable durable state")
+	}
+	state, err := reopened.InspectRecovery(b)
+	if err != nil || state != StateNeedsReconciliation {
+		t.Fatal("command intent became ready or freed a resource")
+	}
+	other := b
+	other.LeaseID = "different-lease"
+	if err := reopened.ReservePending(other); err == nil {
+		t.Fatal("command restart released pending resource fence")
+	}
+	if err := (&LiveLease{}).CheckLockedIngress(context.Background(), apply); err == nil {
+		t.Fatal("journal data minted a live lease")
+	}
+}
+
+func TestCommandIntentLABRejectsCrossOperationJobAndRetireWithoutApply(t *testing.T) {
+	isolatedPolicyBootstrapLAB(t)
+	if _, err := ProvisionInstalledManagedNodePolicy(context.Background(), "ir-policy"); err != nil {
+		t.Fatal(err)
+	}
+	store, err := OpenReservationStore(privateReservationDir(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := bindingFixture(t)
+	first.NodeID = "ir-policy"
+	if err := store.ReservePending(first); err != nil {
+		t.Fatal(err)
+	}
+	g, err := store.HoldPending(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.BindInstalledPolicy(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	apply := commandIntentFixture(t, first)
+	if err := g.RecordCommandIntent(context.Background(), apply); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.Close(); err != nil {
+		t.Fatal(err)
+	}
+	second := first
+	second.Port++
+	second.ConfigPort = second.Port
+	second.ListenEndpoint = "0.0.0.0:" + strconv.Itoa(int(second.Port))
+	second.Spec.Config.Listen = second.ListenEndpoint
+	second.OperationID = "op-second"
+	second.LeaseID = "lease-second"
+	second.Spec.TunnelID = "tunnel-second"
+	second.Proof, err = ingressmanifest.Preview(second.Spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.ReservePending(second); err != nil {
+		t.Fatal(err)
+	}
+	g, err = store.HoldPending(second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer g.Close()
+	if _, err := g.BindInstalledPolicy(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	candidate := apply
+	candidate.Binding = second
+	candidate.Action = "public_ingress_retire"
+	candidate.JobID = "retire-without-apply"
+	if err := g.RecordCommandIntent(context.Background(), candidate); err == nil {
+		t.Fatal("Retire intent before matching Apply accepted")
+	}
+	candidate.Action = "public_ingress_apply"
+	candidate.JobID = apply.JobID
+	if err := g.RecordCommandIntent(context.Background(), candidate); err == nil {
+		t.Fatal("signed job ID shared by independent resource intents")
+	}
+	candidate.JobID = "second-apply"
+	if err := g.RecordCommandIntent(context.Background(), candidate); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCommandIntentLABRejectsMalformedDurableRequest(t *testing.T) {
+	isolatedPolicyBootstrapLAB(t)
+	if _, err := ProvisionInstalledManagedNodePolicy(context.Background(), "ir-policy"); err != nil {
+		t.Fatal(err)
+	}
+	b := bindingFixture(t)
+	b.NodeID = "ir-policy"
+	store, err := OpenReservationStore(privateReservationDir(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.ReservePending(b); err != nil {
+		t.Fatal(err)
+	}
+	g, err := store.HoldPending(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.BindInstalledPolicy(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	apply := commandIntentFixture(t, b)
+	if err := g.RecordCommandIntent(context.Background(), apply); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.Close(); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(store.dir, lifecycleFile)
+	original, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, mutate := range []func(*lifecycleEntry){
+		func(e *lifecycleEntry) { e.Policy = nil },
+		func(e *lifecycleEntry) {
+			c := e.Commands[commandIntentApply]
+			c.Binding.PlanSHA256 = strings.Repeat("b", 64)
+			e.Commands[commandIntentApply] = c
+		},
+		func(e *lifecycleEntry) {
+			c := e.Commands[commandIntentApply]
+			c.Action = commandIntentRetire
+			e.Commands[commandIntentRetire] = c
+		},
+		func(e *lifecycleEntry) {
+			c := e.Commands[commandIntentApply]
+			c.Action = commandIntentRetire
+			c.JobID = "orphan-retire"
+			e.Commands = map[string]CommandV1{commandIntentRetire: c}
+		},
+	} {
+		var records map[string]lifecycleEntry
+		if err := json.Unmarshal(original, &records); err != nil {
+			t.Fatal(err)
+		}
+		entry := records[reservationKey(b)]
+		mutate(&entry)
+		records[reservationKey(b)] = entry
+		raw, err := json.Marshal(records)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(file, raw, 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := store.InspectCommandIntents(b); err == nil {
+			t.Fatal("malformed durable command intent accepted")
 		}
 	}
 }

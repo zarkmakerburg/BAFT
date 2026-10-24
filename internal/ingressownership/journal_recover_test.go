@@ -35,3 +35,20 @@ func TestRecoveryRejectsPrematureFirewallHandle(t *testing.T) {
 		}
 	}
 }
+
+func TestRetiredGenerationCannotResurrectOnReplay(t *testing.T) {
+	p := proof("retired-replay", 7)
+	j := new(LabJournal)
+	for _, phase := range []MutationPhase{PhaseIntent, PhaseListenerBound, PhaseFirewallInstalled, PhaseVerified, PhaseRetireIntent, PhaseRetired} {
+		if err := j.Advance(MutationRecord{Port: 443, Owner: p, Phase: phase}); err != nil {
+			t.Fatalf("advance %s: %v", phase, err)
+		}
+	}
+	if err := j.Advance(MutationRecord{Port: 443, Owner: p, Phase: PhaseIntent}); !errors.Is(err, ErrConflict) {
+		t.Fatalf("retired generation resurrected: %v", err)
+	}
+	r, ok, err := j.Current(p)
+	if err != nil || !ok || r.Phase != PhaseRetired {
+		t.Fatalf("retired journal mutated by replay: %+v, %v", r, err)
+	}
+}

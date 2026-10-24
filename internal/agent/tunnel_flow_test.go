@@ -228,6 +228,18 @@ func (f *flow) api(method, path string, body any) (int, []byte) {
 
 func (f *flow) create(req bcc.TunnelRequest) bcc.Tunnel {
 	f.t.Helper()
+	// Production requires an agent-contacted, reviewed plan before deployment.
+	// Model that contract in this two-agent acceptance fixture.
+	for _, node := range []*flowNode{f.ex, f.ir} {
+		if _, err := node.agent.RunOnce(context.Background()); err != nil {
+			f.t.Fatalf("%s initial contact: %v", node.id, err)
+		}
+	}
+	status, plan, body := f.planOf(req)
+	if status != http.StatusOK || !plan.OK || plan.Hash == "" {
+		f.t.Fatalf("review tunnel plan = %d ok=%t %s", status, plan.OK, body)
+	}
+	req.PlanHash = plan.Hash
 	code, body := f.api("POST", "/api/tunnels", req)
 	if code != http.StatusAccepted {
 		f.t.Fatalf("create tunnel = %d %s", code, body)

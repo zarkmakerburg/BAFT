@@ -8,7 +8,7 @@ const js=go.slice(go.indexOf('<script>')+8,go.indexOf('</script>'));
 function section(from,to){const a=js.indexOf(from),b=js.indexOf(to,a);assert.ok(a>=0&&b>a,from);return js.slice(a,b)}
 const controllers=section('function token(){','function ago(')+section('// Universal Toolbox is backend-driven.','// Native BAFT Smart Tunnel Wizard.')+section('// Native BAFT Smart Tunnel Wizard.','async function tnCancel(');
 function harness(lang='en'){
- const defaults={tnDirection:'ir-to-ex',tnEngine:'baft',tnEx:'ex-test',tnIr:'ir-test',tnMode:'independent',tnInstance:'test-instance',tnTarget:'[2001:db8::15]:5432',tnPort:'8443',tnRouteListen:'127.0.0.1:1444',tnExMetric:'127.0.0.1:9202',tnIrMetric:'127.0.0.1:9302',tnClientPort:''};
+ const defaults={tnDirection:'ir-to-ex',tnEngine:'baft',tnEx:'ex-test',tnIr:'ir-test',tnMode:'independent',tnInstance:'test-instance',tnTarget:'[2001:db8::15]:5432',tnPort:'8443',tnRouteListen:'127.0.0.1:1444',tnExMetric:'127.0.0.1:9202',tnIrMetric:'127.0.0.1:9302',tnClientPort:'443'};
  const elements=new Map(),requests=[],warnings=[],studioTool={open:false};
  const element=id=>{
   if(!elements.has(id))elements.set(id,{value:defaults[id]||'',textContent:'',innerHTML:'',checked:id==='tnIngressConfirm',hidden:false,options:[],children:[],replaceChildren(){this.innerHTML=''},scrollIntoView(){}});
@@ -64,7 +64,7 @@ test('catalog to Studio to generated IPv6 destination to reviewed deployment use
  assert.equal(create.body.target,'[2001:db8::15]:20007');
  assert.equal(create.body.port,8443);
  assert.equal(create.body.instance_id,'test-instance');
- assert.deepEqual(Object.keys(plan.body).sort(),['allow_legacy_coexistence','ex_metrics_listen','ex_node','instance_id','ir_metrics_listen','ir_node','port','route_listen','target'].sort());
+ assert.deepEqual(Object.keys(plan.body).sort(),['allow_legacy_coexistence','ex_metrics_listen','ex_node','instance_id','ir_metrics_listen','ir_node','port','client_port','route_listen','target'].sort());
  for(const request of h.requests)assert.equal(request.headers.Authorization,'Bearer integration-credential');
  assert.doesNotMatch(h.element('tlCatalog').innerHTML+h.element('tnPlan').innerHTML,/integration-credential/);
 });
@@ -92,5 +92,7 @@ for(const lang of ['fa','en'])test('combined '+lang+' review keeps endpoint dire
  assert.match(html,/<bdi dir="ltr">\[2001:db8::15\]:5432<\/bdi>/);
  assert.match(html,/<bdi dir="ltr">IR \(dialer\) → EX \(listener\)<\/bdi>/);
  assert.doesNotMatch(html,/Xray|VLESS|VMess|Trojan|integration-credential/i);
+ assert.match(html,lang==='fa'?/پورت کانفیگ کاربران = پورت ورودی عمومی ایران: 443/:/Client configuration port = IR public ingress port: 443/);
+ assert.match(html,lang==='fa'?/مدیریت خارجی/:/EXTERNALLY MANAGED/);
  assert.equal(h.requests.length,0);
 });

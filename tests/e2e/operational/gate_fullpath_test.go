@@ -11,6 +11,7 @@ import (
 
 	"github.com/zarkmakerburg/baft/internal/agentjob"
 	"github.com/zarkmakerburg/baft/internal/bcc"
+	"github.com/zarkmakerburg/baft/internal/ingressauthority"
 )
 
 // fullPath is the shared positive scenario; later tests build on it.
@@ -23,6 +24,8 @@ type fullPath struct {
 	port int
 	job  string
 	echo *echo
+	tap  *tap
+	cmd  ingressauthority.CommandV1
 }
 
 func setupFullPath(t *testing.T, clientPort int, route string) *fullPath {
@@ -35,7 +38,8 @@ func setupFullPath(t *testing.T, clientPort int, route string) *fullPath {
 	f.b = newBCC(t, map[string]string{"ex-opv1": "foreign", irNode: "worker"})
 	f.tn, f.plan = f.b.wizard(scoped("main-de", "ex-opv1", irNode, 8443, clientPort, route, "127.0.0.1:"+strconv.Itoa(rp+8000), "127.0.0.1:"+strconv.Itoa(rp+8100)))
 	f.b.reserve(f.tn, f.plan.Hash, clientPort, 200)
-	f.a = startAgent(t, f.b, h, t.TempDir(), nil)
+	f.tap = newTap(t, f.b)
+	f.a = startAgent(t, f.b, h, t.TempDir(), &agentOpt{url: f.tap.srv.URL, client: f.tap.srv.Client()})
 	f.job = "apply-" + strconv.Itoa(clientPort)
 	return f
 }
@@ -44,7 +48,7 @@ func setupFullPath(t *testing.T, clientPort int, route string) *fullPath {
 // and the normal Agent poll.
 func (f *fullPath) apply(t *testing.T) {
 	t.Helper()
-	f.b.stage(f.tn, f.job)
+	f.cmd = f.b.stage(f.tn, f.job)
 	if err := f.b.store.EnqueueOperationalIngress(f.tn.ID); err == nil {
 		t.Fatal("enqueue succeeded before the Agent declared operational-ingress-v1 (gate must be closed)")
 	}

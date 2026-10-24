@@ -21,7 +21,7 @@ jobs:
           sudo ip netns add baft-delta-pin
           trap 'sudo ip netns del baft-delta-pin' EXIT
           sudo ip netns exec baft-delta-pin ip link set lo up
-          sudo ip netns exec baft-delta-pin /tmp/delta-pin.test -test.run '^Test(ManagedExecutionPin|KernelProcessStartStrict)' -test.v -test.count=1 | tee /tmp/delta-pin.log
-          for name in TestManagedExecutionPinStableAndTamperedLAB TestManagedExecutionPinRefusesRealLateSourcesLAB TestKernelProcessStartStrict; do
-            grep -Fq -- "--- PASS: $name" /tmp/delta-pin.log
+          sudo ip netns exec baft-delta-pin /tmp/delta-pin.test -test.run '^Test(ManagedExecutionPin|ManagedLABMeasuredExecutionOnlyInPrivateNamespace|KernelProcessStartStrict)' -test.v -test.count=1 | tee /tmp/delta-pin.log
+          for name in TestManagedExecutionPinStableAndTamperedLAB TestManagedExecutionPinRefusesRealLateSourcesLAB TestManagedLABMeasuredExecutionOnlyInPrivateNamespace TestKernelProcessStartStrict; do
+            grep -Eq -- "^--- PASS: ${name}( |$)" /tmp/delta-pin.log
           done

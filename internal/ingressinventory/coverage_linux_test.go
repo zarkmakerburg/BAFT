@@ -249,6 +249,9 @@ func TestInstalledCoverageLABSourceProvenanceRejectsNonRootOrWritableFiles(t *te
 // loopback-only Linux network namespace with no other namespace occupants.
 // Every executor/manager class exclusion is measured again after the scan.
 func TestManagedLABMeasuredExecutionOnlyInPrivateNamespace(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("requires privileged isolated Linux LAB before inspecting host namespaces")
+	}
 	current, err := namespaceIdentity()
 	if err != nil {
 		t.Fatal(err)

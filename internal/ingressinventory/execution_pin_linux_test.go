@@ -11,6 +11,9 @@ import (
 )
 
 func TestManagedExecutionPinStableAndTamperedLAB(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("requires privileged isolated Linux LAB before inspecting host namespaces")
+	}
 	ns, err := namespaceIdentity()
 	if err != nil {
 		t.Fatal(err)

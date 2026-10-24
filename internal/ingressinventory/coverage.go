@@ -93,6 +93,13 @@ type PrivateLABExecutionEvidence struct {
 	OwnPID       int
 	Interfaces   []string
 	Processes    []int
+	ProcessStartTicks uint64
+	ExecutableDevice uint64
+	ExecutableInode uint64
+	ExecutableSHA256 string
+	MountNS string
+	CgroupNS string
+	CgroupMembership string
 }
 
 func (e PrivateLABExecutionEvidence) matches(other PrivateLABExecutionEvidence) bool {
@@ -125,6 +132,34 @@ type CoverageEvidence struct {
 // unknown sources. The method does not mutate host resources.
 func CollectInstalledManagedTCP(ctx context.Context, expectedNodeID string, port uint16) (CoverageEvidence, error) {
 	return collectFromInstalledPath(ctx, InstalledPolicyPath, expectedNodeID, port)
+}
+
+
+// ManagedLABExecutionPin is read-only and caller-mutable observation data,
+// never a capability, durable lease or reason to mark an operation successful.
+// Alpha must obtain and independently pin it under its held operation guard.
+// Privileged host administrators who can enter a private netns are outside
+// this first isolated LAB scope; arrivals detected at effect time still DENY.
+type ManagedLABExecutionPin struct {
+	Policy InstalledManagedNodePolicyV1
+	Sources []SourceIdentity
+	Stopped []PersistentTCPPortClaim
+	LAB PrivateLABExecutionEvidence
+}
+
+// PinInstalledManagedLABExecution observes the protected fixed-path profile,
+// full scoped source identities and actual executable/process/netns/cgroup.
+// The only caller input is the expected enrolled node identity.
+func PinInstalledManagedLABExecution(ctx context.Context, expectedNodeID string) (ManagedLABExecutionPin, error) {
+	return pinInstalledManagedLABExecution(ctx, InstalledPolicyPath, expectedNodeID)
+}
+
+// CheckInstalledManagedLABAtEffect remeasures all pin inputs independently
+// and denies drift. It does NOT verify a lease, waive any foreign TCP inode,
+// or prevent future privileged host-root namespace entry between effects.
+// Delta's concrete executor must call it under Alpha's live lease.
+func CheckInstalledManagedLABAtEffect(ctx context.Context, expectedNodeID string, pin ManagedLABExecutionPin) error {
+	return checkInstalledManagedLABAtEffect(ctx, InstalledPolicyPath, expectedNodeID, pin)
 }
 
 func coverageError(e CoverageEvidence, why string) (CoverageEvidence, error) {

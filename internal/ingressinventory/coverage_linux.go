@@ -118,6 +118,33 @@ func readProtectedInstalledPolicy(path string) (installedProfileIdentity, error)
 
 func parseInstalledPolicy(raw []byte, expectedNodeID string, actualNetNS string) (installedPolicyV1, error) {
 	var p installedPolicyV1
+	// encoding/json accepts duplicate and case-insensitive struct keys.
+	// The installed trust contract requires one exact spelling per field.
+	keys := json.NewDecoder(bytes.NewReader(raw))
+	if token, err := keys.Token(); err != nil || token != json.Delim('{') {
+		return p, ErrUnsupportedManagedNode
+	}
+	seenKeys := make(map[string]bool)
+	for keys.More() {
+		token, err := keys.Token()
+		key, ok := token.(string)
+		if err != nil || !ok || seenKeys[key] {
+			return p, ErrUnsupportedManagedNode
+		}
+		switch key {
+		case "schema_version", "node_id", "platform", "netns", "transport", "inventory_version", "manager", "source_roots":
+		default:
+			return p, ErrUnsupportedManagedNode
+		}
+		seenKeys[key] = true
+		var value json.RawMessage
+		if err := keys.Decode(&value); err != nil {
+			return p, ErrUnsupportedManagedNode
+		}
+	}
+	if token, err := keys.Token(); err != nil || token != json.Delim('}') {
+		return p, ErrUnsupportedManagedNode
+	}
 	d := json.NewDecoder(bytes.NewReader(raw))
 	d.DisallowUnknownFields()
 	if err := d.Decode(&p); err != nil {

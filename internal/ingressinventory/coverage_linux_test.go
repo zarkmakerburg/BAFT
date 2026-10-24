@@ -243,3 +243,22 @@ func TestInstalledCoverageLABSourceProvenanceRejectsNonRootOrWritableFiles(t *te
 		t.Fatalf("writable installed service root accepted: %+v %v", e, err)
 	}
 }
+
+func TestInstalledPolicyRejectsAmbiguousWireKeys(t *testing.T) {
+	p := installedPolicyV1{SchemaVersion: 1, NodeID: "ir-lab-01", Platform: "linux", NetNS: "net:[123]", Transport: "dedicated", InventoryV1: 1, Manager: "systemd-socket-v1", SourceRoots: []string{"/etc/systemd/system"}}
+	raw, err := json.Marshal(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := parseInstalledPolicy(raw, p.NodeID, p.NetNS); err != nil {
+		t.Fatal(err)
+	}
+	for _, extra := range []string{`"node_id":"other","node_id":"ir-lab-01"`, `"schema_version":1`, `"Node_ID":"ir-lab-01"`, `"source_roots":["/etc/systemd/system"]`} {
+		t.Run(extra, func(t *testing.T) {
+			ambiguous := append(append([]byte(nil), raw[:len(raw)-1]...), []byte(","+extra+"}")...)
+			if _, err := parseInstalledPolicy(ambiguous, p.NodeID, p.NetNS); !errors.Is(err, ErrUnsupportedManagedNode) {
+				t.Fatalf("ambiguous installed profile accepted: %s: %v", ambiguous, err)
+			}
+		})
+	}
+}

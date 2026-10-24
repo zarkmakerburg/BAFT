@@ -65,7 +65,17 @@ func (s *Store) RecordReviewedPublicIngressOperation(spec PublicIngressSpec, pla
 	if _, exists := s.st.PublicIngressReservations[spec.TunnelID]; !exists {
 		s.st.PublicIngressReservations[spec.TunnelID] = PublicIngressReservation{Spec: spec, CreatedAt: now.UTC()}
 	}
-	op := PublicIngressOperation{Spec: spec, Proof: proof, ReviewedPlanHash: planHash, Status: PublicIngressPending, CreatedAt: now.UTC()}
+	opID, err := newIngressIdentity("op-")
+	if err != nil {
+		s.st = before
+		return PublicIngressOperation{}, err
+	}
+	leaseID, err := newIngressIdentity("lease-")
+	if err != nil {
+		s.st = before
+		return PublicIngressOperation{}, err
+	}
+	op := PublicIngressOperation{Spec: spec, Proof: proof, ReviewedPlanHash: planHash, OperationID: opID, LeaseID: leaseID, Status: PublicIngressPending, CreatedAt: now.UTC()}
 	s.st.PublicIngressOperations[spec.TunnelID] = op
 	audit.Action, audit.Target, audit.Outcome = "public_ingress.operation.reviewed_intent", spec.TunnelID, "success"
 	audit.Details = mergeAuditDetails(audit.Details, map[string]any{"ir_node": spec.IRNode, "public_port": spec.PublicPort, "client_port": spec.PublicPort, "plan_hash": planHash, "generation": proof.Generation, "manifest_digest": proof.ManifestDigest, "desired_only": true})

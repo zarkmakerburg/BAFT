@@ -5,6 +5,8 @@ package ingressownership
 
 import (
 	"errors"
+
+	"github.com/zarkmakerburg/baft/internal/ingressinventory"
 	"net"
 	"regexp"
 	"strconv"
@@ -14,7 +16,7 @@ import (
 )
 
 var (
-	ErrConflict = errors.New("ingress resource is owned by another generation")
+	ErrConflict = ingressinventory.ErrClaimConflict
 	ErrUnknown  = errors.New("ingress resource ownership is unknown")
 	ErrStale    = errors.New("ingress generation is stale")
 	ErrInvalid  = errors.New("invalid ingress ownership proof")

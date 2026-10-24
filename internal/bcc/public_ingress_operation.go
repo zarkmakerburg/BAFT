@@ -2,10 +2,13 @@ package bcc
 
 import (
 	"errors"
+	"reflect"
+
 	"net"
 	"strconv"
 	"time"
 
+	"github.com/zarkmakerburg/baft/internal/ingressauthority"
 	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
 )
 
@@ -19,11 +22,15 @@ func publicIngressManifestSpec(spec PublicIngressSpec, instance string, generati
 // PublicIngressOperation is BCC's durable expected proof for one reserved
 // ingress. PENDING does not authorize or prove any agent-side host change.
 type PublicIngressOperation struct {
-	ReviewedPlanHash string                     `json:"reviewed_plan_hash,omitempty"` // Exact BCC-reviewed tunnel plan; legacy desired-only intents omit it.
-	Spec             PublicIngressSpec          `json:"spec"`
-	Proof            PublicIngressExpectedProof `json:"proof"`
-	Status           string                     `json:"status"`
-	CreatedAt        time.Time                  `json:"created_at"`
+	OperationID      string                      `json:"operation_id,omitempty"`
+	LeaseID          string                      `json:"lease_id,omitempty"`
+	Command          *ingressauthority.CommandV1 `json:"command,omitempty"`
+	Receipt          *ingressauthority.ReceiptV1 `json:"receipt,omitempty"`
+	ReviewedPlanHash string                      `json:"reviewed_plan_hash,omitempty"` // Exact BCC-reviewed tunnel plan; legacy desired-only intents omit it.
+	Spec             PublicIngressSpec           `json:"spec"`
+	Proof            PublicIngressExpectedProof  `json:"proof"`
+	Status           string                      `json:"status"`
+	CreatedAt        time.Time                   `json:"created_at"`
 }
 
 // RecordPublicIngressOperationIntent fences a reservation to one generation
@@ -84,7 +91,7 @@ func mergePublicIngressOperations(restored *state, current state) error {
 		merged[id] = op
 	}
 	for id, op := range current.PublicIngressOperations {
-		if old, ok := merged[id]; ok && (old.Spec != op.Spec || old.Proof != op.Proof || old.ReviewedPlanHash != op.ReviewedPlanHash) {
+		if old, ok := merged[id]; ok && (old.Spec != op.Spec || old.Proof != op.Proof || old.ReviewedPlanHash != op.ReviewedPlanHash || old.OperationID != op.OperationID || old.LeaseID != op.LeaseID || !reflect.DeepEqual(old.Command, op.Command) || !reflect.DeepEqual(old.Receipt, op.Receipt)) {
 			return errors.New("backup changes a current public ingress operation proof")
 		}
 		merged[id] = op
@@ -109,5 +116,5 @@ func mergePublicIngressOperations(restored *state, current state) error {
 		}
 	}
 	restored.PublicIngressOperations = merged
-	return nil
+	return validatePersistedIngressOperations(*restored)
 }

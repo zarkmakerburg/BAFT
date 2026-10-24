@@ -146,12 +146,21 @@ func run(ctx context.Context, args []string, stderr io.Writer) int {
 	} else {
 		fmt.Fprintln(stderr, "baft-agent: no release root pinned; update_baft jobs will fail")
 	}
+	// Operational ingress is built only if every prerequisite verifies; any
+	// failure leaves it nil (no capability header, v1 jobs BLOCKED). It never
+	// falls back to the LAB executor or an in-memory firewall.
+	logger := log.New(stderr, "", log.LstdFlags)
+	if op, err := buildIngressOperational(ctx, *nodeID, *stateDir, hostIngressDeps(logger.Printf)); err != nil {
+		logger.Printf("baft-agent: operational ingress disabled (v1 ingress jobs stay BLOCKED): %v", err)
+	} else {
+		cfg.IngressOperational = op
+		logger.Printf("baft-agent: operational ingress provisioned for %s", *nodeID)
+	}
 	a, err := agent.New(cfg)
 	if err != nil {
 		fmt.Fprintln(stderr, "baft-agent:", err)
 		return 1
 	}
-	logger := log.New(stderr, "", log.LstdFlags)
 	if *once {
 		results, err := a.RunOnce(ctx)
 		for _, r := range results {

@@ -26,7 +26,7 @@ func validCommandIntents(entry lifecycleEntry) bool {
 	}
 	if retire, ok := entry.Commands[commandIntentRetire]; ok {
 		apply, ok := entry.Commands[commandIntentApply]
-		if !ok || retire.JobID == apply.JobID || retire.IssuedAt.Before(apply.IssuedAt) {
+		if !ok || retire.JobID == apply.JobID {
 			return false
 		}
 	}

@@ -16,6 +16,7 @@ import (
 	"sync"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/zarkmakerburg/baft/internal/ingressinventory"
 	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
@@ -452,6 +453,8 @@ func TestCommandIntentLABSurvivesRestartAndFencesReplays(t *testing.T) {
 		t.Fatal("Retire reused Apply signed job identity")
 	}
 	retire.JobID = "retire-intent-2"
+	// Journal order, not a monotonic wall clock, establishes request order.
+	retire.IssuedAt = apply.IssuedAt.Add(-time.Second)
 	if err := g.RecordCommandIntent(context.Background(), retire); err != nil {
 		t.Fatal(err)
 	}

@@ -68,3 +68,21 @@ correlation data for recovery, including after policy drift. Reading an intent
 never declares effects verified or releases resources. LiveLease admission is
 still disabled until complete supported-environment coverage and real owned
 listener/firewall/reconciliation contracts exist.
+
+## Remaining source coverage boundary
+
+A valid v1 policy identifies configuration and namespace; it does not prove a
+closed service/runtime baseline. Source provenance now hashes the exact bytes
+parsed and rechecks relevant files/directories after observation. This detects
+sampled drift, including changes with restored mtimes, but cannot establish an
+atomic host snapshot or exclude transient ABA/future changes. Alpha's private
+directory lock does not serialize unrelated systemd, runtime or namespace
+writers.
+
+Before any live permit, the supported LAB must independently establish its
+actual manager load paths/effective units, executable/configuration baseline,
+process/cgroup and namespace visibility and relevant writer restrictions.
+Retire additionally needs exact owned-listener distinction and host readback.
+If installer-selected baseline/enforcement metadata is introduced, it needs a
+versioned contract; no exclusion or supported boolean can replace measurement.
+All presently unknown source classes and LiveLease denial remain in force.

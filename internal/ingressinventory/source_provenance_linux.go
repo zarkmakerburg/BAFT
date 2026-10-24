@@ -47,14 +47,15 @@ func protectedSourceRootIdentity(source string) (uint64, uint64, error) {
 	return uint64(st.Dev), st.Ino, nil
 }
 
-// scanPinnedSourceFiles hashes actual unit/override bytes and rejects
+// scanPinnedSourceFiles records relevant drop-in directories (even empty),
+// hashes actual unit/override bytes and rejects
 // non-root-owned, symlinked, modified or writable source content.
 // It is a read-only second independent observation AFTER the socket scanner
 // has parsed effective stopped-service port claims.
-func scanPinnedSourceFiles(directory string) ([]SourceFileIdentity, error) {
+func scanPinnedSourceFiles(directory string) ([]SourceFileIdentity, map[string]os.FileInfo, error) {
 	root, err := os.OpenRoot(directory)
 	if err != nil {
-		return nil, ErrCoverageIncomplete
+		return nil, nil, ErrCoverageIncomplete
 	}
 	defer root.Close()
 	openEntries := func(relative string) ([]os.DirEntry, error) {
@@ -67,8 +68,9 @@ func scanPinnedSourceFiles(directory string) ([]SourceFileIdentity, error) {
 	}
 	entries, err := openEntries(".")
 	if err != nil || len(entries) > 2048 {
-		return nil, ErrCoverageIncomplete
+		return nil, nil, ErrCoverageIncomplete
 	}
+	directories := make(map[string]os.FileInfo)
 	var names []string
 	for _, e := range entries {
 		if strings.HasSuffix(e.Name(), ".socket") {
@@ -78,15 +80,16 @@ func scanPinnedSourceFiles(directory string) ([]SourceFileIdentity, error) {
 			sub := e.Name()
 			info, err := root.Lstat(sub)
 			if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0022 != 0 {
-				return nil, ErrCoverageIncomplete
+				return nil, nil, ErrCoverageIncomplete
 			}
 			st, ok := info.Sys().(*syscall.Stat_t)
 			if !ok || st.Uid != 0 {
-				return nil, ErrCoverageIncomplete
+				return nil, nil, ErrCoverageIncomplete
 			}
+			directories[sub] = info
 			children, err := openEntries(sub)
 			if err != nil || len(children) > 128 {
-				return nil, ErrCoverageIncomplete
+				return nil, nil, ErrCoverageIncomplete
 			}
 			for _, file := range children {
 				if strings.HasSuffix(file.Name(), ".conf") {
@@ -97,38 +100,38 @@ func scanPinnedSourceFiles(directory string) ([]SourceFileIdentity, error) {
 	}
 	sort.Strings(names)
 	if len(names) > 2048 {
-		return nil, ErrCoverageIncomplete
+		return nil, nil, ErrCoverageIncomplete
 	}
 	var observed []SourceFileIdentity
 	for _, relative := range names {
 		fi, err := root.Lstat(relative)
 		if err != nil || !fi.Mode().IsRegular() || fi.Mode().Perm()&0022 != 0 || fi.Size() < 0 || fi.Size() > 64<<10 {
-			return nil, ErrCoverageIncomplete
+			return nil, nil, ErrCoverageIncomplete
 		}
 		st, ok := fi.Sys().(*syscall.Stat_t)
 		if !ok || st.Uid != 0 {
-			return nil, ErrCoverageIncomplete
+			return nil, nil, ErrCoverageIncomplete
 		}
 		f, err := root.Open(relative)
 		if err != nil {
-			return nil, ErrCoverageIncomplete
+			return nil, nil, ErrCoverageIncomplete
 		}
 		opened, err := f.Stat()
 		if err != nil || !os.SameFile(fi, opened) {
 			_ = f.Close()
-			return nil, ErrCoverageIncomplete
+			return nil, nil, ErrCoverageIncomplete
 		}
 		raw, err := io.ReadAll(io.LimitReader(f, 64<<10+1))
 		_ = f.Close()
 		if err != nil || len(raw) > 64<<10 {
-			return nil, ErrCoverageIncomplete
+			return nil, nil, ErrCoverageIncomplete
 		}
 		newfi, err := root.Lstat(relative)
 		if err != nil || !os.SameFile(fi, newfi) || !fi.ModTime().Equal(newfi.ModTime()) || fi.Size() != newfi.Size() {
-			return nil, ErrCoverageIncomplete
+			return nil, nil, ErrCoverageIncomplete
 		}
 		sum := sha256.Sum256(raw)
 		observed = append(observed, SourceFileIdentity{Path: relative, SHA256: hex.EncodeToString(sum[:]), Device: uint64(st.Dev), Inode: st.Ino, ModUnixNS: fi.ModTime().UnixNano()})
 	}
-	return observed, nil
+	return observed, directories, nil
 }

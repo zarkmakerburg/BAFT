@@ -32,12 +32,15 @@ if ! bash "$policy_harness" >"$policy_log" 2>&1; then
   echo "BLOCKED: canonical scratch policy LAB failed, no policy PASS" >&2
   exit 1
 fi
-# A successful process exit alone is not evidence that guarded tests ran.
-# Confirm actual Go -test.v markers from the isolated authority.test binary.
+# Exit 0 and === RUN alone are insufficient: Go may mark a guarded
+# family SKIP while reporting package PASS. Require at least one actual
+# individual PASS per family, and reject any skipped matching guarded test.
 for name in ProvisionInstalledPolicyLAB InstalledPolicyBindingLAB CommandIntent; do
-  if ! grep -Eq "^=== RUN[[:space:]]+Test${name}" "$policy_log"; then
+  if ! grep -Eq "^=== RUN[[:space:]]+Test${name}" "$policy_log" ||
+     ! grep -Eq "^--- PASS: Test${name}([^[:alnum:]_]|$)" "$policy_log" ||
+     grep -Eq "^--- SKIP: Test${name}([^[:alnum:]_]|$)" "$policy_log"; then
     cat "$policy_log" >&2
-    echo "BLOCKED: policy LAB missing executed test family Test${name}" >&2
+    echo "BLOCKED: policy LAB family Test${name} not proven executed and passing without skips" >&2
     exit 1
   fi
 done

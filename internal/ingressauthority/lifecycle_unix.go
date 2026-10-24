@@ -23,8 +23,9 @@ const lifecycleFile = "lifecycle.json"
 // Lifecycle entries record incomplete effects only. Neither a journal value
 // nor PendingGuard authorizes applying, releasing, or minting a live Lease.
 type lifecycleEntry struct {
-	Binding BindingV1     `json:"binding"`
-	State   RecoveryState `json:"state"`
+	Binding BindingV1                  `json:"binding"`
+	State   RecoveryState              `json:"state"`
+	Policy  *InstalledPolicyIdentityV1 `json:"installed_policy,omitempty"`
 }
 
 func readLifecycle(root *os.Root) (map[string]lifecycleEntry, error) {
@@ -60,6 +61,9 @@ func readLifecycle(root *os.Root) (map[string]lifecycleEntry, error) {
 	for key, value := range result {
 		if value.Binding.Validate() != nil || key != reservationKey(value.Binding) ||
 			value.State != StateApplying && value.State != StateNeedsReconciliation {
+			return nil, ErrUnverified
+		}
+		if value.Policy != nil && !value.Policy.validFor(value.Binding) {
 			return nil, ErrUnverified
 		}
 	}
@@ -122,7 +126,9 @@ func (g *PendingGuard) MarkApplying(ctx context.Context, b BindingV1) error {
 	if old, exists := entries[reservationKey(b)]; exists && old.Binding != b {
 		return ErrUnverified
 	}
-	entries[reservationKey(b)] = lifecycleEntry{Binding: b, State: StateApplying}
+	entry := entries[reservationKey(b)]
+	entry.Binding, entry.State = b, StateApplying
+	entries[reservationKey(b)] = entry
 	return writeLifecycle(g.fd, g.root, entries)
 }
 

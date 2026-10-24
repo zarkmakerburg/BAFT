@@ -386,20 +386,15 @@ func collectFromInstalledPath(ctx context.Context, policyPath, expectedNodeID st
 	alive, unknown := liveTCPPort(ctx, port)
 	result.ActiveTCP = alive
 	result.UnknownSources = append(result.UnknownSources, unknown...)
-	for _, c := range source.Claims {
-		if c.Port == port {
-			return result, fmt.Errorf("%w: stopped/foreign systemd socket %s owns port %d", ErrClaimConflict, c.Unit, port)
-		}
-	}
-	for _, c := range alive {
-		if c.State == "0A" {
-			return result, fmt.Errorf("%w: active kernel listener inode %d holds port %d", ErrClaimConflict, c.Inode, port)
-		}
-	}
-	// A trusted policy is deliberately NOT a runtime exclusion oracle.
-	// Missing independent proof of these classes still refuses mint.
-	for _, category := range []string{"systemd direct ExecStart binds", "systemd runtime/generated or masked units", "container/other supervisor listeners", "other network namespaces", "Alpha durable BAFT claims"} {
-		result.UnknownSources = append(result.UnknownSources, category+": independent exclusion not established")
+	// Runtime/manager coverage is independently measured, not a static
+	// collection of unknown strings or a caller-supplied Boolean. Only an
+	// isolated loopback-only singleton-process Linux LAB is supported.
+	lab, labErr := measurePrivateLinuxLAB(ctx, profile.NetworkNamespace)
+	if labErr != nil {
+		result.UnknownSources = append(result.UnknownSources,
+			"unsupported managed execution scope: "+labErr.Error())
+	} else {
+		result.LABExecution = lab
 	}
 	// Reopen the installed on-node profile through pinned protected path
 	// components after independently collecting source/kernel state. Detect
@@ -411,6 +406,15 @@ func collectFromInstalledPath(ctx context.Context, policyPath, expectedNodeID st
 		!slices.Equal(fresh.SourceRoots, profile.SourceRoots) {
 		return coverageError(result, "installed profile or node namespace changed during observation")
 	}
+	if labErr == nil {
+		// Inspect PID/namespace/process/mount selection again after source
+		// and kernel observation. Future mutation still requires a held
+		// Alpha lock and independent inode/port verification.
+		labNow, err := measurePrivateLinuxLAB(ctx, profile.NetworkNamespace)
+		if err != nil || !lab.matches(labNow) {
+			return coverageError(result, "managed LAB execution scope changed during observation")
+		}
+	}
 	// Recheck complete relevant file membership, identities and bytes after
 	// kernel/profile observation. This is conservative drift detection, not an
 	// atomic host snapshot: transient ABA and future changes remain possible.
@@ -421,7 +425,23 @@ func collectFromInstalledPath(ctx context.Context, policyPath, expectedNodeID st
 		}
 	}
 	result.FreshUntil = result.CollectedAt.Add(2 * time.Second)
-	return result, fmt.Errorf("%w: %s", ErrCoverageIncomplete, strings.Join(result.UnknownSources, ", "))
+	result.CoverageComplete = labErr == nil && len(result.UnknownSources) == 0
+	for _, c := range source.Claims {
+		if c.Port == port {
+			return result, fmt.Errorf("%w: stopped/foreign systemd socket %s owns port %d", ErrClaimConflict, c.Unit, port)
+		}
+	}
+	for _, c := range alive {
+		if c.State == "0A" {
+			return result, fmt.Errorf("%w: active kernel listener inode %d holds port %d", ErrClaimConflict, c.Inode, port)
+		}
+	}
+	if !result.CoverageComplete {
+		return result, fmt.Errorf("%w: %s", ErrCoverageIncomplete, strings.Join(result.UnknownSources, ", "))
+	}
+	// Positive means only measured execution/source scan is complete *now*;
+	// it does not mint, replace or release Alpha's durable per-port lease.
+	return result, nil
 }
 
 // Verified format helper for tests/inventory; IP aliases stay numeric-port

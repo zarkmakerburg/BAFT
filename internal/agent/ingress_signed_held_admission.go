@@ -13,34 +13,57 @@ import (
 // CheckSignedHeldIngressAdmission authenticates the actual BCC signed envelope
 // against the Agent's enrolled pinned key and independently checks the durable
 // immutable command under its OS guard. It never returns a Lease or permission
-// to mutate the host. The future mint path must additionally obtain a PRIVATE
-// Delta execution pin while this guard is held and enforce it at every effect.
+// to mutate the host; see MintIngressLease for the single-use mint path.
 func (a *Agent) CheckSignedHeldIngressAdmission(ctx context.Context, env release.Envelope, command ingressauthority.CommandV1, guard *ingressauthority.PendingGuard) error {
+	if _, err := a.admitSignedIngress(ctx, env, command, guard); err != nil {
+		return err
+	}
+	// This is only admission evidence; no reusable approved token escapes.
+	return guard.CheckHeldCommand(ctx, command)
+}
+
+// MintIngressLease is the only production source of a valid
+// *ingressauthority.Lease. It verifies the actual BCC signed envelope against
+// this Agent's enrolled pinned key and node, correlates it with the canonical
+// command, then asks the held PendingGuard (OS lock, durable claim, pinned
+// installed policy, recorded intent, lifecycle state) to mint a single-use
+// lease. Replay, expiry, wrong node, generation/binding drift, closed guard
+// and unknown owner all fail closed. It performs no host mutation and the
+// returned lease is revoked when the guard closes or state becomes uncertain.
+func (a *Agent) MintIngressLease(ctx context.Context, env release.Envelope, command ingressauthority.CommandV1, guard *ingressauthority.PendingGuard) (*ingressauthority.Lease, error) {
+	verified, err := a.admitSignedIngress(ctx, env, command, guard)
+	if err != nil {
+		return nil, err
+	}
+	return guard.MintLease(ctx, verified, command)
+}
+
+func (a *Agent) admitSignedIngress(ctx context.Context, env release.Envelope, command ingressauthority.CommandV1, guard *ingressauthority.PendingGuard) (agentjob.VerifiedJob, error) {
 	if a == nil || ctx == nil || ctx.Err() != nil || guard == nil {
-		return ingressauthority.ErrUnverified
+		return agentjob.VerifiedJob{}, ingressauthority.ErrUnverified
 	}
 	now := a.cfg.Now
 	if now == nil {
 		now = time.Now
 	}
-	job, err := (agentjob.Verifier{BCCKey: a.cfg.BCCJobKey, NodeID: a.cfg.NodeID}).Verify(env, now())
+	verified, err := (agentjob.Verifier{BCCKey: a.cfg.BCCJobKey, NodeID: a.cfg.NodeID}).VerifyAdmitted(env, now())
 	if err != nil {
-		return err
+		return agentjob.VerifiedJob{}, err
 	}
+	job := verified.Job()
 	if command.Action != agentjob.ActionPublicIngressApply && command.Action != agentjob.ActionPublicIngressRetire {
-		return ingressauthority.ErrBinding
+		return agentjob.VerifiedJob{}, ingressauthority.ErrBinding
+	}
+	if command.Binding.NodeID != a.cfg.NodeID {
+		return agentjob.VerifiedJob{}, ingressauthority.ErrBinding
 	}
 	if err := signedJobMatchesCommand(job, command); err != nil {
-		return err
+		return agentjob.VerifiedJob{}, err
 	}
 	if err := command.Validate(now()); err != nil {
-		return err
+		return agentjob.VerifiedJob{}, err
 	}
-	if err := guard.CheckHeldCommand(ctx, command); err != nil {
-		return err
-	}
-	// This is only admission evidence; no reusable approved token escapes.
-	return nil
+	return verified, nil
 }
 
 // signedJobMatchesCommand correlates the verified signed job with the canonical

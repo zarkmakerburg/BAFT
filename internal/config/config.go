@@ -80,6 +80,10 @@ type Limits struct {
 	// direction for this long. Zero (default) keeps the historical behaviour
 	// of no per-Flow idle limit.
 	FlowIdleSeconds int `json:"flow_idle_seconds,omitempty"`
+	// MaxFlowsPerPeer caps concurrently open Flows for any one authenticated
+	// peer (tenant) of a shared listener, on top of max_flows. Zero means no
+	// per-peer cap beyond max_flows.
+	MaxFlowsPerPeer int `json:"max_flows_per_peer,omitempty"`
 }
 type Recovery struct {
 	Enabled          bool   `json:"enabled"`
@@ -207,6 +211,9 @@ func Validate(c Config) error {
 	if c.Limits.ReceiveInitialKiB < 1 || c.Limits.ReceiveMaxMiB < 1 || c.Limits.ReplayMaxMiB < 1 {
 		return errors.New("receive/replay limits must be positive")
 	}
+	if c.Limits.MaxFlowsPerPeer < 0 || c.Limits.MaxFlowsPerPeer > c.Limits.MaxFlows {
+		return errors.New("limits.max_flows_per_peer must be between 0 and limits.max_flows")
+	}
 	if c.Limits.FlowIdleSeconds < 0 || c.Limits.FlowIdleSeconds > 86400 {
 		return errors.New("limits.flow_idle_seconds is out of range")
 	}
@@ -242,15 +249,34 @@ func Validate(c Config) error {
 	if err := validateRevocation(c); err != nil {
 		return err
 	}
-	seen := make(map[string]struct{}, len(c.Routes))
+	// Route ids are unique, except that inbound routes may repeat an id for
+	// different tenants as long as their allowed_peers sets are disjoint
+	// (shared multiplexing: each tenant keeps its own "port-443").
+	seen := make(map[string]string, len(c.Routes))
+	inboundPeers := make(map[string]map[string]struct{}, len(c.Routes))
 	for i, r := range c.Routes {
 		if r.ID == "" || len(r.ID) > 64 {
 			return fmt.Errorf("routes[%d].id must be 1..64 bytes", i)
 		}
-		if _, ok := seen[r.ID]; ok {
-			return fmt.Errorf("duplicate route id: %s", r.ID)
+		if prev, ok := seen[r.ID]; ok {
+			if prev != "inbound" || r.Direction != "inbound" {
+				return fmt.Errorf("duplicate route id: %s", r.ID)
+			}
+			for _, p := range r.AllowedPeers {
+				if _, dup := inboundPeers[r.ID][p]; dup {
+					return fmt.Errorf("duplicate route id: %s", r.ID)
+				}
+			}
 		}
-		seen[r.ID] = struct{}{}
+		seen[r.ID] = r.Direction
+		if r.Direction == "inbound" {
+			if inboundPeers[r.ID] == nil {
+				inboundPeers[r.ID] = map[string]struct{}{}
+			}
+			for _, p := range r.AllowedPeers {
+				inboundPeers[r.ID][p] = struct{}{}
+			}
+		}
 		if r.Direction != "outbound" && r.Direction != "inbound" {
 			return fmt.Errorf("route %s: invalid direction", r.ID)
 		}

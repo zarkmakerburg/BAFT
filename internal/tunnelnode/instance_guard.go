@@ -138,3 +138,26 @@ func (m *Manager) requireFreeListeners(want ...string) error {
 	}
 	return nil
 }
+
+// acquireMetricsClaim reserves the instance's metrics port. When this instance
+// already owns the claim and a BAFT-written config of this same instance is
+// installed on that port (a re-pair or update of a live instance), the claim
+// is reused as-is: its running service holds the port, so neither the
+// loopback probe nor a fresh claim applies, and created is false so no later
+// step releases it. Anything else falls through to a normal exclusive claim.
+func (m *Manager) acquireMetricsClaim(port int) (created bool, err error) {
+	path := filepath.Join(filepath.Dir(filepath.Dir(m.ConfigDir)), ".metrics-claims", strconv.Itoa(port))
+	if b, readErr := os.ReadFile(path); readErr == nil && string(b) == m.Instance+"\n" {
+		if m.requireOwnedInstanceNamespace() == nil {
+			if cfg, loadErr := config.LoadFile(m.liveConfig()); loadErr == nil {
+				if _, p, splitErr := net.SplitHostPort(cfg.Management.MetricsListen); splitErr == nil && p == strconv.Itoa(port) {
+					return false, nil
+				}
+			}
+		}
+	}
+	if _, err := m.ClaimMetricsPort(port); err != nil {
+		return false, err
+	}
+	return true, nil
+}

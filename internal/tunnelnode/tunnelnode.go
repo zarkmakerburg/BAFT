@@ -112,6 +112,11 @@ type Txn struct {
 	PKIReplaced   bool `json:"pki_replaced"`
 	ConfigWritten bool `json:"config_written"`
 
+	// MetricsClaimed is true only when this change created the instance's
+	// metrics claim. A re-pair of a live instance reuses the claim its running
+	// service still depends on and must never release it.
+	MetricsClaimed bool `json:"metrics_claimed,omitempty"`
+
 	// Ownership: what this change installed, so rollback only ever restores or
 	// deletes files that are still exactly the ones BAFT wrote.
 	HadMarker          bool   `json:"had_marker"`
@@ -546,6 +551,7 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 	if m.Instance != "" && p.MetricsListen != m.MetricsListen {
 		return "", errors.New("tunnelnode: instance metrics address differs from scoped allocation")
 	}
+	claimCreated := false
 	if m.Instance != "" {
 		_, metricsPort, err := net.SplitHostPort(p.MetricsListen)
 		if err != nil {
@@ -555,13 +561,15 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 		if err != nil {
 			return "", err
 		}
-		if _, err := m.ClaimMetricsPort(n); err != nil {
+		created, err := m.acquireMetricsClaim(n)
+		if err != nil {
 			return "", fmt.Errorf("tunnelnode: metrics reservation before prepare: %w", err)
 		}
+		claimCreated = created
 	}
 	t, err := m.begin(id, RoleEX)
 	if err != nil {
-		if m.Instance != "" {
+		if claimCreated {
 			_, portText, splitErr := net.SplitHostPort(m.MetricsListen)
 			if splitErr == nil {
 				if port, parseErr := strconv.Atoi(portText); parseErr == nil {
@@ -574,6 +582,11 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 		return "", err
 	}
 	t.Port = p.Port
+	t.MetricsClaimed = claimCreated
+	if err := m.writeTxn(t); err != nil {
+		m.abort(ctx, t)
+		return "", err
+	}
 	code, err := func() (string, error) {
 		if err := m.ensureNoiseKey(ctx); err != nil {
 			return "", err
@@ -636,6 +649,7 @@ func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (s
 	if m.Instance != "" && p.MetricsListen != m.MetricsListen {
 		return "", errors.New("tunnelnode: instance metrics address differs from scoped allocation")
 	}
+	claimCreated := false
 	if m.Instance != "" {
 		_, metricsPort, err := net.SplitHostPort(p.MetricsListen)
 		if err != nil {
@@ -645,13 +659,15 @@ func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (s
 		if err != nil {
 			return "", err
 		}
-		if _, err := m.ClaimMetricsPort(n); err != nil {
+		created, err := m.acquireMetricsClaim(n)
+		if err != nil {
 			return "", fmt.Errorf("tunnelnode: metrics reservation before prepare: %w", err)
 		}
+		claimCreated = created
 	}
 	t, err := m.begin(id, RoleIR)
 	if err != nil {
-		if m.Instance != "" {
+		if claimCreated {
 			_, portText, splitErr := net.SplitHostPort(m.MetricsListen)
 			if splitErr == nil {
 				if port, parseErr := strconv.Atoi(portText); parseErr == nil {
@@ -664,6 +680,11 @@ func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (s
 		return "", err
 	}
 	t.RouteListen = p.RouteListen
+	t.MetricsClaimed = claimCreated
+	if err := m.writeTxn(t); err != nil {
+		m.abort(ctx, t)
+		return "", err
+	}
 	reply, err := func() (string, error) {
 		if err := m.ensureNoiseKey(ctx); err != nil {
 			return "", err
@@ -1068,7 +1089,7 @@ func (m *Manager) rollbackTxn(ctx context.Context, t Txn) (string, error) {
 	if cur == t.ID {
 		m.clearActive()
 	}
-	if m.Instance != "" {
+	if m.Instance != "" && t.MetricsClaimed {
 		_, port, err := net.SplitHostPort(m.MetricsListen)
 		if err != nil {
 			return "rollback completed but metrics claim requires reconciliation", err

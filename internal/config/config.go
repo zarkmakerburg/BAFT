@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -75,6 +76,10 @@ type Limits struct {
 	ReceiveInitialKiB int `json:"receive_initial_kib"`
 	ReceiveMaxMiB     int `json:"receive_max_mib"`
 	ReplayMaxMiB      int `json:"replay_max_mib"`
+	// FlowIdleSeconds closes a carried Flow that moved no bytes in either
+	// direction for this long. Zero (default) keeps the historical behaviour
+	// of no per-Flow idle limit.
+	FlowIdleSeconds int `json:"flow_idle_seconds,omitempty"`
 }
 type Recovery struct {
 	Enabled          bool   `json:"enabled"`
@@ -202,6 +207,9 @@ func Validate(c Config) error {
 	if c.Limits.ReceiveInitialKiB < 1 || c.Limits.ReceiveMaxMiB < 1 || c.Limits.ReplayMaxMiB < 1 {
 		return errors.New("receive/replay limits must be positive")
 	}
+	if c.Limits.FlowIdleSeconds < 0 || c.Limits.FlowIdleSeconds > 86400 {
+		return errors.New("limits.flow_idle_seconds is out of range")
+	}
 	poolMiB := c.Limits.DataMemoryMiB / 2
 	if c.Limits.ReceiveMaxMiB > poolMiB || c.Limits.ReplayMaxMiB > c.Limits.DataMemoryMiB-poolMiB {
 		return errors.New("per-flow receive/replay cap exceeds its non-borrowing global pool")
@@ -223,6 +231,9 @@ func Validate(c Config) error {
 		return errors.New("management.unix_socket is required")
 	}
 	if err := validateLoopbackListen(c.Management.MetricsListen, "management.metrics_listen"); err != nil {
+		return err
+	}
+	if err := refuseSSHManagementPort(c.Management.MetricsListen, "management.metrics_listen"); err != nil {
 		return err
 	}
 	if err := validateTelemetry(c.Telemetry); err != nil {
@@ -252,6 +263,9 @@ func Validate(c Config) error {
 				check = validatePublicListen
 			}
 			if err := check(r.Listen, "route.listen"); err != nil {
+				return fmt.Errorf("route %s: %w", r.ID, err)
+			}
+			if err := refuseSSHManagementPort(r.Listen, "route.listen"); err != nil {
 				return fmt.Errorf("route %s: %w", r.ID, err)
 			}
 		} else {
@@ -299,6 +313,22 @@ func Validate(c Config) error {
 		if _, _, err := net.SplitHostPort(c.Server.Listen); err != nil {
 			return fmt.Errorf("server.listen: %w", err)
 		}
+		if err := refuseSSHManagementPort(c.Server.Listen, "server.listen"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// SSHManagementPort is never a BAFT transport, route or metrics endpoint.
+const SSHManagementPort = 22
+
+func refuseSSHManagementPort(addr, field string) error {
+	if _, port, err := net.SplitHostPort(addr); err == nil {
+		if n, convErr := strconv.Atoi(port); convErr != nil || n != SSHManagementPort {
+			return nil
+		}
+		return fmt.Errorf("%s: port %d is reserved for SSH management", field, SSHManagementPort)
 	}
 	return nil
 }

@@ -49,7 +49,7 @@ func DecodeHello(payload []byte) (Hello,error) {
 	if v.Mode=="new"&&v.ResumeSnapshotID!=nil{return Hello{},errors.New("new session must not have resume_snapshot_id")}
 	if v.Mode=="resume"&&(v.ResumeSnapshotID==nil||!validHex128(*v.ResumeSnapshotID)){return Hello{},errors.New("resume requires valid snapshot id")}
 	if v.ProfileID==""||len(v.ProfileID)>64||v.ConfigRevision==""||len(v.ConfigRevision)>64{return Hello{},errors.New("invalid profile/config revision")}
-	if len(v.Capabilities)>16{return Hello{},errors.New("too many capabilities")}
+	if err:=validateCapabilities(v.Capabilities);err!=nil{return Hello{},err}
 	return v,nil
 }
 
@@ -58,3 +58,31 @@ func DecodeReady(payload []byte)(Ready,error){var v Ready;if err:=decodeStrictOb
 func decodeStrictObject(payload []byte,out any)error{if len(payload)==0||len(payload)>MaxPayloadSize{return errors.New("invalid JSON control payload length")};if err:=rejectDuplicateTopLevelKeys(payload);err!=nil{return err};dec:=json.NewDecoder(bytes.NewReader(payload));dec.DisallowUnknownFields();if err:=dec.Decode(out);err!=nil{return err};var extra any;if err:=dec.Decode(&extra);!errors.Is(err,io.EOF){if err==nil{return errors.New("multiple JSON values are not allowed")};return err};return nil}
 func validHex128(s string)bool{if len(s)!=32{return false};b,err:=hex.DecodeString(s);return err==nil&&len(b)==16&&s==fmt.Sprintf("%x",b)}
 func parseDecimalU64(s string)(uint64,error){if s==""||(len(s)>1&&s[0]=='0'){return 0,errors.New("non-canonical decimal")};return strconv.ParseUint(s,10,64)}
+
+// validateCapabilities refuses, rather than partially honours, a capability
+// list that is absent, oversized, duplicated or non-canonical. Tokens are
+// lowercase ASCII so case aliases cannot smuggle a second spelling of one
+// capability past a duplicate or allow-list check.
+func validateCapabilities(caps []string)error{
+	if caps==nil{return errors.New("capabilities must be a JSON array")}
+	if len(caps)>16{return errors.New("too many capabilities")}
+	seen:=make(map[string]struct{},len(caps))
+	for _,c:=range caps{
+		if !validCapabilityToken(c){return errors.New("invalid capability token")}
+		if _,dup:=seen[c];dup{return errors.New("duplicate capability")}
+		seen[c]=struct{}{}
+	}
+	return nil
+}
+func validCapabilityToken(s string)bool{
+	if len(s)==0||len(s)>32{return false}
+	for i:=0;i<len(s);i++{
+		c:=s[i]
+		switch{
+		case c>='a'&&c<='z',c>='0'&&c<='9':
+		case i>0&&(c=='.'||c=='-'||c=='_'):
+		default:return false
+		}
+	}
+	return true
+}

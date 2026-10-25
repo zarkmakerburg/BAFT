@@ -144,7 +144,8 @@
         "data_memory_mib": {"type": "integer", "minimum": 16, "maximum": 4096},
         "receive_initial_kib": {"type": "integer", "minimum": 1},
         "receive_max_mib": {"type": "integer", "minimum": 1},
-        "replay_max_mib": {"type": "integer", "minimum": 1}
+        "replay_max_mib": {"type": "integer", "minimum": 1},
+        "flow_idle_seconds": {"type": "integer", "minimum": 0, "maximum": 86400}
       }
     },
     "recovery": {

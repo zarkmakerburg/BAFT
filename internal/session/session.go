@@ -64,6 +64,9 @@ type Options struct {
 	RecoveryRetention  time.Duration
 	CarrierID          string
 	BootID             string
+	// FlowIdleTimeout closes a Flow's application connection after this long
+	// with no bytes in either direction. Zero disables it.
+	FlowIdleTimeout    time.Duration
 }
 
 type Peer struct {
@@ -74,6 +77,7 @@ type Peer struct {
 	routes             *routes.Table
 	dial               func(context.Context, string, string) (net.Conn, error)
 	allocator          *resources.Allocator
+	flowIdle           time.Duration
 	flowSlots          *resources.FlowSlots
 	sender             *outboundSender
 	nodeID             string
@@ -265,7 +269,7 @@ func New(role Role, c Carrier, peerID string, table *routes.Table, opts Options)
 	}
 	p := &Peer{
 		role: role, carrier: c, writer: frameWriter{w: c.Out}, peerID: peerID,
-		routes: table, allocator: opts.Resources, flowSlots: opts.FlowSlots, flows: make(map[uint64]*flow),
+		routes: table, allocator: opts.Resources, flowSlots: opts.FlowSlots, flowIdle: opts.FlowIdleTimeout, flows: make(map[uint64]*flow),
 		closedFlows: make(map[uint64]struct{}), finishedFins: make(map[uint64]uint64), finishedPeerFins: make(map[uint64]uint64), resetFlows: make(map[uint64]protocol.ErrorCode), pendingOpens: make(map[uint64]protocol.OpenRequest),
 		nodeID: opts.NodeID, expectedPeerNodeID: opts.ExpectedPeerNodeID,
 		bootID: bootID, shardID: opts.ShardID, profileID: opts.ProfileID,
@@ -534,6 +538,8 @@ func (p *Peer) OpenFlow(ctx context.Context, routeID string, conn net.Conn) erro
 		if p.recoveryEnabled{p.recoveryGate.Unlock()}
 		return err
 	}
+	tuneAppConn(conn)
+	conn = newIdleConn(conn, p.flowIdle)
 	fl := newFlow(id, routeID, hex.EncodeToString(nonceBytes), conn, p.allocator)
 	fl.slots = p.flowSlots
 	p.mu.Lock()
@@ -1051,6 +1057,8 @@ func (p *Peer) finishOpen(ctx context.Context, id uint64, req protocol.OpenReque
 		payload, _ := protocol.EncodeControl(protocol.OpenError{Code: targetDialErrorCode(dialErr)})
 		return p.senderNow().sendControl(protocol.Frame{Type: protocol.TypeOpenErr, StreamID: id, Payload: payload})
 	}
+	tuneAppConn(conn)
+	conn = newIdleConn(conn, p.flowIdle)
 	fl := newFlow(id, req.RouteID, req.OpenNonce, conn, p.allocator)
 	fl.slots = p.flowSlots
 	p.mu.Lock()

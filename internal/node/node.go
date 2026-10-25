@@ -782,7 +782,7 @@ func (r *Runtime) runListener(ctx context.Context, cfg config.Config) error {
 			p,err:=session.New(session.Listener,session.Carrier{In:in,Out:out},peer.Identity,table,session.Options{
 				NodeID:cfg.Node.ID,ExpectedPeerNodeID:expected,
 				ProfileID:cfg.Transport.Profile,ProfileVersion:1,ConfigRevision:"config-v1",
-				Resources:r.Resources,FlowSlots:r.FlowSlots,RecoveryEnabled:true,RecoveryRetention:recoveryRetention(cfg),CarrierID:owner,BootID:r.bootID,
+				Resources:r.Resources,FlowSlots:r.FlowSlots,FlowIdleTimeout:flowIdleTimeout(cfg),RecoveryEnabled:true,RecoveryRetention:recoveryRetention(cfg),CarrierID:owner,BootID:r.bootID,
 				TrafficObserver:func(in,out uint64){r.ingressBytes.Add(in);r.egressBytes.Add(out)},
 			})
 			if err!=nil{return err}
@@ -802,7 +802,7 @@ func (r *Runtime) runListener(ctx context.Context, cfg config.Config) error {
 		p, err := session.New(session.Listener, session.Carrier{In: in, Out: out}, peer.Identity, table, session.Options{
 			NodeID: cfg.Node.ID, ExpectedPeerNodeID: expected,
 			ProfileID: cfg.Transport.Profile, ProfileVersion: 1, ConfigRevision: "config-v1",
-			Resources: r.Resources, FlowSlots: r.FlowSlots,
+			Resources: r.Resources, FlowSlots: r.FlowSlots, FlowIdleTimeout: flowIdleTimeout(cfg),
 			TrafficObserver: func(in,out uint64){ r.ingressBytes.Add(in); r.egressBytes.Add(out) },
 		})
 		if err != nil { return err }
@@ -962,6 +962,61 @@ func (s *dialerShard) recoveryTransport(cfg config.Config) string {
 	return next
 }
 
+// initialTransport picks the carrier for initial dial attempt n. Without a
+// configured fallback it is always the primary. With one, a blocked or failing
+// primary is followed by the fallback, then the primary again, so a path that
+// recovers is used again. Both candidates are authenticated carriers that
+// config.Validate already vetted (ws requires Noise); there is no unvetted or
+// unauthenticated third option.
+func initialTransport(cfg config.Config, attempt int) string {
+	if cfg.Transport.Fallback != "" && attempt%2 == 1 {
+		return cfg.Transport.Fallback
+	}
+	return primaryTransport(cfg)
+}
+
+// dialInitialCarrier retries the initial dial while the peer may still be
+// starting, alternating to the configured fallback carrier when the primary is
+// blocked. A refusal after the budget reports every distinct failure.
+func (r *Runtime) dialInitialCarrier(ctx context.Context, cfg config.Config, tlsCfg *tls.Config, budget time.Duration) (*openedRuntimeCarrier, error) {
+	var lastErr error
+	failures := map[string]error{}
+	deadline := time.Now().Add(budget)
+	for attempt := 0; ; attempt++ {
+		transport := initialTransport(cfg, attempt)
+		o, err := r.openRuntimeCarrier(ctx, cfg, tlsCfg, transport)
+		if err == nil {
+			return o, nil
+		}
+		lastErr = err
+		failures[transport] = err
+		if ctx.Err() != nil || time.Now().After(deadline) {
+			break
+		}
+		// Back off per full primary+fallback round, not per half round.
+		pause := time.Duration(250*(1<<min(attempt/2, 3))) * time.Millisecond
+		if remaining := time.Until(deadline); pause > remaining {
+			pause = remaining
+		}
+		if pause <= 0 {
+			break
+		}
+		select {
+		case <-ctx.Done():
+		case <-time.After(pause):
+		}
+	}
+	if len(failures) > 1 {
+		var parts []string
+		for tr, e := range failures {
+			parts = append(parts, fmt.Sprintf("%s: %v", tr, e))
+		}
+		sort.Strings(parts)
+		return nil, fmt.Errorf("no carrier could be opened (%s)", strings.Join(parts, "; "))
+	}
+	return nil, lastErr
+}
+
 func (r *Runtime) runDialer(ctx context.Context, cfg config.Config) error {
 	mat, err := loadTLSMaterial(cfg.TLS)
 	if err != nil {
@@ -984,17 +1039,7 @@ func (r *Runtime) runDialer(ctx context.Context, cfg config.Config) error {
 	for i := 0; i < cfg.Transport.Shards; i++ {
 		// Retry initial dial attempts while EX is still starting; an initial
 		// connection refusal must not terminate the IR service immediately.
-		var o *openedRuntimeCarrier
-		var err error
-		deadline := time.Now().Add(12 * time.Second)
-		for attempt := 0; ; attempt++ {
-			o, err = r.dialCarrier(ctx, cfg, tlsCfg)
-			if err == nil || ctx.Err() != nil || time.Now().After(deadline) { break }
-			pause := time.Duration(250*(1<<min(attempt, 3))) * time.Millisecond
-			if remaining := time.Until(deadline); pause > remaining { pause = remaining }
-			if pause <= 0 { break }
-			select { case <-ctx.Done(): break; case <-time.After(pause): }
-		}
+		o, err := r.dialInitialCarrier(ctx, cfg, tlsCfg, 12*time.Second)
 		if err != nil {
 			r.closeShards(shards)
 			return fmt.Errorf("open shard %d: %w", i, err)
@@ -1003,7 +1048,7 @@ func (r *Runtime) runDialer(ctx context.Context, cfg config.Config) error {
 		p, err := session.New(session.Dialer, carrier, cfg.Peer.AllowedIdentity, nil, session.Options{
 			NodeID: cfg.Node.ID, ExpectedPeerNodeID: expectedPeerNode, ShardID: uint8(i),
 			ProfileID: cfg.Transport.Profile, ProfileVersion: 1, ConfigRevision: "config-v1",
-			Resources: r.Resources, FlowSlots: r.FlowSlots,
+			Resources: r.Resources, FlowSlots: r.FlowSlots, FlowIdleTimeout: flowIdleTimeout(cfg),
 			TrafficObserver: func(in,out uint64){ r.ingressBytes.Add(in); r.egressBytes.Add(out) },
 			LatencyObserver: func(rtt time.Duration){ r.noiseLatencyMS.Store(rtt.Milliseconds()) },
 			PingInterval: func() time.Duration { if cfg.Noise!=nil { return 5*time.Second }; return 0 }(),

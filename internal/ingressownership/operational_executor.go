@@ -64,6 +64,16 @@ func (x *OperationalExecutor) ownedRetireListener(ctx context.Context, b ingress
 	if record.Phase != PhaseVerified {
 		return ErrUnverified
 	}
+	return x.ownedLiveListener(ctx, b, observed)
+}
+
+// ownedLiveListener independently correlates this runtime's exact proof,
+// endpoint and listener FD to fresh kernel observations. It is also used at
+// every operational effect boundary; it is not an authority capability.
+func (x *OperationalExecutor) ownedLiveListener(ctx context.Context, b ingressauthority.BindingV1, observed ingressinventory.CoverageEvidence) error {
+	if observed.Port != b.Port || !observed.CoverageComplete || len(observed.UnknownSources) != 0 {
+		return ingressinventory.ErrCoverageIncomplete
+	}
 	r := x.transaction.Runtime
 	r.mu.Lock()
 	s, ok := r.sessions[b.ListenEndpoint]

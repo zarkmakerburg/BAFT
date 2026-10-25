@@ -103,3 +103,34 @@ func TestOperationalStoppedRetireClassificationRequiresPrivateExactEvidence(t *t
 		})
 	}
 }
+
+func TestRetiredPortObservationRequiresCompleteForeignFreeReadback(t *testing.T) {
+	b := executorCommandV1(t).Binding
+	for _, state := range []string{"empty", "time-wait", "wrong-port", "unknown", "incomplete", "stopped", "tcp4", "tcp6"} {
+		t.Run(state, func(t *testing.T) {
+			observed := ingressinventory.CoverageEvidence{Port: b.Port, CoverageComplete: true}
+			switch state {
+			case "time-wait":
+				observed.ActiveTCP = []ingressinventory.ActiveTCPClaim{{Port: b.Port, State: "06", Family: "tcp4"}}
+			case "wrong-port":
+				observed.Port++
+			case "unknown":
+				observed.UnknownSources = []string{"unmeasured"}
+			case "incomplete":
+				observed.CoverageComplete = false
+			case "stopped":
+				observed.Stopped = []ingressinventory.PersistentTCPPortClaim{{Port: b.Port, Unit: "foreign.socket"}}
+			case "tcp4", "tcp6":
+				observed.ActiveTCP = []ingressinventory.ActiveTCPClaim{{Port: b.Port, State: "0A", Family: state, Inode: 123}}
+			}
+			err := retiredPortObservation(b, observed)
+			if state == "empty" || state == "time-wait" {
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else if err == nil {
+				t.Fatal("uncertain or foreign numerical port declared retired")
+			}
+		})
+	}
+}

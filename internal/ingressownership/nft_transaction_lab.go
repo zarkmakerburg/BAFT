@@ -59,7 +59,8 @@ type effectLeaseFence struct {
 	lease   *ingressauthority.Lease
 	command ingressauthority.CommandV1
 	// Private per-operation observation: never caller-supplied and never a permit.
-	pin ingressinventory.ManagedLABExecutionPin
+	pin         ingressinventory.ManagedLABExecutionPin
+	transaction *NFTLabTransaction
 }
 
 func (f *effectLeaseFence) check(ctx context.Context) error {
@@ -76,7 +77,13 @@ func (f *effectLeaseFence) check(ctx context.Context) error {
 	// Reobserve installed profile, exact parsed source file membership/bytes,
 	// current executable, cgroup and namespace BEFORE each owned mutation.
 	// On drift, do not continue effects or attempt unleased cleanup.
-	return ingressinventory.CheckInstalledManagedLABAtEffect(ctx, f.command.Binding.NodeID, f.pin)
+	if err := ingressinventory.CheckInstalledManagedLABAtEffect(ctx, f.command.Binding.NodeID, f.pin); err != nil {
+		return err
+	}
+	if f.transaction == nil {
+		return ErrExecutorTrustUnavailable
+	}
+	return f.transaction.checkOperationalEffectPort(ctx, f.command.Binding)
 }
 
 func (t *NFTLabTransaction) ApplyWithLease(ctx context.Context, spec ingressmanifest.Spec, proof ingressmanifest.Proof, cmd ingressauthority.CommandV1, lease *ingressauthority.Lease) error {
@@ -91,7 +98,7 @@ func (t *NFTLabTransaction) ApplyWithLease(ctx context.Context, spec ingressmani
 	if err != nil {
 		return err
 	}
-	fence := &effectLeaseFence{lease: lease, command: cmd, pin: pin}
+	fence := &effectLeaseFence{lease: lease, command: cmd, pin: pin, transaction: t}
 	if err := fence.check(ctx); err != nil {
 		return err
 	}
@@ -252,7 +259,7 @@ func (t *NFTLabTransaction) RetireWithLease(ctx context.Context, spec ingressman
 	if err != nil {
 		return err
 	}
-	fence := &effectLeaseFence{lease: lease, command: cmd, pin: pin}
+	fence := &effectLeaseFence{lease: lease, command: cmd, pin: pin, transaction: t}
 	if err := fence.check(ctx); err != nil {
 		return err
 	}

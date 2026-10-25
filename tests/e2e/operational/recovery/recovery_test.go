@@ -218,8 +218,10 @@ func TestOperationalRecovery_KillMidApplyRuleInstalledBeforeVerified(t *testing.
 		t.Fatalf("outcome %s/%s: %s", out, dir, reason)
 	}
 	l.expectRecovered(keep)
-	if out, _, _, _ := l.reconcile(); out != "already_retired" {
-		t.Fatalf("second run not idempotent: %s", out)
+	// Released: a second start finds nothing fenced and writes nothing.
+	chainAfter := l.chain()
+	if rs, _ := l.run("reconcile")["results"].([]any); len(rs) != 0 || l.chain() != chainAfter {
+		t.Fatalf("second run not idempotent: %v", rs)
 	}
 }
 

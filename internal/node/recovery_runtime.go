@@ -91,6 +91,11 @@ func (r *Runtime) nextRecoveryCandidate(shard int) string {
 	return fmt.Sprintf("shard-%d-replacement-%d",shard,n)
 }
 
+// flowIdleTimeout is the optional per-Flow idle window; zero disables it.
+func flowIdleTimeout(cfg config.Config) time.Duration {
+	return time.Duration(cfg.Limits.FlowIdleSeconds) * time.Second
+}
+
 func primaryTransport(cfg config.Config) string {
 	if cfg.Transport.Primary == "" {
 		return "h2"

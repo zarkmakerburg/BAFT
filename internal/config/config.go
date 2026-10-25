@@ -76,6 +76,10 @@ type Limits struct {
 	ReceiveInitialKiB int `json:"receive_initial_kib"`
 	ReceiveMaxMiB     int `json:"receive_max_mib"`
 	ReplayMaxMiB      int `json:"replay_max_mib"`
+	// FlowIdleSeconds closes a carried Flow that moved no bytes in either
+	// direction for this long. Zero (default) keeps the historical behaviour
+	// of no per-Flow idle limit.
+	FlowIdleSeconds int `json:"flow_idle_seconds,omitempty"`
 }
 type Recovery struct {
 	Enabled          bool   `json:"enabled"`
@@ -202,6 +206,9 @@ func Validate(c Config) error {
 	}
 	if c.Limits.ReceiveInitialKiB < 1 || c.Limits.ReceiveMaxMiB < 1 || c.Limits.ReplayMaxMiB < 1 {
 		return errors.New("receive/replay limits must be positive")
+	}
+	if c.Limits.FlowIdleSeconds < 0 || c.Limits.FlowIdleSeconds > 86400 {
+		return errors.New("limits.flow_idle_seconds is out of range")
 	}
 	poolMiB := c.Limits.DataMemoryMiB / 2
 	if c.Limits.ReceiveMaxMiB > poolMiB || c.Limits.ReplayMaxMiB > c.Limits.DataMemoryMiB-poolMiB {

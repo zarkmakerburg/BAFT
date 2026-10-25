@@ -782,7 +782,7 @@ func (r *Runtime) runListener(ctx context.Context, cfg config.Config) error {
 			p,err:=session.New(session.Listener,session.Carrier{In:in,Out:out},peer.Identity,table,session.Options{
 				NodeID:cfg.Node.ID,ExpectedPeerNodeID:expected,
 				ProfileID:cfg.Transport.Profile,ProfileVersion:1,ConfigRevision:"config-v1",
-				Resources:r.Resources,FlowSlots:r.FlowSlots,RecoveryEnabled:true,RecoveryRetention:recoveryRetention(cfg),CarrierID:owner,BootID:r.bootID,
+				Resources:r.Resources,FlowSlots:r.FlowSlots,FlowIdleTimeout:flowIdleTimeout(cfg),RecoveryEnabled:true,RecoveryRetention:recoveryRetention(cfg),CarrierID:owner,BootID:r.bootID,
 				TrafficObserver:func(in,out uint64){r.ingressBytes.Add(in);r.egressBytes.Add(out)},
 			})
 			if err!=nil{return err}
@@ -802,7 +802,7 @@ func (r *Runtime) runListener(ctx context.Context, cfg config.Config) error {
 		p, err := session.New(session.Listener, session.Carrier{In: in, Out: out}, peer.Identity, table, session.Options{
 			NodeID: cfg.Node.ID, ExpectedPeerNodeID: expected,
 			ProfileID: cfg.Transport.Profile, ProfileVersion: 1, ConfigRevision: "config-v1",
-			Resources: r.Resources, FlowSlots: r.FlowSlots,
+			Resources: r.Resources, FlowSlots: r.FlowSlots, FlowIdleTimeout: flowIdleTimeout(cfg),
 			TrafficObserver: func(in,out uint64){ r.ingressBytes.Add(in); r.egressBytes.Add(out) },
 		})
 		if err != nil { return err }
@@ -1048,7 +1048,7 @@ func (r *Runtime) runDialer(ctx context.Context, cfg config.Config) error {
 		p, err := session.New(session.Dialer, carrier, cfg.Peer.AllowedIdentity, nil, session.Options{
 			NodeID: cfg.Node.ID, ExpectedPeerNodeID: expectedPeerNode, ShardID: uint8(i),
 			ProfileID: cfg.Transport.Profile, ProfileVersion: 1, ConfigRevision: "config-v1",
-			Resources: r.Resources, FlowSlots: r.FlowSlots,
+			Resources: r.Resources, FlowSlots: r.FlowSlots, FlowIdleTimeout: flowIdleTimeout(cfg),
 			TrafficObserver: func(in,out uint64){ r.ingressBytes.Add(in); r.egressBytes.Add(out) },
 			LatencyObserver: func(rtt time.Duration){ r.noiseLatencyMS.Store(rtt.Milliseconds()) },
 			PingInterval: func() time.Duration { if cfg.Noise!=nil { return 5*time.Second }; return 0 }(),

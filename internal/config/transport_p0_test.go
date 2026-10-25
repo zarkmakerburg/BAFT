@@ -71,6 +71,25 @@ func TestValidateResourceLimitBounds(t *testing.T) {
 	}
 }
 
+// limits.flow_idle_seconds is an opt-in per-Flow idle bound: negative or
+// absurd values are refused, zero keeps the historical unlimited behaviour.
+func TestValidateFlowIdleSecondsRange(t *testing.T) {
+	for _, bad := range []int{-1, 86401} {
+		c := validIR()
+		c.Limits.FlowIdleSeconds = bad
+		if err := Validate(c); err == nil {
+			t.Errorf("flow_idle_seconds=%d accepted", bad)
+		}
+	}
+	for _, ok := range []int{0, 1, 600, 86400} {
+		c := validIR()
+		c.Limits.FlowIdleSeconds = ok
+		if err := Validate(c); err != nil {
+			t.Errorf("flow_idle_seconds=%d refused: %v", ok, err)
+		}
+	}
+}
+
 // A WebSocket carrier is only authenticated by the inner Noise layer, so it
 // must be refused when it is only the fallback too, and a fallback can never
 // be enabled in a way that skips the recovery authority.

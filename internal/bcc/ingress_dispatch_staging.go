@@ -18,11 +18,15 @@ type IngressDispatchIntent struct {
 // StageHeldIngressDispatch persistently binds the exact reviewed command to an
 // immutable non-executable intent for recovery and duplicate-retry refusal.
 func (s *Store) StageHeldIngressDispatch(tunnelID string, now time.Time) (IngressDispatchIntent, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.stageHeldIngressDispatchLocked(tunnelID, now, true)
+}
+
+func (s *Store) stageHeldIngressDispatchLocked(tunnelID string, now time.Time, persist bool) (IngressDispatchIntent, error) {
 	if now.IsZero() {
 		return IngressDispatchIntent{}, errors.New("dispatch staging needs a timestamp")
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	op, ok := s.st.PublicIngressOperations[tunnelID]
 	if !ok || op.Status != PublicIngressPending || op.Command == nil || op.Receipt != nil {
 		return IngressDispatchIntent{}, errors.New("no clean staged ingress command available")
@@ -60,9 +64,11 @@ func (s *Store) StageHeldIngressDispatch(tunnelID string, now time.Time) (Ingres
 	expected.CreatedAt = now.UTC()
 	op.Dispatch = &expected
 	s.st.PublicIngressOperations[tunnelID] = op
-	if err := s.saveLocked(); err != nil {
-		s.st = before
-		return IngressDispatchIntent{}, err
+	if persist {
+		if err := s.saveLocked(); err != nil {
+			s.st = before
+			return IngressDispatchIntent{}, err
+		}
 	}
 	return expected, nil
 }

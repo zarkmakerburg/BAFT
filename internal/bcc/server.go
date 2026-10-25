@@ -456,6 +456,11 @@ func (s *Server) agentJobs(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	if !ingressGlueDisabled.Load() {
+		// The poll just recorded this node's capabilities and heartbeat; retry
+		// any held operational Apply (idempotent, gate-controlled).
+		s.store.RetryHeldOperationalIngress(nodeID)
+	}
 	writeJSON(w, http.StatusOK, signed)
 }
 

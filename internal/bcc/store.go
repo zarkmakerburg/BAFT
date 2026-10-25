@@ -186,6 +186,9 @@ type state struct {
 	Tunnels         map[string]Tunnel            `json:"tunnels,omitempty"`
 	PublicIngressReservations map[string]PublicIngressReservation `json:"public_ingress_reservations,omitempty"`
 	PublicIngressOperations map[string]PublicIngressOperation `json:"public_ingress_operations,omitempty"`
+	// Update Center (v0.4.0): imported signed releases and the newest accepted revocation list.
+	UpdateReleases map[string]UpdateRelease `json:"update_releases,omitempty"`
+	UpdateRevocation *UpdateRevocationState `json:"update_revocation,omitempty"`
 	// Health is the layered health of each node (state machines + history).
 	Health          map[string]NodeHealthRecord  `json:"health,omitempty"`
 	// Discovery is the last report-only inventory of each node.

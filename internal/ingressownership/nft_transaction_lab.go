@@ -88,7 +88,8 @@ func (f *effectLeaseFence) socketEvidenceAtEffect(ctx context.Context) (ingressi
 	if err != nil && !errors.Is(err, ingressinventory.ErrClaimConflict) {
 		return observed, err
 	}
-	if !observed.CoverageComplete || len(observed.UnknownSources) != 0 {
+	// Evidence about any other numeric port says nothing about this one.
+	if observed.Port != f.command.Binding.Port || !observed.CoverageComplete || len(observed.UnknownSources) != 0 {
 		return observed, ingressinventory.ErrCoverageIncomplete
 	}
 	return observed, ctx.Err()

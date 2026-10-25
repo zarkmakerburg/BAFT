@@ -32,6 +32,13 @@ func (s *Store) stageReviewedIngressCommandLocked(tunnelID string, command ingre
 	if command.Action != "public_ingress_apply" {
 		return errors.New("retire requires separate authorization")
 	}
+	// Persist exactly what the normal signed Agent job can carry: signing
+	// truncates to whole seconds, caps the validity window and admits only the
+	// bounded v1 parameter schema. Refuse anything else BEFORE durable staging
+	// so a lossy or unsignable command can never become a reviewed identity.
+	if _, err := operationalIngressJob(command, now); err != nil {
+		return err
+	}
 	op, ok := s.st.PublicIngressOperations[tunnelID]
 	if !ok || op.Status != PublicIngressPending || op.ReviewedPlanHash == "" || op.OperationID == "" || op.LeaseID == "" {
 		return errors.New("missing durable reviewed operation")

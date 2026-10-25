@@ -52,7 +52,7 @@ func stagedIngressBoundary(t *testing.T) (*Store, PublicIngressSpec, ingressauth
 		Transport: "dedicated", PlanSHA256: tun.PlanHash, ListenerID: proof.ListenerID, FirewallID: proof.FirewallID,
 		Spec: manifest, Proof: preview,
 	}
-	now := time.Now().UTC()
+	now := time.Now().UTC().Truncate(time.Second)
 	cmd := ingressauthority.CommandV1{IngressProtocol: ingressauthority.ProtocolV1, JobID: "agent-job-reviewed-1", Action: "public_ingress_apply", IssuedAt: now.Add(-time.Second), ExpiresAt: now.Add(time.Minute), Binding: bind}
 	if err := s.StageReviewedIngressCommand(spec.TunnelID, cmd, now); err != nil {
 		t.Fatal(err)

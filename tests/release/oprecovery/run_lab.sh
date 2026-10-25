@@ -33,5 +33,5 @@ rc=0
     BAFT_OPERATIONAL_RECOVERY=1 "$work/recovery.test" -test.v -test.count=1 -test.timeout=25m
 ) 2>&1 | go tool test2json -p "$pkg" >>"$log"
 [[ ${PIPESTATUS[0]} -eq 0 ]] || rc=1
-jq -r 'select(.Test!=null and .Action=="output" and (.Output|test("FAIL|panic|recovery:|lab "))) | "\(.Test): \(.Output)"' "$log" | cut -c1-400 | head -80
+jq -r 'select(.Test!=null and .Action=="output" and (.Output|test("FAIL|panic|recovery:|lab |refused|reapply"))) | "\(.Test): \(.Output)"' "$log" | cut -c1-400 | head -80
 exit "$rc"

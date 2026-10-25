@@ -196,6 +196,19 @@ func copyTree(src, dst string) error {
 					return err
 				}
 			}
+			// /etc/skel on a hosted runner image carries whole toolchains
+			// (.rustup, hundreds of MB) that would overflow the scratch tmpfs.
+			// It is a user-account template, irrelevant to the gate; keep the
+			// (empty) directory itself.
+			if src == "/etc" && rel == "skel" {
+				if err := os.Lchown(target, int(st.Uid), int(st.Gid)); err != nil {
+					return err
+				}
+				if err := os.Chmod(target, info.Mode().Perm()); err != nil {
+					return err
+				}
+				return filepath.SkipDir
+			}
 		case info.Mode()&os.ModeSymlink != 0:
 			link, err := os.Readlink(path)
 			if err != nil {

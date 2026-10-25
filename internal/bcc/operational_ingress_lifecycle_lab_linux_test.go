@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"io"
 	"net"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
@@ -23,7 +24,6 @@ import (
 	"github.com/zarkmakerburg/baft/internal/agent"
 	"github.com/zarkmakerburg/baft/internal/ingressauthority"
 	"github.com/zarkmakerburg/baft/internal/ingressinventory"
-	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
 	"github.com/zarkmakerburg/baft/internal/release"
 )
 
@@ -79,27 +79,6 @@ func TestOperationalIngressFullLifecycleLAB(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.mu.Unlock()
-	proof := canonicalOperationProof(t, s, spec, 1)
-	op, err := s.RecordReviewedPublicIngressOperation(spec, tun.PlanHash, proof, time.Now(), ingressAudit())
-	if err != nil {
-		t.Fatal(err)
-	}
-	manifest := publicIngressManifestSpec(spec, tun.InstanceID, 1)
-	preview, err := ingressmanifest.Preview(manifest)
-	if err != nil {
-		t.Fatal(err)
-	}
-	now := time.Now().UTC().Truncate(time.Second)
-	command := ingressauthority.CommandV1{IngressProtocol: ingressauthority.ProtocolV1, JobID: "gamma-real-apply", Action: "public_ingress_apply", IssuedAt: now.Add(-time.Second), ExpiresAt: now.Add(3 * time.Minute), Binding: ingressauthority.BindingV1{NodeID: spec.IRNode, OperationID: op.OperationID, LeaseID: op.LeaseID, Port: uint16(spec.PublicPort), ConfigPort: uint16(spec.PublicPort), ListenEndpoint: manifest.Config.Listen, LocalTarget: spec.LocalTarget, Transport: "dedicated", PlanSHA256: tun.PlanHash, ListenerID: proof.ListenerID, FirewallID: proof.FirewallID, Spec: manifest, Proof: preview}}
-	if err := s.StageReviewedIngressCommand(spec.TunnelID, command, now); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.StageHeldIngressDispatch(spec.TunnelID, now); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.enqueueReviewedIngress(spec.TunnelID, now, ingressAudit()); err != nil {
-		t.Fatal(err)
-	}
 	app, err := NewServer(s, "gamma-admin")
 	if err != nil {
 		t.Fatal(err)
@@ -117,6 +96,23 @@ func TestOperationalIngressFullLifecycleLAB(t *testing.T) {
 	if response.TLS == nil || len(response.TLS.VerifiedChains) == 0 {
 		t.Fatal("BCC TLS certificate was not validated")
 	}
+	deployResponse := postIngressOperation(t, endpoint, "deploy", spec, tun.PlanHash, "gamma-admin")
+	if deployResponse.StatusCode != http.StatusAccepted {
+		body, _ := io.ReadAll(deployResponse.Body)
+		deployResponse.Body.Close()
+		t.Fatalf("public BCC deploy API status=%d body=%s", deployResponse.StatusCode, body)
+	}
+	var deployResult publicIngressOperationResponse
+	if err := json.NewDecoder(deployResponse.Body).Decode(&deployResult); err != nil {
+		deployResponse.Body.Close()
+		t.Fatal(err)
+	}
+	deployResponse.Body.Close()
+	op, ok := s.GetPublicIngressOperation(spec.TunnelID)
+	if !ok || op.Command == nil || op.Dispatch == nil || op.Dispatch.Phase != "queued" || op.Command.JobID != deployResult.JobID || deployResult.ReadyToApply || !deployResult.ReconciliationPending {
+		t.Fatalf("public deploy API did not queue exact reviewed command fail-closed: result=%+v operation=%+v", deployResult, op)
+	}
+	command := *op.Command
 	configureOperationalLifecycleLAB(t, spec.IRNode, pub, foreign.Addr().String())
 	baseline := operationalNFT(t, "-j", "-a", "list", "table", "inet", "gamma_unrelated")
 	a, err := agent.New(agent.Config{BCCURL: endpoint.URL, NodeID: spec.IRNode, Token: token, BCCJobKey: pub, StateDir: t.TempDir(), HTTP: client})
@@ -142,16 +138,23 @@ func TestOperationalIngressFullLifecycleLAB(t *testing.T) {
 	operationalRoundTrip(t, foreign.Addr().String())
 	// Retirement must have its own reviewed, signed identity and actual normal
 	// Agent execution; the apply receipt may never be overwritten as a shortcut.
-	retire := command
-	retire.JobID, retire.Action = "gamma-real-retire", "public_ingress_retire"
-	retire.IssuedAt = time.Now().UTC().Truncate(time.Second).Add(-time.Second)
-	retire.ExpiresAt = retire.IssuedAt.Add(3 * time.Minute)
-	if err := s.StageReviewedIngressRetireCommand(spec.TunnelID, retire, time.Now()); err != nil {
+	retireResponse := postIngressOperation(t, endpoint, "retire", spec, tun.PlanHash, "gamma-admin")
+	if retireResponse.StatusCode != http.StatusAccepted {
+		body, _ := io.ReadAll(retireResponse.Body)
+		retireResponse.Body.Close()
+		t.Fatalf("public BCC retire API status=%d body=%s", retireResponse.StatusCode, body)
+	}
+	var retireResult publicIngressOperationResponse
+	if err := json.NewDecoder(retireResponse.Body).Decode(&retireResult); err != nil {
+		retireResponse.Body.Close()
 		t.Fatal(err)
 	}
-	if _, err := s.enqueueReviewedIngressRetire(spec.TunnelID, time.Now(), ingressAudit()); err != nil {
-		t.Fatal(err)
+	retireResponse.Body.Close()
+	retiredBeforeRun, ok := s.GetPublicIngressOperation(spec.TunnelID)
+	if !ok || retiredBeforeRun.Retirement == nil || retiredBeforeRun.Retirement.Command.JobID != retireResult.JobID || retireResult.ReadyToApply || !retireResult.ReconciliationPending {
+		t.Fatalf("public retire API did not queue a distinct reviewed command: result=%+v operation=%+v", retireResult, retiredBeforeRun)
 	}
+	retire := retiredBeforeRun.Retirement.Command
 	checkRun(retire.JobID, "retired")
 	retired, ok := s.GetPublicIngressOperation(spec.TunnelID)
 	if !ok || retired.Receipt == nil || !reflect.DeepEqual(retired.Receipt, applied.Receipt) {

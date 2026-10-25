@@ -47,9 +47,10 @@ func cloneIngressJob(j Job) Job {
 	return j
 }
 
-// enqueueReviewedIngress is intentionally not called by a public endpoint or
-// EnqueueOperationalIngress yet. It is the tested typed queue primitive for
-// the real Agent path; neither queued state nor a signed job proves Apply.
+// enqueueReviewedIngress is the public dispatch boundary for the exact reviewed
+// signed command. The Agent independently establishes its held private lease
+// and revalidates the installed LAB pin before effects; queueing alone proves
+// neither Apply nor readiness, and unsupported hosts return a BLOCKED receipt.
 func (s *Store) enqueueReviewedIngress(tunnelID string, now time.Time, audit AuditEntry) (Job, error) {
 	return s.enqueueReviewedIngressAction(tunnelID, now, audit, false)
 }

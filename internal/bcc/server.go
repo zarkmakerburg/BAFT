@@ -258,6 +258,8 @@ func (s *Server) Handler() http.Handler {
 	m.HandleFunc("/api/ingress/cancel", s.publicIngressCancelAPI)
 	m.HandleFunc("/api/ingress/reservations", s.publicIngressReservationsAPI)
 	m.HandleFunc("/api/ingress/reviewed-reservations", s.reviewedPublicIngressReservationAPI)
+	m.HandleFunc("/api/ingress/deploy", s.publicIngressDeployAPI)
+	m.HandleFunc("/api/ingress/retire", s.publicIngressRetireAPI)
 	m.HandleFunc("/api/ingress/operational-receipt", s.operationalIngressReceiptAPI)
 	m.HandleFunc("/api/ingress/evaluate", s.ingressEvaluateAPI)
 	m.HandleFunc("/api/ingress/distribution", s.distributionAPI)

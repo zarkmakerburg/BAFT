@@ -59,8 +59,12 @@ func TestTypedIngressQueuePreservesSignedCommandAcrossRestart(t *testing.T) {
 	if reopened.st.PublicIngressOperations[spec.TunnelID].Status != PublicIngressPending {
 		t.Fatal("queue or signature falsely verified ingress")
 	}
-	if err := reopened.EnqueueOperationalIngress(spec.TunnelID); err != ErrIngressAuthorityUnavailable {
-		t.Fatal("public activation gate bypassed")
+	beforeRetry := stateJSONForTest(t, reopened)
+	if err := reopened.EnqueueOperationalIngress(spec.TunnelID); err != nil {
+		t.Fatalf("public enqueue retry was not idempotent: %v", err)
+	}
+	if afterRetry := stateJSONForTest(t, reopened); string(afterRetry) != string(beforeRetry) {
+		t.Fatal("idempotent public enqueue changed durable state")
 	}
 }
 

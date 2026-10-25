@@ -34,25 +34,30 @@ func TestIngressDispatchIntentHeldAcrossRestartAndExactRetry(t *testing.T) {
 	if got := stateJSONForTest(t, s); string(got) != string(before) {
 		t.Fatal("retry modified durable state")
 	}
-	if err := s.EnqueueOperationalIngress(spec.TunnelID); !errors.Is(err, ErrIngressAuthorityUnavailable) {
-		t.Fatalf("operational dispatch unexpectedly enabled: %v", err)
+	if err := s.EnqueueOperationalIngress(spec.TunnelID); err != nil {
+		t.Fatalf("valid held command did not enqueue: %v", err)
 	}
-	if len(s.st.Jobs) != 0 {
-		t.Fatal("held intent became executable agent job")
+	queued, ok := s.st.Jobs[cmd.JobID]
+	if !ok || queued.Status != "queued" || queued.IngressCommand == nil || *queued.IngressCommand != cmd {
+		t.Fatalf("enqueue did not preserve exact command: %+v", queued)
 	}
-	receipt := ingressauthority.ReceiptV1{SchemaVersion: 1, JobID: cmd.JobID, Action: cmd.Action, Binding: cmd.Binding, Phase: "blocked", OwnershipVerified: false, RollbackStatus: "not_attempted"}
-	if err := s.RecordIngressAgentReceipt(receipt, token, now); err != nil {
+	jobs, err := s.pullJobs(spec.IRNode, token, nil)
+	if err != nil || len(jobs) != 1 || jobs[0].ID != cmd.JobID || jobs[0].Status != "dispatched" {
+		t.Fatalf("exact queued command was not dispatched: %+v %v", jobs, err)
+	}
+	receipt := ingressauthority.ReceiptV1{SchemaVersion: 1, JobID: cmd.JobID, Action: cmd.Action, Binding: cmd.Binding, Phase: "blocked", OwnershipVerified: false, RollbackStatus: "not_attempted", FailureCause: "LAB agent refused missing operational authority"}
+	if err := s.RecordIngressAgentReceipt(receipt, token, time.Now().UTC()); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.StageHeldIngressDispatch(spec.TunnelID, now.Add(time.Minute)); err == nil {
 		t.Fatal("blocked receipt permits new dispatch staging")
 	}
 	if err := s.EnqueueOperationalIngress(spec.TunnelID); !errors.Is(err, ErrIngressAuthorityUnavailable) {
-		t.Fatal("blocked receipt promoted to executable job")
+		t.Fatal("blocked receipt promoted to another executable job")
 	}
 	op, _ = s.GetPublicIngressOperation(spec.TunnelID)
-	if op.Status != PublicIngressPending || op.Dispatch.Phase != "held" {
-		t.Fatal("blocked outcome turned into success")
+	if op.Status != PublicIngressPending || op.Dispatch.Phase != "queued" || op.Receipt == nil || op.Receipt.Phase != "blocked" {
+		t.Fatal("blocked outcome turned into success or lost queued identity")
 	}
 }
 

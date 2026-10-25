@@ -30,23 +30,30 @@ sudo ip netns exec "$ns" ip link set lo up
 
 go_cache=$(go env GOCACHE)
 go_path=$(go env GOPATH)
+go_root=$(go env GOROOT)
+go_bin=$(dirname "$(command -v go)")
+echo "lab: go=$(go version) GOROOT=$go_root GOCACHE=$go_cache GOPATH=$go_path"
+echo "lab: pid1=$(cat /proc/1/comm) host-netns=$(readlink /proc/1/ns/net) nft=$(command -v nft) ip=$(command -v ip)"
 rc=0
 while IFS= read -r pkg; do
   tests=$(jq -r --arg p "$pkg" '[.entries[]|select(.package==$p)|.test]|join("|")' "$manifest")
   bin="$work/$(echo "$pkg" | tr '/.' '__').test"
-  echo "::group::$pkg"
+  echo "== $pkg"
   if ! go test -c -o "$bin" "$pkg"; then
     echo "RED: $pkg does not build or does not exist (its required tests are MISSING)" >&2
     rc=1
-    echo "::endgroup::"
     continue
   fi
   (
-    cd "$pkg" && sudo ip netns exec "$ns" env PATH="$PATH" GOTOOLCHAIN=local GOCACHE="$go_cache" \
+    cd "$pkg" && sudo ip netns exec "$ns" env PATH="$go_bin:$PATH" HOME="$HOME" GOROOT="$go_root" GOTOOLCHAIN=local GOCACHE="$go_cache" \
       GOPATH="$go_path" GOPROXY=off BAFT_OPERATIONAL_INGRESS_V1=1 \
       "$bin" -test.run "^(${tests})\$" -test.v -test.count=1 -test.timeout=20m
   ) 2>&1 | go tool test2json -p "$pkg" >>"$log"
   [[ ${PIPESTATUS[0]} -eq 0 ]] || rc=1
-  echo "::endgroup::"
 done < <(jq -r '[.entries[].package]|unique|.[]' "$manifest")
+# Concise diagnostics (the checker, not this summary, decides the verdict).
+echo "=== lab summary ==="
+jq -r 'select(.Test!=null and (.Test|contains("/")|not) and (.Action=="pass" or .Action=="fail" or .Action=="skip")) | "\(.Action|ascii_upcase) \(.Package) \(.Test)"' "$log" | sort | uniq -c | sort -rn | head -80
+jq -r 'select(.Test==null and .Action=="output") | "\(.Package): \(.Output)"' "$log" | grep -v '^[^:]*: *$' | head -60
+jq -r 'select(.Test!=null and .Action=="output" and (.Output|test("^\\s+\\S+\\.go:[0-9]+:|FAIL|panic"))) | "\(.Package) \(.Test): \(.Output)"' "$log" | head -80
 exit "$rc"

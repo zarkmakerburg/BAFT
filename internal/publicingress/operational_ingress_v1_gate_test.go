@@ -100,6 +100,11 @@ func TestOperationalIngressV1Gate_RealListenerAndNFTInPrivateNetns(t *testing.T)
 		t.Fatal(err)
 	}
 	journalDir := t.TempDir()
+	// t.TempDir creates 0777&^umask; the durable journal fails closed unless
+	// its directory is exactly 0700.
+	if err := os.Chmod(journalDir, 0700); err != nil {
+		t.Fatal(err)
+	}
 	journal, err := ingressownership.OpenDurableJournal(journalDir)
 	if err != nil {
 		t.Fatal(err)

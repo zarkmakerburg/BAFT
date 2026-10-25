@@ -11,11 +11,16 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - name: build
+        run: go test -race -c -o /tmp/pi.test ./internal/publicingress
       - name: plain
-        run: go test -race -count=300 -run 'TestProbeRespectsMaxClientsAndReleasesSlot' ./internal/publicingress 2>&1 | tail -30
+        run: |
+          fails=0
+          for i in $(seq 1 300); do /tmp/pi.test -test.run 'TestProbeRespectsMaxClientsAndReleasesSlot' -test.count=1 >/tmp/o.txt 2>&1 || { fails=$((fails+1)); head -c 600 /tmp/o.txt; }; done
+          echo "::error title=RESULT plain::fails=$fails of 300"
       - name: loaded
         run: |
           for i in 1 2 3 4; do (while :; do :; done) & done
-          GOMAXPROCS=2 go test -race -count=300 -run 'TestProbeRespectsMaxClientsAndReleasesSlot' ./internal/publicingress 2>&1 | tail -30 | tee /tmp/out.txt
-          kill $(jobs -p) || true
-          grep -c -- '--- FAIL' /tmp/out.txt || true
+          fails=0
+          for i in $(seq 1 300); do GOMAXPROCS=2 /tmp/pi.test -test.run 'TestProbeRespectsMaxClientsAndReleasesSlot' -test.count=1 >/tmp/o.txt 2>&1 || { fails=$((fails+1)); head -c 600 /tmp/o.txt; }; done
+          echo "::error title=RESULT loaded::fails=$fails of 300"

@@ -31,8 +31,11 @@ func validateIngressV1(j Job) error {
 			return errors.New("operational ingress field is required: " + k)
 		}
 	}
-	if j.Params["generation"] != "1" {
-		return errors.New("operational ingress generation transition unsupported")
+	// Generations after the first exist only after a verified retirement
+	// released the port; the Agent's monotonic release fence (strictly
+	// greater generation, fresh identities) is the authority for that.
+	if g, err := strconv.ParseUint(j.Params["generation"], 10, 64); err != nil || g == 0 || strconv.FormatUint(g, 10) != j.Params["generation"] {
+		return errors.New("operational ingress generation must be a canonical positive integer")
 	}
 	return validateIngressV1Endpoint(j)
 }

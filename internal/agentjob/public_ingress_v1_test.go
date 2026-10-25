@@ -44,7 +44,8 @@ func TestOperationalIngressV1RejectsAliasedPortAndUnprovenTransport(t *testing.T
 		{"mux transport", "transport", "mux"},
 		{"unknown version", "ingress_protocol", "2"},
 		{"invalid lease", "lease_id", "../other"},
-		{"unsupported generation", "generation", "2"},
+		{"zero generation", "generation", "0"},
+		{"noncanonical generation", "generation", "02"},
 		{"SSH port", "public_port", "22"},
 	} {
 		t.Run(mutation.name, func(t *testing.T) {

@@ -39,9 +39,23 @@ type fullPath struct {
 
 func setupFullPath(t *testing.T, clientPort int, route string) *fullPath {
 	t.Helper()
+	return setupFullPathWindow(t, clientPort, route, 0)
+}
+
+// bccHeldCommandWindow mirrors the production held-command window BCC signs at
+// activation (internal/bcc ingress_glue.go). Only the expiry gate shortens it,
+// by activating the tunnel on a clock moved back by (bccHeldCommandWindow -
+// window); stageFor verifies the resulting window instead of trusting it.
+const bccHeldCommandWindow = 24 * time.Hour
+
+func setupFullPathWindow(t *testing.T, clientPort int, route string, window time.Duration) *fullPath {
+	t.Helper()
 	h := newHost(t)
 	f := &fullPath{h: h}
 	f.b = newBCC(t, map[string]string{"ex-opv1": "foreign", "ex-opv2": "foreign", "ex-opv3": "foreign", irNode: "worker"})
+	if window > 0 {
+		f.b.warp = bccHeldCommandWindow - window
+	}
 	f.tap = newTap(t, f.b)
 	f.a = startAgent(t, f.b, h, t.TempDir(), &agentOpt{url: f.tap.srv.URL, client: f.b.cl})
 	f.site = f.addSite(t, "ex-opv1", "main-de", 8443, clientPort, route)

@@ -44,6 +44,8 @@ type bccRig struct {
 	cl    *http.Client
 	pub   ed25519.PublicKey
 	key   ed25519.PrivateKey
+	// warp moves the activation clock back (expiry gate only); see stepAt.
+	warp time.Duration
 }
 
 func newBCC(t *testing.T, nodes map[string]string) *bccRig {
@@ -134,6 +136,24 @@ func (b *bccRig) step(tn bcc.Tunnel, node, action, message, output string) {
 	}, http.StatusOK, nil)
 }
 
+// stepAt is step() whose acknowledgement is applied straight to the store and
+// whose tunnel advance runs with the given activation clock. It exists only to
+// let the expiry gate stage a held command whose (production, 24h) window ends
+// a few seconds from now; no other behaviour differs.
+func (b *bccRig) stepAt(tn bcc.Tunnel, node, action, message, output string, at time.Time) {
+	b.t.Helper()
+	jobs := b.pull(node)
+	if len(jobs) != 1 || jobs[0].Type != action || jobs[0].Params["tunnel_id"] != tn.ID {
+		b.t.Fatalf("%s: expected one %s for %s: %+v", node, action, tn.ID, jobs)
+	}
+	if err := b.store.AckJobOutput(node, nodeToken(node), jobs[0].ID, "succeeded", message, output); err != nil {
+		b.t.Fatal(err)
+	}
+	if _, err := b.store.AdvanceTunnels(at); err != nil {
+		b.t.Fatal(err)
+	}
+}
+
 func (b *bccRig) tunnel(id string) bcc.Tunnel {
 	b.t.Helper()
 	var tn bcc.Tunnel
@@ -172,7 +192,11 @@ func (b *bccRig) wizard(req bcc.TunnelRequest) (bcc.Tunnel, bcc.Plan) {
 	b.observe(tn, tn.IRNode, tunnelnode.RoleIR)
 	b.observe(tn, tn.EXNode, tunnelnode.RoleEX)
 	b.step(tn, tn.IRNode, bcc.JobTunnelFinalize, "finalized", "")
-	b.step(tn, tn.EXNode, bcc.JobTunnelFinalize, "finalized", "")
+	if b.warp > 0 {
+		b.stepAt(tn, tn.EXNode, bcc.JobTunnelFinalize, "finalized", "", time.Now().Add(-b.warp))
+	} else {
+		b.step(tn, tn.EXNode, bcc.JobTunnelFinalize, "finalized", "")
+	}
 	got := b.tunnel(tn.ID)
 	if got.Phase != bcc.TunnelActive {
 		b.t.Fatalf("tunnel not active: %s %s", got.Phase, got.Error)
@@ -220,43 +244,29 @@ func (b *bccRig) reserve(tn bcc.Tunnel, planHash string, port, want int) {
 		map[string]any{"tunnel_id": tn.ID, "plan_hash": planHash, "client_port": port}, want, nil)
 }
 
-// stage turns the reviewed reservation into the immutable, held, signed-able
-// Apply command: durable operation, canonical binding, staged command, held
-// dispatch. Nothing is queued yet (see enqueue).
+// stageFor returns the immutable, held Apply command that BCC itself staged
+// when the tunnel became ACTIVE (production staging: durable operation,
+// canonical binding, staged command, held dispatch; nothing is queued yet).
+// The rig no longer stages by hand with its own JobID: it adopts exactly what
+// the product persisted, so the gate exercises the production command. jobID
+// is retained only as documentation of the scenario; the signed identity is
+// BCC's. validity is checked only when the activation clock was moved (warp).
 func (b *bccRig) stageFor(tn bcc.Tunnel, jobID string, validity time.Duration) ingressauthority.CommandV1 {
 	b.t.Helper()
-	now := time.Now().UTC()
-	spec, err := bcc.PlanPublicIngress(tn.IRNode, tn.ID, tn.ClientPort, tn.RouteListen)
-	if err != nil {
-		b.t.Fatal(err)
+	op, ok := b.store.GetPublicIngressOperation(tn.ID)
+	if !ok || op.Command == nil || op.Dispatch == nil {
+		b.t.Fatalf("BCC did not stage the reviewed Apply command on activation: %+v", op)
 	}
-	manifest := manifestSpec(spec, tn.InstanceID, 1)
-	preview, err := ingressmanifest.Preview(manifest)
-	if err != nil {
-		b.t.Fatal(err)
+	if op.Dispatch.Phase != "held" && op.Dispatch.Phase != "queued" {
+		b.t.Fatalf("staged dispatch in unexpected phase: %+v", op.Dispatch)
 	}
-	proof := bcc.PublicIngressExpectedProof{Generation: 1, ManifestDigest: preview.ManifestSHA256, ListenerID: "listener-1", FirewallID: "firewall-1"}
-	op, err := b.store.RecordReviewedPublicIngressOperation(spec, tn.PlanHash, proof, now, bcc.AuditEntry{Timestamp: now, Actor: "admin"})
-	if err != nil {
-		b.t.Fatalf("record reviewed operation: %v", err)
+	if b.warp > 0 {
+		left := time.Until(op.Command.ExpiresAt)
+		if left > validity+2*time.Second {
+			b.t.Fatalf("staged window not shortened as arranged: expires in %v, want about %v", left, validity)
+		}
 	}
-	cmd := ingressauthority.CommandV1{
-		IngressProtocol: ingressauthority.ProtocolV1, JobID: jobID, Action: agentjob.ActionPublicIngressApply,
-		IssuedAt: now.Truncate(time.Second).Add(-time.Second), ExpiresAt: now.Truncate(time.Second).Add(validity),
-		Binding: ingressauthority.BindingV1{
-			NodeID: tn.IRNode, OperationID: op.OperationID, LeaseID: op.LeaseID,
-			Port: uint16(spec.PublicPort), ConfigPort: uint16(spec.PublicPort),
-			ListenEndpoint: manifest.Config.Listen, LocalTarget: manifest.Config.Target, Transport: "dedicated",
-			PlanSHA256: tn.PlanHash, ListenerID: proof.ListenerID, FirewallID: proof.FirewallID, Spec: manifest, Proof: preview,
-		},
-	}
-	if err := b.store.StageReviewedIngressCommand(tn.ID, cmd, now); err != nil {
-		b.t.Fatalf("stage command: %v", err)
-	}
-	if _, err := b.store.StageHeldIngressDispatch(tn.ID, now); err != nil {
-		b.t.Fatalf("stage held dispatch: %v", err)
-	}
-	return cmd
+	return *op.Command
 }
 
 func manifestSpec(spec bcc.PublicIngressSpec, instance string, generation uint64) ingressmanifest.Spec {

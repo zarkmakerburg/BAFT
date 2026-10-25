@@ -76,7 +76,7 @@ func TestOperationalIngressV1Gate_RefusesReplayedSignedJob(t *testing.T) {
 // window passed (and records the compensation), and an Agent refuses a
 // correctly signed but expired or not-yet-valid job.
 func TestOperationalIngressV1Gate_RefusesExpiredSignedJob(t *testing.T) {
-	f := setupFullPath(t, 54752, "127.0.0.1:1443")
+	f := setupFullPathWindow(t, 54752, "127.0.0.1:1443", 2*time.Second)
 	f.window = 2 * time.Second
 	f.stage(t)
 	f.a.openGate()

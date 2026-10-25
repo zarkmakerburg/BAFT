@@ -8,6 +8,28 @@ import (
 	"github.com/zarkmakerburg/baft/internal/ingressinventory"
 )
 
+// hq's stopped-retire matrix also rejected a replaced live nft handle at
+// classification time. Here classification leaves handle verification to the
+// effect: Remove must refuse (and not delete) when the live rule handle is no
+// longer the journaled one.
+func TestFencedNFTRemoveRefusesReplacedLiveRuleHandle(t *testing.T) {
+	f := newPartialRetireFixture(t)
+	b := f.cmd.Binding
+	f.fake.ruleHandle++ // someone else's rule now sits where our handle was
+	fence := f.fence(func(context.Context, string, uint16) (ingressinventory.CoverageEvidence, error) { return f.evidence(), nil })
+	before := len(f.fake.commands)
+	if err := f.tx.retireLocked(context.Background(), b.Spec, b.Proof, fence); err == nil {
+		t.Fatal("remove proceeded with a replaced live rule handle")
+	}
+	if len(f.fake.commands) != before {
+		t.Fatalf("nft delete issued for a rule that is not ours: %v", f.fake.commands)
+	}
+	cur, _, _ := f.tx.Journal.Current(b.Proof)
+	if cur.Phase != PhaseRetireIntent {
+		t.Fatalf("refusal lost uncertainty: %+v", cur)
+	}
+}
+
 // Ported from hq's retiredPortObservation matrix ("wrong-port" row) to this
 // branch's per-effect fence: a fresh inventory taken "at the effect" must be
 // about the numeric port being mutated. Evidence for another port (a

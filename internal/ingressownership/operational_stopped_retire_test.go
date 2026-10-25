@@ -53,7 +53,13 @@ func TestOperationalStoppedRetireClassificationRequiresPrivateExactEvidence(t *t
 			if len(fake.commands) != commands {
 				t.Fatal("classification mutated nft")
 			}
-			for _, change := range []string{"restart", "runtime", "backend", "chain", "handle", "unknown", "incomplete", "live", "stopped", "binding", "cancel"} {
+			// Dropped vs hq: "handle" (replaced live nft rule) and "live" (foreign
+			// LISTEN with another inode) are not classification vetoes here. The
+			// effect fence refuses a replaced handle and tolerates a foreign
+			// sibling LISTEN because only our exact-handle rule is deleted; see
+			// TestFencedNFTRemoveRefusesReplacedLiveRuleHandle and
+			// TestFencedNFTRemoveRechecksKernelSocketsAtEffect.
+			for _, change := range []string{"restart", "runtime", "backend", "chain", "unknown", "incomplete", "stopped", "binding", "cancel"} {
 				t.Run(change, func(t *testing.T) {
 					candidate, observation, binding := x, observed, b
 					checkCtx, cancel := context.WithCancel(ctx)
@@ -70,15 +76,10 @@ func TestOperationalStoppedRetireClassificationRequiresPrivateExactEvidence(t *t
 					case "chain":
 						backend.ExpectedChainHandle++
 						defer func() { backend.ExpectedChainHandle-- }()
-					case "handle":
-						fake.ruleHandle++
-						defer func() { fake.ruleHandle-- }()
 					case "unknown":
 						observation.UnknownSources = []string{"unknown"}
 					case "incomplete":
 						observation.CoverageComplete = false
-					case "live":
-						observation.ActiveTCP = []ingressinventory.ActiveTCPClaim{{Port: b.Port, State: "0A", Family: "tcp6", Inode: 123}}
 					case "stopped":
 						observation.Stopped = []ingressinventory.PersistentTCPPortClaim{{Port: b.Port, Unit: "foreign.socket"}}
 					case "binding":

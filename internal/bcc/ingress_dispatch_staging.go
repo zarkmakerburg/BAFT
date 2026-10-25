@@ -5,8 +5,8 @@ import (
 	"time"
 )
 
-// ErrIngressAuthorityUnavailable is a deliberate fail-closed operational gate.
-// A staged command is NOT a held live lease or an executable agent job.
+// ErrIngressAuthorityUnavailable indicates the exact reviewed command or its
+// durable dispatch intent is absent. Queueing never mints the Agent-side lease.
 var ErrIngressAuthorityUnavailable = errors.New("live ingress authority and managed executor readiness unavailable")
 
 // IngressDispatchIntent is a durable BCC correlation record, not a queue item.
@@ -71,8 +71,14 @@ func (s *Store) StageHeldIngressDispatch(tunnelID string, now time.Time) (Ingres
 	return expected, nil
 }
 
-// No positive authority capability exists. Never append to s.st.Jobs, even
-// after an Agent BLOCKED receipt or a process restart.
+// Enqueue only the exact reviewed command and durable dispatch intent. The
+// Agent independently validates its installed LAB authority before effects;
+// queue state and BLOCKED receipts never become positive readiness evidence.
 func (s *Store) EnqueueOperationalIngress(tunnelID string) error {
-	return ErrIngressAuthorityUnavailable
+	now := time.Now().UTC()
+	_, err := s.enqueueReviewedIngress(tunnelID, now, AuditEntry{
+		Timestamp: now, Actor: "bcc", Outcome: "queued",
+		Details: map[string]any{"desired_only": true, "source": "operational_ingress"},
+	})
+	return err
 }

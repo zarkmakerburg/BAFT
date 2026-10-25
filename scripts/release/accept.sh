@@ -86,9 +86,14 @@ gamma_tunnel_upgrade_required=0
 if git cat-file -e "$sha:.github/workflows/gamma-v037-tunnel-upgrade-lab.yml" 2>/dev/null; then
   gamma_tunnel_upgrade_required=1
 fi
-python3 - "$GH" "$repo" "$sha" "$ci_jobs" "$ingress_lab_required" "$gamma_two_node_required" "$gamma_v037_required" "$gamma_tunnel_upgrade_required" >"$work/ci.out" 2>"$work/ci.err" <<'PY'
+# Positive signed operational ingress is independent from refusal/kernel LABs.
+operational_ingress_required=0
+if git cat-file -e "$sha:.github/workflows/operational-ingress-lab.yml" 2>/dev/null; then
+  operational_ingress_required=1
+fi
+python3 - "$GH" "$repo" "$sha" "$ci_jobs" "$ingress_lab_required" "$gamma_two_node_required" "$gamma_v037_required" "$gamma_tunnel_upgrade_required" "$operational_ingress_required" >"$work/ci.out" 2>"$work/ci.err" <<'PY'
 import json, subprocess, sys
-gh, repo, sha, jobs, ingress_lab_required, gamma_two_node_required, gamma_v037_required, gamma_tunnel_upgrade_required = sys.argv[1:9]
+gh, repo, sha, jobs, ingress_lab_required, gamma_two_node_required, gamma_v037_required, gamma_tunnel_upgrade_required, operational_ingress_required = sys.argv[1:10]
 def api(path):
     r = subprocess.run([gh, "api", path], capture_output=True, text=True)
     if r.returncode != 0:
@@ -160,6 +165,14 @@ try:
         else:
             status, _, detail = job_row(upgraded, "v037-two-node-upgrade", path)
             print(status, "ci: gamma-v037-tunnel-upgrade-lab", detail, sep="\t")
+    if operational_ingress_required == "1":
+        path = ".github/workflows/operational-ingress-lab.yml"
+        operational = runs_for(path)
+        if operational is None:
+            print("FAIL", "ci: operational-ingress-lab", f"no {path} workflow run for this commit", sep="\t")
+        else:
+            status, _, detail = job_row(operational, "operational-ingress", path)
+            print(status, "ci: operational-ingress-lab", detail, sep="\t")
 except Exception as e:
     print("FAIL", "ci", f"cannot read workflow runs: {e}", sep="\t")
 PY

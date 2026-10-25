@@ -14,6 +14,8 @@ test('guided five-step UI remains mounted on real operational BCC card',()=>{
  }
  assert.match(js,/function tnWizardStep\(/);
  assert.match(js,/function tnWizardValidateStep\(/);
+ assert.match(html,/dedicated EX listener per tunnel/);
+ assert.match(html,/443 alone does not guarantee censorship resistance/);
  assert.match(js,/function tnWizardSummary\(/);
  assert.match(js,/async function tnPlan\(/);
  assert.match(js,/async function tnDeploy\(/);
@@ -25,9 +27,9 @@ test('Tunnel Studio exposes a single generic service destination in the ports st
  const ports=html.slice(html.indexOf('data-tn-step="2"'),html.indexOf('data-tn-step="3"'));
  assert.match(ports,/\[::1\]:2443/);
  const advanced=html.slice(html.indexOf('data-tn-step="3"'),html.indexOf('data-tn-step="4"'));
- assert.match(advanced,/id="tnTarget" dir="ltr"/);
- assert.match(advanced,/IP:port/);
- assert.match(advanced,/نشانی و پورت مقصد سرویس/);
+ assert.doesNotMatch(advanced,/id="tnTarget"/);
+ assert.match(advanced,/id="tnRouteListen"/);
+ assert.match(advanced,/Advanced: instance and internal listeners/);
  assert.doesNotMatch(js,/tnUserProtocol|tnXrayPort|tnWizardTargetSync/);
 });
 test('unified Studio retains explicit port suggestions and truthful direction selection',()=>{
@@ -47,8 +49,10 @@ test('only Native BAFT is runnable: engine is fixed by a hidden field; catalog r
  assert.doesNotMatch(html,/<option[^>]*value="(frp|rathole|wss)"/);
  assert.match(js,/if\(id!=='baft'/);
 });
-test('IR public client port is reviewed as data but no ingress listener is provisioned',()=>{
- assert.match(html,/BAFT.*does NOT create the public IR client listener/);
+test('IR public client port defaults from the service port and queues verified ingress on activation',()=>{
+ assert.match(html,/BAFT automatically queues a signed public IR ingress operation after tunnel activation/);
+ assert.match(html,/defaults from service port/);
+ assert.match(html,/I authorize BAFT to provision public IR ingress/);
  assert.match(html,/id="tnClientPort"/);
  assert.match(html,/id="tnIngressConfirm"/);
  assert.match(js,/if\(!q\('#tnIngressConfirm'\)\.checked\)/);

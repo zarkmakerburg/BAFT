@@ -126,10 +126,13 @@ func (s *Server) operationalIngressReceiptAPI(w http.ResponseWriter, r *http.Req
 		http.Error(w, "ingress receipt refused", status)
 		return
 	}
+	op, found := s.store.GetPublicIngressOperation(receipt.Binding.Spec.TunnelID)
+	command, dispatch, storedReceipt := ingressQueuedParts(op, receipt.Action == "public_ingress_retire")
+	verified := found && dispatch != nil && dispatch.Phase == "queued" && command != nil && storedReceipt != nil && storedReceipt.OwnershipVerified && storedReceipt.ValidateForCommand(*command) == nil && (storedReceipt.Phase == "applied" || storedReceipt.Phase == "retired")
 	writeJSON(w, http.StatusAccepted, struct {
 		Recorded              bool `json:"recorded"`
 		Verified              bool `json:"verified"`
 		ReadyToApply          bool `json:"ready_to_apply"`
 		ReconciliationPending bool `json:"reconciliation_pending"`
-	}{Recorded: true, ReconciliationPending: true})
+	}{Recorded: true, Verified: verified, ReconciliationPending: !verified})
 }

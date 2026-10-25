@@ -29,25 +29,40 @@ Alpha after the shared checkpoint is published.
   data. Node authentication over validated HTTPS and exact expected-job/
   binding comparison are required before BCC accepts it.
 
-## Deliberate implementation boundary
+## Supported lease scope
 
-No constructor can mint an operational lease yet. Nil, zero-value and even
-internally flagged `LiveLease` values still deny mutation. Lease JSON marshal/
-unmarshal is refused. There is no host mutation, new Agent dispatch, operational
-signed job schema, BCC Apply enqueue or active-ingress success path in this
-checkpoint. Validation and a receipt claiming success never establish authority.
+`PendingGuard.MintSignedManagedLABLease(ctx, envelope)` can mint only in the
+independently measured singleton, loopback-only Linux LAB. It verifies the
+original signature against fixed root-protected `/etc/baft-agent/bcc-job.pub`,
+the node identity in the protected installed policy, the immutable recorded
+command and the same OS-held durable reservation. The only live reservation
+store is `/var/lib/baft-agent/ingress-authority`; an alternate otherwise valid
+store cannot bypass its global numeric-port claim. The directory must already
+exist with protected root-owned ancestry and mode 0700.
 
-Alpha still must implement signed admission, real held cross-process locks,
-durable numeric-port reservations/generation fences and restart reconciliation.
-Delta must implement complete trusted active/stopped-service inventory plus
-independent exact listener/firewall observation and cleanup. Unknown authority,
-lost lock or incomplete inventory must deny mutation. Beta persists exact
-authenticated receipts and exposes active configuration only after verification.
-Gamma tests the actual full path; this skeleton cannot satisfy that gate.
+The private lease captures Delta's actual executable/process/source/netns and
+cgroup pin. Every check rereads the original guard, installed policy, enrolled
+key inode/bytes and execution pin. `WithLockedIngress` additionally serializes
+one leaf effect with `Lease.Close` and `PendingGuard.Close`; its callback must
+not reenter guard/lease methods. Nil, zero and internally flagged leases without
+this private state still deny; lease JSON marshal/unmarshal is refused.
+
+A fsynced one-shot JobID marker precedes issuance. Restart, Close and persisted
+outcome bytes cannot re-mint the command. A separately signed Retire job can
+use the same durable binding, but an Apply lease cannot execute Retire. Closing
+the guard or lease never frees an uncertain durable reservation. Inert outcome
+records are logs, not proof of recovered physical ownership or a release gate.
+
+This is **LAB-only authority**, not production admission or complete restart
+reconciliation. Full normal Agent listener/nft/TCP/authenticated receipt and BCC
+acceptance need their own representative end-to-end evidence; a successful
+constructor test does not satisfy that release gate. Unsupported, unknown,
+drifted or incomplete managed execution coverage continues to deny.
 
 ## Import direction and exclusive writers
 
-The package imports only standard library and `ingressmanifest`. Agent, BCC and
+The package imports dependency-leaf `agentjob`, `release`, `ingressmanifest` and
+`ingressinventory` in addition to the standard library. Agent, BCC and
 the `ingressownership` executor may import it. Do not import it from
 `ingressmanifest` or `publicingress`: manifest already depends on publicingress,
 so that would create a cycle. Keep authority independent of runtime/transaction,

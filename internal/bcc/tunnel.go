@@ -270,6 +270,7 @@ func wipeSecretParams(j *Job) {
 
 // publicJob is a job without secrets, for listings.
 func publicJob(j Job) Job {
+	j = cloneIngressJob(j)
 	wipeSecretParams(&j)
 	j.Output = ""
 	return j
@@ -966,6 +967,11 @@ func (s *Server) AdvanceTunnels() {
 	}
 	_ = s.FlushSecurityAuditIntents()
 	for _, e := range events {
+		if e.Action == "tunnel.active" {
+			if err := s.autoQueuePublicIngress(e.TunnelID); err != nil {
+				_, _ = s.audit.Append(AuditEntry{Timestamp: s.now().UTC(), Actor: "bcc", Action: "public_ingress.auto_dispatch", Target: e.TunnelID, Outcome: "failure", Details: map[string]any{"reason": err.Error()}})
+			}
+		}
 		if strings.HasPrefix(e.Action, "cert.rotation.") || strings.HasPrefix(e.Action, "tunnel.decommission") {
 			continue
 		}

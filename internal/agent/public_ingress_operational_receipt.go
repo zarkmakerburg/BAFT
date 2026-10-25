@@ -55,6 +55,20 @@ func (a *Agent) postBlockedIngressReceipt(ctx context.Context, receipt ingressau
 		receipt.ListenerEvidence != (ingressauthority.ListenerEvidenceV1{}) || len(receipt.FirewallEvidence) != 0 {
 		return errors.New("invalid blocked operational ingress receipt")
 	}
+	return a.postIngressReceipt(ctx, receipt, false)
+}
+
+// postVerifiedIngressReceipt is private to the signed normal executor path.
+// A structurally plausible receipt cannot send positive evidence without the
+// original concrete live lease held across transport and acknowledgement.
+func (a *Agent) postVerifiedIngressReceipt(ctx context.Context, receipt ingressauthority.ReceiptV1, command ingressauthority.CommandV1, lease *ingressauthority.Lease) error {
+	if a == nil || ctx == nil || a.cfg.Token == "" || receipt.Binding.NodeID != a.cfg.NodeID || receipt.Phase == "blocked" || receipt.ValidateForCommand(command) != nil || lease == nil {
+		return ingressauthority.ErrUnverified
+	}
+	return lease.WithLockedIngress(ctx, command, func() error { return a.postIngressReceipt(ctx, receipt, true) })
+}
+
+func (a *Agent) postIngressReceipt(ctx context.Context, receipt ingressauthority.ReceiptV1, verified bool) error {
 	endpoint, err := url.Parse(a.cfg.BCCURL)
 	if err != nil || endpoint.Scheme != "https" || endpoint.Hostname() == "" || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" || (endpoint.Path != "" && endpoint.Path != "/") {
 		return errors.New("operational ingress receipt requires a direct HTTPS BCC origin")
@@ -96,11 +110,15 @@ func (a *Agent) postBlockedIngressReceipt(ctx context.Context, receipt ingressau
 	if err != nil || len(body) > maxIngressReceiptBytes {
 		return errors.New("invalid BCC ingress receipt acknowledgement size")
 	}
-	return validateBlockedIngressReceiptAck(body)
+	return validateIngressReceiptAck(body, verified)
 }
 
 func validateBlockedIngressReceiptAck(raw []byte) error {
-	expected := map[string]bool{"recorded": true, "verified": false, "ready_to_apply": false, "reconciliation_pending": true}
+	return validateIngressReceiptAck(raw, false)
+}
+
+func validateIngressReceiptAck(raw []byte, verified bool) error {
+	expected := map[string]bool{"recorded": true, "verified": verified, "ready_to_apply": false, "reconciliation_pending": !verified}
 	seen := make(map[string]bool)
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	if token, err := decoder.Token(); err != nil || token != json.Delim('{') {

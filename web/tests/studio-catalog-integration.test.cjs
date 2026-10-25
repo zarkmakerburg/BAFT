@@ -54,7 +54,7 @@ test('catalog to Studio to generated IPv6 destination to reviewed deployment use
  assert.equal((h.element('tlCatalog').innerHTML.match(/onclick="tlPickEngine/g)||[]).length,1);
  h.element('tnDirection').value='ex-to-ir';c.tlPickEngine('baft');
  assert.equal(h.element('tnDirection').value,'ir-to-ex');
- c.tnWizardGenerateServicePort();
+ c.tnWizardGenerateServicePort();h.element('tnIngressConfirm').checked=true;
  assert.equal(h.element('tnTarget').value,'[2001:db8::15]:20007');
  await c.tnPlan();await c.tnDeploy();
  assert.deepEqual(h.requests.map(r=>[r.method,r.url]),[['GET','/api/tunnel-engines'],['POST','/api/tunnels/plan'],['POST','/api/tunnels']]);
@@ -62,6 +62,7 @@ test('catalog to Studio to generated IPv6 destination to reviewed deployment use
  assert.equal(catalog.body,undefined);
  assert.deepEqual(create.body,{...plan.body,plan_hash:'reviewed-1'});
  assert.equal(create.body.target,'[2001:db8::15]:20007');
+ assert.equal(create.body.client_port,20007,'public client port defaults to destination service port');
  assert.equal(create.body.port,8443);
  assert.equal(create.body.instance_id,'test-instance');
  assert.deepEqual(Object.keys(plan.body).sort(),['allow_legacy_coexistence','ex_metrics_listen','ex_node','instance_id','ir_metrics_listen','ir_node','port','client_port','route_listen','target'].sort());
@@ -74,7 +75,7 @@ test('suggesting a destination after review invalidates the old plan before any 
  c.tnWizardGenerateServicePort();await c.tnDeploy();
  assert.equal(h.element('tnPlan').innerHTML,'');
  assert.equal(h.requests.filter(r=>r.url==='/api/tunnels').length,0);
- await c.tnPlan();await c.tnDeploy();
+ h.element('tnIngressConfirm').checked=true;await c.tnPlan();await c.tnDeploy();
  const create=h.requests.find(r=>r.url==='/api/tunnels');
  assert.equal(create.body.plan_hash,'reviewed-2');
  assert.equal(create.body.target,'[2001:db8::15]:20007');
@@ -93,6 +94,6 @@ for(const lang of ['fa','en'])test('combined '+lang+' review keeps endpoint dire
  assert.match(html,/<bdi dir="ltr">IR \(dialer\) → EX \(listener\)<\/bdi>/);
  assert.doesNotMatch(html,/Xray|VLESS|VMess|Trojan|integration-credential/i);
  assert.match(html,lang==='fa'?/پورت کانفیگ کاربران = پورت ورودی عمومی ایران: 443/:/Client configuration port = IR public ingress port: 443/);
- assert.match(html,lang==='fa'?/مدیریت خارجی/:/EXTERNALLY MANAGED/);
+ assert.match(html,lang==='fa'?/اصلاح بیرونی Custom Share Address\/port/:/external Custom Share Address\/port rewrite/);
  assert.equal(h.requests.length,0);
 });

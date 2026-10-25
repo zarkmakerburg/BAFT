@@ -9,7 +9,7 @@ const js=src.slice(src.indexOf('<script>')+8,src.indexOf('</script>'));
 function fn(from,to){const start=js.indexOf(from),end=js.indexOf(to,start);assert.ok(start>=0&&end>start);return js.slice(start,end)}
 function context(fields,prelude){
  const c={q:selector=>({get value(){return fields[selector.slice(1)]},set value(v){fields[selector.slice(1)]=v},get checked(){return fields[selector.slice(1)]},set checked(v){fields[selector.slice(1)]=v},get textContent(){return fields[selector.slice(1)]},set textContent(v){fields[selector.slice(1)]=v},get innerHTML(){return fields[selector.slice(1)]},set innerHTML(v){fields[selector.slice(1)]=v},scrollIntoView(){}}),document:{documentElement:{lang:'fa'}},alert(){},tnClearPlan(){},console};
- vm.createContext(c);vm.runInContext(fn('function tnWizardTargetChanged()','function tnWizardGenerateServicePort()')+prelude,c);return c;
+ c.tnClientPortTouched=false;c.tnIngressPreflightSeq=0;c.tnIngressPreflightRefreshSeq=0;c.tnIngressPreflightJobID='';c.tnIngressPreflightExpected=null;c.tnIngressPreflightStatus=message=>{const e=c.q('#tnIngressPreflightState');if(e)e.textContent=message};c.tnWizardText=(en,fa)=>en;vm.createContext(c);vm.runInContext(fn('function tnTargetServicePort(value)','function tnWizardGenerateServicePort()')+prelude,c);return c;
 }
 const req=fn('function tnReq()','function tnModeChanged()');
 const defaults={tnDirection:'ir-to-ex',tnEngine:'baft',tnEx:'ex-de-1',tnIr:'ir-arno-1',tnPort:'8444',tnTarget:'127.0.0.1:2443',tnMode:'independent',tnInstance:'baft-arno-de-2',tnRouteListen:'127.0.0.1:1444',tnExMetric:'127.0.0.1:9202',tnIrMetric:'127.0.0.1:9302',tnLegacyCoexist:true,tnClientPort:'443'};
@@ -53,6 +53,19 @@ for(const instance of ['', 'existing-managed'])test('editing '+(instance?'manage
  assert.equal(result.instance_id,instance);
  assert.equal(result.route_id,old.route_id);
 });
+
+test('destination service port defaults the public client port unless the operator overrides it',()=>{
+ const fields={...defaults,tnTarget:'127.0.0.1:54619',tnClientPort:'443'};
+ const c=context(fields,'const tnWizardText=en=>en;');
+ vm.runInContext('tnWizardTargetChanged()',c);
+ assert.equal(fields.tnClientPort,'54619');
+ assert.match(fields.tnServicePortHint,/54619/);
+ c.tnClientPortTouched=true;
+ fields.tnTarget='127.0.0.1:54620';
+ vm.runInContext('tnWizardTargetChanged()',c);
+ assert.equal(fields.tnClientPort,'54619','manual choice must not be silently overwritten');
+});
+
 test('review requires a valid BAFT port; empty destination uses the configured default',()=>{
  const fields={...defaults,tnIngressConfirm:true};
  const c=context(fields,'const tnWizardText=(en,fa)=>fa;'+fn('function tnWizardValidateStep(i)','function tnWizardStep(i)'));
@@ -87,7 +100,8 @@ test('port suggestion avoids current and node inventory conflicts while preservi
  const before={...h.values};h.generate();
  assert.equal(h.values.tnTarget,'[2001:db8::15]:20006');
  assert.equal(h.calls,8);assert.equal(h.clears,1);
- for(const id of ['tnPort','tnRouteListen','tnExMetric','tnIrMetric','tnInstance','tnClientPort'])assert.equal(h.values[id],before[id],id);
+ for(const id of ['tnPort','tnRouteListen','tnExMetric','tnIrMetric','tnInstance'])assert.equal(h.values[id],before[id],id);
+ assert.equal(h.values.tnClientPort,'20006','default client port must follow the generated destination port');
  assert.match(h.values.tnServicePortHint,/Suggested 20006/);
 });
 for(const phase of ['superseded','decommissioned','rolled_back'])test('released '+phase+' inventory does not reserve a suggestion',()=>{
@@ -98,9 +112,15 @@ test('failed decommission still reserves resources until they are proven release
  const h=portHarness({},[{ex_node:'ex-de-1',phase:'decommission_failed',target:'127.0.0.1:20001'}],[1,2]);h.generate();
  assert.equal(h.values.tnTarget,'127.0.0.1:20002');assert.equal(h.calls,2);
 });
-test('explicit suggestion can fill an empty destination without a silent default',()=>{
+test('explicit destination suggestion also defaults public client port to the same service port',()=>{
  const h=portHarness({tnTarget:''},[],[39999]);assert.equal(h.values.tnTarget,'');h.generate();
- assert.equal(h.values.tnTarget,'127.0.0.1:59999');assert.equal(h.clears,1);
+ assert.equal(h.values.tnTarget,'127.0.0.1:59999');assert.equal(h.values.tnClientPort,'59999');assert.equal(h.clears,1);
+});
+test('manual public client port remains unchanged when destination is suggested',()=>{
+ const h=portHarness({tnTarget:'',tnClientPort:'443'},[],[39999]);
+ h.c.tnClientPortTouched=true;h.generate();
+ assert.equal(h.values.tnTarget,'127.0.0.1:59999');assert.equal(h.values.tnClientPort,'443');
+ assert.match(h.values.tnServicePortHint,/manual client port preserved/);
 });
 test('invalid destination text is preserved without consuming randomness',()=>{
  const h=portHarness({tnTarget:'https://example.invalid:443'});h.generate();
@@ -125,10 +145,10 @@ test('port suggestion has a bounded retry budget and preserves input on exhausti
  assert.equal(h.calls,64);assert.equal(h.values.tnTarget,target);assert.equal(h.clears,0);
  assert.match(h.values.tnServicePortHint,/Could not suggest a port/);
 });
-test('manual target edit clears an obsolete suggestion hint and invalidates the plan',()=>{
+test('manual target edit defaults the client port from the service port and invalidates stale evidence',()=>{
  const h=portHarness({tnTarget:'192.0.2.8:53001',tnServicePortHint:'Old suggestion'});
  vm.runInContext('tnWizardTargetChanged()',h.c);
- assert.equal(h.values.tnTarget,'192.0.2.8:53001');assert.equal(h.values.tnServicePortHint,'');assert.equal(h.clears,1);
+ assert.equal(h.values.tnTarget,'192.0.2.8:53001');assert.equal(h.values.tnClientPort,'53001');assert.match(h.values.tnServicePortHint,/defaulted to destination service port 53001/);assert.equal(h.clears,1);
 });
 test('reverse topology fails before plan creation; engine is fixed at baft by hidden input',()=>{
  const fields={...defaults,tnDirection:'ex-to-ir'};

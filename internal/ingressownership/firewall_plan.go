@@ -1,11 +1,7 @@
 package ingressownership
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"fmt"
-	"strconv"
-
+	"github.com/zarkmakerburg/baft/internal/ingressauthority"
 	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
 )
 
@@ -25,9 +21,7 @@ func PlanIngressRule(port uint16, owner ingressmanifest.Proof) (RulePlan, error)
 	if port == 0 || port == 22 || !valid(owner) {
 		return RulePlan{}, ErrInvalid
 	}
-	raw := owner.TunnelID + "\x00" + owner.InstanceID + "\x00" + strconv.FormatUint(owner.Generation, 10) + "\x00" + owner.ManifestSHA256 + "\x00" + owner.ConfigSHA256 + "\x00" + strconv.Itoa(int(port))
-	digest := sha256.Sum256([]byte(raw))
-	return RulePlan{Port: port, Owner: owner, Tag: fmt.Sprintf("baft-ingress-%s", hex.EncodeToString(digest[:16]))}, nil
+	return RulePlan{Port: port, Owner: owner, Tag: ingressauthority.FirewallOwnerTagV1(port, owner)}, nil
 }
 
 // FirewallObservation is an independently captured kernel observation. An

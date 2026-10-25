@@ -26,6 +26,7 @@ import (
 
 	"github.com/zarkmakerburg/baft/internal/agentjob"
 	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
+	"github.com/zarkmakerburg/baft/internal/ingressownership"
 	"github.com/zarkmakerburg/baft/internal/release"
 	"github.com/zarkmakerburg/baft/internal/sshmigrate"
 	"github.com/zarkmakerburg/baft/internal/tunnelnode"
@@ -84,6 +85,10 @@ type Agent struct {
 	unacked                    []pendingAck
 	lastComponentReportAttempt time.Time
 	lastComponentReportError   string
+	// Operational state is private and serialized. No caller-supplied
+	// executor/guard/lease can be injected through Config.
+	operationalIngressMu       sync.Mutex
+	operationalIngressExecutor *ingressownership.OperationalExecutor
 }
 
 type pendingAck struct {
@@ -442,7 +447,12 @@ func (a *Agent) RunOnce(ctx context.Context) ([]Result, error) {
 			out = append(out, r)
 			continue
 		}
-		detail, output, err := a.executeFull(ctx, job)
+		var detail, output string
+		if job.Params["ingress_protocol"] == "1" && (job.Action == agentjob.ActionPublicIngressApply || job.Action == agentjob.ActionPublicIngressRetire) {
+			detail, output, err = a.executeSignedOperationalIngress(ctx, *pj.Signed, job)
+		} else {
+			detail, output, err = a.executeFull(ctx, job)
+		}
 		r.Status, r.Detail = "succeeded", detail
 		if err != nil {
 			r.Status, r.Detail, output = "failed", err.Error(), ""

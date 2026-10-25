@@ -16,7 +16,9 @@ func TestFencedNFTRemoveRefusesReplacedLiveRuleHandle(t *testing.T) {
 	f := newPartialRetireFixture(t)
 	b := f.cmd.Binding
 	f.fake.ruleHandle++ // someone else's rule now sits where our handle was
-	fence := f.fence(func(context.Context, string, uint16) (ingressinventory.CoverageEvidence, error) { return f.evidence(), nil })
+	fence := f.fence(func(context.Context, string, uint16) (ingressinventory.CoverageEvidence, error) {
+		return f.evidence(), nil
+	})
 	before := len(f.fake.commands)
 	if err := f.tx.retireLocked(context.Background(), b.Spec, b.Proof, fence); err == nil {
 		t.Fatal("remove proceeded with a replaced live rule handle")

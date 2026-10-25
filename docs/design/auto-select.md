@@ -1,3 +1,5 @@
+<div dir="rtl" align="right" lang="fa">
+
 # BAFT BCC Auto-Select: port and transport planning
 
 Status: implementation contract for `hq/auto-select`; design only until API/UI integration is reviewed. Base: `claude/v040-integration@28d5cd187542f269953acaa4f633d34b9890c978`. This document does not claim carrier support or censorship resistance beyond verified capability and path evidence.
@@ -121,3 +123,5 @@ Maintain existing BCC behavior, accessible focus/keyboard behavior, FA/EN, RTL/L
 ## Non-goals and safety
 
 This selector does not create subscriptions or credentials, bypass the peer capability handshake, guarantee censorship resistance, or certify external reachability from a private namespace. Path probes are evidence about the tested ordered pair/family/port at a time, not a permanent promise. No production host, main branch, release tag, or signing key is touched by this design.
+
+</div>

@@ -37,6 +37,10 @@ Development target: **v0.4.0**, draft PR #270. Not released. See [readiness and 
 
 ### Fixed
 
+- Public ingress: the Agent now holds the lease's guard lock across the final authority check, the fresh socket evidence and the single nftables Install/Remove (`LiveLease.WithLockedIngress`). A concurrent guard close, supersession or uncertain-state record can no longer slip between the last check and the firewall change.
+
+- Test reliability: the late foreign-port-owner ingress test no longer picks an ephemeral port that parallel tests can take, and the slow-receiver backpressure fixture uses 8 KiB instead of 1 KiB buffers to avoid kernel zero-window stalls (assertions unchanged).
+
 - Public welcome/sign-in headers wrap on mobile with the preview launcher visible, preventing horizontal overflow. Full browser checks now cover public control bounds as well as authenticated pages.
 
 - Generated `baft-panel` and `baft-net` menus accept Up/Down, Tab/Shift+Tab and numbered choices through the same action dispatch, with numeric fallback for dumb terminals and redirected input. The Linux Go console also supports arrow/Tab selection, Back and Exit, restores terminal state before actions and on interruption, and keeps its plain input fallback.

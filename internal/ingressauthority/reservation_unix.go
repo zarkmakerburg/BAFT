@@ -107,10 +107,32 @@ func (s *ReservationStore) ReservePending(binding BindingV1) error {
 		}
 		key := reservationKey(binding)
 		if old, exists := claims[key]; exists {
-			if old == binding {
-				return nil
+			// The leftover of a release that crashed after its tombstone is
+			// finished first; the new binding is then judged by the
+			// monotonic release rules like any other.
+			stale, err := staleReleasedClaim(root, key, old)
+			if err != nil {
+				return err
 			}
-			return ErrReserved
+			if !stale {
+				if old == binding {
+					return nil
+				}
+				return ErrReserved
+			}
+			delete(claims, key)
+			if err := savePending(d, root, claims); err != nil {
+				return err
+			}
+		}
+		released, err := loadReleased(root)
+		if err != nil {
+			return err
+		}
+		if r, ok := released[key]; ok {
+			if err := admitAfterRelease(r, binding); err != nil {
+				return err
+			}
 		}
 		// A tunnel/instance can hold only one unresolved lease, even when
 		// a later signed operation selects another numeric TCP port.

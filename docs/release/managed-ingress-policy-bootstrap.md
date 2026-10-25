@@ -137,3 +137,123 @@ left in place.
 
 Verification: `sudo tests/e2e/installer_ingress_chain.sh` (real nft in a private
 netns) and `go test ./tests/docs`.
+
+## Restart and boot recovery (v0.4.0)
+
+### Tunnel transactions after a reboot or kill -9
+
+`baft recover boot` (run by `baft-recover.service`, `DefaultDependencies=no`,
+`Before=sysinit.target baft.service baft-agent.service`, ordered only, never
+required) reconciles every instance (`tunnelnode.RecoverAllAtBoot`) from disk
+evidence alone: `txn.json` + active marker + the SHA-256 of the live config,
+unit and ownership marker against the digests the change recorded before it
+switched each file and against its backups. Each file is `installed`,
+`previous`, `foreign` or `missing`.
+
+| Evidence | Action |
+|---|---|
+| prepared transaction | roll back (nothing live was switched; PKI restored, secrets dropped) |
+| committed, any file foreign/missing, corrupt txn, bad/mismatched marker, several unfinished changes, rotation in progress | FENCED: nothing touched, exit status 1 |
+| committed, config+unit+marker all `installed`, binary present, config validates | roll forward: kept committed and enabled; BCC still decides health/finalize |
+| committed, otherwise (partial switch) | roll back from backups, byte for byte |
+| marker claimed before any txn exists and the stage is empty | clear the claim |
+
+Boot recovery never starts, stops or restarts a service (those verbs are
+refused by its `System`), so it cannot deadlock against its own ordering.
+Foreign units/configs are never read for modification. Session-level durable
+recovery (`recovery.durable` in the config) is a different feature and stays
+unsupported.
+
+### Operational public ingress after an Agent restart
+
+When the Agent dies every socket it owned is closed by the kernel. That is
+proven from the kernel, never from an empty in-memory map. At startup, before
+the poll loop and before any job can run, `Agent.ReconcileIngressAfterRestart`
+(`baft-agent --ingress-reconcile=auto|report|off`, default `auto`;
+`--reconcile-ingress` runs only this step and exits 1 if anything stays fenced)
+handles each surviving reservation. Design choice: an automatic, remove-only
+step that needs NO new signed job and mints NO lease, and only when ALL of
+this holds (otherwise the operation stays fenced exactly as before):
+
+1. Authority (`ingressauthority.RestartAuthority`): the held `PendingGuard`
+   lock, pinned installed policy and a lifecycle in APPLYING_UNVERIFIED or
+   NEEDS_RECONCILIATION that records a CONSUMED lease (`leased_jobs`) matching
+   the stored intent and not in `superseded_jobs`. Retire wins over Apply. An
+   admitted-but-never-leased intent, an expired unleased command or a bare
+   journal entry authorizes nothing. Expiry is irrelevant to a remove-only
+   action.
+2. Sockets: complete protected coverage (`CollectInstalledManagedTCP`, no
+   unknown source, no stopped service claim) and every `/proc/net/tcp` and
+   `tcp6` row for the numeric port, in any state, contains no LISTEN and no
+   socket with a nonzero inode owned by the agent uid. A foreign listener is
+   reported (family, inode, uid) and never adopted or touched. Inode-less
+   remnants (TIME_WAIT) and foreign non-listening rows are only reported.
+   The inventory is repeated immediately before the delete.
+3. Firewall: the pinned `inet baft ingress` chain (handle and base-chain
+   layout) is read back; it holds either exactly the owner-tagged rule whose
+   handle equals the journaled handle (a rule installed but not yet journaled
+   is accepted only by exact owner tag + port + layout) or no rule with this
+   port or tag. Foreign rule on the port, duplicate tag, handle mismatch or an
+   unreadable ruleset deny.
+4. Journal: phase and handle must be consistent with the rule (for example
+   "retired" with a live rule, or a rule at phase `intent`, deny).
+
+Then the rule is deleted by exact handle, absence is read back, the journal is
+advanced `retire_intent` -> `retired` (an interrupted run is resumed from the
+same evidence; an operation with no journaled rule goes straight to `retired`),
+and the lifecycle state becomes NEEDS_RECONCILIATION. Nothing binds a socket
+or adds a rule; `leased_jobs`, `command_intents` and `superseded_jobs` are never
+written, so a spent job stays spent (a replayed Apply/Retire gets
+`ErrLeaseReplay`; a new Retire after recovery is inert against a retired
+journal; the ping-pong fences of the security review are untouched). The port
+reservation is released only under the rules of the next section; otherwise it
+stays pending. Ingress is down until BCC stages a new operation.
+
+`--ingress-reconcile=report` evaluates the same evidence and writes nothing
+(operator-visible dry run). Coverage is only complete in the supported
+private-netns LAB profile, so on any other host the step fails closed.
+BCC: for a finished Retire the Agent posts the existing `retired` receipt, for
+a rolled-back Apply the existing `failed/reconciliation_required` receipt, via
+the authenticated path. There is no "reconciled" receipt shape; BCC refuses
+receipts outside the signed command's lifetime or conflicting with a stored
+one, in which case BCC stays unaware (local state is already durable).
+
+Residual gaps: uid (not cgroup) identifies "the agent's" sockets, which only
+makes the check stricter; certificate rotations and the reservation release
+are not recovered automatically.
+
+Tests: `.github/workflows/operational-recovery.yml` (unit + real-kernel kill -9
+tests in `tests/e2e/operational/recovery`, zero-SKIP verdict in
+`tests/release/oprecovery`).
+
+### Releasing the reservation and re-applying on the same port (v0.4.0)
+
+`PendingGuard.ReleaseVerified` is the ONLY way a reservation is released, and
+only as the final step of a verified retirement (an in-process Retire that
+read the exact handle back absent, or a restart reconciliation with the same
+evidence), under the held authority guard. It requires: a consumed lease on
+record (same rules as `RestartAuthority`: not superseded, policy pinned),
+evidence that the journal is retired and the owner rule absent for exactly this
+binding, and the guard's OWN fresh complete socket inventory with no LISTEN, no
+stopped-service claim and no inode of the agent uid on the port (a foreign
+listener blocks the release). Never a timer, a missing-map inference, or a
+BCC-only/unsigned request.
+
+It writes, in this order, `released.json` (tombstone), removes the lifecycle
+entry, then the pending claim. The tombstone is per (node, port):
+`generation`, `operation_id`, `lease_id`, `plan_sha256` and every spent JobID
+(apply, retire, superseded). A crash after the tombstone is completed from the
+tombstone alone on the next `ReservePending`. A later reservation is accepted
+only with a STRICTLY GREATER generation and a fresh operation, lease and
+reviewed plan hash; the released binding (replayed Apply), the same generation
+and any lower generation stay refused (`already reserved`), and a spent JobID
+can never be recorded again (`RecordCommandIntent`). The retired journal
+generation is never reopened; the new generation starts at `intent`. Apply and
+Retire intents live in the new lifecycle entry, so they do not collide with the
+old immutable ones. `agentjob` now accepts canonical generations >= 1 (the
+monotonic fence above is the authority).
+
+BCC (`ingress_generation.go`): the generation of a new operation on an IR
+node+port is 1 + the highest generation whose Retire receipt is `retired`; a
+tunnel whose ingress is retired stops holding the port in BCC's desired-state
+reservation set.

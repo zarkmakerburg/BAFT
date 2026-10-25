@@ -43,6 +43,15 @@ func heldIngress(t *testing.T) (*Store, PublicIngressSpec, ingressauthority.Comm
 func TestOperationalIngressRefusesSubSecondWindowThatAgentCouldNotMatch(t *testing.T) {
 	openIngressGateForTest(t)
 	s, spec, _, _ := stagedIngressBoundary(t)
+	// Staging itself now refuses a lossy window (see the signability tests);
+	// keep the enqueue-time defence by simulating a tampered persisted command.
+	s.mu.Lock()
+	op := s.st.PublicIngressOperations[spec.TunnelID]
+	c := *op.Command
+	c.IssuedAt = c.IssuedAt.Add(time.Nanosecond)
+	op.Command = &c
+	s.st.PublicIngressOperations[spec.TunnelID] = op
+	s.mu.Unlock()
 	if _, err := s.StageHeldIngressDispatch(spec.TunnelID, time.Now()); err != nil {
 		t.Fatal(err)
 	}

@@ -87,6 +87,8 @@ func run(ctx context.Context, args []string, stderr io.Writer) int {
 	serviceUser := fs.String("service-user", "baft", "user the BAFT service runs as")
 	interval := fs.Duration("interval", 30*time.Second, "poll interval")
 	provisionPolicy := fs.Bool("provision-ingress-policy", false, "local root-only managed ingress policy bootstrap; does not enable Apply")
+	reconcileMode := fs.String("ingress-reconcile", "auto", "post-restart reconciliation of interrupted operational ingress: auto (finish only with complete kernel/firewall/authority evidence), report (evaluate, write nothing) or off")
+	reconcileOnly := fs.Bool("reconcile-ingress", false, "run the post-restart ingress reconciliation once, print the evidence and exit (1 if anything stays fenced)")
 	once := fs.Bool("once", false, "handle pending jobs once and exit")
 	allowHTTP := fs.Bool("allow-insecure-http", false, "allow a plain-HTTP BCC URL (testing only)")
 	if err := fs.Parse(args); err != nil || fs.NArg() != 0 {
@@ -107,6 +109,15 @@ func run(ctx context.Context, args []string, stderr io.Writer) int {
 	}
 	if *bccURL == "" || *nodeID == "" {
 		fmt.Fprintln(stderr, "baft-agent: --bcc-url and --node-id are required")
+		return 2
+	}
+	mode, merr := parseReconcileMode(*reconcileMode)
+	if merr != nil {
+		fmt.Fprintln(stderr, "baft-agent:", merr)
+		return 2
+	}
+	if *reconcileOnly && mode == agent.RestartReconcileOff {
+		fmt.Fprintln(stderr, "baft-agent: --reconcile-ingress cannot be combined with --ingress-reconcile=off")
 		return 2
 	}
 	if !strings.HasPrefix(*bccURL, "https://") && !*allowHTTP {
@@ -160,6 +171,17 @@ func run(ctx context.Context, args []string, stderr io.Writer) int {
 	if err != nil {
 		fmt.Fprintln(stderr, "baft-agent:", err)
 		return 1
+	}
+	// Interrupted operational ingress is reconciled BEFORE any job can run.
+	// It finishes an operation only with complete evidence (see
+	// docs/release/managed-ingress-policy-bootstrap.md); otherwise it leaves
+	// everything fenced exactly as before and logs why.
+	fenced := reconcileIngressAtStartup(ctx, a, mode, logger.Printf)
+	if *reconcileOnly {
+		if fenced {
+			return 1
+		}
+		return 0
 	}
 	if *once {
 		results, err := a.RunOnce(ctx)

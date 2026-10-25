@@ -83,6 +83,7 @@ type Runtime struct {
 	ingressBytes    atomic.Uint64
 	egressBytes     atomic.Uint64
 	handshakeErrors atomic.Uint64
+	capStats        capabilityStats
 	noiseLatencyMS  atomic.Int64
 	routeMu         sync.Mutex
 	routeStats      map[string]telemetry.RouteSnapshot
@@ -784,6 +785,7 @@ func (r *Runtime) runListener(ctx context.Context, cfg config.Config) error {
 				ProfileID:cfg.Transport.Profile,ProfileVersion:1,ConfigRevision:"config-v1",
 				Resources:r.Resources,FlowSlots:r.FlowSlots,FlowIdleTimeout:flowIdleTimeout(cfg),RecoveryEnabled:true,RecoveryRetention:recoveryRetention(cfg),CarrierID:owner,BootID:r.bootID,
 				TrafficObserver:func(in,out uint64){r.ingressBytes.Add(in);r.egressBytes.Add(out)},
+				Capabilities:cfg.CapabilityOffer(),CapabilityObserver:r.observeCapabilities,
 			})
 			if err!=nil{return err}
 			// The listener learns SessionID from the authenticated first HELLO.
@@ -804,6 +806,7 @@ func (r *Runtime) runListener(ctx context.Context, cfg config.Config) error {
 			ProfileID: cfg.Transport.Profile, ProfileVersion: 1, ConfigRevision: "config-v1",
 			Resources: r.Resources, FlowSlots: r.FlowSlots, FlowIdleTimeout: flowIdleTimeout(cfg),
 			TrafficObserver: func(in,out uint64){ r.ingressBytes.Add(in); r.egressBytes.Add(out) },
+			Capabilities: cfg.CapabilityOffer(), CapabilityObserver: r.observeCapabilities,
 		})
 		if err != nil { return err }
 		r.registerPeer(p)
@@ -1054,6 +1057,7 @@ func (r *Runtime) runDialer(ctx context.Context, cfg config.Config) error {
 			PingInterval: func() time.Duration { if cfg.Noise!=nil { return 5*time.Second }; return 0 }(),
 			RecoveryEnabled: cfg.Recovery.Enabled, RecoveryRetention: recoveryRetention(cfg),
 			CarrierID: fmt.Sprintf("shard-%d-carrier-1",i), BootID:r.bootID,
+			Capabilities: cfg.CapabilityOffer(), CapabilityObserver: r.observeCapabilities,
 		})
 		if err != nil {
 			o.close()
@@ -1277,6 +1281,7 @@ func (r *Runtime) metricsSnapshot() baftmetrics.Snapshot {
 		if rs.CurrentEpoch > out.RecoveryCurrentEpoch { out.RecoveryCurrentEpoch = rs.CurrentEpoch }
 		for reason,n:=range rs.Failures { out.RecoveryFailures[reason]+=n }
 	}
+	r.fillCapabilityMetrics(&out, peers)
 	return out
 }
 

@@ -1,0 +1,74 @@
+name: operational recovery
+# Restart/boot recovery evidence for v0.4.0 (kept apart from the pinned
+# operational-ingress-v1 manifest, which is not edited):
+#   1. unit/regression tests of tunnel boot recovery, the remove-only restart
+#      authority and the evidence-backed ingress reconciler;
+#   2. real-kernel tests: separate Agent processes in a private network
+#      namespace, kill -9 mid-Apply / mid-Retire, restart, exact evidence;
+#   3. a zero-SKIP verdict over the named LAB tests.
+# Nothing is created on the host: the LAB runs in a private mount namespace
+# (tmpfs /etc copy) with one private network namespace per test.
+on:
+  pull_request:
+  push:
+    branches: ['main', 'qa/**', 'claude/**', 'agent-*/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: operational-recovery-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+env:
+  EXPECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+jobs:
+  operational-recovery:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          check-latest: false
+          cache: false
+      - name: Verify checked-out commit
+        run: test "$(git rev-parse HEAD)" = "$EXPECT_SHA"
+      - name: Install LAB tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq iproute2 nftables jq util-linux
+      - name: Unit and regression tests (race)
+        run: |
+          set -euo pipefail
+          go vet ./internal/tunnelnode ./internal/ingressauthority ./internal/ingressownership ./internal/agent ./cmd/baft ./cmd/baft-agent ./tests/e2e/operational/...
+          go test -race -count=1 -timeout=15m ./internal/tunnelnode -run 'TestBootRecovery|TestInterruptedCommit'
+          go test -race -count=1 -timeout=15m ./internal/ingressauthority -run 'TestRestart|TestSpentRetire|TestMayResume'
+          go test -race -count=1 -timeout=15m ./internal/ingressownership -run 'TestRestart'
+          go test -race -count=1 -timeout=15m ./cmd/baft-agent
+          go test -race -count=1 -timeout=15m ./cmd/baft -run 'TestRecoverBoot|TestInstallerRecoverUnit'
+      - name: Run restart-recovery LAB (separate processes, kill -9)
+        run: |
+          # Failures here are not the verdict; verdict.sh is.
+          bash tests/release/oprecovery/run_lab.sh "$RUNNER_TEMP/oprec.json" || echo "lab runner reported failures; verdict decides"
+      - name: Verdict (every named test PASS, zero SKIP)
+        if: always()
+        run: bash tests/release/oprecovery/verdict.sh "$RUNNER_TEMP/oprec.json"
+      - name: Nothing left on the host
+        if: always()
+        run: |
+          set -euo pipefail
+          ! ls /run/netns 2>/dev/null | grep -q '^oprec-'
+          ! ls /dev/shm 2>/dev/null | grep -q '^oprec'
+          ! sudo nft list ruleset | grep -q 'baft'
+          test ! -e /etc/baft/ingress
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: operational-recovery-${{ env.EXPECT_SHA }}
+          path: ${{ runner.temp }}/oprec.json
+          if-no-files-found: warn

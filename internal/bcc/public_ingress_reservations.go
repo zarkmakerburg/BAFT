@@ -20,6 +20,12 @@ type PublicIngressReservation struct {
 func (s *Store) publicIngressReservationSpecsLocked() ([]PublicIngressSpec, error) {
 	specs := make([]PublicIngressSpec, 0, len(s.st.PublicIngressReservations))
 	for id, reservation := range s.st.PublicIngressReservations {
+		// A tunnel whose ingress was retired (Agent retire receipt recorded)
+		// no longer holds its port in BCC's desired state; the Agent's own
+		// monotonic release fence still decides whether the port is reusable.
+		if op, ok := s.st.PublicIngressOperations[id]; ok && ingressOperationRetired(op) {
+			continue
+		}
 		spec, err := PlanPublicIngress(reservation.Spec.IRNode, reservation.Spec.TunnelID, reservation.Spec.PublicPort, reservation.Spec.LocalTarget)
 		if err != nil {
 			return nil, fmt.Errorf("invalid stored public ingress reservation: %w", err)

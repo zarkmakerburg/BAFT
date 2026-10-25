@@ -45,12 +45,13 @@ func (s *Store) stageReviewedIngressLocked(tunnelID string, now time.Time) error
 	if err != nil {
 		return err
 	}
-	manifest := publicIngressManifestSpec(spec, t.InstanceID, 1)
+	generation := s.nextIngressGenerationLocked(spec.IRNode, spec.PublicPort)
+	manifest := publicIngressManifestSpec(spec, t.InstanceID, generation)
 	preview, err := ingressmanifest.Preview(manifest)
 	if err != nil {
 		return err
 	}
-	proof := PublicIngressExpectedProof{Generation: 1, ManifestDigest: preview.ManifestSHA256, ListenerID: "listener-" + t.ID, FirewallID: "firewall-" + t.ID}
+	proof := PublicIngressExpectedProof{Generation: generation, ManifestDigest: preview.ManifestSHA256, ListenerID: "listener-" + t.ID, FirewallID: "firewall-" + t.ID}
 	if !proof.valid() {
 		return errors.New("noncanonical ingress resource identity")
 	}

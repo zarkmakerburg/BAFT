@@ -13,7 +13,7 @@ func helloWithCaps(caps string) []byte {
 // Capability tokens are peer-controlled input to a security negotiation: a
 // malformed, ambiguous or oversized list is refused, never partially honoured.
 func TestHelloCapabilitiesAreCanonicalOrRefused(t *testing.T) {
-	good := []string{`[]`, `["noise"]`, `["noise","ws.fallback","a-b_c.9"]`}
+	good := []string{`[]`, `["noise"]`, `["a-b_c.9","noise","ws.fallback"]`}
 	for _, c := range good {
 		if _, err := DecodeHello(helloWithCaps(c)); err != nil {
 			t.Errorf("%s refused: %v", c, err)
@@ -21,6 +21,7 @@ func TestHelloCapabilitiesAreCanonicalOrRefused(t *testing.T) {
 	}
 	bad := map[string]string{
 		"duplicate":        `["noise","noise"]`,
+		"unsorted":         `["noise","carrier.ws"]`,
 		"empty token":      `[""]`,
 		"uppercase":        `["Noise"]`,
 		"whitespace":       `["no ise"]`,

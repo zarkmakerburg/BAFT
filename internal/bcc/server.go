@@ -63,6 +63,7 @@ type Server struct {
 	ingressObsCache         map[string]ingressObsEntry
 	version                 string
 	verifiedCatalog         *VerifiedReleaseCatalog
+	updateRootKey           ed25519.PublicKey
 	adminToken              string
 	audit                   *AuditLog
 	guard                   *IPGuard
@@ -234,6 +235,10 @@ func (s *Server) Handler() http.Handler {
 	m.HandleFunc("/api/nodes/platform", s.nodePlatform)
 	m.HandleFunc("/api/nodes/versions", s.nodeVersions)
 	m.HandleFunc("/api/nodes/versions/accept", s.nodeReleaseAccept)
+	m.HandleFunc("/api/updates", s.updates)
+	m.HandleFunc("/api/updates/import", s.updateImport)
+	m.HandleFunc("/api/updates/plan", s.updatePlan)
+	m.HandleFunc("/api/updates/apply", s.updateApply)
 	m.HandleFunc("/api/jobs", s.jobs)
 	m.HandleFunc("/api/enroll", s.enroll)
 	m.HandleFunc("/api/bootstrap", s.bootstrap)
@@ -264,6 +269,8 @@ func (s *Server) Handler() http.Handler {
 	m.HandleFunc("/api/ingress/reviewed-reservations", s.reviewedPublicIngressReservationAPI)
 	m.HandleFunc("/api/ingress/operational-receipt", s.operationalIngressReceiptAPI)
 	m.HandleFunc("/api/ingress/readiness", s.ingressReadinessAPI)
+	m.HandleFunc("/api/ingress/deploy", s.publicIngressDeployAPI)
+	m.HandleFunc("/api/ingress/retire", s.publicIngressRetireAPI)
 	m.HandleFunc("/api/ingress/evaluate", s.ingressEvaluateAPI)
 	m.HandleFunc("/api/ingress/distribution", s.distributionAPI)
 	m.HandleFunc("/api/ingress/distribution/evaluate", s.distributionEvaluateAPI)

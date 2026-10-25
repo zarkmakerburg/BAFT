@@ -30,4 +30,8 @@ adopt کردن ingress زنده پس از reboot پیاده‌سازی نشده 
 ## محدوده Recovery در Step 5.7
 اتصال ECRL به Runtime در این مرحله فقط برای **تعویض Carrier در همان process و همان Session زنده** است. epoch fencing همان process و bounded replay بر اساس Plan اعتبارسنجی‌شده پیاده‌سازی و تست شده‌اند. Commit recovery شامل آماده‌سازی کامل پیش از commit، Plan Digest canonical، barrier دوطرفه readiness/commit، هویت idempotent برای commit و مدیریت جداگانه خطاهای post-commit است. readiness نسل replacement نیز monotonic و generation-explicit است؛ application waiter فقط بعد از finalization، activation و reconciliation کامل همان generation آزاد می‌شود و stale generation حق rollback یا wake جعلی ندارد. snapshot بازیابی بین restart پردازه یا reboot ماشین پایدار نمی‌شود و هیچ ادعایی برای process-restart resume وجود ندارد. تغییر BootID سمت peer هنگام recovery به‌صورت fail-closed رد می‌شود. Subscription Engine خارج از scope است و Record Shaping / Morphing در Step 5.7 تغییری نکرده‌اند.
 
+## Recovery پس از restart و boot (نسخهٔ v0.4.0)
+- restart یا ارتقای agent، ingress عمومی را متوقف می‌کند، چون listener همراه پردازه از بین می‌رود. agent هنگام شروع، قانون allow قدیمیِ nft را فقط با handle دقیقش حذف می‌کند و فقط وقتی که شواهد socket هسته، firewall و lease مصرف‌شده کامل باشد (وگرنه fenced می‌ماند و دلیل را گزارش می‌کند). ingress فقط پس از آن برمی‌گردد که BCC عملیات جدیدی را stage و امضا کند؛ رزرو پورت خودکار آزاد نمی‌شود.
+- چرخش‌های گواهی (certificate rotation) که هنگام boot در جریان باشند fenced می‌شوند (گزارش می‌شوند و دست نمی‌خورند) و بازیابی نمی‌شوند؛ از مسیر abort/rollback چرخش استفاده کنید.
+
 </div>

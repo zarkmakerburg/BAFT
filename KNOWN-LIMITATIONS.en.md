@@ -25,3 +25,7 @@ Baseline `29125392566021a286af20ff8f3a4907c28dbee8` passed five independent Reco
 
 ## Step 5.7 recovery scope
 ECRL runtime recovery is limited to **same-process carrier replacement** for an already-live session. Same-process epoch fencing and bounded replay from validated ECRL plans are implemented and tested. Recovery commit uses explicit pre-commit preparation, a canonical plan digest, a two-sided readiness/commit barrier, idempotent commit identity, and separate post-commit failure handling. It does not persist ECRL session snapshots across process restart or machine reboot, and it does not claim process-restart resume. A peer BootID change during recovery fails closed. Subscription Engine work is out of scope. Record Shaping and Morphing behavior are unchanged by Step 5.7.
+
+## Restart and boot recovery (v0.4.0)
+- A BAFT agent restart or upgrade stops public ingress, because the listener dies with the process. At start the agent removes the now-stale nft allow rule by its exact handle, only when the kernel socket, firewall and consumed-lease evidence is complete (otherwise it stays fenced and reports why). Ingress returns only after BCC stages and signs a new operation; the port reservation is not released automatically.
+- Certificate rotations that are in progress at boot are fenced (reported, left untouched), not recovered. Recover them with the rotation abort/rollback path.

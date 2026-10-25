@@ -25,9 +25,9 @@ test('Tunnel Studio exposes a single generic service destination in the ports st
  const ports=html.slice(html.indexOf('data-tn-step="2"'),html.indexOf('data-tn-step="3"'));
  assert.match(ports,/\[::1\]:2443/);
  const advanced=html.slice(html.indexOf('data-tn-step="3"'),html.indexOf('data-tn-step="4"'));
- assert.match(advanced,/id="tnTarget" dir="ltr"/);
- assert.match(advanced,/IP:port/);
- assert.match(advanced,/نشانی و پورت مقصد سرویس/);
+ assert.doesNotMatch(advanced,/id="tnTarget"/);
+ assert.match(advanced,/id="tnRouteListen"/);
+ assert.match(advanced,/Advanced: instance and internal listeners/);
  assert.doesNotMatch(js,/tnUserProtocol|tnXrayPort|tnWizardTargetSync/);
 });
 test('unified Studio retains explicit port suggestions and truthful direction selection',()=>{

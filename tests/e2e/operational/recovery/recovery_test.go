@@ -376,3 +376,30 @@ func (l *lab) expectRecoveredAllowingIntents(keepBefore string) {
 		l.t.Fatalf("journal %s", l.phase())
 	}
 }
+
+// Retire, then apply again on the SAME public port. Two variants: a new job
+// for the same binding, and a new generation of the tunnel. Both must work
+// end to end (the retired port is reusable by BAFT).
+func TestOperationalRecovery_RetireThenReapplyOnSamePort(t *testing.T) {
+	for _, tc := range []struct{ name, gen, job string }{{"new-job-same-binding", "1", "apply-rec-2"}, {"new-generation", "2", "apply-rec-3"}} {
+		t.Run(tc.name, func(t *testing.T) {
+			l := newLab(t, 54819)
+			if r := l.run("apply-retire"); r["err"] != "" {
+				t.Fatalf("apply+retire: %v", r)
+			}
+			if l.phase() != "retired" || l.rules() != 1 {
+				t.Fatalf("fixture: journal %s rules %d", l.phase(), l.rules())
+			}
+			t.Setenv("GEN", tc.gen)
+			t.Setenv("JOB", tc.job)
+			r := l.run("reapply")
+			t.Logf("reapply %s -> %v", tc.name, r)
+			if r["err"] != "" {
+				t.Fatalf("re-apply on the same port refused: %v", r["err"])
+			}
+			if l.rules() != 2 {
+				t.Fatalf("no owner rule after re-apply: %s", l.chain())
+			}
+		})
+	}
+}

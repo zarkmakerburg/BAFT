@@ -81,6 +81,8 @@ func unitArea(u *Unit) string {
 		return "agent"
 	case "bcc":
 		return "bcc"
+	case "recover":
+		return "recover"
 	}
 	return ""
 }
@@ -93,6 +95,9 @@ func (o Options) areaInScope(area string) bool {
 		return o.Scope.agent()
 	case area == "bcc":
 		return o.Scope.bcc()
+	case area == "recover":
+		// Boot recovery serves the transports and the agent alike.
+		return o.Scope.services() || o.Scope.agent()
 	case strings.HasPrefix(area, "binary:"):
 		return o.Scope.binary(strings.TrimPrefix(area, "binary:"))
 	}

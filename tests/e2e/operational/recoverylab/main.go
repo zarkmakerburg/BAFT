@@ -67,8 +67,16 @@ func priv(dir string) ed25519.PrivateKey {
 	return ed25519.NewKeyFromSeed(seed)
 }
 
+// generation of the binding; GEN selects a later generation (re-apply).
+func generation() uint64 {
+	if g, err := strconv.ParseUint(os.Getenv("GEN"), 10, 64); err == nil && g > 0 {
+		return g
+	}
+	return 1
+}
+
 func binding(port int) ingressauthority.BindingV1 {
-	spec := ingressmanifest.Spec{TunnelID: "rec-t1", InstanceID: "rec1", Generation: 1, Config: ingressmanifest.Config{
+	spec := ingressmanifest.Spec{TunnelID: "rec-t1", InstanceID: "rec1", Generation: generation(), Config: ingressmanifest.Config{
 		Listen: "0.0.0.0:" + strconv.Itoa(port), Target: "127.0.0.1:1443", MaxClients: 128, DialTimeoutMS: 3000}}
 	proof, err := ingressmanifest.Preview(spec)
 	if err != nil {
@@ -333,6 +341,17 @@ func main() {
 			g.Close()
 		}
 		result(map[string]any{"err": errStr(err), "minted": lease != nil})
+	case "reapply":
+		// A NEW signed Apply (new job id) for the same public port after a
+		// completed Retire. JOB names the apply job.
+		r := l.open()
+		c := l.command(agentjob.ActionPublicIngressApply, os.Getenv("JOB"))
+		g, lease, err := l.admit(ctx, r, c, true, true)
+		if err == nil {
+			defer g.Close()
+			_, err = r.exec.Apply(ctx, c, lease)
+		}
+		result(map[string]any{"err": errStr(err)})
 	case "retire-new":
 		// A NEW signed Retire after recovery: inert against a retired journal.
 		r := l.open()

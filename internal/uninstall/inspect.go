@@ -178,6 +178,9 @@ func (e *Env) inspectUnit(ctx context.Context, name string) *Unit {
 	if len(u.execs) > 0 {
 		prog = u.execs[0]
 	}
+	if e.classifyRecover(u, raw) {
+		return u
+	}
 	switch filepath.Base(firstField(firstValue(raw, "ExecStart"))) {
 	case "baft":
 		u.Kind = "transport"
@@ -197,6 +200,24 @@ func (e *Env) inspectUnit(ctx context.Context, name string) *Unit {
 		u.Ownership, u.Evidence = Unmanaged, "not a BAFT unit (runs "+clip(prog)+")"
 	}
 	return u
+}
+
+// classifyRecover recognizes the boot-recovery unit install.sh writes. It is
+// BAFT's only when ALL hold: the exact file name, the managed+recover header
+// labels and `<abs>/baft recover boot ...` as its program. A look-alike with a
+// different name, no label or another program is not claimed (it falls through
+// to the normal classification and is never removed as BAFT's).
+func (e *Env) classifyRecover(u *Unit, raw string) bool {
+	if u.Name != "baft-recover.service" || !labelled(raw, "recover") {
+		return false
+	}
+	f := strings.Fields(firstValue(raw, "ExecStart"))
+	if len(f) < 3 || !filepath.IsAbs(f[0]) || filepath.Base(f[0]) != "baft" || f[1] != "recover" || f[2] != "boot" {
+		return false
+	}
+	u.Kind = "recover"
+	u.Ownership, u.Evidence = Managed, "labelled as BAFT's boot recovery unit (# baft-managed: true, # baft-component: recover) running `baft recover boot`"
+	return true
 }
 
 func firstField(s string) string {

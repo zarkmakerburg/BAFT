@@ -100,6 +100,8 @@ func SelectAutoTransport(req AutoTransportRequest, candidates []AutoTransportCan
 			reject(c, "path evidence uses a different address family")
 		case c.Port < 1 || c.Port > 65535:
 			reject(c, "candidate transport port is invalid")
+		case c.ConnectRTTMS < 0:
+			reject(c, "measured path RTT cannot be negative")
 		case req.RequestedCarrier != "" && c.CarrierID != req.RequestedCarrier:
 			reject(c, "candidate does not match the explicitly selected carrier")
 		case c.Class != PathFullData || c.State != PathMatrixPass:

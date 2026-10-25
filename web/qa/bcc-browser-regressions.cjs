@@ -175,11 +175,10 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       const next=page.locator('#ops_tnWizardNext');await next.click();
       await page.locator('#ops_tnIr').selectOption('qa-ir');await page.locator('#ops_tnEx').selectOption('qa-ex');await next.click();
       await page.locator('#ops_tnPort').fill('8443');await page.locator('#ops_tnClientPort').fill('443');await page.locator('#ops_tnIngressConfirm').check();
-      await next.click();
       await page.locator('#ops_tnTarget').fill('[::1]:2443');
       await page.locator('[onclick="tnWizardGenerateServicePort()"]').click();
       assert.match(await page.locator('#ops_tnTarget').inputValue(),/^\[::1\]:[1-9][0-9]*$/);
-      await next.click();
+      await next.click();await next.click();
       const review=page.locator('[onclick="tnPlan()"]');
       const [response]=await Promise.all([page.waitForResponse(r=>r.url()===f.base+'api/tunnels/plan'&&r.request().method()==='POST'),review.click()]);
       assert.equal(response.status(),200);const plan=await response.json();assert.ok(plan.hash);assert.equal(plan.request.target.startsWith('[::1]:'),true);
@@ -196,7 +195,7 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       assert.equal((await page.locator('#ops_tnPlan').textContent()).includes(plan.hash),false);
       assert.equal(await page.locator('#ops_tnPlan [onclick="tnDeploy()"]').count(),0);
       await page.unroute(endpoint);
-      await page.locator('#ops_tnWizardBack').click();await page.locator('#ops_tnTarget').fill('[::1]:5432');
+      await page.locator('#ops_tnWizardBack').click();await page.locator('#ops_tnWizardBack').click();await page.locator('#ops_tnTarget').fill('[::1]:5432');
       assert.equal(await page.locator('#ops_tnPlan [onclick="tnDeploy()"]').count(),0);
       assert.equal(apiRequests.filter(r=>r.path==='api/tunnels'&&r.method==='POST').length,0);
     });

@@ -43,7 +43,7 @@ remote=${ACCEPT_REMOTE:-origin}
 # All current CI jobs are release gates, including installer/schema/license
 # checks. Independent security and R3 are mandatory; dispatch R3 at the exact
 # candidate SHA when the PR path/base filter did not run it automatically.
-ci_jobs="test release-dry-run e2e-binaries e2e-install e2e-install-release e2e-agent-enroll e2e-ssh-bootstrap e2e-launch1 third-party-licenses e2e-bcc-install e2e-bcc-schema-upgrade e2e-install-ssh e2e-install-offline e2e-uninstall installer-faults"
+ci_jobs="test release-dry-run e2e-binaries e2e-install e2e-install-release e2e-agent-enroll e2e-ssh-bootstrap e2e-launch1 third-party-licenses e2e-bcc-install e2e-bcc-schema-upgrade e2e-install-ssh e2e-install-offline e2e-uninstall installer-faults e2e-agent-bcc-versions e2e-bcc-backup-restore installer-parity"
 
 fails=0
 row() { printf '%-6s %-28s %s\n' "$1" "$2" "$3"; [[ "$1" == FAIL ]] && fails=$((fails + 1)); }

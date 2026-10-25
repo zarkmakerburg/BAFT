@@ -467,3 +467,59 @@ jobs:
             BAFT_REVOCATIONS_URL="file://$RUNNER_TEMP/rel/revocations.json" \
             BAFT_E2E_UPGRADE_DIR="$RUNNER_TEMP/up" \
             tests/e2e/install_two_roles.sh
+
+  e2e-agent-bcc-versions:
+    # Per-server version management with the real baft-agent and baft-bcc:
+    # verified / mismatch / stale / outage / upgrade / explicit rollback /
+    # revoked release key / revoked node (/api/nodes/versions after each step).
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          check-latest: false
+          cache: false
+      - name: Per-server versions against a signed release catalog (throwaway keys)
+        run: GITHUB_ACTIONS=true tests/e2e/agent_bcc_versions.sh
+
+  e2e-bcc-backup-restore:
+    # Backup and restore on an INSTALLED host (isolated runner with systemd):
+    # signed release, install.sh --bcc-only with --backup-key-file, two enrolled
+    # servers and a tunnel, encrypted backup, wipe, fresh install, restore with
+    # the installed baft-bcc, state/plan-hash/audit-chain equality, tamper and
+    # wrong-key refusals; plus the v0.3.7 <-> current schema 14/15 and backup
+    # 2/3/4 compatibility drill with the real v0.3.7 binary.
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          check-latest: false
+          cache: false
+      - name: Backup compatibility, downgrade rules, tamper and key-file refusals
+        run: tests/e2e/bcc_backup_compat.sh
+      - name: Build a signed release with throwaway keys
+        run: scripts/release/local_release.sh "$RUNNER_TEMP/rel" v0.0.3-ci
+      - name: Install, back up, wipe, reinstall, restore and compare
+        run: sudo env GITHUB_ACTIONS=true "PATH=$PATH" "HOME=$HOME" tests/e2e/bcc_backup_restore_installed.sh "$RUNNER_TEMP/rel"
+
+  installer-parity:
+    # install.sh vs the Go code that manages the same host: diff-based, fails on
+    # any drift in unit files, options, defaults and permissions.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          check-latest: false
+          cache: false
+      - name: Installer / Linux-script parity
+        run: go test ./tests/installer -run '^TestParity' -count=1 -v

@@ -229,7 +229,7 @@ func qualifiedCI() ([]run, map[int][]job) {
 		22: {{ID: 22, Name: "gosec", Status: "completed", Conclusion: "success"}},
 		23: {{ID: 23, Name: "r3", Status: "completed", Conclusion: "success"}},
 	}
-	for i, name := range strings.Fields("test release-dry-run e2e-binaries e2e-install e2e-install-release e2e-agent-enroll e2e-ssh-bootstrap e2e-launch1 third-party-licenses e2e-bcc-install e2e-bcc-schema-upgrade e2e-install-ssh e2e-install-offline e2e-uninstall installer-faults") {
+	for i, name := range strings.Fields("test release-dry-run e2e-binaries e2e-install e2e-install-release e2e-agent-enroll e2e-ssh-bootstrap e2e-launch1 third-party-licenses e2e-bcc-install e2e-bcc-schema-upgrade e2e-install-ssh e2e-install-offline e2e-uninstall installer-faults e2e-agent-bcc-versions e2e-bcc-backup-restore installer-parity") {
 		jobs[21] = append(jobs[21], job{ID: 100 + i, Name: name, Status: "completed", Conclusion: "success"})
 	}
 	return runs, jobs
@@ -251,7 +251,7 @@ func TestReleaseCIRejectsUnsuccessfulWholeRun(t *testing.T) {
 }
 
 func TestReleaseCIRequiresEveryCurrentMainJob(t *testing.T) {
-	for _, missing := range strings.Fields("third-party-licenses e2e-bcc-install e2e-bcc-schema-upgrade e2e-install-ssh e2e-install-offline e2e-uninstall installer-faults") {
+	for _, missing := range strings.Fields("third-party-licenses e2e-bcc-install e2e-bcc-schema-upgrade e2e-install-ssh e2e-install-offline e2e-uninstall installer-faults e2e-agent-bcc-versions e2e-bcc-backup-restore installer-parity") {
 		t.Run(missing, func(t *testing.T) {
 			runs, jobs := qualifiedCI()
 			for i, j := range jobs[21] {

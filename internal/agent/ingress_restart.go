@@ -131,6 +131,17 @@ func (a *Agent) reconcileOne(ctx context.Context, store *ingressauthority.Reserv
 		return res
 	}
 	res.Receipt = a.postRestartReceipt(ctx, auth, report)
+	// A completion that satisfies the same evidence as a verified Retire
+	// (journal retired, rule read back absent, port empty) releases the port.
+	if report.Outcome != ingressownership.OutcomeNoEffects {
+		ev := ingressauthority.RetirementEvidenceV1{Port: b.Port, Owner: b.Proof,
+			JournalRetired: report.JournalPhase == ingressownership.PhaseRetired, RuleAbsent: true}
+		if err := guard.ReleaseVerified(ctx, ev); err != nil {
+			res.Reason += "; reservation stays fenced: " + err.Error()
+		} else {
+			res.Reason += "; reservation released"
+		}
+	}
 	return res
 }
 

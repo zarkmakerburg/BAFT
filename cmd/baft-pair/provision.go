@@ -213,13 +213,80 @@ func exConfig(p exPending, irIdentity string, irPub []byte, listen, caFile, cert
 	cfg.Server = &config.Server{Listen: listen, ServerName: p.ServerName, AllowedPeerIdentities: []string{irIdentity}}
 	cfg.TLS.CAFile, cfg.TLS.CertFile, cfg.TLS.KeyFile = caFile, certFile, keyFile
 	cfg.Noise = &config.Noise{KeyFile: noiseKey, PeerPublicKey: pub, RecordShaping: shaping(p.RecordShaping)}
-	cfg.Routes = []config.Route{{ID: *c.routeID, Direction: "inbound", Target: target, AllowedPeers: []string{irIdentity}}}
-	if len(p.Ports) > 0 {
-		cfg.Routes = cfg.Routes[:0]
-		for _, port := range p.Ports {
-			cfg.Routes = append(cfg.Routes, config.Route{ID: portRouteID(port), Direction: "inbound", Target: net.JoinHostPort(portsTarget, strconv.Itoa(port)), AllowedPeers: []string{irIdentity}})
+	cfg.Routes = exRoutes(p, irIdentity, target, portsTarget, c)
+	return cfg, nil
+}
+
+// exRoutes builds the inbound routes one paired IR (tenant) gets on the EX.
+func exRoutes(p exPending, irIdentity, target, portsTarget string, c commonFlags) []config.Route {
+	if len(p.Ports) == 0 {
+		return []config.Route{{ID: *c.routeID, Direction: "inbound", Target: target, AllowedPeers: []string{irIdentity}}}
+	}
+	var rs []config.Route
+	for _, port := range p.Ports {
+		rs = append(rs, config.Route{ID: portRouteID(port), Direction: "inbound", Target: net.JoinHostPort(portsTarget, strconv.Itoa(port)), AllowedPeers: []string{irIdentity}})
+	}
+	return rs
+}
+
+// joinConfig adds one more IR (tenant) to the config of an EX that already
+// runs, so the new tunnel shares that EX's listener, port and process instead
+// of getting its own. Existing tenants are kept as they are; a tenant that is
+// already present, a reused Noise key, or a pairing for a different EX is
+// refused rather than overwritten.
+func joinConfig(path string, p exPending, irIdentity string, irPub []byte, target, portsTarget string, c commonFlags) (config.Config, error) {
+	cfg, err := config.LoadFile(path)
+	if err != nil {
+		return config.Config{}, fmt.Errorf("--join config: %w", err)
+	}
+	if cfg.Node.Role != "listener" || cfg.Server == nil || cfg.Noise == nil {
+		return config.Config{}, errors.New("--join needs the config of a running Noise EX listener")
+	}
+	nodeID, err := nodeIDOf(p.Identity)
+	if err != nil {
+		return config.Config{}, err
+	}
+	if nodeID != cfg.Node.ID {
+		return config.Config{}, fmt.Errorf("pairing is for EX %q, not the joined EX %q", nodeID, cfg.Node.ID)
+	}
+	if p.ServerName != cfg.Server.ServerName {
+		return config.Config{}, errors.New("pairing server name differs from the joined EX")
+	}
+	if _, err := nodeIDOf(irIdentity); err != nil {
+		return config.Config{}, err
+	}
+	for _, id := range cfg.Server.AllowedPeerIdentities {
+		if id == irIdentity {
+			return config.Config{}, fmt.Errorf("tenant %s is already on this EX; refusing to overwrite its key or routes", irIdentity)
 		}
 	}
+	if cfg.Noise.RecordShaping.Enabled != p.RecordShaping {
+		return config.Config{}, errors.New("record shaping of the pairing differs from the joined EX listener")
+	}
+	pub, err := securityinternal.EncodePublicKey(irPub)
+	if err != nil {
+		return config.Config{}, err
+	}
+	n := *cfg.Noise
+	keys := map[string]string{}
+	for k, v := range n.AllowedPeerPublicKeys {
+		keys[k] = v
+	}
+	if len(keys) == 0 {
+		// Legacy pinned single peer: keep it as the first allowlist entry.
+		if len(cfg.Server.AllowedPeerIdentities) != 1 {
+			return config.Config{}, errors.New("legacy Noise listener config is inconsistent")
+		}
+		keys[cfg.Server.AllowedPeerIdentities[0]] = n.PeerPublicKey
+		n.PeerPublicKey = ""
+	}
+	keys[irIdentity] = pub
+	n.AllowedPeerPublicKeys = keys
+	cfg.Noise = &n
+	srv := *cfg.Server
+	srv.AllowedPeerIdentities = append(append([]string(nil), srv.AllowedPeerIdentities...), irIdentity)
+	cfg.Server = &srv
+	cfg.Routes = append(append([]config.Route(nil), cfg.Routes...), exRoutes(p, irIdentity, target, portsTarget, c)...)
 	return cfg, nil
 }
 
@@ -235,9 +302,13 @@ func exAccept(args []string) {
 	certKey := fs.String("cert-key-file", "", "outer TLS server private key")
 	target := fs.String("target", "127.0.0.1:2443", "fixed IP:port the route exits to")
 	portsTarget := fs.String("ports-target", "127.0.0.1", "IP the carried ports exit to (same port number); used when the pairing carries ports")
+	join := fs.String("join", "", "config of an already running EX listener: add this IR as one more tenant of it (shares its listener and port) instead of writing a new EX config")
 	c := addCommonFlags(fs, "/var/lib/baft/admin.sock")
 	_ = fs.Parse(args)
-	if *reply == "" || *pendingPath == "" || *keyPath == "" || *caFile == "" || *certFile == "" || *certKey == "" || *c.configOut == "" {
+	if *reply == "" || *pendingPath == "" || *keyPath == "" || *c.configOut == "" {
+		die("missing required flag")
+	}
+	if *join == "" && (*caFile == "" || *certFile == "" || *certKey == "") {
 		die("missing required flag")
 	}
 	p, psk, err := readPending(*pendingPath)
@@ -252,7 +323,12 @@ func exAccept(args []string) {
 	if err != nil {
 		die(err.Error())
 	}
-	cfg, err := exConfig(p, irIdentity, irPub, *listen, *caFile, *certFile, *certKey, *keyPath, *target, *portsTarget, c)
+	var cfg config.Config
+	if *join != "" {
+		cfg, err = joinConfig(*join, p, irIdentity, irPub, *target, *portsTarget, c)
+	} else {
+		cfg, err = exConfig(p, irIdentity, irPub, *listen, *caFile, *certFile, *certKey, *keyPath, *target, *portsTarget, c)
+	}
 	if err != nil {
 		die(err.Error())
 	}

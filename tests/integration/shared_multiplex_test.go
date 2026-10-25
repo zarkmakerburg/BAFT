@@ -498,9 +498,16 @@ func TestCrossTenantRouteAccessRefused(t *testing.T) {
 	if a.accepted.Load() != base {
 		t.Fatal("cross-tenant flow reached tenant a's target")
 	}
-	mu.Lock()
-	joined := strings.Join(errs, ";")
-	mu.Unlock()
+	var joined string
+	for i := 0; i < 50; i++ { // the hook runs just after the client side is closed
+		mu.Lock()
+		joined = strings.Join(errs, ";")
+		mu.Unlock()
+		if strings.Contains(joined, "ROUTE_DENIED") && strings.Contains(joined, "ROUTE_NOT_FOUND") {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 	if !strings.Contains(joined, "steal:") || !strings.Contains(joined, "ROUTE_DENIED") || !strings.Contains(joined, "ROUTE_NOT_FOUND") {
 		t.Fatalf("expected EX refusals ROUTE_DENIED and ROUTE_NOT_FOUND, got %q", joined)
 	}

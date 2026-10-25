@@ -76,7 +76,11 @@ func runSlowReceiver(t *testing.T, stealth bool) {
 		stop := context.AfterFunc(ctx, func() { _ = c.Close() })
 		defer stop()
 		if tcp, ok := c.(*net.TCPConn); ok {
-			_ = tcp.SetReadBuffer(1024)
+			// 1 KiB receive buffers deadlock the kernel TCP path on some Linux
+			// runs: the source never resumes after the drain and the gate flakes
+			// (also observed on main). 8 KiB keeps the target slow enough that
+			// 16 MiB cannot pass without backpressure, without zero-window stalls.
+			_ = tcp.SetReadBuffer(8 * 1024)
 		}
 		close(targetAccepted)
 		select {
@@ -209,7 +213,7 @@ func runSlowReceiver(t *testing.T, stealth bool) {
 			return
 		}
 		if tcp, ok := c.(*net.TCPConn); ok {
-			_ = tcp.SetReadBuffer(1024)
+			_ = tcp.SetReadBuffer(8 * 1024)
 		}
 		openDone <- ir.OpenFlow(ctx, "service-main", c)
 	}()
@@ -220,7 +224,7 @@ func runSlowReceiver(t *testing.T, stealth bool) {
 	}
 	user := raw.(*net.TCPConn)
 	defer user.Close()
-	_ = user.SetWriteBuffer(1024)
+	_ = user.SetWriteBuffer(8 * 1024)
 
 	select {
 	case err := <-openDone:

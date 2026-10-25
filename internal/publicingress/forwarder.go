@@ -318,7 +318,11 @@ func (f *Forwarder) Serve(parent context.Context, ln net.Listener) error {
 		select {
 		case slots <- struct{}{}:
 			f.active.Add(1)
-			clients.Go(func() { defer func() { <-slots; f.active.Add(-1) }(); f.forward(ctx, client) })
+			clients.Go(func() {
+				release := sync.OnceFunc(func() { <-slots; f.active.Add(-1) })
+				defer release()
+				f.forwardSlot(ctx, client, release)
+			})
 		default:
 			f.rejected.Add(1)
 			_ = client.Close()
@@ -344,7 +348,16 @@ func (r activityReader) Read(p []byte) (int, error) {
 }
 
 func (f *Forwarder) forward(ctx context.Context, client net.Conn) {
+	f.forwardSlot(ctx, client, func() {})
+}
+
+// forwardSlot serves one client. release returns the admission slot and runs
+// BEFORE the client connection is closed, so a peer that observes the close
+// (EOF) and immediately reconnects can never be refused because this
+// connection's slot was still held. Serve also defers release (idempotent).
+func (f *Forwarder) forwardSlot(ctx context.Context, client net.Conn, release func()) {
 	defer client.Close()
+	defer release()
 	stopClient := context.AfterFunc(ctx, func() { _ = client.Close() })
 	defer stopClient()
 	peeked, isProbe := f.peekFirstBytes(client)

@@ -195,3 +195,27 @@ func TestPublicIngressDeployAPIRejectsMalformedAndUnreviewedPlan(t *testing.T) {
 		t.Fatal("invalid deploy request mutated durable state")
 	}
 }
+
+func TestAutoQueuePublicIngressForActiveTunnelIsIdempotent(t *testing.T) {
+	app, s, spec, _, _ := operationalDeployFixture(t)
+	if err := app.autoQueuePublicIngress(spec.TunnelID); err != nil {
+		t.Fatalf("active tunnel did not automatically queue reviewed ingress: %v", err)
+	}
+	op, ok := s.GetPublicIngressOperation(spec.TunnelID)
+	if !ok || op.Command == nil || op.Dispatch == nil || op.Dispatch.Phase != "queued" || op.Command.Action != agentjob.ActionPublicIngressApply {
+		t.Fatalf("automatic ingress operation not durably queued: %+v", op)
+	}
+	before := stateJSONForTest(t, s)
+	if err := app.autoQueuePublicIngress(spec.TunnelID); err != nil {
+		t.Fatalf("duplicate activation event was not idempotent: %v", err)
+	}
+	if after := stateJSONForTest(t, s); string(after) != string(before) {
+		t.Fatal("duplicate activation event changed the immutable ingress operation")
+	}
+	s.mu.Lock()
+	count := len(s.st.Jobs)
+	s.mu.Unlock()
+	if count != 1 {
+		t.Fatalf("automatic ingress retry duplicated queue job: %d", count)
+	}
+}

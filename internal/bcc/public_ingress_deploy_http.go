@@ -152,6 +152,84 @@ func buildReviewedIngressCommand(op PublicIngressOperation, tunnel Tunnel, now t
 	return command, nil
 }
 
+// autoQueuePublicIngress starts the exact reviewed ingress operation when a
+// tunnel first becomes active. The Agent remains the authority boundary: it
+// independently validates the signed command and mints a private held lease
+// only on supported, measured LAB hosts before any host effect.
+func (s *Server) autoQueuePublicIngress(tunnelID string) error {
+	if err := validateJobSigningKey(s.jobKey); err != nil {
+		return errors.New("automatic public ingress requires BCC job signing")
+	}
+	s.mutationMu.Lock()
+	defer s.mutationMu.Unlock()
+	tunnel, ok := s.store.GetTunnel(tunnelID)
+	if !ok || tunnel.Phase != TunnelActive || tunnel.PlanHash == "" || tunnel.ClientPort < 1 || tunnel.ClientPort > 65535 || tunnel.RouteListen == "" {
+		return errors.New("automatic public ingress requires an active reviewed tunnel")
+	}
+	spec, err := PlanPublicIngress(tunnel.IRNode, tunnel.ID, tunnel.ClientPort, tunnel.RouteListen)
+	if err != nil {
+		return err
+	}
+	now := s.now().UTC().Truncate(time.Second)
+	audit := AuditEntry{Timestamp: now, Actor: "bcc", Outcome: "queued", Details: map[string]any{
+		"automatic_activation": true, "plan_hash": tunnel.PlanHash, "public_port": spec.PublicPort,
+	}}
+	op, exists := s.store.GetPublicIngressOperation(tunnelID)
+	if exists {
+		if op.Spec != spec || op.ReviewedPlanHash != tunnel.PlanHash {
+			return errors.New("existing ingress operation differs from the newly active tunnel plan")
+		}
+		// Never replace an immutable operation or retry a terminal/blocked receipt.
+		if op.Receipt != nil || (op.Retirement != nil && op.Retirement.Receipt != nil) {
+			return nil
+		}
+	} else {
+		proof, err := newReviewedIngressProof(spec, tunnel.InstanceID)
+		if err != nil {
+			return err
+		}
+		op, err = s.store.RecordReviewedPublicIngressOperation(spec, tunnel.PlanHash, proof, now, audit)
+		if err != nil {
+			if current, found := s.store.GetPublicIngressOperation(tunnelID); found && current.Spec == spec && current.ReviewedPlanHash == tunnel.PlanHash {
+				op, exists = current, true
+			} else {
+				return err
+			}
+		}
+	}
+	if op.Command == nil {
+		command, err := buildReviewedIngressCommand(op, tunnel, now, agentjob.ActionPublicIngressApply)
+		if err != nil {
+			return err
+		}
+		if err := s.store.StageReviewedIngressCommand(tunnelID, command, now); err != nil {
+			return err
+		}
+		op, _ = s.store.GetPublicIngressOperation(tunnelID)
+	}
+	if op.Command == nil {
+		return errors.New("automatic ingress command was not durably staged")
+	}
+	if op.Dispatch == nil {
+		if _, err := s.store.StageHeldIngressDispatch(tunnelID, now); err != nil {
+			return err
+		}
+		op, _ = s.store.GetPublicIngressOperation(tunnelID)
+	}
+	if op.Dispatch == nil {
+		return errors.New("automatic ingress dispatch intent was not durably staged")
+	}
+	if op.Receipt == nil {
+		if _, err := s.store.enqueueReviewedIngress(tunnelID, now, audit); err != nil {
+			return err
+		}
+	}
+	if err := s.FlushSecurityAuditIntents(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *Server) publicIngressOperationAPI(w http.ResponseWriter, r *http.Request, retiring bool) {
 	if r.Method == http.MethodGet {
 		if !s.admin(w, r) {

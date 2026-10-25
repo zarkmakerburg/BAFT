@@ -5,6 +5,7 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '../..');
 const dashboard = fs.readFileSync(path.join(root, 'internal/bcc/dashboard.go'), 'utf8');
 const api = fs.readFileSync(path.join(root, 'internal/bcc/public_ingress_deploy_http.go'), 'utf8');
+const tunnel = fs.readFileSync(path.join(root, 'internal/bcc/tunnel.go'), 'utf8');
 
 test('active tunnel UI exposes reviewed ingress deploy and status without claiming queued success', () => {
   assert.match(dashboard, /onclick="tnIngressDeploy\(this\.dataset\.id\)"/);
@@ -25,4 +26,6 @@ test('deploy and retire status endpoints keep readiness false and require verifi
   assert.match(api, /ReadyToApply: false/);
   assert.match(api, /retirement requires the exact reviewed operation and authenticated applied receipt/);
   assert.match(api, /ReceiptVerified = receipt\.ValidateForCommand\(\*command\) == nil/);
+  assert.match(api, /func \(s \*Server\) autoQueuePublicIngress/);
+  assert.match(tunnel, /if e\.Action == \"tunnel\.active\"[\s\S]*?s\.autoQueuePublicIngress\(e\.TunnelID\)/);
 });

@@ -34,6 +34,13 @@ go_root=$(go env GOROOT)
 go_bin=$(dirname "$(command -v go)")
 echo "lab: go=$(go version) GOROOT=$go_root GOCACHE=$go_cache GOPATH=$go_path"
 echo "lab: pid1=$(cat /proc/1/comm) host-netns=$(readlink /proc/1/ns/net) nft=$(command -v nft) ip=$(command -v ip)"
+# The tests run with GOPROXY=off inside the netns (no network there) and build
+# ./cmd/baft and ./cmd/baft-pair themselves, so every module must already be in
+# the module cache. Download them here, outside the netns.
+go mod download || { echo "go mod download failed" >&2; exit 2; }
+# Read-only diagnostic: why the product's systemd socket inventory accepts or
+# rejects this host's unit roots (changes nothing).
+go run ./tests/e2e/operational/labdiag 2>&1 | head -40 || true
 rc=0
 while IFS= read -r pkg; do
   tests=$(jq -r --arg p "$pkg" '[.entries[]|select(.package==$p)|.test]|join("|")' "$manifest")

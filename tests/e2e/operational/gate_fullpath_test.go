@@ -36,8 +36,6 @@ type fullPath struct {
 	b   *bccRig
 	a   *agentRig
 	tap *tap
-	// parked holds Agent results of other sites' Applies that one poll returned.
-	parked map[string]agent.Result
 }
 
 func setupFullPath(t *testing.T, clientPort int, route string) *fullPath {
@@ -109,18 +107,18 @@ func (s *site) apply(t *testing.T) {
 	// one poll can return several sites' results. Each site asserts its OWN
 	// result exactly; others are parked for their owners.
 	var mine []agent.Result
-	if r, ok := f.parked[s.cmd.JobID]; ok {
-		delete(f.parked, s.cmd.JobID)
+	if r, ok := f.a.parked[s.cmd.JobID]; ok {
+		delete(f.a.parked, s.cmd.JobID)
 		mine = []agent.Result{r}
 	} else {
 		for _, r := range f.a.runOnce() {
 			if r.JobID == s.cmd.JobID {
 				mine = append(mine, r)
 			} else {
-				if f.parked == nil {
-					f.parked = map[string]agent.Result{}
+				if f.a.parked == nil {
+					f.a.parked = map[string]agent.Result{}
 				}
-				f.parked[r.JobID] = r
+				f.a.parked[r.JobID] = r
 			}
 		}
 	}

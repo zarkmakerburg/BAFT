@@ -187,10 +187,17 @@ func (s *Store) enqueueOperationalIngressRetire(tunnelID string, now time.Time) 
 	if op.Dispatch.Phase != ingressPhaseQueued || r == nil || r.Phase != "applied" || !r.OwnershipVerified || r.JobID != apply.JobID || r.Action != apply.Action || r.Binding != apply.Binding {
 		return errors.New("retire requires an exact applied ownership-verified receipt")
 	}
-	if op.RetireReceipt != nil {
-		return errors.New("ingress retire already answered")
+	// Only a completed Retire is terminal. A failed/blocked Retire receipt is
+	// evidence that cleanup is NOT done; a NEW signed Retire (fresh JobID) must
+	// be able to resume it. The superseded receipt is kept in the audit entry.
+	var superseded *ingressauthority.ReceiptV1
+	if rr := op.RetireReceipt; rr != nil {
+		if rr.Phase == "retired" {
+			return errors.New("ingress retire already answered")
+		}
+		superseded = rr
 	}
-	if op.RetireCommand != nil {
+	if op.RetireCommand != nil && superseded == nil {
 		old := *op.RetireCommand
 		if job, ok := s.st.Jobs[old.JobID]; ok && job.Status != "failed" {
 			want, err := operationalIngressJob(old, now)
@@ -226,10 +233,17 @@ func (s *Store) enqueueOperationalIngressRetire(tunnelID string, now time.Time) 
 		return err
 	}
 	op.RetireCommand = &cmd
+	op.RetireReceipt = nil
 	s.st.PublicIngressOperations[tunnelID] = op
 	s.st.Jobs[want.ID] = want
+	details := map[string]any{"job_id": want.ID, "ir_node": want.NodeID, "operation_id": cmd.Binding.OperationID}
+	if superseded != nil {
+		details["supersedes_retire_job"] = superseded.JobID
+		details["supersedes_retire_phase"] = superseded.Phase
+		details["supersedes_retire_cause"] = superseded.FailureCause
+	}
 	if _, err := s.enqueueSecurityAuditLocked(AuditEntry{Timestamp: now, Actor: "bcc", Action: "public_ingress.retire.enqueue", Target: tunnelID, Outcome: "success",
-		Details: map[string]any{"job_id": want.ID, "ir_node": want.NodeID, "operation_id": cmd.Binding.OperationID}}); err != nil {
+		Details: details}); err != nil {
 		s.st = before
 		return err
 	}

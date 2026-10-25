@@ -108,7 +108,7 @@ func (s *Store) RetryHeldOperationalIngress(nodeID string) {
 // ingress that has no Retire receipt yet.
 func retireNeeded(op PublicIngressOperation) bool {
 	r := op.Receipt
-	return op.Command != nil && op.Dispatch != nil && r != nil && r.Phase == "applied" && r.OwnershipVerified && op.RetireReceipt == nil
+	return op.Command != nil && op.Dispatch != nil && r != nil && r.Phase == "applied" && r.OwnershipVerified && (op.RetireReceipt == nil || op.RetireReceipt.Phase != "retired")
 }
 
 // PrecheckOperationalIngressRetire is read-only. needed=false: nothing applied

@@ -46,6 +46,8 @@ type bccRig struct {
 	key   ed25519.PrivateKey
 	// warp moves the activation clock back (expiry gate only); see stepAt.
 	warp time.Duration
+	// capsDirty: the IR node's last recorded poll carried no capability.
+	capsDirty bool
 }
 
 func newBCC(t *testing.T, nodes map[string]string) *bccRig {
@@ -121,6 +123,9 @@ func (b *bccRig) call(method, path, token string, in any, want int, out any) []b
 func (b *bccRig) pull(node string) []bcc.AgentJob {
 	b.t.Helper()
 	var jobs []bcc.AgentJob
+	if node == irNode {
+		b.capsDirty = true // a capability-less poll replaces the recorded capabilities
+	}
 	b.call(http.MethodGet, "/api/agent/jobs?node_id="+url.QueryEscape(node), nodeToken(node), nil, http.StatusOK, &jobs)
 	return jobs
 }
@@ -351,6 +356,8 @@ type agentRig struct {
 	node   string
 	gate   bool // the Agent has polled with its capability at least once
 	gateAt time.Time
+	// parked: results of jobs other than the one a step waits for (see site.apply).
+	parked map[string]agent.Result
 }
 
 type agentOpt struct {
@@ -440,13 +447,19 @@ func (r *agentRig) openGate() {
 	// BCC retries held applies on every capable poll, so once the capability
 	// is recorded (and fresh: the gate window is 2 minutes) another poll would
 	// only run whatever BCC already queued, ahead of the test's own steps.
-	if r.gate && time.Since(r.gateAt) < time.Minute {
+	if r.gate && !r.b.capsDirty && time.Since(r.gateAt) < time.Minute {
 		return
 	}
 	r.gate = true
-	if jobs := r.runOnce(); len(jobs) != 0 {
-		r.t.Fatalf("unexpected jobs while opening the gate: %+v", jobs)
+	// Results of Applies BCC had already queued (other sites) are parked for
+	// their owners instead of being lost.
+	for _, res := range r.runOnce() {
+		if r.parked == nil {
+			r.parked = map[string]agent.Result{}
+		}
+		r.parked[res.JobID] = res
 	}
+	r.b.capsDirty = false
 	r.gateAt = time.Now()
 }
 

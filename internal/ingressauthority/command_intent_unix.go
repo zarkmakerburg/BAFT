@@ -15,6 +15,16 @@ func sameCommandIntent(a, b CommandV1) bool {
 	return a.IngressProtocol == b.IngressProtocol && a.JobID == b.JobID && a.Action == b.Action && a.Binding == b.Binding && a.IssuedAt.Equal(b.IssuedAt) && a.ExpiresAt.Equal(b.ExpiresAt)
 }
 
+// mayResumeRetire reports whether command is a NEW signed Retire that may
+// replace old, a Retire intent whose lease was already consumed while the
+// operation is still NEEDS_RECONCILIATION (cleanup incomplete). Nothing else
+// may replace an intent.
+func mayResumeRetire(entry lifecycleEntry, old, command CommandV1) bool {
+	return command.Action == commandIntentRetire && old.Action == commandIntentRetire &&
+		entry.State == StateNeedsReconciliation && entry.Leased[commandIntentRetire] == old.JobID &&
+		old.JobID != command.JobID && command.JobID != "" && old.Binding == command.Binding
+}
+
 func validCommandIntents(entry lifecycleEntry) bool {
 	if len(entry.Commands) > 2 || (len(entry.Commands) > 0 && entry.Policy == nil) {
 		return false
@@ -82,11 +92,22 @@ func (g *PendingGuard) RecordCommandIntent(ctx context.Context, command CommandV
 	if *entry.Policy != observed {
 		return ErrUnverified
 	}
+	superseding := false
 	if old, ok := entry.Commands[command.Action]; ok {
-		if !sameCommandIntent(old, command) {
+		if sameCommandIntent(old, command) {
+			return nil
+		}
+		// Per-action identity is immutable EXCEPT for resuming a Retire whose
+		// previous attempt already consumed its lease and left the operation
+		// in NEEDS_RECONCILIATION (cleanup incomplete): a NEW, separately
+		// identified signed Retire may then replace the spent intent. An
+		// unspent Retire intent, an Apply intent, or any other state stays
+		// immutable. The spent JobID can never run again: its intent is gone
+		// and the Leased fence is re-keyed to the new job.
+		if !mayResumeRetire(entry, old, command) {
 			return ErrBinding
 		}
-		return nil
+		superseding = true
 	}
 	if err := command.Validate(time.Now()); err != nil {
 		return err
@@ -97,6 +118,9 @@ func (g *PendingGuard) RecordCommandIntent(ctx context.Context, command CommandV
 				return ErrBinding
 			}
 		}
+	}
+	if superseding {
+		delete(entry.Leased, commandIntentRetire)
 	}
 	if entry.Commands == nil {
 		entry.Commands = make(map[string]CommandV1)

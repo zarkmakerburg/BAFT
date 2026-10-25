@@ -29,9 +29,9 @@ const (
 	probePeekBuffer = 64
 	probeWriteLimit = 250 * time.Millisecond
 
-	probeBurst       = 5
-	probeRefill      = time.Second
-	probeMaxSources  = 4096
+	probeBurst      = 5
+	probeRefill     = time.Second
+	probeMaxSources = 4096
 	// A bucket idle for probeBurst*probeRefill has fully refilled, so dropping
 	// it loses no limiting state. This keeps the bounded table reclaimable.
 	probeSourceStale = probeBurst * probeRefill

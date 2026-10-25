@@ -51,13 +51,28 @@ func (x *OperationalExecutor) ownedRetireListener(ctx context.Context, b ingress
 		return ingressinventory.ErrCoverageIncomplete
 	}
 	_, plan, err := nftTransactionRecord(b.Spec, b.Proof)
-	if err != nil || plan.Port != b.Port {
+	if err != nil || plan.Port != b.Port || b.ConfigPort != b.Port || b.ListenEndpoint != b.Spec.Config.Listen {
 		return ErrUnverified
 	}
 	record, found, err := x.transaction.Journal.Current(b.Proof)
-	if err != nil || !found || record.Owner != b.Proof || record.Port != b.Port ||
-		record.Phase != PhaseVerified || record.FirewallHandle == 0 {
+	if err != nil || !found || record.Owner != b.Proof || record.Port != b.Port || record.FirewallHandle == 0 {
 		return errors.Join(ErrUnverified, err)
+	}
+	if record.Phase == PhaseRetireIntent || record.Phase == PhaseRetired {
+		return x.stoppedRetireOwner(ctx, b, observed)
+	}
+	if record.Phase != PhaseVerified {
+		return ErrUnverified
+	}
+	return x.ownedLiveListener(ctx, b, observed)
+}
+
+// ownedLiveListener independently correlates this runtime's exact proof,
+// endpoint and listener FD to fresh kernel observations. It is also used at
+// every operational effect boundary; it is not an authority capability.
+func (x *OperationalExecutor) ownedLiveListener(ctx context.Context, b ingressauthority.BindingV1, observed ingressinventory.CoverageEvidence) error {
+	if observed.Port != b.Port || !observed.CoverageComplete || len(observed.UnknownSources) != 0 {
+		return ingressinventory.ErrCoverageIncomplete
 	}
 	r := x.transaction.Runtime
 	r.mu.Lock()
@@ -222,7 +237,7 @@ func (x *OperationalExecutor) Retire(ctx context.Context, cmd ingressauthority.C
 		return RetiredIngressEvidence{}, err
 	}
 	before, found, err := x.transaction.Journal.Current(cmd.Binding.Proof)
-	if err != nil || !found || before.Phase != PhaseVerified || before.Port != plan.Port || before.FirewallHandle == 0 {
+	if err != nil || !found || before.Owner != cmd.Binding.Proof || (before.Phase != PhaseVerified && before.Phase != PhaseRetireIntent && before.Phase != PhaseRetired) || before.Port != plan.Port || before.FirewallHandle == 0 {
 		return RetiredIngressEvidence{}, errors.Join(ErrUnverified, err)
 	}
 	if err := CheckIngressExecutorAuthority(ctx, lease, cmd); err != nil {
@@ -247,6 +262,13 @@ func (x *OperationalExecutor) Retire(ctx context.Context, cmd ingressauthority.C
 	x.transaction.Runtime.mu.Unlock()
 	if stillBound {
 		return RetiredIngressEvidence{}, errors.Join(ErrUnverified, retireErr)
+	}
+	// A missing runtime map and a retired journal are not kernel readback.
+	// Remeasure protected sources and both socket families under the held
+	// authority before returning evidence that could advance a receipt.
+	observed, scanErr := ingressinventory.CollectInstalledManagedTCP(ctx, cmd.Binding.NodeID, cmd.Binding.Port)
+	if err := retiredPortObservation(cmd.Binding, observed); err != nil || scanErr != nil {
+		return RetiredIngressEvidence{}, errors.Join(ErrUnverified, retireErr, err, scanErr)
 	}
 	if err := CheckIngressExecutorAuthority(ctx, lease, cmd); err != nil {
 		return RetiredIngressEvidence{}, errors.Join(ErrUnverified, retireErr, err)

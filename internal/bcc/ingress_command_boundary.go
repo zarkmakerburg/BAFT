@@ -26,6 +26,11 @@ func (s *Store) StageReviewedIngressCommand(tunnelID string, command ingressauth
 	if command.Action != "public_ingress_apply" {
 		return errors.New("retire requires separate authorization")
 	}
+	// Persist exactly what the normal signed Agent can consume. Signing rounds
+	// timestamps to seconds and admits only its bounded v1 parameter schema.
+	if _, err := command.AgentJob(); err != nil {
+		return err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	op, ok := s.st.PublicIngressOperations[tunnelID]

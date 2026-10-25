@@ -77,6 +77,8 @@ type Runtime struct {
 	// FlowSlots enforces limits.max_flows across every peer and Shard.
 	FlowSlots   *resources.FlowSlots
 	revocationMu   sync.Mutex
+	liveMu         sync.Mutex
+	live           *listenerLive
 	revocationFile string
 	peerMu      sync.Mutex
 	peers       map[*session.Peer]struct{}
@@ -767,10 +769,19 @@ func (r *Runtime) runListener(ctx context.Context, cfg config.Config) error {
 	if err != nil {
 		return err
 	}
+	live, err := r.newListenerLive(cfg, table)
+	if err != nil {
+		return err
+	}
+	defer r.clearListenerLive(live)
 
 	stream := func(hctx context.Context, in io.Reader, out io.Writer, peer carrierh2.PeerInfo) error {
 		expected, err := nodeIDFromIdentity(peer.Identity)
 		if err != nil { return err }
+		// A tenant removed by ReloadListener must not slip in through a
+		// handshake that began under the previous handler.
+		if !live.authorized(peer.Identity) { return errors.New("peer is not an authorized tenant") }
+		flowSlots := live.slotsFor(peer.Identity)
 		if cfg.Recovery.Enabled {
 			first,err:=protocol.Decode(in);if err!=nil{return err}
 			if handled,err:=r.handleIncomingRecovery(hctx,cfg,in,out,peer,first);handled{
@@ -783,7 +794,7 @@ func (r *Runtime) runListener(ctx context.Context, cfg config.Config) error {
 			p,err:=session.New(session.Listener,session.Carrier{In:in,Out:out},peer.Identity,table,session.Options{
 				NodeID:cfg.Node.ID,ExpectedPeerNodeID:expected,
 				ProfileID:cfg.Transport.Profile,ProfileVersion:1,ConfigRevision:"config-v1",
-				Resources:r.Resources,FlowSlots:r.FlowSlots,FlowIdleTimeout:flowIdleTimeout(cfg),RecoveryEnabled:true,RecoveryRetention:recoveryRetention(cfg),CarrierID:owner,BootID:r.bootID,
+				Resources:r.Resources,FlowSlots:flowSlots,FlowIdleTimeout:flowIdleTimeout(cfg),RecoveryEnabled:true,RecoveryRetention:recoveryRetention(cfg),CarrierID:owner,BootID:r.bootID,
 				TrafficObserver:func(in,out uint64){r.ingressBytes.Add(in);r.egressBytes.Add(out)},
 				Capabilities:cfg.CapabilityOffer(),CapabilityObserver:r.observeCapabilities,
 			})
@@ -799,47 +810,77 @@ func (r *Runtime) runListener(ctx context.Context, cfg config.Config) error {
 			p.SetRunExitObserverForTest(func(runErr error){r.recordLogicalSessionLifecycle("PEER_RUN_EXIT",lifecycleErrorString(runErr),p)})
 			p.SetLogicalSessionRetainObserverForTest(func(reason string){r.recordLogicalSessionLifecycle("STALE_LIFECYCLE_RETIRE_REJECTED",reason,p)})
 			defer func(){r.unregisterPeer(p);r.unregisterSession(p)}()
-			return p.RunWithFirstFrame(ctx,first)
+			rctx, releaseTenant := live.track(peer.Identity, ctx)
+			defer releaseTenant()
+			return p.RunWithFirstFrame(rctx,first)
 		}
 		p, err := session.New(session.Listener, session.Carrier{In: in, Out: out}, peer.Identity, table, session.Options{
 			NodeID: cfg.Node.ID, ExpectedPeerNodeID: expected,
 			ProfileID: cfg.Transport.Profile, ProfileVersion: 1, ConfigRevision: "config-v1",
-			Resources: r.Resources, FlowSlots: r.FlowSlots, FlowIdleTimeout: flowIdleTimeout(cfg),
+			Resources: r.Resources, FlowSlots: flowSlots, FlowIdleTimeout: flowIdleTimeout(cfg),
 			TrafficObserver: func(in,out uint64){ r.ingressBytes.Add(in); r.egressBytes.Add(out) },
 			Capabilities: cfg.CapabilityOffer(), CapabilityObserver: r.observeCapabilities,
 		})
 		if err != nil { return err }
 		r.registerPeer(p)
 		defer r.unregisterPeer(p)
-		return p.Run(hctx)
+		rctx, releaseTenant := live.track(peer.Identity, hctx)
+		defer releaseTenant()
+		return p.Run(rctx)
 	}
 	var handler http.Handler
 	primary := primaryTransport(cfg)
 	serveH2 := primary == "h2" || cfg.Transport.Fallback == "h2"
 	serveWS := primary == "ws" || cfg.Transport.Fallback == "ws"
 	if cfg.Noise != nil {
-		nc, allowedPeers, legacyIdentity, err := noiseListenerOptions(cfg)
-		if err != nil {
-			return err
-		}
-		cover, err := coverHandler(cfg.Noise.CoverHTMLFile)
-		if err != nil {
-			return err
-		}
-		var noiseFailureSamples atomic.Uint64
-		opts := carrierh2.NoiseOptions{
-			Handshake: nc, PeerIdentity: legacyIdentity, AllowedPeers: allowedPeers,
-			Cover: cover, Revocations: r.Revocations,
-			// WS still uses the legacy callback. H2 prefers the phase-aware
-			// callback below, so one failed handshake increments exactly once.
-			OnHandshakeError: func(){ r.handshakeErrors.Add(1) },
-			OnHandshakeFailure: func(phase string) {
-				r.handshakeErrors.Add(1)
-				n := noiseFailureSamples.Add(1)
-				if n <= 3 || n%100 == 0 {
-					log.Printf("baft carrier handshake failed phase=%s sample=%d", phase, n)
-				}
-			},
+		// mk builds the Noise carrier handler for a tenant set. It runs once at
+		// start and again on ReloadListener, which swaps the result in
+		// atomically; sessions already running keep their old closure.
+		mk := func(cfg config.Config) (http.Handler, error) {
+			nc, allowedPeers, legacyIdentity, err := noiseListenerOptions(cfg)
+			if err != nil {
+				return nil, err
+			}
+			cover, err := coverHandler(cfg.Noise.CoverHTMLFile)
+			if err != nil {
+				return nil, err
+			}
+			var noiseFailureSamples atomic.Uint64
+			opts := carrierh2.NoiseOptions{
+				Handshake: nc, PeerIdentity: legacyIdentity, AllowedPeers: allowedPeers,
+				Cover: cover, Revocations: r.Revocations,
+				// WS still uses the legacy callback. H2 prefers the phase-aware
+				// callback below, so one failed handshake increments exactly once.
+				OnHandshakeError: func(){ r.handshakeErrors.Add(1) },
+				OnHandshakeFailure: func(phase string) {
+					r.handshakeErrors.Add(1)
+					n := noiseFailureSamples.Add(1)
+					if n <= 3 || n%100 == 0 {
+						log.Printf("baft carrier handshake failed phase=%s sample=%d", phase, n)
+					}
+				},
+			}
+			switch {
+			case serveH2 && serveWS:
+				h2Handler, e := carrierh2.HandlerWithNoise(stream, opts)
+				if e != nil { return nil, e }
+				wsHandler, e := carrierws.HandlerWithNoise(stream, opts)
+				if e != nil { return nil, e }
+				// Both carriers share one TLS endpoint. ALPN selects HTTP/2 vs
+				// HTTP/1.1; within HTTP/1.1 only a valid WebSocket upgrade is routed
+				// to the ws carrier. Everything else reaches the same benign cover.
+				return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+					if carrierws.IsUpgrade(req) {
+						wsHandler.ServeHTTP(w, req)
+						return
+					}
+					h2Handler.ServeHTTP(w, req)
+				}), nil
+			case serveWS:
+				return carrierws.HandlerWithNoise(stream, opts)
+			default:
+				return carrierh2.HandlerWithNoise(stream, opts)
+			}
 		}
 		// Public website TLS; Noise authenticates the pinned peer before session.New.
 		tlsCfg.ClientAuth = tls.NoClientCert
@@ -847,30 +888,16 @@ func (r *Runtime) runListener(ctx context.Context, cfg config.Config) error {
 		tlsCfg.VerifyConnection = nil
 		switch {
 		case serveH2 && serveWS:
-			h2Handler, e := carrierh2.HandlerWithNoise(stream, opts)
-			if e != nil { return e }
-			wsHandler, e := carrierws.HandlerWithNoise(stream, opts)
-			if e != nil { return e }
-			// Both carriers share one TLS endpoint. ALPN selects HTTP/2 vs
-			// HTTP/1.1; within HTTP/1.1 only a valid WebSocket upgrade is routed
-			// to the ws carrier. Everything else reaches the same benign cover.
-			handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-				if carrierws.IsUpgrade(req) {
-					wsHandler.ServeHTTP(w, req)
-					return
-				}
-				h2Handler.ServeHTTP(w, req)
-			})
 			tlsCfg.NextProtos = []string{"h2", "http/1.1"}
 		case serveWS:
-			handler, err = carrierws.HandlerWithNoise(stream, opts)
-			if err != nil { return err }
 			tlsCfg.NextProtos = []string{"http/1.1"}
 		default:
-			handler, err = carrierh2.HandlerWithNoise(stream, opts)
-			if err != nil { return err }
 			tlsCfg.NextProtos = []string{"h2", "http/1.1"}
 		}
+		first, err := mk(cfg)
+		if err != nil { return err }
+		live.installNoise(mk, first)
+		handler = live.handler()
 	} else {
 		handler = carrierh2.HandlerWithRevocation(stream, r.Revocations)
 	}

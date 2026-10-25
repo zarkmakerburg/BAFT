@@ -150,7 +150,7 @@ func runNode(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stdout, "starting BAFT node %s (%s)\n", cfg.Node.ID, cfg.Node.Role)
 	rt := node.NewRuntime()
-	stopReload := reloadOnHUP(ctx, rt, stderr)
+	stopReload := reloadOnHUPFile(ctx, rt, stderr, *file)
 	defer stopReload()
 	if err := rt.Run(ctx, cfg); err != nil {
 		fmt.Fprintln(stderr, "node stopped:", err)
@@ -163,6 +163,13 @@ func runNode(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 // Handling SIGHUP unconditionally also keeps a reload from terminating a node
 // that has no revocation file.
 func reloadOnHUP(ctx context.Context, rt *node.Runtime, stderr io.Writer) func() {
+	return reloadOnHUPFile(ctx, rt, stderr, "")
+}
+
+// reloadOnHUPFile additionally re-reads configFile on SIGHUP and applies a
+// changed tenant set (routes, allowed peers) to a running shared listener
+// without restarting it. A rejected config keeps the running tenants.
+func reloadOnHUPFile(ctx context.Context, rt *node.Runtime, stderr io.Writer, configFile string) func() {
 	ctx, cancel := context.WithCancel(ctx)
 	hup := make(chan os.Signal, 1)
 	signal.Notify(hup, syscall.SIGHUP)
@@ -182,6 +189,23 @@ func reloadOnHUP(ctx context.Context, rt *node.Runtime, stderr io.Writer) func()
 					fmt.Fprintln(stderr, "reload: revocation file rejected, keeping current revocations:", err)
 				default:
 					fmt.Fprintf(stderr, "reload: %d revocation entries applied\n", n)
+				}
+				if configFile == "" {
+					continue
+				}
+				cfg, err := config.LoadFile(configFile)
+				if err != nil {
+					fmt.Fprintln(stderr, "reload: config rejected, keeping current tenants:", err)
+					continue
+				}
+				res, err := rt.ReloadListener(cfg)
+				switch {
+				case errors.Is(err, node.ErrNoListener):
+					// A dialer has no tenant set to reload.
+				case err != nil:
+					fmt.Fprintln(stderr, "reload: tenant change rejected, keeping current tenants:", err)
+				default:
+					fmt.Fprintf(stderr, "reload: tenants applied added=%v removed=%v routes=%d\n", res.Added, res.Removed, res.Routes)
 				}
 			}
 		}

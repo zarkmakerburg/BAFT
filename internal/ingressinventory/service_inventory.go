@@ -262,6 +262,12 @@ func parseSystemdListenStream(data []byte, inherited []PersistentTCPPortClaim, s
 		}
 		// Unix socket paths do not claim TCP ports. Require literal
 		// absolute paths, not service names or ambiguous relative paths.
+		// "%t" is systemd's runtime-directory specifier (e.g. podman.socket's
+		// "%t/podman/podman.sock"); it always yields an absolute Unix path.
+		// It is the only specifier understood here; any other stays fail-closed.
+		if strings.HasPrefix(v, "%t/") {
+			v = v[2:]
+		}
 		if strings.HasPrefix(v, "/") {
 			if strings.ContainsAny(v, " \t\r\\\"") || path.Clean(v) != v {
 				return nil, errors.New("invalid Unix socket path")

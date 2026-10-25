@@ -274,7 +274,7 @@ func parseSystemdListenStream(data []byte, inherited []PersistentTCPPortClaim, s
 		// else ("@" alone, "@80", quoting, service names) stays fail-closed.
 		if strings.HasPrefix(v, "@") {
 			name := v[1:]
-			if name == "" || strings.ContainsAny(name, " \t\r\\\":/") || strings.Trim(name, "0123456789") == "" {
+			if name == "" || strings.ContainsAny(name, " \t\r\\\":") || strings.Trim(name, "0123456789") == "" {
 				return nil, errors.New("invalid abstract Unix socket name")
 			}
 			continue

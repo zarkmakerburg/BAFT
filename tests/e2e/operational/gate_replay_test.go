@@ -79,8 +79,11 @@ func TestOperationalIngressV1Gate_RefusesExpiredSignedJob(t *testing.T) {
 	f := setupFullPathWindow(t, 54752, "127.0.0.1:1443", 2*time.Second)
 	f.window = 2 * time.Second
 	f.stage(t)
-	f.a.openGate()
+	// The window passes BEFORE the production gate opens: opening the gate
+	// triggers BCC's own retry-on-poll enqueue, which is correct inside the
+	// window and must not be what this test measures.
 	time.Sleep(4 * time.Second)
+	f.a.openGate()
 	if err := f.b.store.EnqueueOperationalIngress(f.tn.ID); err == nil {
 		t.Fatal("BCC queued a command outside its signed window")
 	}

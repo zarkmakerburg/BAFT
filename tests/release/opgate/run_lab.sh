@@ -41,7 +41,6 @@ go mod download || { echo "go mod download failed" >&2; exit 2; }
 # Read-only diagnostic: why the product's systemd socket inventory accepts or
 # rejects this host's unit roots (changes nothing).
 go run ./tests/e2e/operational/labdiag 2>&1 | head -40 || true
-grep -rH '^ListenStream' /usr/lib/systemd/system /etc/systemd/system 2>/dev/null | sed 's|.*/||' | sort -u | head -60 || true
 rc=0
 while IFS= read -r pkg; do
   tests=$(jq -r --arg p "$pkg" '[.entries[]|select(.package==$p)|.test]|join("|")' "$manifest")
@@ -61,7 +60,7 @@ while IFS= read -r pkg; do
 done < <(jq -r '[.entries[].package]|unique|.[]' "$manifest")
 # Concise diagnostics (the checker, not this summary, decides the verdict).
 echo "=== lab summary ==="
-jq -r 'select(.Test!=null and (.Test|contains("/")|not) and (.Action=="pass" or .Action=="fail" or .Action=="skip")) | "\(.Action|ascii_upcase) \(.Package) \(.Test)"' "$log" | sort | uniq -c | sort -rn | head -80
-jq -r 'select(.Test==null and .Action=="output") | "\(.Package): \(.Output)"' "$log" | grep -v '^[^:]*: *$' | head -60
-jq -r 'select(.Test!=null and .Action=="output" and (.Output|test("^\\s+\\S+\\.go:[0-9]+:|FAIL|panic"))) | "\(.Package) \(.Test): \(.Output)"' "$log" | head -80
+jq -r 'select(.Test!=null and (.Test|contains("/")|not) and (.Action=="pass" or .Action=="fail" or .Action=="skip")) | "\(.Action|ascii_upcase) \(.Package) \(.Test)"' "$log" | sort | uniq -c | sort -rn | cut -c1-300 | head -80
+jq -r 'select(.Test==null and .Action=="output") | "\(.Package): \(.Output)"' "$log" | grep -v '^[^:]*: *$' | cut -c1-300 | head -60
+jq -r 'select(.Test!=null and .Action=="output" and (.Output|test("^\\s+\\S+\\.go:[0-9]+:|FAIL|panic"))) | "\(.Package) \(.Test): \(.Output)"' "$log" | cut -c1-300 | head -80
 exit "$rc"

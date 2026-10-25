@@ -193,8 +193,10 @@ func (l *lab) expectRecovered(keepBefore string) {
 	if p["phase"] != "retired" {
 		l.t.Fatalf("journal after recovery: %v", p)
 	}
-	if st, _ := p["states"].([]any); len(st) != 1 || st[0] != "NEEDS_RECONCILIATION" {
-		l.t.Fatalf("reservation not left fenced for the operator: %v", p)
+	// A completion with full evidence released the reservation (verified
+	// retirement is the only way a reservation is ever released).
+	if st, _ := p["states"].([]any); len(st) != 0 {
+		l.t.Fatalf("reservation not released after a verified completion: %v", p)
 	}
 }
 

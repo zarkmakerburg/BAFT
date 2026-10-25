@@ -5,8 +5,8 @@
 #
 #   upgrade   a v0.3.7 backup (backup schema 2) restores into the current BCC
 #             and the restored state is served by it
-#   downgrade the v0.3.7 binary refuses the current state (SQLite schema 15) and
-#             refuses a current backup (backup schema 4); a verified pre-upgrade
+#   downgrade the v0.3.7 binary refuses the current state (SQLite schema 16) and
+#             refuses a current backup (backup schema 5); a verified pre-upgrade
 #             snapshot is therefore the only way back (KNOWN-LIMITATIONS)
 #   legacy    a backup schema 3 backup is still readable by the current restore
 #   refusal   wrong key, flipped ciphertext, edited header (AAD), unsupported
@@ -23,8 +23,8 @@ cd "$(dirname "$0")/../.."
 ROOT="$PWD"
 OLD_TAG=v0.3.7
 OLD_SHA=94c55dccf5af7cd126089374d991463931413121
-EXPECT_STATE_SCHEMA=15
-EXPECT_BACKUP_SCHEMA=4
+EXPECT_STATE_SCHEMA=16
+EXPECT_BACKUP_SCHEMA=5
 WORK="$(mktemp -d)"
 PID=""
 log() { printf '[bcc-backup-compat] %s\n' "$*"; }
@@ -152,7 +152,7 @@ BAK_CUR_NAME=""
 KEY_NEW="$(newkey)"
 stop_bcc
 
-# a current backup (schema 4) from a state that now sits at schema 15
+# a current backup (schema 5) from a state at schema 16
 BCC_ENV=(BAFT_BCC_BACKUP_KEY="$KEY_NEW")
 start_bcc "$NEW" "$D2" new2
 CUR_BACKUP="$D2/bk/$(mkbackup)"
@@ -203,7 +203,7 @@ elif mode == "header-time":
 elif mode == "header-audit":
     e["header"]["audit_sequence"] += 1
 elif mode == "schema":
-    e["header"]["schema_version"] = 5
+    e["header"]["schema_version"] = 6
 elif mode == "magic":
     e["header"]["magic"] = "NOT-A-BACKUP"
 json.dump(e, open(dst, "w"), indent=2)
@@ -215,7 +215,7 @@ tamper ciphertext;  expect_refused "flipped ciphertext bit" "backup authenticati
 tamper nonce;       expect_refused "flipped nonce bit" "backup authentication failed" "$TARGET" "$WORK/t.baftbak" "$KEY_NEW"
 tamper header-time; expect_refused "edited header created_at (authenticated data)" "backup authentication failed" "$TARGET" "$WORK/t.baftbak" "$KEY_NEW"
 tamper header-audit; expect_refused "edited header audit anchor" "backup authentication failed" "$TARGET" "$WORK/t.baftbak" "$KEY_NEW"
-tamper schema;      expect_refused "unsupported schema 5" "unsupported backup schema version 5" "$TARGET" "$WORK/t.baftbak" "$KEY_NEW"
+tamper schema;      expect_refused "unsupported schema 6" "unsupported backup schema version 6" "$TARGET" "$WORK/t.baftbak" "$KEY_NEW"
 tamper magic;       expect_refused "wrong magic" "invalid backup magic" "$TARGET" "$WORK/t.baftbak" "$KEY_NEW"
 tamper truncate;    expect_refused "truncated file" "invalid backup envelope" "$TARGET" "$WORK/t.baftbak" "$KEY_NEW"
 tamper empty;       expect_refused "empty file" "invalid backup envelope" "$TARGET" "$WORK/t.baftbak" "$KEY_NEW"

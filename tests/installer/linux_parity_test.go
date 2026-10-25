@@ -375,3 +375,68 @@ func TestParityReleaseInstallerIsInstallShVerbatim(t *testing.T) {
 		t.Error("install.sh lost the BCC bootstrap script")
 	}
 }
+
+// baft-recover.service: every option install.sh gives `baft recover boot` must
+// exist with the same default, and the ordering contract must hold (it only
+// orders, never requires or starts anything).
+func TestParityRecoverUnitMatchesBaftRecover(t *testing.T) {
+	needBash(t)
+	baftBin := buildBin(t, t.TempDir(), "./cmd/baft")
+	unit := shellFunc(t, "render_recover_unit", map[string]string{
+		"BAFT_BIN": "/usr/local/bin/baft", "BAFT_CONFIG_DIR": "/etc/baft", "BAFT_STATE_DIR": "/var/lib/baft",
+		"BAFT_SYSTEMD_DIR": "/etc/systemd/system", "BAFT_SERVICE": "baft", "BAFT_USER": "baft", "BAFT_AGENT_UNIT": "baft-agent",
+	})
+	flags := helpFlags(t, baftBin, "recover", "boot")
+	for _, f := range execFlags(unit) {
+		if _, ok := flags[f]; !ok {
+			t.Errorf("install.sh gives `baft recover boot` --%s, which it does not define", f)
+		}
+	}
+	for k, v := range map[string]string{"config-dir": "/etc/baft", "state-dir": "/var/lib/baft", "unit-dir": "/etc/systemd/system",
+		"bin-dir": "/usr/local/bin", "service": "baft", "service-user": "baft"} {
+		if flags[k] != v {
+			t.Errorf("baft recover --%s default %q != installer value %q", k, flags[k], v)
+		}
+	}
+	for _, want := range []string{"# baft-managed: true", "# baft-component: recover", "DefaultDependencies=no",
+		"Before=sysinit.target baft.service baft-agent.service", "Type=oneshot", "WantedBy=sysinit.target"} {
+		if !strings.Contains(unit, want) {
+			t.Errorf("recover unit lost %q", want)
+		}
+	}
+	for _, bad := range []string{"Requires=", "Wants=baft", "RequiredBy="} {
+		if strings.Contains(unit, bad) {
+			t.Errorf("recover unit must only order, found %q", bad)
+		}
+	}
+}
+
+// baft-ingress-chain helper and unit: the boot unit calls the helper action the
+// helper defines, and the chain layout the helper creates is the layout the Go
+// side (ingressownership) accepts.
+func TestParityIngressChainHelperAndUnit(t *testing.T) {
+	needBash(t)
+	sh := installScript(t)
+	unit := shellFunc(t, "render_ingress_unit", map[string]string{
+		"BAFT_AGENT_UNIT": "baft-agent", "BAFT_INGRESS_MARKER": "/var/lib/baft-agent/ingress-chain.owner",
+		"BAFT_INGRESS_HELPER": "/usr/local/lib/baft/ingress-chain.sh",
+	})
+	if !strings.Contains(unit, "ExecStart=/usr/local/lib/baft/ingress-chain.sh ensure --boot") ||
+		!strings.Contains(unit, "ConditionPathExists=/var/lib/baft-agent/ingress-chain.owner") ||
+		!strings.Contains(unit, "Before=baft-agent.service") || !strings.Contains(unit, "Type=oneshot") {
+		t.Errorf("ingress boot unit drifted:\n%s", unit)
+	}
+	if !regexp.MustCompile(`(?m)^\s*ensure\)`).MatchString(sh) {
+		t.Error("helper no longer defines the `ensure` action the unit calls")
+	}
+	if !strings.Contains(sh, "type filter hook input priority -100; policy accept;") {
+		t.Error("helper no longer creates the pinned chain layout")
+	}
+	goSrc, err := os.ReadFile(filepath.Join(repoRoot, "internal/ingressownership/nft_chain_handle.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(goSrc), "priority -100") || !strings.Contains(string(goSrc), "input hook") {
+		t.Error("ingressownership no longer pins filter/input/-100")
+	}
+}

@@ -32,6 +32,7 @@ SVC=baft-bcc-e2e-bk
 BCC_ETC=/etc/$SVC; BCC_VAR=/var/lib/$SVC; BCC_OPT=/opt/$SVC; BCC_BIN=/usr/local/bin/$SVC
 STATE=$BCC_VAR/bcc-state.json
 KEYF=$BCC_ETC/backup.key
+ROOTF=$BCC_ETC/release-root.pub
 UNIT=/etc/systemd/system/$SVC.service
 DROPIN=/etc/systemd/system/$SVC.service.d
 PORT=18090
@@ -113,6 +114,7 @@ install_bcc() { env GITHUB_ACTIONS=true "${inst_env[@]}" bash install.sh --bcc-o
 # adds a drop-in, which is also what the operations guide documents. The tokens
 # are only needed so the BCC can create the two LAB nodes below.
 write_dropin() {
+  install -m 0644 "$REL/root.pub" "$ROOTF"
   local exec_line
   exec_line="$(grep '^ExecStart=' "$UNIT")"
   mkdir -p "$DROPIN"
@@ -120,7 +122,7 @@ write_dropin() {
     echo '[Service]'
     echo "Environment=TOK_EX=$TOK_EX TOK_IR=$TOK_IR"
     echo 'ExecStart='
-    echo "$exec_line --backup-key-file $KEYF"
+    echo "$exec_line --backup-key-file $KEYF --update-root-pub $ROOTF"
   } >"$DROPIN/backup.conf"
   chmod 0600 "$DROPIN/backup.conf"
   systemctl daemon-reload
@@ -195,6 +197,17 @@ traffic() {
 }
 traffic || fail "no traffic through the tunnel before the backup"
 log "   tunnel $TID active (plan hash $HASH), traffic passes"
+
+log "2b. Update Center: import the signed release bundle (--update-root-pub)"
+mkdir -p "$WORK/uc/release"
+cp "$REL"/dist/manifest.json "$REL"/dist/release-key.cert.json "$REL"/dist/SHA256SUMS "$WORK/uc/release/"
+cp "$REL/revocations.json" "$WORK/uc/"
+scripts/release/update_center_bundle.sh "$WORK/uc" >"$WORK/bundle.json"
+code="$(curl -sS -o "$WORK/import.out" -w '%{http_code}' -H "Authorization: Bearer $ADMIN" -H 'Content-Type: application/json' --data-binary @"$WORK/bundle.json" "$BCC/api/updates/import")"
+[[ "$code" == 201 ]] || fail "Update Center import returned HTTP $code: $(head -c 300 "$WORK/import.out")"
+REV_SEQ="$(api "$BCC/api/updates" | jfield '["revocation_sequence"]')"
+[[ "$REV_SEQ" -ge 1 ]] || fail "no revocation sequence after import"
+api "$BCC/api/updates" >"$WORK/updates.before.json"
 
 # ---- 3. quiesce and take the encrypted backup --------------------------------
 log "3. backup through the admin API (agents quiesced)"
@@ -283,7 +296,7 @@ python3 - "$WORK/state.before.db" "$WORK/state.after.db" <<'PY' || fail "restore
 import json, sqlite3, sys
 VOLATILE = {"nodes": {"health", "last_checked", "latency_ms", "agent_seen", "updated_at"}}
 TABLES = ["nodes", "tunnels", "jobs", "counters", "public_ingress_reservations", "public_ingress_operations",
-          "cert_rotations", "topology", "change_ledger", "retired_boot_ids"]
+          "cert_rotations", "topology", "change_ledger", "retired_boot_ids", "update_center"]
 def dump(path):
     db = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
     out = {}
@@ -345,6 +358,16 @@ assert ids(nb) == ids(na) == ["ex-e2e", "ir-e2e"]
 PY
 log "   API serves the same nodes, tunnel and plan hash"
 
+api "$BCC/api/updates" >"$WORK/updates.after.json"
+python3 - "$WORK/updates.before.json" "$WORK/updates.after.json" <<'PY' || fail "Update Center state differs after restore"
+import json, sys
+a, b = (json.load(open(p)) for p in sys.argv[1:3])
+for k in ("revocation_sequence", "catalog_version", "latest"):
+    if k in a: assert a[k] == b[k], (k, a[k], b[k])
+assert a["revocation_sequence"] == b["revocation_sequence"] >= 1
+PY
+log "   Update Center releases and revocation sequence survived the restore"
+
 log "7. agents reconnect to the restored BCC; the tunnel is in sync and carries traffic"
 RESTORED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 systemctl start "${AGENT_UNITS[@]}"
@@ -370,5 +393,21 @@ traffic || fail "no traffic through the tunnel after the restore"
 NEW_BACKUP="$(api -X POST "$BCC/api/backups/create" | jfield '["name"]')"
 [[ -f "$BCC_VAR/backups/$NEW_BACKUP" ]] || fail "the restored BCC cannot create a backup"
 "$WORK/audit-verify" --audit "$STATE.audit.jsonl" | grep -q PASS || fail "audit chain broke after new activity"
+
+log "8. anti-rollback: restoring the OLDER backup must not roll back the Update Center revocation sequence"
+BAK_OLD="$BCC_VAR/backups/$NEW_BACKUP"
+go run ./cmd/baft-release revoke -root-key "$REL/keys/root.key" -in "$REL/revocations.json" -out "$WORK/rev2.json" >/dev/null
+scripts/release/update_center_bundle.sh --revocations-only "$WORK/rev2.json" >"$WORK/rev2-bundle.json"
+code="$(curl -sS -o "$WORK/import2.out" -w '%{http_code}' -H "Authorization: Bearer $ADMIN" -H 'Content-Type: application/json' --data-binary @"$WORK/rev2-bundle.json" "$BCC/api/updates/import")"
+[[ "$code" == 200 || "$code" == 201 ]] || fail "newer revocation import returned HTTP $code: $(head -c 300 "$WORK/import2.out")"
+NEWER="$(api "$BCC/api/updates" | jfield '["revocation_sequence"]')"
+[[ "$NEWER" -gt "$REV_SEQ" ]] || fail "revocation sequence did not advance ($REV_SEQ -> $NEWER)"
+systemctl stop "$SVC"
+out="$(restore "$BKEY" "$OFFSITE" --yes)" || fail "restoring the older backup onto the live state failed: $out"
+systemctl start "$SVC"
+wait_bcc
+[[ "$(api "$BCC/api/updates" | jfield '["revocation_sequence"]')" == "$NEWER" ]] || fail "restore rolled the Update Center revocation sequence back"
+"$WORK/audit-verify" --audit "$STATE.audit.jsonl" | grep -q PASS || fail "audit chain broke after the second restore"
+log "   revocation sequence stayed at $NEWER after restoring the older backup"
 
 log "PASS"

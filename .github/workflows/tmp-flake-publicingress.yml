@@ -1,5 +1,8 @@
 name: tmp-flake-publicingress
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/v040-flakefix2]
 jobs:
   stress:
     runs-on: ubuntu-latest

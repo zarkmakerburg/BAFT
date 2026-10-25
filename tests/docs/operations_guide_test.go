@@ -260,3 +260,15 @@ func TestOperationsGuideLinksResolveAndPersianMirrorsCommands(t *testing.T) {
 		}
 	}
 }
+
+func TestOperationsGuideRootKeyMatchesInstallerPin(t *testing.T) {
+	m := regexp.MustCompile(`BAFT_PINNED_ROOT_PUB="([^"]+)"`).FindStringSubmatch(readRepoFile(t, "install.sh"))
+	if m == nil {
+		t.Fatal("install.sh pin not found")
+	}
+	for _, f := range []string{opsGuide, opsGuideFA} {
+		if !strings.Contains(readRepoFile(t, f), m[1]) {
+			t.Errorf("%s does not carry the root key pinned in install.sh", f)
+		}
+	}
+}

@@ -24,6 +24,9 @@
 
 Baseline `29125392566021a286af20ff8f3a4907c28dbee8` پنج Recovery Soak مستقل، Stage-C soak و Full CI را پاس کرده است. این وضعیت freeze candidate است و ACCEPT/FREEZE رسمی با HQ است؛ محدودیت‌های scope زیر بدون تغییر باقی می‌مانند.
 
+## محدودیت‌های Public Ingress در v0.4.0
+adopt کردن ingress زنده پس از reboot پیاده‌سازی نشده است (پس از reboot به Apply یا Retire امضاشدهٔ جدید نیاز است)، تغییرات جزئیِ نامشخص نیاز به reconciliation دارند، و نتایج LAB روی loopback یا namespace دسترس‌پذیری بیرونی را تأیید نمی‌کنند. کلاینتی که ابتدا چیزی نمی‌فرستد تا ۵۰ میلی‌ثانیه تأخیر اضافه در برقراری اتصال روی پورت ingress می‌بیند. «Update Center» داخل محصول وجود ندارد؛ برای ارتقا نصب‌کنندهٔ تأییدشده را دوباره اجرا کنید. بازگشت به نسخهٔ قدیمی‌تر از schema 14/15 در SQLite یا schema 3/4 در backup فقط با snapshot تأییدشدهٔ پیش از ارتقا ممکن است.
+
 ## محدوده Recovery در Step 5.7
 اتصال ECRL به Runtime در این مرحله فقط برای **تعویض Carrier در همان process و همان Session زنده** است. epoch fencing همان process و bounded replay بر اساس Plan اعتبارسنجی‌شده پیاده‌سازی و تست شده‌اند. Commit recovery شامل آماده‌سازی کامل پیش از commit، Plan Digest canonical، barrier دوطرفه readiness/commit، هویت idempotent برای commit و مدیریت جداگانه خطاهای post-commit است. readiness نسل replacement نیز monotonic و generation-explicit است؛ application waiter فقط بعد از finalization، activation و reconciliation کامل همان generation آزاد می‌شود و stale generation حق rollback یا wake جعلی ندارد. snapshot بازیابی بین restart پردازه یا reboot ماشین پایدار نمی‌شود و هیچ ادعایی برای process-restart resume وجود ندارد. تغییر BootID سمت peer هنگام recovery به‌صورت fail-closed رد می‌شود. Subscription Engine خارج از scope است و Record Shaping / Morphing در Step 5.7 تغییری نکرده‌اند.
 

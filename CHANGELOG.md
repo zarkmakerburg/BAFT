@@ -23,8 +23,13 @@ Development target: **v0.4.0**, draft PR #270. Not released. See [readiness and 
 - **Smart Tunnel Wizard**: create a tunnel in five steps, with port suggestions checked against the catalog (a suggested port is not a reservation) and a truthful mapping for x-ui/Xray ports.
 - **Engine inventory evidence contract**: a versioned format for what an agent reports about installed engines. It is not yet connected to live probes.
 
+- **Public ingress operational path (release-gated, default-closed)**: the Wizard's reviewed plan fixes the IR client config port equal to the actual public ingress port (`ConfigPort == Port`) together with nodes, target, transport, generation and plan hash. BCC sends signed Apply/Retire jobs to the normal enrolled Agent; the Agent opens the listener and nftables rule only under a held, locally verified lease. BCC marks the ingress Verified/Ready and shows the deployable client config card only after the Agent's authenticated HTTPS receipt (Agent to BCC, certificate-validated, no downgrade) and the BCC-side probe agree. Nothing is opened by default; a tag is accepted only when the exact-SHA `operational ingress v1` workflow passes with zero skipped required tests.
+- **Installer provisions the pinned nftables chain**: the Agent install creates the empty `inet baft ingress` chain with the pinned layout (idempotent; foreign nft objects are never touched; a differing layout is refused; opt out with `--no-ingress-chain`).
+- **Release acceptance**: `scripts/release/accept.sh` now requires the `operational ingress v1` run at the tag SHA for every tag, and the BCC UI, vulncheck and delta-ingress-pin workflows whenever the tagged commit carries them.
+
 ### Changed
 
+- The ingress probe responder waits up to 50 ms for a new client's first bytes before treating the connection as ordinary traffic, so clients that send nothing first (server-speaks-first protocols) see up to 50 ms of added connection latency on an ingress port.
 - Tunnel Studio no longer assumes a particular destination service; the destination is any IPv4 or IPv6 address and port.
 - Classic and Aurora panels reach the same cards and actions (parity documented in `docs/release/r1-classic-aurora-parity-stage286.md`).
 

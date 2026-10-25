@@ -60,8 +60,8 @@ while IFS= read -r pkg; do
 done < <(jq -r '[.entries[].package]|unique|.[]' "$manifest")
 # Concise diagnostics (the checker, not this summary, decides the verdict).
 echo "=== lab summary ==="
-echo "$labdiag_out"
 jq -r 'select(.Test!=null and (.Test|contains("/")|not) and (.Action=="pass" or .Action=="fail" or .Action=="skip")) | "\(.Action|ascii_upcase) \(.Package) \(.Test)"' "$log" | sort | uniq -c | sort -rn | cut -c1-300 | head -80
 jq -r 'select(.Test==null and .Action=="output") | "\(.Package): \(.Output)"' "$log" | grep -v '^[^:]*: *$' | cut -c1-300 | head -60
 jq -r 'select(.Test!=null and .Action=="output" and (.Output|test("^\\s+\\S+\\.go:[0-9]+:|FAIL|panic"))) | "\(.Package) \(.Test): \(.Output)"' "$log" | cut -c1-300 | head -80
+echo "$labdiag_out"
 exit "$rc"

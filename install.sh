@@ -76,6 +76,9 @@ BAFT_SYSTEMD_DIR="${BAFT_SYSTEMD_DIR:-/etc/systemd/system}"
 UNIT_FILE="$BAFT_SYSTEMD_DIR/$BAFT_SERVICE.service"
 AGENT_UNIT_FILE="$BAFT_SYSTEMD_DIR/$BAFT_AGENT_UNIT.service"
 BAFT_INGRESS_UNIT_FILE="$BAFT_SYSTEMD_DIR/$BAFT_INGRESS_UNIT"
+# Boot-time reconciliation of interrupted tunnel changes (baft recover boot).
+BAFT_RECOVER_UNIT="${BAFT_RECOVER_UNIT:-baft-recover.service}"
+BAFT_RECOVER_UNIT_FILE="$BAFT_SYSTEMD_DIR/$BAFT_RECOVER_UNIT"
 BAFT_INGRESS_MARKER="${BAFT_INGRESS_MARKER:-$BAFT_AGENT_STATE_DIR/ingress-chain.owner}"
 
 # BCC-only install. This is intentionally separate from the IR/EX transport
@@ -2771,6 +2774,58 @@ WantedBy=multi-user.target
 UNIT
 }
 
+# ---- boot recovery (baft-recover.service) ----
+# A power loss or kill -9 in the middle of a tunnel change leaves a prepared or
+# committed transaction behind. `baft recover boot` reconciles it from on-disk
+# evidence (transaction journal, ownership marker, config/unit digests) and
+# never starts, stops or restarts a service. The unit is ordered Before=
+# sysinit.target, i.e. before EVERY default-dependency service including
+# baft.service, baft-agent.service and each scoped baft-<instance>.service, and
+# explicitly Before= the two units this installer owns. It is only ordered, not
+# required: a failed or fenced recovery is visible in `systemctl --failed` but
+# never blocks the boot, and nothing here Requires/Wants the services.
+render_recover_unit() {
+  local bindir; bindir="$(dirname "$BAFT_BIN")"
+  cat <<UNIT
+# baft-managed: true
+# baft-component: recover
+[Unit]
+Description=BAFT boot recovery (interrupted tunnel changes)
+DefaultDependencies=no
+After=local-fs.target
+Before=sysinit.target $BAFT_SERVICE.service $BAFT_AGENT_UNIT.service
+Conflicts=shutdown.target
+Before=shutdown.target
+ConditionPathExists=$BAFT_BIN
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+TimeoutStartSec=120
+NoNewPrivileges=true
+PrivateTmp=true
+ExecStart=$BAFT_BIN recover boot --config-dir $BAFT_CONFIG_DIR --state-dir $BAFT_STATE_DIR --unit-dir $BAFT_SYSTEMD_DIR --bin-dir $bindir --service $BAFT_SERVICE --service-user $BAFT_USER
+
+[Install]
+WantedBy=sysinit.target
+UNIT
+}
+
+# Writes the unit only when it is absent or already BAFT's own (never replaces a
+# foreign file of that name), then enables it. Failure is a warning: recovery is
+# an extra safety net, not a prerequisite of the install.
+install_recover_unit() {
+  if [[ -e "$BAFT_RECOVER_UNIT_FILE" ]] && ! grep -q '^# baft-component: recover' "$BAFT_RECOVER_UNIT_FILE" 2>/dev/null; then
+    warn "$BAFT_RECOVER_UNIT_FILE exists and is not BAFT's; boot recovery was not installed"
+    return 0
+  fi
+  local tmp; tmp="$(mktemp "$BAFT_RECOVER_UNIT_FILE.XXXXXX")" || { warn "cannot stage $BAFT_RECOVER_UNIT_FILE"; return 0; }
+  render_recover_unit >"$tmp"; chmod 0644 "$tmp"
+  if [[ -f "$BAFT_RECOVER_UNIT_FILE" ]] && cmp -s "$tmp" "$BAFT_RECOVER_UNIT_FILE"; then rm -f -- "$tmp"; else mv -f -- "$tmp" "$BAFT_RECOVER_UNIT_FILE"; fi
+  systemctl daemon-reload || warn "could not reload systemd for $BAFT_RECOVER_UNIT"
+  systemctl enable "$BAFT_RECOVER_UNIT" >/dev/null 2>&1 || warn "could not enable $BAFT_RECOVER_UNIT"
+}
+
 # Writes the helper, ensures the chain, and (only once the marker proves we
 # created it) installs the boot unit. A refusal is reported and the enrollment
 # continues: the agent then stays without the operational executor.
@@ -2831,6 +2886,7 @@ install_agent() {
   if [[ "$DO_RESTART" == 1 || "$DO_START" == 1 ]]; then
     wait_active "$BAFT_AGENT_UNIT.service" 20 || die "verify: $BAFT_AGENT_UNIT.service is not running"
   fi
+  install_recover_unit
   install_ingress_chain
   provision_ingress_policy
   finalize_apply
@@ -3634,6 +3690,7 @@ else
   if [[ "$PLAN_CHANGES" == 0 ]]; then ok "already installed and current; nothing was changed"
   else ok "$BAFT_SERVICE.service is running"; fi
 fi
+install_recover_unit
 ok "baft is installed: $BAFT_BIN and $BAFT_PAIR_BIN"
 net_setup "$(dirname "$BAFT_BIN")"
 if [[ "$UI" == 1 ]]; then

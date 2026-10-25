@@ -63,6 +63,7 @@ type Server struct {
 	ingressObsCache         map[string]ingressObsEntry
 	version                 string
 	verifiedCatalog         *VerifiedReleaseCatalog
+	updateRootKey           ed25519.PublicKey
 	adminToken              string
 	audit                   *AuditLog
 	guard                   *IPGuard
@@ -234,6 +235,10 @@ func (s *Server) Handler() http.Handler {
 	m.HandleFunc("/api/nodes/platform", s.nodePlatform)
 	m.HandleFunc("/api/nodes/versions", s.nodeVersions)
 	m.HandleFunc("/api/nodes/versions/accept", s.nodeReleaseAccept)
+	m.HandleFunc("/api/updates", s.updates)
+	m.HandleFunc("/api/updates/import", s.updateImport)
+	m.HandleFunc("/api/updates/plan", s.updatePlan)
+	m.HandleFunc("/api/updates/apply", s.updateApply)
 	m.HandleFunc("/api/jobs", s.jobs)
 	m.HandleFunc("/api/enroll", s.enroll)
 	m.HandleFunc("/api/bootstrap", s.bootstrap)

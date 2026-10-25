@@ -51,6 +51,7 @@ func TestSelectAutoTransportRefusesDegradedOrStaleEvidence(t *testing.T) {
 		{"missing-required-capability", func(c *AutoTransportCandidate) { c.NegotiatedCapabilities = []string{"carrier.h2"} }},
 		{"not-installed-on-source", func(c *AutoTransportCandidate) { c.InstalledAtSource = false }},
 		{"not-installed-on-destination", func(c *AutoTransportCandidate) { c.InstalledAtDestination = false }},
+		{"negative-rtt", func(c *AutoTransportCandidate) { c.ConnectRTTMS = -1 }},
 		{"listener-conflict", func(c *AutoTransportCandidate) { c.ListenerAvailable = false }},
 		{"unverified-multiplex", func(c *AutoTransportCandidate) { c.ListenerAvailable = false; c.SharedListener = true }},
 		{"uTLS-required-but-unsupported", func(c *AutoTransportCandidate) { c.UTLSSupported = false }},

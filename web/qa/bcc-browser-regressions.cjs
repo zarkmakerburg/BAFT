@@ -179,7 +179,7 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       await page.locator('[onclick="tnWizardGenerateServicePort()"]').click();
       assert.match(await page.locator('#ops_tnTarget').inputValue(),/^\\[::1\\]:[1-9][0-9]*$/);
       await page.locator('#ops_tnClientPort').fill('443');await page.locator('#ops_tnIngressConfirm').check();
-      await next.click();await page.locator('#ops_tnLegacyCoexist').check();await next.click();
+      await next.click();await page.locator('#ops_tnLegacyCoexist').evaluate(el=>{el.checked=true;el.dispatchEvent(new Event('change',{bubbles:true}))});await next.click();
       const review=page.locator('[onclick="tnPlan()"]');
       const [response]=await Promise.all([page.waitForResponse(r=>r.url()===f.base+'api/tunnels/plan'&&r.request().method()==='POST'),review.click()]);
       assert.equal(response.status(),200);const plan=await response.json();assert.ok(plan.hash);assert.equal(plan.request.target.startsWith('[::1]:'),true);

@@ -226,7 +226,12 @@ func liveTCPPort(ctx context.Context, port uint16) ([]ActiveTCPClaim, []string) 
 				unknown = append(unknown, candidate.path+": invalid socket inode")
 				break
 			}
-			out = append(out, ActiveTCPClaim{Port: port, Family: candidate.family, State: fields[3], Inode: inode, Local: fields[1], Source: candidate.path})
+			uid, err := strconv.ParseUint(fields[7], 10, 32)
+			if err != nil {
+				unknown = append(unknown, candidate.path+": invalid socket uid")
+				break
+			}
+			out = append(out, ActiveTCPClaim{Port: port, Family: candidate.family, State: fields[3], Inode: inode, Uid: uint32(uid), Local: fields[1], Source: candidate.path})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool {

@@ -144,6 +144,43 @@ func (b *NFTLabBackend) Inspect(ctx context.Context, plan RulePlan) (FirewallObs
 	return ReconcileRuleObservation(plan, observations)
 }
 
+// ObserveOwner is read-only. Behind the pinned chain handle and layout check
+// it reports whether exactly this owner's rule is present (present=true) or
+// whether nothing in the chain carries its port or its tag (present=false).
+// Any other rule on the same dport, a duplicate tag, a mismatching family,
+// table or chain, or an unparseable snapshot is an error, never "absent".
+func (b *NFTLabBackend) ObserveOwner(ctx context.Context, plan RulePlan) (FirewallObservation, bool, error) {
+	if b == nil || ctx == nil {
+		return FirewallObservation{}, false, ErrFirewallUnverified
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	expected, err := PlanIngressRule(plan.Port, plan.Owner)
+	if err != nil || expected != plan {
+		return FirewallObservation{}, false, ErrInvalid
+	}
+	observations, err := b.inspect(ctx)
+	if err != nil {
+		return FirewallObservation{}, false, err
+	}
+	var match FirewallObservation
+	count := 0
+	for _, o := range observations {
+		if o.Port != plan.Port && o.Tag != plan.Tag {
+			continue
+		}
+		if VerifyRuleObservation(plan, o) != nil {
+			return FirewallObservation{}, false, ErrFirewallUnverified
+		}
+		count++
+		match = o
+	}
+	if count > 1 {
+		return FirewallObservation{}, false, ErrFirewallUnverified
+	}
+	return match, count == 1, nil
+}
+
 // verifyAbsent is read-only. Absence alone never grants deletion authority;
 // callers must independently retain evidence of a successful exact deletion.
 func (b *NFTLabBackend) verifyAbsent(ctx context.Context, plan RulePlan, oldHandle uint64) error {

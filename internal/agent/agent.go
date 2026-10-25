@@ -361,9 +361,22 @@ func (a *Agent) pull(ctx context.Context) ([]pulledJob, error) {
 	return jobs, err
 }
 
+const (
+	maxFailureMessage = 2000
+	maxSuccessMessage = 64 << 10
+)
+
 func (a *Agent) ack(ctx context.Context, jobID, status, message, output string) error {
-	if len(message) > 2000 {
-		message = message[:2000]
+	// Failure text can embed arbitrary command output, so it stays short. A
+	// succeeded job's message is a machine-readable report the agent built
+	// itself (tunnel_discover's is bounded to 48 KiB); cutting it would leave
+	// invalid JSON that BCC rejects as "unreadable".
+	limit := maxFailureMessage
+	if status == "succeeded" {
+		limit = maxSuccessMessage
+	}
+	if len(message) > limit {
+		message = message[:limit]
 	}
 	if len(output) > maxOutput {
 		output = ""

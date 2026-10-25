@@ -28,6 +28,9 @@ type publicIngressOperationResponse struct {
 	ReceiptVerified       bool   `json:"receipt_verified"`
 	ReadyToApply          bool   `json:"ready_to_apply"`
 	ReconciliationPending bool   `json:"reconciliation_pending"`
+	OperationStatus       string `json:"operation_status,omitempty"`
+	PublicPort            int    `json:"public_port,omitempty"`
+	PlanHash              string `json:"plan_hash,omitempty"`
 }
 
 // publicIngressDeployAPI queues only the exact BCC-reviewed signed command.
@@ -150,6 +153,40 @@ func buildReviewedIngressCommand(op PublicIngressOperation, tunnel Tunnel, now t
 }
 
 func (s *Server) publicIngressOperationAPI(w http.ResponseWriter, r *http.Request, retiring bool) {
+	if r.Method == http.MethodGet {
+		if !s.admin(w, r) {
+			return
+		}
+		id := strings.TrimSpace(r.URL.Query().Get("tunnel_id"))
+		if id == "" || len(id) > 128 {
+			http.Error(w, "tunnel_id is required", http.StatusBadRequest)
+			return
+		}
+		op, ok := s.store.GetPublicIngressOperation(id)
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
+		command, dispatch, receipt := op.Command, op.Dispatch, op.Receipt
+		if op.Retirement != nil && (op.Retirement.Dispatch.Phase == "queued" || op.Retirement.Receipt != nil) {
+			command, dispatch, receipt = &op.Retirement.Command, &op.Retirement.Dispatch, op.Retirement.Receipt
+		}
+		response := publicIngressOperationResponse{TunnelID: id, OperationID: op.OperationID, OperationStatus: string(op.Status), PublicPort: op.Spec.PublicPort, PlanHash: op.ReviewedPlanHash, ReadyToApply: false}
+		if command != nil {
+			response.JobID, response.Action = command.JobID, command.Action
+		}
+		if dispatch != nil {
+			response.DispatchPhase = dispatch.Phase
+		}
+		response.ReconciliationPending = true
+		if receipt != nil && command != nil {
+			response.ReceiptPhase = receipt.Phase
+			response.ReceiptVerified = receipt.ValidateForCommand(*command) == nil
+			response.ReconciliationPending = !response.ReceiptVerified
+		}
+		writeJSON(w, http.StatusOK, response)
+		return
+	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -216,7 +253,8 @@ func (s *Server) publicIngressOperationAPI(w http.ResponseWriter, r *http.Reques
 		op, _ = s.store.GetPublicIngressOperation(req.TunnelID)
 		response := publicIngressOperationResponse{TunnelID: req.TunnelID, OperationID: op.OperationID,
 			JobID: op.Retirement.Command.JobID, Action: agentjob.ActionPublicIngressRetire,
-			DispatchPhase: op.Retirement.Dispatch.Phase, ReadyToApply: false, ReconciliationPending: true}
+			DispatchPhase: op.Retirement.Dispatch.Phase, ReadyToApply: false, ReconciliationPending: true,
+			OperationStatus: string(op.Status), PublicPort: op.Spec.PublicPort, PlanHash: op.ReviewedPlanHash}
 		if receipt := op.Retirement.Receipt; receipt != nil {
 			response.ReceiptPhase = receipt.Phase
 			response.ReceiptVerified = receipt.ValidateForCommand(op.Retirement.Command) == nil
@@ -290,7 +328,8 @@ func (s *Server) publicIngressOperationAPI(w http.ResponseWriter, r *http.Reques
 	op, _ = s.store.GetPublicIngressOperation(req.TunnelID)
 	response := publicIngressOperationResponse{TunnelID: req.TunnelID, OperationID: op.OperationID,
 		JobID: op.Command.JobID, Action: agentjob.ActionPublicIngressApply,
-		DispatchPhase: op.Dispatch.Phase, ReadyToApply: false, ReconciliationPending: true}
+		DispatchPhase: op.Dispatch.Phase, ReadyToApply: false, ReconciliationPending: true,
+		OperationStatus: string(op.Status), PublicPort: op.Spec.PublicPort, PlanHash: op.ReviewedPlanHash}
 	if receipt := op.Receipt; receipt != nil {
 		response.ReceiptPhase = receipt.Phase
 		response.ReceiptVerified = receipt.ValidateForCommand(*op.Command) == nil

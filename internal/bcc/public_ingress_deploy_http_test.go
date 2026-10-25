@@ -140,6 +140,28 @@ func TestPublicIngressDeployAPIQueuesExactSignedReviewedCommand(t *testing.T) {
 	if jobCount != 1 {
 		t.Fatalf("retry duplicated queued job: %d", jobCount)
 	}
+
+	statusReq, err := http.NewRequest(http.MethodGet, endpoint.URL+"/api/ingress/deploy?tunnel_id="+spec.TunnelID, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	statusReq.Header.Set("Authorization", "Bearer admin")
+	statusResp, err := endpoint.Client().Do(statusReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer statusResp.Body.Close()
+	if statusResp.StatusCode != http.StatusOK {
+		t.Fatalf("operation status GET=%d", statusResp.StatusCode)
+	}
+	var status publicIngressOperationResponse
+	if err := json.NewDecoder(statusResp.Body).Decode(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status.TunnelID != spec.TunnelID || status.OperationID != first.OperationID || status.JobID != first.JobID ||
+		status.PlanHash != tunnel.PlanHash || status.PublicPort != spec.PublicPort || status.ReceiptVerified || status.ReadyToApply {
+		t.Fatalf("status endpoint overstated or mismatched queued operation: %+v", status)
+	}
 }
 
 func TestPublicIngressDeployAPIRejectsMalformedAndUnreviewedPlan(t *testing.T) {

@@ -58,6 +58,14 @@ func Main(m interface{ Run() int }) int {
 	return 1
 }
 
+// PrepareMounts gives the CALLING process's mount namespace a tmpfs-backed
+// copy of /etc and /usr/lib/systemd/system. The caller must already be in a
+// private mount namespace (e.g. started under `unshare -m`); child processes
+// it starts inherit the same copy, so state written there outlives any one of
+// them. Used by the recovery lab, which needs the installed policy to survive
+// a SIGKILLed child.
+func PrepareMounts() error { return prepareMounts() }
+
 func prepareMounts() error {
 	if err := unix.Mount("", "/", "", unix.MS_REC|unix.MS_PRIVATE, ""); err != nil {
 		return fmt.Errorf("make mounts private: %w", err)

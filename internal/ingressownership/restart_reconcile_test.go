@@ -161,7 +161,9 @@ func (r *restartRig) build() {
 func (r *restartRig) journalAt(phase MutationPhase, handle uint64) {
 	r.t.Helper()
 	steps := []MutationRecord{{Port: r.plan.Port, Owner: r.proof, Phase: PhaseIntent}}
-	add := func(p MutationPhase, h uint64) { steps = append(steps, MutationRecord{Port: r.plan.Port, Owner: r.proof, Phase: p, FirewallHandle: h}) }
+	add := func(p MutationPhase, h uint64) {
+		steps = append(steps, MutationRecord{Port: r.plan.Port, Owner: r.proof, Phase: p, FirewallHandle: h})
+	}
 	switch phase {
 	case PhaseListenerBound:
 		add(PhaseListenerBound, 0)
@@ -349,17 +351,19 @@ func TestRestartIgnoresKernelRemnantsAndForeignNonListeningRowsButReportsThem(t 
 func TestRestartFencesOnSocketEvidence(t *testing.T) {
 	p := func(r *restartRig) uint16 { return r.plan.Port }
 	for name, mutate := range map[string]func(r *restartRig){
-		"foreign-v4-listener":           func(r *restartRig) { r.rows = []ingressinventory.ActiveTCPClaim{row("tcp4", "0A", 11, 33, p(r))} },
-		"foreign-v6-listener":           func(r *restartRig) { r.rows = []ingressinventory.ActiveTCPClaim{row("tcp6", "0A", 12, 33, p(r))} },
-		"listener-owned-by-agent-uid":   func(r *restartRig) { r.rows = []ingressinventory.ActiveTCPClaim{row("tcp4", "0A", 13, 0, p(r))} },
-		"agent-uid-established-socket":  func(r *restartRig) { r.rows = []ingressinventory.ActiveTCPClaim{row("tcp4", "01", 14, 0, p(r))} },
-		"agent-uid-close-wait-socket":   func(r *restartRig) { r.rows = []ingressinventory.ActiveTCPClaim{row("tcp6", "08", 15, 0, p(r))} },
-		"row-for-another-port":          func(r *restartRig) { r.rows = []ingressinventory.ActiveTCPClaim{row("tcp4", "06", 0, 0, p(r)+1)} },
-		"coverage-incomplete":           func(r *restartRig) { r.cov.CoverageComplete = false },
-		"unknown-source":                func(r *restartRig) { r.cov.UnknownSources = []string{"/proc/net/tcp6: unavailable"} },
-		"collector-error":               func(r *restartRig) { r.covErr = errors.New("collector exploded") },
-		"coverage-error":                func(r *restartRig) { r.covErr = ingressinventory.ErrCoverageIncomplete },
-		"stopped-systemd-claim-on-port": func(r *restartRig) { r.stopped = []ingressinventory.PersistentTCPPortClaim{{Port: p(r), Unit: "x.socket"}} },
+		"foreign-v4-listener":          func(r *restartRig) { r.rows = []ingressinventory.ActiveTCPClaim{row("tcp4", "0A", 11, 33, p(r))} },
+		"foreign-v6-listener":          func(r *restartRig) { r.rows = []ingressinventory.ActiveTCPClaim{row("tcp6", "0A", 12, 33, p(r))} },
+		"listener-owned-by-agent-uid":  func(r *restartRig) { r.rows = []ingressinventory.ActiveTCPClaim{row("tcp4", "0A", 13, 0, p(r))} },
+		"agent-uid-established-socket": func(r *restartRig) { r.rows = []ingressinventory.ActiveTCPClaim{row("tcp4", "01", 14, 0, p(r))} },
+		"agent-uid-close-wait-socket":  func(r *restartRig) { r.rows = []ingressinventory.ActiveTCPClaim{row("tcp6", "08", 15, 0, p(r))} },
+		"row-for-another-port":         func(r *restartRig) { r.rows = []ingressinventory.ActiveTCPClaim{row("tcp4", "06", 0, 0, p(r)+1)} },
+		"coverage-incomplete":          func(r *restartRig) { r.cov.CoverageComplete = false },
+		"unknown-source":               func(r *restartRig) { r.cov.UnknownSources = []string{"/proc/net/tcp6: unavailable"} },
+		"collector-error":              func(r *restartRig) { r.covErr = errors.New("collector exploded") },
+		"coverage-error":               func(r *restartRig) { r.covErr = ingressinventory.ErrCoverageIncomplete },
+		"stopped-systemd-claim-on-port": func(r *restartRig) {
+			r.stopped = []ingressinventory.PersistentTCPPortClaim{{Port: p(r), Unit: "x.socket"}}
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			r := newRestartRig(t, ingressauthority.RestartRetire)

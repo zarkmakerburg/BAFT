@@ -23,10 +23,12 @@ const lifecycleFile = "lifecycle.json"
 // Lifecycle entries record incomplete effects only. Neither a journal value
 // nor PendingGuard authorizes applying, releasing, or minting a live Lease.
 type lifecycleEntry struct {
-	Binding  BindingV1                  `json:"binding"`
-	State    RecoveryState              `json:"state"`
-	Policy   *InstalledPolicyIdentityV1 `json:"installed_policy,omitempty"`
-	Commands map[string]CommandV1       `json:"command_intents,omitempty"`
+	Binding    BindingV1                  `json:"binding"`
+	State      RecoveryState              `json:"state"`
+	Policy     *InstalledPolicyIdentityV1 `json:"installed_policy,omitempty"`
+	Commands   map[string]CommandV1       `json:"command_intents,omitempty"`
+	MintedJobs map[string]bool            `json:"minted_jobs,omitempty"`
+	Outcomes   map[string]ReceiptV1       `json:"inert_outcomes,omitempty"`
 }
 
 func readLifecycle(root *os.Root) (map[string]lifecycleEntry, error) {
@@ -70,6 +72,24 @@ func readLifecycle(root *os.Root) (map[string]lifecycleEntry, error) {
 		}
 		if !validCommandIntents(value) {
 			return nil, ErrUnverified
+		}
+		for jobID, minted := range value.MintedJobs {
+			known := false
+			for _, cmd := range value.Commands {
+				known = known || cmd.JobID == jobID
+			}
+			if !minted || !known {
+				return nil, ErrUnverified
+			}
+		}
+		if len(value.Outcomes) > len(value.Commands) {
+			return nil, ErrUnverified
+		}
+		for jobID, receipt := range value.Outcomes {
+			cmd, ok := value.Commands[receipt.Action]
+			if !ok || jobID != receipt.JobID || !value.MintedJobs[jobID] || receipt.ValidateForCommand(cmd) != nil {
+				return nil, ErrUnverified
+			}
 		}
 		for _, command := range value.Commands {
 			if jobs[command.JobID] {

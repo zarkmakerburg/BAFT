@@ -22,6 +22,7 @@ func publicIngressManifestSpec(spec PublicIngressSpec, instance string, generati
 // PublicIngressOperation is BCC's durable expected proof for one reserved
 // ingress. PENDING does not authorize or prove any agent-side host change.
 type PublicIngressOperation struct {
+	Retirement       *IngressRetirement          `json:"retirement,omitempty"`
 	OperationID      string                      `json:"operation_id,omitempty"`
 	LeaseID          string                      `json:"lease_id,omitempty"`
 	Command          *ingressauthority.CommandV1 `json:"command,omitempty"`
@@ -92,7 +93,7 @@ func mergePublicIngressOperations(restored *state, current state) error {
 		merged[id] = op
 	}
 	for id, op := range current.PublicIngressOperations {
-		if old, ok := merged[id]; ok && (old.Spec != op.Spec || old.Proof != op.Proof || old.ReviewedPlanHash != op.ReviewedPlanHash || old.OperationID != op.OperationID || old.LeaseID != op.LeaseID || !reflect.DeepEqual(old.Command, op.Command) || !reflect.DeepEqual(old.Dispatch, op.Dispatch) || !reflect.DeepEqual(old.Receipt, op.Receipt)) {
+		if old, ok := merged[id]; ok && (old.Spec != op.Spec || old.Proof != op.Proof || old.ReviewedPlanHash != op.ReviewedPlanHash || old.OperationID != op.OperationID || old.LeaseID != op.LeaseID || !reflect.DeepEqual(old.Command, op.Command) || !reflect.DeepEqual(old.Dispatch, op.Dispatch) || !reflect.DeepEqual(old.Receipt, op.Receipt) || !reflect.DeepEqual(old.Retirement, op.Retirement)) {
 			return errors.New("backup changes a current public ingress operation proof")
 		}
 		merged[id] = op

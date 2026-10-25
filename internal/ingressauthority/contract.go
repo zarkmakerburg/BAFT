@@ -87,11 +87,13 @@ type FirewallEvidenceV1 struct {
 // Executors must accept *Lease, never an arbitrary callback returning success.
 type Lease = LiveLease
 
-// LiveLease is an inert zero value. Only a future Alpha-owned durable
-// authority can construct a valid lock-held permit. Never use as a bypass.
+// LiveLease has an inert zero value. Only signed, fixed-local enrollment and
+// independently measured isolated Linux LAB execution under a durable guard
+// can construct a live permit. Its private state cannot travel as JSON.
 type LiveLease struct {
 	minted  bool
 	binding BindingV1
+	state   *liveLeaseState
 }
 
 func (l *LiveLease) CheckLockedIngress(ctx context.Context, command CommandV1) error {
@@ -107,9 +109,7 @@ func (l *LiveLease) CheckLockedIngress(ctx context.Context, command CommandV1) e
 	if err := command.Validate(time.Now()); err != nil {
 		return err
 	}
-	// Until the durable cross-process lock and restart fences are implemented,
-	// even an internal mint flag is insufficient to permit host mutation.
-	return ErrUnverified
+	return checkLiveLease(l, ctx, command)
 }
 
 func (*LiveLease) MarshalJSON() ([]byte, error) { return nil, ErrUnverified }

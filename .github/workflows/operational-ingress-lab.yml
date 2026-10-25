@@ -1,0 +1,34 @@
+name: Operational Ingress LAB
+on:
+  pull_request:
+    paths:
+      - 'internal/agent/**'
+      - 'internal/agentjob/**'
+      - 'internal/bcc/**'
+      - 'internal/ingressauthority/**'
+      - 'internal/ingressinventory/**'
+      - 'internal/ingressownership/**'
+      - 'internal/publicingress/**'
+      - 'tests/e2e/gamma_operational*'
+      - 'tests/release/gamma_operational*'
+      - 'scripts/release/accept.sh'
+      - '.github/workflows/operational-ingress-lab.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  operational-ingress:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Prepare disposable LAB tooling
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq iproute2 nftables
+      - name: Require actual positive operational lifecycle
+        run: bash tests/e2e/gamma_operational_ingress_lab.sh

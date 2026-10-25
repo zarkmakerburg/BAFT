@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/zarkmakerburg/baft/internal/telemetry"
+ "github.com/zarkmakerburg/baft/internal/ingressauthority"
 )
 
 const (
@@ -64,6 +65,8 @@ type Node struct {
 }
 
 type Job struct {
+ // IngressCommand preserves the exact reviewed signed identity and lifetime.
+ IngressCommand *ingressauthority.CommandV1 `json:"ingress_command,omitempty"`
 	ID        string    `json:"id"`
 	Type      string    `json:"type"`
 	NodeID    string    `json:"node_id"`
@@ -372,7 +375,7 @@ func (s *Store) Path() string { return s.path }
 func (s *Store) ListJobs() []Job {
 	s.mu.Lock();defer s.mu.Unlock()
 	out:=make([]Job,0,len(s.st.Jobs))
-	for _,j:=range s.st.Jobs{out=append(out,j)}
+	for _,j:=range s.st.Jobs{out=append(out,cloneIngressJob(j))}
 	sort.Slice(out,func(i,j int)bool{return out[i].CreatedAt.After(out[j].CreatedAt)})
 	return out
 }
@@ -565,6 +568,7 @@ func (s *Store) pullJobs(nodeID,token string,prepare func([]Job)error) ([]Job,er
 	changed:=false
 	for id,j:=range s.st.Jobs{
 		if j.NodeID!=nodeID || (j.Status!="queued" && j.Status!="dispatched"){continue}
+		if expired,err:=s.expireOperationalIngressLocked(j,now);err!=nil{s.st=before;return nil,err}else if expired{changed=true;continue}
 		if (j.Type=="public_ingress_preflight" || j.Type=="public_ingress_inspect" || j.Type=="public_ingress_prepare" || j.Type=="public_ingress_cancel") && !now.Before(publicIngressPreflightDeadline(j)) {
 			changed=true
 			wasQueued:=j.Status=="queued"
@@ -581,7 +585,7 @@ func (s *Store) pullJobs(nodeID,token string,prepare func([]Job)error) ([]Job,er
 		if j.Status!="queued"{continue}
 		changed=true
 		if j.Type==jobEnrollPeerLegacy{j.Status="failed";j.Message="retired job type: build tunnels with /api/tunnels";j.UpdatedAt=time.Now().UTC();s.st.Jobs[id]=j;continue}
-		j.Status="dispatched";j.UpdatedAt=time.Now().UTC();s.st.Jobs[id]=j;out=append(out,j)
+		j.Status="dispatched";j.UpdatedAt=time.Now().UTC();s.st.Jobs[id]=j;out=append(out,cloneIngressJob(j))
 	}
 	sort.Slice(out,func(i,j int)bool{return out[i].CreatedAt.Before(out[j].CreatedAt)})
 	if prepare!=nil {if err:=prepare(out);err!=nil{s.st=before;return nil,err}}
@@ -604,6 +608,13 @@ func (s *Store) AckJobOutput(nodeID,token,jobID,status,message,output string) er
 	if !s.authorizedLocked(nodeID,token){return ErrAgentAuthentication}
 	j,ok:=s.st.Jobs[jobID];if !ok||j.NodeID!=nodeID{return errors.New("job not found")}
 	if j.Status!="dispatched"&&j.Status!="queued"{return errors.New("job already completed")}
+	if isOperationalIngressJob(j) {
+		before,err:=cloneState(s.st);if err!=nil{return err}
+		expired,err:=s.expireOperationalIngressLocked(j,time.Now().UTC());if err!=nil{s.st=before;return err}
+		if expired{if err:=s.saveLocked();err!=nil{s.st=before;return err};return errors.New("operational command expired")}
+		if j.Status!="dispatched"{return errors.New("operational acknowledgement requires dispatched job")}
+		if status=="succeeded"{if _,err:=s.recordedOperationalOutcomeLocked(j);err!=nil{return err}}
+	}
 	if (j.Type=="public_ingress_preflight" || j.Type=="public_ingress_inspect" || j.Type=="public_ingress_prepare" || j.Type=="public_ingress_cancel") && !time.Now().Before(publicIngressPreflightDeadline(j)) {
 		before, err := cloneState(s.st)
 		if err != nil { return err }

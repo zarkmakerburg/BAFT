@@ -22,6 +22,11 @@ func TestNFTLabRetireRetriesAfterOwnedSocketStopped(t *testing.T) {
 	if err := tx.Apply(context.Background(), spec, proof); err != nil {
 		t.Fatal(err)
 	}
+	tx.Runtime.mu.Lock()
+	owned := tx.Runtime.sessions[spec.Config.Listen].listener.(*net.TCPListener)
+	tx.Runtime.mu.Unlock()
+	assertKernelClosed := ownedListenerKernelClosureCheck(t, owned)
+	diagnoseRebind := captureRetireRebindDiagnostic(t, owned)
 	defer tx.Runtime.Retire(spec.Config.Listen, proof)
 	fake.failCommand = true
 	if err := tx.Retire(context.Background(), spec, proof); err == nil {
@@ -31,11 +36,20 @@ func TestNFTLabRetireRetriesAfterOwnedSocketStopped(t *testing.T) {
 	if err != nil || !found || current.Phase != PhaseRetireIntent || fake.ruleHandle == 0 {
 		t.Fatalf("lost retirement uncertainty: %+v %v", current, err)
 	}
-	// Rebinding proves the original listener is gone. The retry must not
-	// stop this unrelated service just because it now occupies the old port.
+	// Establish exact original socket closure before asking the OS to bind a
+	// new foreign listener. EADDRINUSE alone cannot identify an FD leak:
+	// another owner may acquire the released numeric port immediately.
+	if file, err := owned.File(); err == nil {
+		_ = file.Close()
+		t.Fatal("retired listener still exposes its original socket FD")
+	} else if !errors.Is(err, net.ErrClosed) {
+		t.Fatalf("original socket closure unverified: %v", err)
+	}
+	assertKernelClosed()
+	// The retry must preserve this unrelated replacement listener.
 	foreign, err := net.Listen("tcp4", spec.Config.Listen)
 	if err != nil {
-		t.Fatalf("owned listener did not stop: %v", err)
+		t.Fatalf("foreign replacement bind failed after original socket closure: %v\n%s", err, diagnoseRebind())
 	}
 	defer foreign.Close()
 	fake.failCommand = false

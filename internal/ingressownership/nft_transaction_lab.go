@@ -59,7 +59,8 @@ type effectLeaseFence struct {
 	lease   *ingressauthority.Lease
 	command ingressauthority.CommandV1
 	// Private per-operation observation: never caller-supplied and never a permit.
-	pin ingressinventory.ManagedLABExecutionPin
+	pin         ingressinventory.ManagedLABExecutionPin
+	transaction *NFTLabTransaction
 }
 
 func (f *effectLeaseFence) check(ctx context.Context) error {
@@ -73,10 +74,37 @@ func (f *effectLeaseFence) check(ctx context.Context) error {
 	if err := CheckIngressExecutorAuthority(ctx, f.lease, f.command); err != nil {
 		return err
 	}
+	return f.checkScope(ctx)
+}
+
+// checkScope is called under Alpha's guard mutex by run; it MUST NOT call
+// lease/guard methods recursively.
+func (f *effectLeaseFence) checkScope(ctx context.Context) error {
 	// Reobserve installed profile, exact parsed source file membership/bytes,
 	// current executable, cgroup and namespace BEFORE each owned mutation.
 	// On drift, do not continue effects or attempt unleased cleanup.
-	return ingressinventory.CheckInstalledManagedLABAtEffect(ctx, f.command.Binding.NodeID, f.pin)
+	if err := ingressinventory.CheckInstalledManagedLABAtEffect(ctx, f.command.Binding.NodeID, f.pin); err != nil {
+		return err
+	}
+	if f.transaction == nil {
+		return ErrExecutorTrustUnavailable
+	}
+	return f.transaction.checkOperationalEffectPort(ctx, f.command.Binding)
+}
+
+// run serializes the concrete OS-held guard against Close throughout each
+// leaf mutation. A read-only check followed by an unlocked mutation is not
+// sufficient when another goroutine closes the lease or held guard.
+func (f *effectLeaseFence) run(ctx context.Context, effect func() error) error {
+	if f == nil {
+		return effect()
+	}
+	return f.lease.WithLockedIngress(ctx, f.command, func() error {
+		if err := f.checkScope(ctx); err != nil {
+			return err
+		}
+		return effect()
+	})
 }
 
 func (t *NFTLabTransaction) ApplyWithLease(ctx context.Context, spec ingressmanifest.Spec, proof ingressmanifest.Proof, cmd ingressauthority.CommandV1, lease *ingressauthority.Lease) error {
@@ -91,7 +119,7 @@ func (t *NFTLabTransaction) ApplyWithLease(ctx context.Context, spec ingressmani
 	if err != nil {
 		return err
 	}
-	fence := &effectLeaseFence{lease: lease, command: cmd, pin: pin}
+	fence := &effectLeaseFence{lease: lease, command: cmd, pin: pin, transaction: t}
 	if err := fence.check(ctx); err != nil {
 		return err
 	}
@@ -138,7 +166,7 @@ func (t *NFTLabTransaction) apply(ctx context.Context, spec ingressmanifest.Spec
 		if err := fence.check(ctx); err != nil {
 			return err
 		}
-		return t.Runtime.Apply(ctx, spec, proof)
+		return fence.run(ctx, func() error { return t.Runtime.Apply(ctx, spec, proof) })
 	}
 	if found && (current.Owner != proof || current.Port != plan.Port || current.Phase != PhaseIntent) {
 		return ErrUnverified
@@ -146,20 +174,20 @@ func (t *NFTLabTransaction) apply(ctx context.Context, spec ingressmanifest.Spec
 	if err := fence.check(ctx); err != nil {
 		return err
 	}
-	if err := t.Journal.Advance(record); err != nil {
+	if err := fence.run(ctx, func() error { return t.Journal.Advance(record) }); err != nil {
 		return err
 	}
 	if err := fence.check(ctx); err != nil {
 		return err
 	}
-	if err := t.Runtime.Apply(ctx, spec, proof); err != nil {
+	if err := fence.run(ctx, func() error { return t.Runtime.Apply(ctx, spec, proof) }); err != nil {
 		return err
 	}
 	record.Phase = PhaseListenerBound
 	if err := fence.check(ctx); err != nil {
 		return err
 	}
-	if err := t.Journal.Advance(record); err != nil {
+	if err := fence.run(ctx, func() error { return t.Journal.Advance(record) }); err != nil {
 		if fence != nil {
 			// Operational lease might have disappeared while recording.
 			// Do not close even our own listener without first checking
@@ -169,25 +197,30 @@ func (t *NFTLabTransaction) apply(ctx context.Context, spec ingressmanifest.Spec
 				return errors.Join(err, leaseErr)
 			}
 		}
-		return errors.Join(err, t.Runtime.Retire(endpoint, proof))
+		return errors.Join(err, fence.run(ctx, func() error { return t.Runtime.Retire(endpoint, proof) }))
 	}
 	if err := ctx.Err(); err != nil {
 		if fence != nil {
 			return err
 		}
-		return errors.Join(err, t.Runtime.Retire(endpoint, proof))
+		return errors.Join(err, fence.run(ctx, func() error { return t.Runtime.Retire(endpoint, proof) }))
 	}
 	if err := fence.check(ctx); err != nil {
 		// Do not roll back without the held lock. Durable recovery retains
 		// the exact in-progress operation as uncertain.
 		return err
 	}
-	observed, err := t.Firewall.Install(ctx, plan)
+	var observed FirewallObservation
+	err = fence.run(ctx, func() error {
+		var installErr error
+		observed, installErr = t.Firewall.Install(ctx, plan)
+		return installErr
+	})
 	rollback := func(cause error) error {
 		if err := fence.check(ctx); err != nil {
 			return errors.Join(cause, err)
 		}
-		stopErr := t.Runtime.Retire(endpoint, proof)
+		stopErr := fence.run(ctx, func() error { return t.Runtime.Retire(endpoint, proof) })
 		if !listenerRetirementVerified(stopErr) {
 			return errors.Join(cause, stopErr)
 		}
@@ -212,7 +245,7 @@ func (t *NFTLabTransaction) apply(ctx context.Context, spec ingressmanifest.Spec
 	if err := fence.check(ctx); err != nil {
 		return err
 	}
-	if err := t.Journal.Advance(record); err != nil {
+	if err := fence.run(ctx, func() error { return t.Journal.Advance(record) }); err != nil {
 		return rollback(err)
 	}
 	if err := ctx.Err(); err != nil {
@@ -228,7 +261,7 @@ func (t *NFTLabTransaction) apply(ctx context.Context, spec ingressmanifest.Spec
 	if err := fence.check(ctx); err != nil {
 		return err
 	}
-	if err := t.Journal.Advance(record); err != nil {
+	if err := fence.run(ctx, func() error { return t.Journal.Advance(record) }); err != nil {
 		return rollback(err)
 	}
 	if err := ctx.Err(); err != nil {
@@ -252,7 +285,7 @@ func (t *NFTLabTransaction) RetireWithLease(ctx context.Context, spec ingressman
 	if err != nil {
 		return err
 	}
-	fence := &effectLeaseFence{lease: lease, command: cmd, pin: pin}
+	fence := &effectLeaseFence{lease: lease, command: cmd, pin: pin, transaction: t}
 	if err := fence.check(ctx); err != nil {
 		return err
 	}
@@ -308,7 +341,7 @@ func (t *NFTLabTransaction) retireLocked(ctx context.Context, spec ingressmanife
 		if err := fence.check(ctx); err != nil {
 			return err
 		}
-		if err := t.Journal.Advance(record); err != nil {
+		if err := fence.run(ctx, func() error { return t.Journal.Advance(record) }); err != nil {
 			return err
 		}
 		current = record
@@ -333,7 +366,7 @@ func (t *NFTLabTransaction) retireLocked(ctx context.Context, spec ingressmanife
 		if err := fence.check(ctx); err != nil {
 			return err
 		}
-		if err := t.Journal.Advance(record); err != nil {
+		if err := fence.run(ctx, func() error { return t.Journal.Advance(record) }); err != nil {
 			return err
 		}
 		delete(t.stopped, proof)
@@ -351,7 +384,7 @@ func (t *NFTLabTransaction) retireLocked(ctx context.Context, spec ingressmanife
 	if err := fence.check(ctx); err != nil {
 		return err
 	}
-	if err := t.Journal.Advance(record); err != nil {
+	if err := fence.run(ctx, func() error { return t.Journal.Advance(record) }); err != nil {
 		return err
 	}
 	if err := ctx.Err(); err != nil {
@@ -366,7 +399,7 @@ func (t *NFTLabTransaction) retireLocked(ctx context.Context, spec ingressmanife
 		if err := fence.check(ctx); err != nil {
 			return err
 		}
-		retireErr = t.Runtime.Retire(spec.Config.Listen, proof)
+		retireErr = fence.run(ctx, func() error { return t.Runtime.Retire(spec.Config.Listen, proof) })
 		if !listenerRetirementVerified(retireErr) {
 			return retireErr
 		}
@@ -379,7 +412,7 @@ func (t *NFTLabTransaction) retireLocked(ctx context.Context, spec ingressmanife
 	if err := fence.check(ctx); err != nil {
 		return errors.Join(retireErr, err)
 	}
-	if err := t.Firewall.Remove(ctx, plan, observed.Handle); err != nil {
+	if err := fence.run(ctx, func() error { return t.Firewall.Remove(ctx, plan, observed.Handle) }); err != nil {
 		return errors.Join(retireErr, err)
 	}
 	stopped.removed = true
@@ -388,7 +421,7 @@ func (t *NFTLabTransaction) retireLocked(ctx context.Context, spec ingressmanife
 	if err := fence.check(ctx); err != nil {
 		return err
 	}
-	if err := t.Journal.Advance(record); err != nil {
+	if err := fence.run(ctx, func() error { return t.Journal.Advance(record) }); err != nil {
 		return errors.Join(retireErr, err)
 	}
 	delete(t.stopped, proof)

@@ -41,6 +41,7 @@ go mod download || { echo "go mod download failed" >&2; exit 2; }
 # Read-only diagnostic: why the product's systemd socket inventory accepts or
 # rejects this host's unit roots (changes nothing).
 go run ./tests/e2e/operational/labdiag 2>&1 | head -40 || true
+grep -rH '^ListenStream' /usr/lib/systemd/system /etc/systemd/system 2>/dev/null | sed 's|.*/||' | sort -u | head -60 || true
 rc=0
 while IFS= read -r pkg; do
   tests=$(jq -r --arg p "$pkg" '[.entries[]|select(.package==$p)|.test]|join("|")' "$manifest")

@@ -268,6 +268,17 @@ func parseSystemdListenStream(data []byte, inherited []PersistentTCPPortClaim, s
 			}
 			continue
 		}
+		// systemd abstract-namespace Unix sockets ("@name", e.g. iscsid.socket
+		// on stock Ubuntu images) are not TCP and cannot hold a port. Only a
+		// literal, unquoted, colon-free, non-numeric name is accepted; anything
+		// else ("@" alone, "@80", quoting, service names) stays fail-closed.
+		if strings.HasPrefix(v, "@") {
+			name := v[1:]
+			if name == "" || strings.ContainsAny(name, " \t\r\\\":/") || strings.Trim(name, "0123456789") == "" {
+				return nil, errors.New("invalid abstract Unix socket name")
+			}
+			continue
+		}
 		portText := v
 		if strings.Contains(v, ":") {
 			host, port, err := net.SplitHostPort(v)

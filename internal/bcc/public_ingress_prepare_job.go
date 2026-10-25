@@ -18,7 +18,7 @@ func (s *Store) CreatePublicIngressPrepare(tunnelID string, now time.Time, audit
 	defer s.mu.Unlock()
 	op, ok := s.st.PublicIngressOperations[tunnelID]
 	reservation, reserved := s.st.PublicIngressReservations[tunnelID]
-	if !ok || !reserved || op.Status != PublicIngressPending || op.Spec != reservation.Spec || op.Spec.TunnelID != tunnelID || !op.Proof.valid() || op.Proof.Generation != 1 {
+	if !ok || !reserved || op.Status != PublicIngressPending || op.Spec != reservation.Spec || op.Spec.TunnelID != tunnelID || !op.Proof.valid() || op.Proof.Generation == 0 {
 		return Job{}, errors.New("prepare requires a matching initial operation and reservation")
 	}
 	tunnel, ok := s.st.Tunnels[tunnelID]

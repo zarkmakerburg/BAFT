@@ -146,7 +146,15 @@ func (a *Agent) publicIngressOperational(ctx context.Context, j agentjob.Job, en
 		if perr := a.postOperationalReceipt(ctx, command, receipt); perr != nil {
 			return a.failedAfterEffects(ctx, guard, command, fmt.Errorf("retired receipt not delivered: %w", perr))
 		}
-		return "operational ingress retired; exact removal verified", nil
+		// Final step of a VERIFIED retirement: release the port reservation.
+		// The guard re-proves the consumed lease and the empty port itself.
+		if rerr := guard.ReleaseVerified(ctx, ingressauthority.RetirementEvidenceV1{
+			Port: evidence.Port, Owner: evidence.Owner,
+			JournalRetired: evidence.Phase == ingressownership.PhaseRetired, RuleAbsent: evidence.RuleAbsent,
+		}); rerr != nil {
+			return "operational ingress retired; exact removal verified; reservation stays fenced: " + rerr.Error(), nil
+		}
+		return "operational ingress retired; exact removal verified; reservation released", nil
 	}
 }
 

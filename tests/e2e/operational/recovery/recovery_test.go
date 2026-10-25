@@ -33,6 +33,7 @@ type lab struct {
 	ns   string
 	dir  string
 	port int
+	env  []string // extra environment for the next lab incarnations (GEN, JOB)
 }
 
 const siblingTag = "baft-ingress-00000000000000000000000000000001"
@@ -95,7 +96,7 @@ func (l *lab) labArgs(extra []string, phase string) []string {
 func (l *lab) run(phase string, extra ...string) map[string]any {
 	l.t.Helper()
 	cmd := l.nsCmd(labBin, l.labArgs(extra, phase)...)
-	cmd.Env = append(os.Environ(), "SPENT="+os.Getenv("SPENT"))
+	cmd.Env = append(append(os.Environ(), "SPENT="+os.Getenv("SPENT")), l.env...)
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
 	if err := cmd.Run(); err != nil {
@@ -377,29 +378,132 @@ func (l *lab) expectRecoveredAllowingIntents(keepBefore string) {
 	}
 }
 
-// Retire, then apply again on the SAME public port. Two variants: a new job
-// for the same binding, and a new generation of the tunnel. Both must work
-// end to end (the retired port is reusable by BAFT).
+// reapply runs a NEW signed Apply for generation gen / job on the same port
+// and returns the refusal text ("" when it applied).
+func (l *lab) reapply(gen, job string) string {
+	l.t.Helper()
+	l.env = []string{"GEN=" + gen, "JOB=" + job}
+	defer func() { l.env = nil }()
+	r := l.run("reapply")
+	return fmt.Sprint(r["err"])
+}
+
+func (l *lab) cycle(gen string) {
+	l.t.Helper()
+	l.env = []string{"GEN=" + gen}
+	defer func() { l.env = nil }()
+	if r := l.run("apply-retire"); r["err"] != "" {
+		l.t.Fatalf("apply+retire gen %s: %v", gen, r)
+	}
+}
+
+func (l *lab) fenced() int {
+	st, _ := l.run("probe")["states"].([]any)
+	return len(st)
+}
+
+func (l *lab) mustRefuse(what, errText, want string) {
+	l.t.Helper()
+	if errText == "" || !strings.Contains(errText, want) {
+		l.t.Fatalf("%s: want a refusal containing %q, got %q", what, want, errText)
+	}
+}
+
+const reserved = "already reserved"
+
+// Retire, then apply again on the SAME public port with a strictly greater
+// generation, fresh identities and a fresh signed job: works end to end, the
+// reservation having been released as the last step of the verified retire.
 func TestOperationalRecovery_RetireThenReapplyOnSamePort(t *testing.T) {
-	for _, tc := range []struct{ name, gen, job string }{{"new-job-same-binding", "1", "apply-rec-2"}, {"new-generation", "2", "apply-rec-3"}} {
-		t.Run(tc.name, func(t *testing.T) {
-			l := newLab(t, 54819)
-			if r := l.run("apply-retire"); r["err"] != "" {
-				t.Fatalf("apply+retire: %v", r)
-			}
-			if l.phase() != "retired" || l.rules() != 1 {
-				t.Fatalf("fixture: journal %s rules %d", l.phase(), l.rules())
-			}
-			t.Setenv("GEN", tc.gen)
-			t.Setenv("JOB", tc.job)
-			r := l.run("reapply")
-			t.Logf("reapply %s -> %v", tc.name, r)
-			if r["err"] != "" {
-				t.Fatalf("re-apply on the same port refused: %v", r["err"])
-			}
-			if l.rules() != 2 {
-				t.Fatalf("no owner rule after re-apply: %s", l.chain())
-			}
-		})
+	l := newLab(t, 54819)
+	keep := l.keep()
+	l.cycle("1")
+	if l.phase() != "retired" || l.rules() != 1 || l.fenced() != 0 {
+		t.Fatalf("fixture: journal %s rules %d fenced %d", l.phase(), l.rules(), l.fenced())
+	}
+	if e := l.reapply("2", "apply-rec-2"); e != "" {
+		t.Fatalf("re-apply on the same port refused: %s", e)
+	}
+	if l.rules() != 2 || l.keep() != keep || !strings.Contains(l.chain(), siblingTag) {
+		t.Fatalf("rule set after re-apply: %s", l.chain())
+	}
+	l.env = []string{"GEN=2"}
+	if l.phase() != "verified" {
+		t.Fatalf("gen 2 journal: %s", l.phase())
+	}
+}
+
+// After a release nothing old can be resurrected: the replayed Apply, the same
+// generation with fresh identifiers and a LOWER generation are all refused,
+// and only a strictly greater generation passes.
+func TestOperationalRecovery_ReleasedPortRefusesReplaySameAndLowerGeneration(t *testing.T) {
+	l := newLab(t, 54820)
+	l.cycle("1")
+	l.mustRefuse("replayed old Apply", l.reapply("1", "apply-rec-1"), reserved)
+	l.mustRefuse("same generation, fresh job", l.reapply("1", "apply-rec-9"), reserved)
+	l.cycle("2")
+	l.mustRefuse("lower generation", l.reapply("1", "apply-rec-5"), reserved)
+	l.mustRefuse("replayed gen-2 Apply", l.reapply("2", "apply-rec-2"), reserved)
+	if e := l.reapply("3", "apply-rec-3"); e != "" {
+		t.Fatalf("strictly greater generation refused: %s", e)
+	}
+	// Spent jobs of released reservations stay spent for every later operation.
+	for _, job := range []string{"apply-rec-1", "retire-rec-1"} {
+		l.env = []string{"GEN=3", "JOB=" + job}
+		r := l.run("reapply")
+		l.env = nil
+		if r["err"] == "" {
+			t.Fatalf("spent job %s ran again under a later generation", job)
+		}
+	}
+}
+
+// A foreign listener blocks the release (and the retirement completion); the
+// port is released only once it is gone.
+func TestOperationalRecovery_ForeignListenerBlocksRelease(t *testing.T) {
+	l := newLab(t, 54821)
+	l.runKilled("apply-retire", "before:delete")
+	out, _, _, _ := l.reconcile("-foreign", "tcp4")
+	if out != "fenced" {
+		t.Fatalf("outcome %s", out)
+	}
+	l.mustRefuse("re-apply while fenced", l.reapply("2", "apply-rec-2"), reserved)
+	if out, reason, _, _ := l.reconcile(); out != "retired" || !strings.Contains(reason, "reservation released") {
+		t.Fatalf("outcome %s: %s", out, reason)
+	}
+	if l.fenced() != 0 {
+		t.Fatal("reservation still fenced after a verified completion")
+	}
+	if e := l.reapply("2", "apply-rec-2"); e != "" {
+		t.Fatalf("re-apply after the verified completion refused: %s", e)
+	}
+}
+
+// No release without a verified retirement: an interrupted Apply keeps the
+// port fenced for any new generation until reconciliation proves the cleanup.
+func TestOperationalRecovery_NoReleaseWithoutVerifiedRetirement(t *testing.T) {
+	l := newLab(t, 54822)
+	l.runKilled("apply", "before:verified")
+	l.mustRefuse("re-apply over an interrupted Apply", l.reapply("2", "apply-rec-2"), reserved)
+	if l.fenced() != 1 || l.rules() != 2 {
+		t.Fatalf("state changed by a refused re-apply: fenced=%d rules=%d", l.fenced(), l.rules())
+	}
+}
+
+// Restart between the verified retire and the release: the reservation is
+// still fenced; the restart reconciliation finishes the release from the same
+// evidence and only then a new generation is accepted.
+func TestOperationalRecovery_RestartBetweenRetireAndRelease(t *testing.T) {
+	l := newLab(t, 54823)
+	l.runKilled("apply-retire", "before:release")
+	if l.phase() != "retired" || l.rules() != 1 || l.fenced() != 1 {
+		t.Fatalf("fixture: journal %s rules %d fenced %d", l.phase(), l.rules(), l.fenced())
+	}
+	l.mustRefuse("re-apply before the release", l.reapply("2", "apply-rec-2"), reserved)
+	if out, reason, _, _ := l.reconcile(); out != "already_retired" || !strings.Contains(reason, "reservation released") {
+		t.Fatalf("outcome %s: %s", out, reason)
+	}
+	if e := l.reapply("2", "apply-rec-2"); e != "" {
+		t.Fatalf("re-apply after the completed release refused: %s", e)
 	}
 }

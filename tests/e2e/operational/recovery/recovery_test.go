@@ -62,6 +62,11 @@ func newLab(t *testing.T, port int) *lab {
 	l.sh("nft", "add", "table", "inet", "op_keep")
 	l.sh("nft", "add", "chain", "inet", "op_keep", "keep")
 	l.sh("nft", "add", "rule", "inet", "op_keep", "keep", "tcp", "dport", "2053", "accept")
+	// The installed policy pins this namespace's identity; earlier tests'
+	// copy (on the private tmpfs) must not leak into this namespace.
+	if err := os.RemoveAll("/etc/baft/ingress"); err != nil {
+		t.Fatal(err)
+	}
 	if r := l.run("init"); r["ok"] != true {
 		t.Fatalf("init: %v", r)
 	}
@@ -334,7 +339,11 @@ func TestOperationalRecovery_RecoveryCannotReviveSpentJobs(t *testing.T) {
 		for _, which := range []string{"apply", "retire"} {
 			t.Setenv("SPENT", which)
 			r := l.run("mint-spent")
-			if r["minted"] == true || !strings.Contains(fmt.Sprint(r["err"]), "already minted") {
+			// Before recovery the durable single-use fence answers; after it the
+			// operation is NEEDS_RECONCILIATION, where an Apply lease is refused
+			// by state (and a Retire by its fence). Never minted either way.
+			replay := strings.Contains(fmt.Sprint(r["err"]), "already minted")
+			if r["minted"] == true || r["err"] == "" || (when == "before recovery" && !replay) {
 				t.Fatalf("%s: spent %s job minted again: %v", when, which, r)
 			}
 		}

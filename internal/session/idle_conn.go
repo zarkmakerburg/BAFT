@@ -30,7 +30,7 @@ type idleTCPConn struct {
 	}
 }
 
-func (c idleTCPConn) CloseWrite() error      { return c.tcp.CloseWrite() }
+func (c idleTCPConn) CloseWrite() error     { return c.tcp.CloseWrite() }
 func (c idleTCPConn) SetLinger(s int) error { return c.tcp.SetLinger(s) }
 
 // newIdleConn returns c unchanged when idle <= 0 (feature disabled).

@@ -245,6 +245,37 @@ type IRParams struct {
 
 func validPort(p int) bool { return p >= 1 && p <= 65535 }
 
+// sshManagementPort is never a transport listener, route listener or metrics
+// endpoint of a managed instance.
+const sshManagementPort = 22
+
+func portOf(hostport string) int {
+	_, port, err := net.SplitHostPort(hostport)
+	if err != nil {
+		return 0
+	}
+	n, err := strconv.Atoi(port)
+	if err != nil {
+		return 0
+	}
+	return n
+}
+
+// refuseProtectedPorts rejects, before any state or host change, a listener
+// port that is SSH management or that aliases the metrics endpoint.
+func refuseProtectedPorts(metricsListen string, listenPort int) error {
+	metricsPort := portOf(metricsListen)
+	switch {
+	case listenPort == sshManagementPort:
+		return errors.New("tunnelnode: port 22 is reserved for SSH management")
+	case metricsPort == sshManagementPort:
+		return errors.New("tunnelnode: metrics port 22 is reserved for SSH management")
+	case metricsPort != 0 && listenPort == metricsPort:
+		return fmt.Errorf("tunnelnode: listener port %d conflicts with the metrics port", listenPort)
+	}
+	return nil
+}
+
 func (p ExParams) validate() error {
 	switch {
 	case !hostRe.MatchString(p.PublicAddress):
@@ -491,6 +522,9 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 	if m.Instance != "" && p.MetricsListen != m.MetricsListen {
 		return "", errors.New("tunnelnode: instance metrics address differs from scoped allocation")
 	}
+	if err := refuseProtectedPorts(p.MetricsListen, p.Port); err != nil {
+		return "", err
+	}
 	if m.Instance != "" {
 		_, metricsPort, err := net.SplitHostPort(p.MetricsListen)
 		if err != nil {
@@ -574,6 +608,9 @@ func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (s
 	// through Prepare parameters after the initial instance preflight.
 	if m.Instance != "" && p.MetricsListen != m.MetricsListen {
 		return "", errors.New("tunnelnode: instance metrics address differs from scoped allocation")
+	}
+	if err := refuseProtectedPorts(p.MetricsListen, portOf(p.RouteListen)); err != nil {
+		return "", err
 	}
 	if m.Instance != "" {
 		_, metricsPort, err := net.SplitHostPort(p.MetricsListen)

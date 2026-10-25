@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -225,6 +226,9 @@ func Validate(c Config) error {
 	if err := validateLoopbackListen(c.Management.MetricsListen, "management.metrics_listen"); err != nil {
 		return err
 	}
+	if err := refuseSSHManagementPort(c.Management.MetricsListen, "management.metrics_listen"); err != nil {
+		return err
+	}
 	if err := validateTelemetry(c.Telemetry); err != nil {
 		return err
 	}
@@ -252,6 +256,9 @@ func Validate(c Config) error {
 				check = validatePublicListen
 			}
 			if err := check(r.Listen, "route.listen"); err != nil {
+				return fmt.Errorf("route %s: %w", r.ID, err)
+			}
+			if err := refuseSSHManagementPort(r.Listen, "route.listen"); err != nil {
 				return fmt.Errorf("route %s: %w", r.ID, err)
 			}
 		} else {
@@ -299,6 +306,22 @@ func Validate(c Config) error {
 		if _, _, err := net.SplitHostPort(c.Server.Listen); err != nil {
 			return fmt.Errorf("server.listen: %w", err)
 		}
+		if err := refuseSSHManagementPort(c.Server.Listen, "server.listen"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// SSHManagementPort is never a BAFT transport, route or metrics endpoint.
+const SSHManagementPort = 22
+
+func refuseSSHManagementPort(addr, field string) error {
+	if _, port, err := net.SplitHostPort(addr); err == nil {
+		if n, convErr := strconv.Atoi(port); convErr != nil || n != SSHManagementPort {
+			return nil
+		}
+		return fmt.Errorf("%s: port %d is reserved for SSH management", field, SSHManagementPort)
 	}
 	return nil
 }

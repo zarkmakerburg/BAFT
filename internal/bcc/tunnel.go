@@ -380,6 +380,16 @@ func (s *Store) resolveTunnelLocked(req TunnelRequest, now time.Time) (Tunnel, N
 			return Tunnel{}, Node{}, Node{}, err
 		}
 	}
+	if t.Port == 22 {
+		return Tunnel{}, Node{}, Node{}, errors.New("EX listener port 22 is reserved for SSH management")
+	}
+	exMetrics := t.EXMetricsListen
+	if exMetrics == "" {
+		exMetrics = "127.0.0.1:9191" // legacy singleton runtime default
+	}
+	if _, mp, err := net.SplitHostPort(exMetrics); err == nil && mp == strconv.Itoa(t.Port) {
+		return Tunnel{}, Node{}, Node{}, fmt.Errorf("EX listener port %d conflicts with the EX metrics listener", t.Port)
+	}
 	for _, other := range s.st.Tunnels {
 		if !tunnelsShareNode(t, other) {
 			continue

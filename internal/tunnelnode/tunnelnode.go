@@ -1794,9 +1794,28 @@ func (m *Manager) Retire(ctx context.Context, id string, want RetireExpectation)
 	if err := m.verifyRetireLive(m.inspectUnlocked(ctx), id, want, true); err != nil {
 		return ev, err
 	}
+	metricsPort := ""
+	if m.Instance != "" {
+		_, metricsPort, _ = net.SplitHostPort(m.MetricsListen)
+		if cfg, err := config.LoadFile(m.liveConfig()); err == nil {
+			if _, p, err := net.SplitHostPort(cfg.Management.MetricsListen); err == nil {
+				metricsPort = p
+			}
+		}
+	}
 	for _, path := range []string{m.liveConfig(), m.unitPath(), m.markerPath()} {
 		if err := removeDurable(path); err != nil {
 			return ev, err
+		}
+	}
+	// The instance no longer exists: free its metrics reservation so the name
+	// and port can be paired again. Only a claim this instance owns is removed;
+	// an altered or foreign claim is kept and the retire reports incomplete.
+	if m.Instance != "" {
+		if n, err := strconv.Atoi(metricsPort); err == nil && validPort(n) {
+			if err := m.ReleaseMetricsPort(n); err != nil {
+				return ev, fmt.Errorf("retire incomplete: metrics claim: %w", err)
+			}
 		}
 	}
 	_, _ = m.System.Systemctl(ctx, "daemon-reload")

@@ -434,6 +434,10 @@ jobs:
         run: sudo git config --system --add safe.directory '*'
       - name: Failure-injection and pre-confirmation checks
         run: sudo env "PATH=$PATH" "HOME=$HOME" tests/e2e/installer_faults.sh
+      - name: Installer ingress chain (private netns)
+        run: |
+          sudo apt-get install -y -qq nftables
+          sudo tests/e2e/installer_ingress_chain.sh
 
   e2e-install-release:
     # The production path: install.sh downloads a signed release (built here

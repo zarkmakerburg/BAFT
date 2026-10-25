@@ -30,4 +30,17 @@ jobs:
         # G101 env-var NAME literals, G122 root-installer chown. Every other
         # rule (injection, weak crypto, unsafe, etc.) stays blocking, so a new
         # finding fails this job. staticcheck returns once it supports go1.27.
-        run: go run github.com/securego/gosec/v2/cmd/gosec@v2.29.0 -exclude-dir=tests -exclude=G115,G703,G101,G122 -severity high ./...
+        # gosec is built here with a pinned golang.org/x/tools: the x/tools that
+        # ships with gosec cannot read the export data of Go >= 1.27.2
+        # ("export data version 5 is greater than maximum supported version 4").
+        run: |
+          set -euo pipefail
+          tooldir="$(mktemp -d)"
+          (
+            cd "$tooldir"
+            go mod init gosecbuild
+            go get github.com/securego/gosec/v2@v2.30.0 golang.org/x/tools@v0.52.0
+            go mod tidy
+            go build -o "$RUNNER_TEMP/gosec" github.com/securego/gosec/v2/cmd/gosec
+          )
+          "$RUNNER_TEMP/gosec" -exclude-dir=tests -exclude=G115,G703,G101,G122 -severity high ./...

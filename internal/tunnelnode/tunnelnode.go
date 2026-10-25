@@ -209,6 +209,14 @@ func (m *Manager) ForInstance(instance, metricsListen string) (*Manager, error) 
 		path := filepath.Join(siblings, entry.Name(), "baft.yaml")
 		cfg, loadErr := config.LoadFile(path)
 		if os.IsNotExist(loadErr) {
+			// A sibling that never committed a config is not a port owner when
+			// its durable state proves it only ever prepared or cancelled a
+			// pairing (its metrics port is held by an exclusive claim, so a
+			// pairing in progress is still fenced). Anything else, including a
+			// bare directory with no state, stays unverifiable and fails closed.
+			if m.uncommittedSibling(entry.Name()) {
+				continue
+			}
 			return nil, errors.New("tunnelnode: sibling instance has no verifiable config")
 		}
 		if loadErr != nil {
@@ -224,6 +232,47 @@ func (m *Manager) ForInstance(instance, metricsListen string) (*Manager, error) 
 	env.Instance = instance
 	env.MetricsListen = metricsListen
 	return New(env)
+}
+
+// uncommittedSibling reports whether the named sibling instance has durable
+// transaction state and every transaction in it is readable and either
+// prepared or rolled back. Committed, finalized, unreadable or missing state
+// is not "uncommitted": the caller must then fail closed.
+func (m *Manager) uncommittedSibling(name string) bool {
+	env := m.Env
+	env.Instance = name
+	sib, err := New(env)
+	if err != nil {
+		return false
+	}
+	entries, err := os.ReadDir(filepath.Join(sib.StateDir, "tunnels"))
+	if err != nil {
+		return false
+	}
+	seen := 0
+	for _, e := range entries {
+		if !e.IsDir() {
+			if e.Name() == "active" || e.Name() == "generation" {
+				continue
+			}
+			return false
+		}
+		t, err := sib.readTxn(e.Name())
+		if err != nil || (t.Phase != PhasePrepared && t.Phase != PhaseRolledBack) {
+			return false
+		}
+		seen++
+	}
+	if seen == 0 {
+		return false
+	}
+	if _, err := os.Lstat(sib.unitPath()); err == nil {
+		return false
+	}
+	if _, err := os.Lstat(sib.markerPath()); err == nil {
+		return false
+	}
+	return true
 }
 
 // ---- parameters ----

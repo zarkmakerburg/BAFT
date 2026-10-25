@@ -15,6 +15,11 @@ required=(
   TestOperationalRecovery_ForeignListenerFencesAndIsNeverTouched
   TestOperationalRecovery_UnleasedIntentAndUnjournaledRuleAreNeverTouched
   TestOperationalRecovery_RecoveryCannotReviveSpentJobs
+  TestOperationalRecovery_RetireThenReapplyOnSamePort
+  TestOperationalRecovery_ReleasedPortRefusesReplaySameAndLowerGeneration
+  TestOperationalRecovery_ForeignListenerBlocksRelease
+  TestOperationalRecovery_NoReleaseWithoutVerifiedRetirement
+  TestOperationalRecovery_RestartBetweenRetireAndRelease
 )
 [[ -s "$log" ]] || { echo "GATE RED: empty log"; exit 1; }
 bad=0

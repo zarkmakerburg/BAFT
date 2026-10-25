@@ -206,8 +206,8 @@ or adds a rule; `leased_jobs`, `command_intents` and `superseded_jobs` are never
 written, so a spent job stays spent (a replayed Apply/Retire gets
 `ErrLeaseReplay`; a new Retire after recovery is inert against a retired
 journal; the ping-pong fences of the security review are untouched). The port
-reservation stays pending (there is still no release API, same as after an
-in-process Retire): ingress is down until BCC stages a new operation.
+reservation is released only under the rules of the next section; otherwise it
+stays pending. Ingress is down until BCC stages a new operation.
 
 `--ingress-reconcile=report` evaluates the same evidence and writes nothing
 (operator-visible dry run). Coverage is only complete in the supported
@@ -225,3 +225,35 @@ are not recovered automatically.
 Tests: `.github/workflows/operational-recovery.yml` (unit + real-kernel kill -9
 tests in `tests/e2e/operational/recovery`, zero-SKIP verdict in
 `tests/release/oprecovery`).
+
+### Releasing the reservation and re-applying on the same port (v0.4.0)
+
+`PendingGuard.ReleaseVerified` is the ONLY way a reservation is released, and
+only as the final step of a verified retirement (an in-process Retire that
+read the exact handle back absent, or a restart reconciliation with the same
+evidence), under the held authority guard. It requires: a consumed lease on
+record (same rules as `RestartAuthority`: not superseded, policy pinned),
+evidence that the journal is retired and the owner rule absent for exactly this
+binding, and the guard's OWN fresh complete socket inventory with no LISTEN, no
+stopped-service claim and no inode of the agent uid on the port (a foreign
+listener blocks the release). Never a timer, a missing-map inference, or a
+BCC-only/unsigned request.
+
+It writes, in this order, `released.json` (tombstone), removes the lifecycle
+entry, then the pending claim. The tombstone is per (node, port):
+`generation`, `operation_id`, `lease_id`, `plan_sha256` and every spent JobID
+(apply, retire, superseded). A crash after the tombstone is completed from the
+tombstone alone on the next `ReservePending`. A later reservation is accepted
+only with a STRICTLY GREATER generation and a fresh operation, lease and
+reviewed plan hash; the released binding (replayed Apply), the same generation
+and any lower generation stay refused (`already reserved`), and a spent JobID
+can never be recorded again (`RecordCommandIntent`). The retired journal
+generation is never reopened; the new generation starts at `intent`. Apply and
+Retire intents live in the new lifecycle entry, so they do not collide with the
+old immutable ones. `agentjob` now accepts canonical generations >= 1 (the
+monotonic fence above is the authority).
+
+BCC (`ingress_generation.go`): the generation of a new operation on an IR
+node+port is 1 + the highest generation whose Retire receipt is `retired`; a
+tunnel whose ingress is retired stops holding the port in BCC's desired-state
+reservation set.

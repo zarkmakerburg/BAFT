@@ -23,6 +23,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/zarkmakerburg/baft/internal/agent"
@@ -82,9 +83,10 @@ func binding(port int) ingressauthority.BindingV1 {
 	if err != nil {
 		die("preview: %v", err)
 	}
-	b := ingressauthority.BindingV1{NodeID: node, OperationID: "op-rec-1", LeaseID: "lease-rec-1", Port: uint16(port), ConfigPort: uint16(port),
+	g := strconv.FormatUint(generation(), 10)
+	b := ingressauthority.BindingV1{NodeID: node, OperationID: "op-rec-" + g, LeaseID: "lease-rec-" + g, Port: uint16(port), ConfigPort: uint16(port),
 		ListenEndpoint: spec.Config.Listen, LocalTarget: spec.Config.Target, Transport: "dedicated",
-		PlanSHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", ListenerID: "listener-rec-1", FirewallID: "firewall-rec-1",
+		PlanSHA256: strings.Repeat(strconv.FormatUint(10+generation(), 16)[:1], 64), ListenerID: "listener-rec-" + g, FirewallID: "firewall-rec-" + g,
 		Spec: spec, Proof: proof}
 	if err := b.Validate(); err != nil {
 		die("binding: %v", err)
@@ -257,7 +259,7 @@ func (l *labCtx) admit(ctx context.Context, r *rig, c ingressauthority.CommandV1
 }
 
 func (l *labCtx) doApply(ctx context.Context, r *rig) error {
-	c := l.command(agentjob.ActionPublicIngressApply, "apply-rec-1")
+	c := l.command(agentjob.ActionPublicIngressApply, applyJob())
 	g, lease, err := l.admit(ctx, r, c, true, true)
 	if err != nil {
 		return err
@@ -274,9 +276,25 @@ func (l *labCtx) doRetire(ctx context.Context, r *rig, jobID string) error {
 		return err
 	}
 	defer g.Close()
-	_, err = r.exec.Retire(ctx, c, lease)
-	return err
+	ev, err := r.exec.Retire(ctx, c, lease)
+	if err != nil {
+		return err
+	}
+	l.hit("before:release")
+	// Final step of a verified retirement, exactly as the Agent does it.
+	return g.ReleaseVerified(ctx, ingressauthority.RetirementEvidenceV1{Port: ev.Port, Owner: ev.Owner,
+		JournalRetired: ev.Phase == ingressownership.PhaseRetired, RuleAbsent: ev.RuleAbsent})
 }
+
+// applyJob / retireJob name the signed jobs of the selected generation; JOB
+// overrides the Apply name (to replay a spent one).
+func applyJob() string {
+	if j := os.Getenv("JOB"); j != "" {
+		return j
+	}
+	return "apply-rec-" + strconv.FormatUint(generation(), 10)
+}
+func retireJob() string { return "retire-rec-" + strconv.FormatUint(generation(), 10) }
 
 func errStr(err error) string {
 	if err == nil {
@@ -320,10 +338,10 @@ func main() {
 			result(map[string]any{"err": "apply: " + err.Error()})
 			return
 		}
-		result(map[string]any{"err": errStr(l.doRetire(ctx, r, "retire-rec-1"))})
+		result(map[string]any{"err": errStr(l.doRetire(ctx, r, retireJob()))})
 	case "intent-only":
 		r := l.open()
-		c := l.command(agentjob.ActionPublicIngressApply, "apply-rec-1")
+		c := l.command(agentjob.ActionPublicIngressApply, applyJob())
 		g, _, err := l.admit(ctx, r, c, true, false)
 		if err == nil {
 			g.Close()
@@ -345,7 +363,7 @@ func main() {
 		// A NEW signed Apply (new job id) for the same public port after a
 		// completed Retire. JOB names the apply job.
 		r := l.open()
-		c := l.command(agentjob.ActionPublicIngressApply, os.Getenv("JOB"))
+		c := l.command(agentjob.ActionPublicIngressApply, applyJob())
 		g, lease, err := l.admit(ctx, r, c, true, true)
 		if err == nil {
 			defer g.Close()

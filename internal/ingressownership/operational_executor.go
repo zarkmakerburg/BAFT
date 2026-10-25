@@ -203,6 +203,9 @@ type RetiredIngressEvidence struct {
 	Owner         ingressmanifest.Proof
 	NFTRuleHandle uint64
 	Phase         MutationPhase
+	// RuleAbsent: the exact owned handle was read back absent from the pinned
+	// chain after the journal said retired (set only by Retire).
+	RuleAbsent bool
 }
 
 func (x *OperationalExecutor) Retire(ctx context.Context, cmd ingressauthority.CommandV1, lease *ingressauthority.Lease) (RetiredIngressEvidence, error) {
@@ -243,7 +246,7 @@ func (x *OperationalExecutor) Retire(ctx context.Context, cmd ingressauthority.C
 	if err := CheckIngressExecutorAuthority(ctx, lease, cmd); err != nil {
 		return RetiredIngressEvidence{}, errors.Join(ErrUnverified, retireErr, err)
 	}
-	return RetiredIngressEvidence{Port: plan.Port, Owner: plan.Owner, NFTRuleHandle: before.FirewallHandle, Phase: after.Phase}, retireErr
+	return RetiredIngressEvidence{Port: plan.Port, Owner: plan.Owner, NFTRuleHandle: before.FirewallHandle, Phase: after.Phase, RuleAbsent: true}, retireErr
 }
 
 // inspectExactOwned provides an independent owner-inode and nft handle readback,

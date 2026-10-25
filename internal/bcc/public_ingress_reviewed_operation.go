@@ -20,7 +20,7 @@ func (s *Store) RecordReviewedPublicIngressOperation(spec PublicIngressSpec, pla
 // the caller owns the single atomic save (and restores state on failure).
 func (s *Store) recordReviewedPublicIngressOperationLocked(spec PublicIngressSpec, planHash string, proof PublicIngressExpectedProof, now time.Time, audit AuditEntry, persist bool) (PublicIngressOperation, error) {
 	canonical, err := PlanPublicIngress(spec.IRNode, spec.TunnelID, spec.PublicPort, spec.LocalTarget)
-	if err != nil || canonical != spec || now.IsZero() || !proof.valid() || proof.Generation != 1 {
+	if err != nil || canonical != spec || now.IsZero() || !proof.valid() || proof.Generation != s.nextIngressGenerationLocked(spec.IRNode, spec.PublicPort) {
 		return PublicIngressOperation{}, errors.New("invalid reviewed ingress operation identity or proof")
 	}
 	tunnel, ok := s.st.Tunnels[spec.TunnelID]

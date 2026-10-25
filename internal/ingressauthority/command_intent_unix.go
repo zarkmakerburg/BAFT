@@ -171,6 +171,14 @@ func (g *PendingGuard) RecordCommandIntent(ctx context.Context, command CommandV
 	if err != nil {
 		return err
 	}
+	// A JobID spent by an earlier, released reservation never runs again.
+	released, err := loadReleased(g.root)
+	if err != nil {
+		return err
+	}
+	if releasedSpent(released, command.JobID) {
+		return ErrBinding
+	}
 	key := reservationKey(g.binding)
 	entry, ok := entries[key]
 	if !ok || entry.Binding != g.binding || entry.Policy == nil {

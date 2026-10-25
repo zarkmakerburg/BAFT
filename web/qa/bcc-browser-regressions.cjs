@@ -174,10 +174,11 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       await nav('tunnels');
       const next=page.locator('#ops_tnWizardNext');await next.click();
       await page.locator('#ops_tnIr').selectOption('qa-ir');await page.locator('#ops_tnEx').selectOption('qa-ex');await next.click();
-      await page.locator('#ops_tnPort').fill('8443');await page.locator('#ops_tnClientPort').fill('443');await page.locator('#ops_tnIngressConfirm').check();
+      await page.locator('#ops_tnPort').fill('8443');
       await page.locator('#ops_tnTarget').fill('[::1]:2443');
       await page.locator('[onclick="tnWizardGenerateServicePort()"]').click();
-      assert.match(await page.locator('#ops_tnTarget').inputValue(),/^\[::1\]:[1-9][0-9]*$/);
+      assert.match(await page.locator('#ops_tnTarget').inputValue(),/^\\[::1\\]:[1-9][0-9]*$/);
+      await page.locator('#ops_tnClientPort').fill('443');await page.locator('#ops_tnIngressConfirm').check();
       await next.click();await page.locator('#ops_tnLegacyCoexist').check();await next.click();
       const review=page.locator('[onclick="tnPlan()"]');
       const [response]=await Promise.all([page.waitForResponse(r=>r.url()===f.base+'api/tunnels/plan'&&r.request().method()==='POST'),review.click()]);

@@ -82,7 +82,7 @@ esac
 		id, ex, ir, exMetrics, irMetrics                         string
 		releaseEX, releaseIR, releaseEXMetrics, releaseIRMetrics func()
 	}
-	pairs := []*pair{{id: "existing"}, {id: "additional"}}
+	pairs := []*pair{{id: "existing"}, {id: "additional"}, {id: "third"}, {id: "abandoned"}}
 	for _, p := range pairs {
 		p.ex, p.releaseEX = allocate()
 		p.ir, p.releaseIR = allocate()
@@ -225,8 +225,26 @@ esac
 			}
 		}
 	}
+	// A pairing started and then cancelled before commit must neither disturb
+	// the live flow nor block the instances added after it.
+	ab := pairs[3]
+	_, abPort, _ := net.SplitHostPort(ab.ex)
+	ab.releaseEXMetrics()
+	invoke(ab, "ex", "ex-code", "--address", "127.0.0.1", "--port", abPort,
+		"--target", target.Addr().String(), "--route-id", ab.id, "--output-file", filepath.Join(dir, ab.id+".code"))
+	invoke(ab, "ex", "rollback")
+	echo(flow, "after-cancelled-pairing")
 	stops := provision(pairs[1])
 	echo(flow, "after-add")
+	thirdStops := provision(pairs[2])
+	echo(flow, "after-third")
+	third, err := net.DialTimeout("tcp", pairs[2].ir, time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = third.Close() })
+	echo(third, "third-instance")
+	_ = third.Close()
 	second, err := net.DialTimeout("tcp", pairs[1].ir, time.Second)
 	if err != nil {
 		t.Fatal(err)
@@ -235,11 +253,15 @@ esac
 	echo(second, "second-instance")
 	_ = second.Close()
 	// Stop only test-owned second processes, then exercise scoped CLI rollback.
-	for i := len(stops) - 1; i >= 0; i-- {
-		stops[i]()
+	for _, group := range [][]func(){thirdStops, stops} {
+		for i := len(group) - 1; i >= 0; i-- {
+			group[i]()
+		}
 	}
-	for _, role := range []string{"ir", "ex"} {
-		invoke(pairs[1], role, "rollback")
+	for _, p := range []*pair{pairs[2], pairs[1]} {
+		for _, role := range []string{"ir", "ex"} {
+			invoke(p, role, "rollback")
+		}
 	}
 	echo(flow, "after-rollback")
 	for path, want := range snapshot {

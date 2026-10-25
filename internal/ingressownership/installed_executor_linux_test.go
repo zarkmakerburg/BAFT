@@ -5,7 +5,18 @@ package ingressownership
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"io"
+	"net"
+	"strconv"
+	"time"
+
 	"encoding/json"
+	"github.com/zarkmakerburg/baft/internal/agentjob"
+	"github.com/zarkmakerburg/baft/internal/ingressauthority"
+	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
+	"github.com/zarkmakerburg/baft/internal/release"
 	"os"
 	"os/exec"
 	"testing"
@@ -32,13 +43,18 @@ func requireExecutorBootstrapLAB(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, root := range []string{"/etc/baft", "/var/lib/baft-agent"} {
+	for _, root := range []string{"/etc/baft", "/etc/baft-agent", "/var/lib/baft-agent"} {
 		if !bytes.Contains(mounts, []byte(" "+root+" ")) {
 			t.Fatal("fixed test root is not a private mountpoint")
 		}
 		raw, err := os.ReadFile(root + "/.executor-bootstrap-lab")
 		if err != nil || string(raw) != "disposable-executor-bootstrap-lab" {
 			t.Fatal("missing disposable mount identity")
+		}
+		local, localErr := os.Stat(root)
+		host, hostErr := os.Stat("/proc/1/root" + root)
+		if localErr != nil || hostErr == nil && os.SameFile(local, host) {
+			t.Fatal("host path exposed at fixed test root")
 		}
 	}
 }
@@ -122,6 +138,7 @@ func TestInstalledManagedExecutorBootstrapLAB(t *testing.T) {
 	if !bytes.Equal(before, after) {
 		t.Fatal("unleased bootstrap mutated nft")
 	}
+	exerciseInstalledSignedLifecycle(t, x, nodeID)
 	pinned, err := ingressinventory.LoadInstalledManagedExecutorConfig(ctx, nodeID)
 	if err != nil {
 		t.Fatal(err)
@@ -176,4 +193,146 @@ func TestInstalledManagedExecutorBootstrapLAB(t *testing.T) {
 			}
 		})
 	}
+}
+
+func exerciseInstalledSignedLifecycle(t *testing.T, x *OperationalExecutor, nodeID string) {
+	t.Helper()
+	ctx := context.Background()
+	public, private, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("/etc/baft-agent/bcc-job.pub", []byte(release.EncodePublic(public)), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(ingressauthority.InstalledAuthorityDirectory, 0700); err != nil {
+		t.Fatal(err)
+	}
+	backend, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer backend.Close()
+	go func() {
+		for {
+			c, err := backend.Accept()
+			if err != nil {
+				return
+			}
+			go func() { defer c.Close(); _, _ = io.Copy(c, c) }()
+		}
+	}()
+	spec := testSpec(t, "installed-real-signed")
+	spec.InstanceID = nodeID
+	spec.Config.Target = backend.Addr().String()
+	spec.Config.MaxClients, spec.Config.DialTimeoutMS = 128, 3000
+	proof, err := ingressmanifest.Preview(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, portText, err := net.SplitHostPort(spec.Config.Listen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	port, err := strconv.Atoi(portText)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := executorCommandV1(t)
+	cmd.Binding.Spec, cmd.Binding.Proof = spec, proof
+	cmd.Binding.NodeID, cmd.Binding.Port, cmd.Binding.ConfigPort = nodeID, uint16(port), uint16(port)
+	cmd.Binding.ListenEndpoint, cmd.Binding.LocalTarget = spec.Config.Listen, spec.Config.Target
+	cmd.JobID = "installed-real-apply"
+	cmd.IssuedAt = time.Now().UTC().Truncate(time.Second).Add(-time.Second)
+	cmd.ExpiresAt = cmd.IssuedAt.Add(5 * time.Minute)
+	store, err := ingressauthority.OpenInstalledManagedReservationStore(ctx, nodeID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.ReservePending(cmd.Binding); err != nil {
+		t.Fatal(err)
+	}
+	guard, err := store.HoldPending(cmd.Binding)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer guard.Close()
+	if _, err := guard.BindInstalledPolicy(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := guard.MarkApplying(ctx, cmd.Binding); err != nil {
+		t.Fatal(err)
+	}
+	mint := func(c ingressauthority.CommandV1) *ingressauthority.Lease {
+		t.Helper()
+		if err := guard.RecordCommandIntent(ctx, c); err != nil {
+			t.Fatal(err)
+		}
+		job, err := c.AgentJob()
+		if err != nil {
+			t.Fatal(err)
+		}
+		env, err := agentjob.Sign(private, job)
+		if err != nil {
+			t.Fatal(err)
+		}
+		lease, err := guard.MintSignedManagedLABLease(ctx, env)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return lease
+	}
+	applyLease := mint(cmd)
+	defer applyLease.Close()
+	observed, err := x.Apply(ctx, cmd, applyLease)
+	if err != nil {
+		t.Fatalf("real signed held Apply: %v", err)
+	}
+	if observed.Listener.SocketIdentity == "" || observed.Firewall.RuleHandle == 0 {
+		t.Fatal("missing independent real resource readback")
+	}
+	conn, err := net.DialTimeout("tcp4", spec.Config.Listen, time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = conn.SetDeadline(time.Now().Add(3 * time.Second))
+	payload := []byte{0, 1, 2, 255, 128, 42}
+	if _, err := conn.Write(payload); err != nil {
+		t.Fatal(err)
+	}
+	reply := make([]byte, len(payload))
+	if _, err := io.ReadFull(conn, reply); err != nil {
+		t.Fatal(err)
+	}
+	_ = conn.Close()
+	if !bytes.Equal(payload, reply) {
+		t.Fatal("real listener corrupted TCP payload")
+	}
+	if err := applyLease.Close(); err != nil {
+		t.Fatal(err)
+	}
+	retire := cmd
+	retire.Action = "public_ingress_retire"
+	retire.JobID = "installed-real-retire"
+	retireLease := mint(retire)
+	defer retireLease.Close()
+	retired, err := x.Retire(ctx, retire, retireLease)
+	if err != nil {
+		t.Fatalf("real signed held Retire: %v", err)
+	}
+	if retired.Phase != PhaseRetired || retired.Firewall.RuleHandle != observed.Firewall.RuleHandle ||
+		retired.Firewall.ChainHandle != observed.Firewall.ChainHandle || retired.Firewall.OwnerTag != observed.Firewall.OwnerTag {
+		t.Fatal("retire lost exact historical kernel identities")
+	}
+	plan, err := PlanIngressRule(uint16(port), proof)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := x.transaction.Firewall.verifyAbsent(ctx, plan, observed.Firewall.RuleHandle); err != nil {
+		t.Fatalf("removed nft rule absence not independently verified: %v", err)
+	}
+	if _, err := net.DialTimeout("tcp4", spec.Config.Listen, 100*time.Millisecond); err == nil {
+		t.Fatal("retired listener accepts connections")
+	}
+	t.Log("real signed held Apply/TCP/Retire with durable journal and exact kernel handles PASS")
 }

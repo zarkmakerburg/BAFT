@@ -51,6 +51,9 @@ func NewInstalledManagedLABExecutor(ctx context.Context, nodeID string) (*Operat
 		&installedManagedJournal{journal: journal, config: cfg})
 }
 
+// Fixed executable ownership, inode and bytes are rechecked before exec.
+// Privileged host administrators able to replace root-owned paths between
+// that check and exec are outside the supported private-LAB trust boundary.
 type installedManagedNFTRunner struct {
 	config ingressinventory.InstalledManagedExecutorConfig
 }

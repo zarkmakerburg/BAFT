@@ -6,11 +6,15 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"io"
+	"math/rand/v2"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -20,14 +24,72 @@ import (
 	"github.com/zarkmakerburg/baft/internal/securityinternal"
 )
 
+// reservedPorts remembers the ports handed out by reserveAddress to tests that
+// are still running, so two live reservations never share an address.
+var (
+	reservedMu    sync.Mutex
+	reservedPorts = map[int]bool{}
+)
+
+// reserveAddress returns a loopback address that is free right now and will
+// not be handed out again by this process while the calling test runs.
+//
+// It deliberately picks from below the OS ephemeral range. The previous
+// implementation bound 127.0.0.1:0 and closed the socket, which yields a port
+// from the ephemeral range; between that close and the runtime's later bind the
+// kernel may assign the same port as the source port of any outbound
+// connection (IR->EX carrier, EX->target, waitTCP probes, the test client, or
+// a parallel test process). The runtime then failed with "address already in
+// use", or the test client reached the wrong socket and saw a reset or timeout.
+// Ports below the ephemeral range are never assigned to outbound connections.
 func reserveAddress(t *testing.T) string {
 	t.Helper()
+	lo, hi := 12000, 28000
+	if b, err := os.ReadFile("/proc/sys/net/ipv4/ip_local_port_range"); err == nil {
+		var a, z int
+		if n, _ := fmt.Sscanf(string(b), "%d %d", &a, &z); n == 2 && a > lo+1000 && a-1 < hi {
+			hi = a - 1
+		}
+	}
+	// Each test process prefers its own slice of the range (keyed by pid) so
+	// concurrently running test binaries rarely compete for the same port;
+	// after 100 misses it widens to the whole range.
+	const slices, sliceSize = 64, 250
+	sliceLo := lo + (os.Getpid()%slices)*sliceSize
+	for i := 0; i < 300; i++ {
+		var port int
+		if i < 100 && sliceLo+sliceSize <= hi {
+			port = sliceLo + rand.IntN(sliceSize)
+		} else {
+			port = lo + rand.IntN(hi-lo)
+		}
+		reservedMu.Lock()
+		taken := reservedPorts[port]
+		if !taken {
+			reservedPorts[port] = true
+		}
+		reservedMu.Unlock()
+		if taken {
+			continue
+		}
+		release := func() { reservedMu.Lock(); delete(reservedPorts, port); reservedMu.Unlock() }
+		addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
+		ln, err := net.Listen("tcp", addr)
+		if err != nil {
+			release()
+			continue
+		}
+		_ = ln.Close()
+		t.Cleanup(release)
+		return addr
+	}
+	// Fall back to a kernel-chosen port rather than failing outright.
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	a := ln.Addr().String()
-	ln.Close()
+	_ = ln.Close()
 	return a
 }
 func TestNoiseMorphingRuntime(t *testing.T) {

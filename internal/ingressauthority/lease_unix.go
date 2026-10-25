@@ -80,10 +80,28 @@ func (h *heldLease) checkLease(ctx context.Context, command CommandV1) error {
 	if h == nil || h.guard == nil || !sameCommandIntent(h.command, command) {
 		return ErrUnverified
 	}
-	g := h.guard
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	_, entry, err := g.checkHeldCommandLocked(ctx, command)
+	h.guard.mu.Lock()
+	defer h.guard.mu.Unlock()
+	return h.checkLeaseLocked(ctx, command)
+}
+
+// withLease holds the guard mutex across the final check, the effect and a
+// post-effect recheck, so guard Close cannot release the OS lock mid-effect.
+func (h *heldLease) withLease(ctx context.Context, command CommandV1, effect func() error) error {
+	if h == nil || h.guard == nil || !sameCommandIntent(h.command, command) {
+		return ErrUnverified
+	}
+	h.guard.mu.Lock()
+	defer h.guard.mu.Unlock()
+	if err := h.checkLeaseLocked(ctx, command); err != nil {
+		return err
+	}
+	err := effect()
+	return errors.Join(err, h.checkLeaseLocked(ctx, command))
+}
+
+func (h *heldLease) checkLeaseLocked(ctx context.Context, command CommandV1) error {
+	_, entry, err := h.guard.checkHeldCommandLocked(ctx, command)
 	if err != nil {
 		return err
 	}

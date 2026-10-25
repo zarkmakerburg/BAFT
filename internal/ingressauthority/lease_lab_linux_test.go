@@ -89,8 +89,32 @@ func TestMintLeaseLABSingleUseRevokedOnCloseAndUncertainty(t *testing.T) {
 	if err := rl.CheckLockedIngress(ctx, retire); err != nil {
 		t.Fatal(err)
 	}
-	if err := g.Close(); err != nil {
+	// Guard Close racing a leaf effect must wait for the effect to finish:
+	// the authority check and the effect are one critical section.
+	closeDone := make(chan error, 1)
+	effectRan := false
+	if err := rl.WithLockedIngress(ctx, retire, func() error {
+		effectRan = true
+		if g.mu.TryLock() {
+			g.mu.Unlock()
+			return errors.New("guard mutex not held during effect")
+		}
+		go func() { closeDone <- g.Close() }()
+		select {
+		case <-closeDone:
+			return errors.New("guard Close interleaved with effect")
+		case <-time.After(50 * time.Millisecond):
+		}
+		return nil
+	}); err != nil || !effectRan {
+		t.Fatalf("live lease effect: ran=%v err=%v", effectRan, err)
+	}
+	if err := <-closeDone; err != nil {
 		t.Fatal(err)
+	}
+	effectRan = false
+	if err := rl.WithLockedIngress(ctx, retire, func() error { effectRan = true; return nil }); err == nil || effectRan {
+		t.Fatalf("effect ran after guard Close: ran=%v err=%v", effectRan, err)
 	}
 	if err := rl.CheckLockedIngress(ctx, retire); err == nil {
 		t.Fatal("lease survived guard Close")

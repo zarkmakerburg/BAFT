@@ -95,15 +95,42 @@ func (f *effectLeaseFence) socketEvidenceAtEffect(ctx context.Context) (ingressi
 	return observed, ctx.Err()
 }
 
-// checkInstall runs immediately before Firewall.Install: the only LISTEN on
-// the numeric port (both families) must be our exact journal+runtime inode.
-func (f *effectLeaseFence) checkInstall(ctx context.Context, t *NFTLabTransaction) error {
+// atEffect runs one firewall effect. For a live operational lease the
+// installed-profile pin, the fresh socket evidence (pre) and the effect all
+// run inside Alpha's WithLockedIngress, so guard Close, supersession or an
+// uncertain-state record cannot interleave between the final authority check
+// and the kernel mutation. pre and effect must not call lease/guard methods.
+// Legacy LAB (nil fence) runs the effect directly.
+func (f *effectLeaseFence) atEffect(ctx context.Context, pre func(context.Context) error, effect func() error) error {
 	if f == nil {
-		return nil
+		return effect()
 	}
-	if err := f.check(ctx); err != nil {
-		return err
+	if f.authority != nil {
+		if err := f.check(ctx); err != nil {
+			return err
+		}
+		if err := pre(ctx); err != nil {
+			return err
+		}
+		return effect()
 	}
+	if f.lease == nil {
+		return ErrExecutorTrustUnavailable
+	}
+	return f.lease.WithLockedIngress(ctx, f.command, func() error {
+		if err := ingressinventory.CheckInstalledManagedLABAtEffect(ctx, f.command.Binding.NodeID, f.pin); err != nil {
+			return err
+		}
+		if err := pre(ctx); err != nil {
+			return err
+		}
+		return effect()
+	})
+}
+
+// installEvidence runs immediately before Firewall.Install: the only LISTEN
+// on the numeric port (both families) must be our exact journal+runtime inode.
+func (f *effectLeaseFence) installEvidence(ctx context.Context, t *NFTLabTransaction) error {
 	observed, err := f.socketEvidenceAtEffect(ctx)
 	if err != nil {
 		return err
@@ -112,18 +139,13 @@ func (f *effectLeaseFence) checkInstall(ctx context.Context, t *NFTLabTransactio
 	return err
 }
 
-// checkRemove runs immediately before Firewall.Remove: the kernel table must
-// show the exact socket inode we closed is gone from the port in every state.
-// A different, foreign LISTEN is never touched or waived as ours, but does
-// not make deleting our own exact-handle accept rule unsafe. Unknown inode
-// or an unobserved kernel table denies; absence of a map entry is not proof.
-func (f *effectLeaseFence) checkRemove(ctx context.Context, t *NFTLabTransaction, inode uint64) error {
-	if f == nil {
-		return nil
-	}
-	if err := f.check(ctx); err != nil {
-		return err
-	}
+// removeEvidence runs immediately before Firewall.Remove: the kernel table
+// must show the exact socket inode we closed is gone from the port in every
+// state. A different, foreign LISTEN is never touched or waived as ours, but
+// does not make deleting our own exact-handle accept rule unsafe. Unknown
+// inode or an unobserved kernel table denies; absence of a map entry is not
+// proof.
+func (f *effectLeaseFence) removeEvidence(ctx context.Context, t *NFTLabTransaction, inode uint64) error {
 	if inode == 0 {
 		return ErrUnverified
 	}
@@ -386,13 +408,21 @@ func (t *NFTLabTransaction) apply(ctx context.Context, spec ingressmanifest.Spec
 		}
 		return errors.Join(err, t.Runtime.Retire(endpoint, proof))
 	}
-	if err := fence.checkInstall(ctx, t); err != nil {
+	var observed FirewallObservation
+	installRan := false
+	var installErr error
+	fenceErr := fence.atEffect(ctx, func(ctx context.Context) error { return fence.installEvidence(ctx, t) }, func() error {
+		installRan = true
+		observed, installErr = t.Firewall.Install(ctx, plan)
+		return installErr
+	})
+	if !installRan || (installErr == nil && fenceErr != nil) {
 		// Do not roll back without the held lock or against a changed
 		// socket table. Durable recovery retains the exact in-progress
 		// operation as uncertain.
-		return err
+		return fenceErr
 	}
-	observed, err := t.Firewall.Install(ctx, plan)
+	err = installErr
 	rollback := func(cause error) error {
 		if err := fence.check(ctx); err != nil {
 			return errors.Join(cause, err)
@@ -590,10 +620,18 @@ func (t *NFTLabTransaction) retireLocked(ctx context.Context, spec ingressmanife
 		stopped = stoppedIngressSocket{runtime: t.Runtime, firewall: t.Firewall, handle: current.FirewallHandle, chainHandle: t.Firewall.ExpectedChainHandle, inode: inode}
 		t.stopped[proof] = stopped
 	}
-	if err := fence.checkRemove(ctx, t, stopped.inode); err != nil {
-		return errors.Join(retireErr, err)
-	}
-	if err := t.Firewall.Remove(ctx, plan, observed.Handle); err != nil {
+	removed := false
+	if err := fence.atEffect(ctx, func(ctx context.Context) error { return fence.removeEvidence(ctx, t, stopped.inode) }, func() error {
+		if err := t.Firewall.Remove(ctx, plan, observed.Handle); err != nil {
+			return err
+		}
+		removed = true
+		return nil
+	}); err != nil {
+		if removed {
+			stopped.removed = true
+			t.stopped[proof] = stopped
+		}
 		return errors.Join(retireErr, err)
 	}
 	stopped.removed = true

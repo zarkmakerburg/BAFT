@@ -6,7 +6,9 @@ import (
 	"context"
 	"errors"
 	"io"
+	"math/rand/v2"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -20,17 +22,12 @@ import (
 // that session must become stopped (rather than healthily idempotent), and
 // exact-owner retirement must release its claim without touching the foreign.
 func TestRuntimeLateForeignPortOwnerStopsAndCanRetireLinux(t *testing.T) {
-	free, err := net.Listen("tcp4", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	port := strconv.Itoa(free.Addr().(*net.TCPAddr).Port)
-	free.Close()
 	backend, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer backend.Close()
+	port := nonEphemeralLoopbackPort(t, backend.Addr().(*net.TCPAddr).Port)
 	go func() {
 		for {
 			conn, err := backend.Accept()
@@ -132,4 +129,41 @@ func TestRuntimeLateForeignPortOwnerStopsAndCanRetireLinux(t *testing.T) {
 	if err = r.Retire(next.Config.Listen, nextProof); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// nonEphemeralLoopbackPort returns a currently free 127.0.0.1 port below the
+// kernel's ephemeral range. The test re-binds the same endpoint across
+// generations; an ephemeral port could meanwhile be taken by another test
+// process's outbound connection or :0 bind under parallel `go test ./...`.
+func nonEphemeralLoopbackPort(t *testing.T, avoid int) string {
+	t.Helper()
+	low := 32768
+	if raw, err := os.ReadFile("/proc/sys/net/ipv4/ip_local_port_range"); err == nil {
+		if fields := strings.Fields(string(raw)); len(fields) == 2 {
+			if n, err := strconv.Atoi(fields[0]); err == nil {
+				low = n
+			}
+		}
+	}
+	base := 20000
+	if low <= base+1000 {
+		base = 1024
+	}
+	if low <= base+1000 {
+		t.Fatalf("no non-ephemeral port range below %d", low)
+	}
+	for range 200 {
+		p := base + rand.IntN(low-base)
+		if p == avoid {
+			continue
+		}
+		ln, err := net.Listen("tcp4", net.JoinHostPort("127.0.0.1", strconv.Itoa(p)))
+		if err != nil {
+			continue
+		}
+		ln.Close()
+		return strconv.Itoa(p)
+	}
+	t.Fatal("no free non-ephemeral loopback port")
+	return ""
 }

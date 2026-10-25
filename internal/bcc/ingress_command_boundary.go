@@ -20,14 +20,18 @@ func newIngressIdentity(prefix string) (string, error) {
 }
 
 func (s *Store) StageReviewedIngressCommand(tunnelID string, command ingressauthority.CommandV1, now time.Time) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.stageReviewedIngressCommandLocked(tunnelID, command, now, true)
+}
+
+func (s *Store) stageReviewedIngressCommandLocked(tunnelID string, command ingressauthority.CommandV1, now time.Time, persist bool) error {
 	if err := command.Validate(now); err != nil {
 		return err
 	}
 	if command.Action != "public_ingress_apply" {
 		return errors.New("retire requires separate authorization")
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	op, ok := s.st.PublicIngressOperations[tunnelID]
 	if !ok || op.Status != PublicIngressPending || op.ReviewedPlanHash == "" || op.OperationID == "" || op.LeaseID == "" {
 		return errors.New("missing durable reviewed operation")
@@ -70,9 +74,11 @@ func (s *Store) StageReviewedIngressCommand(tunnelID string, command ingressauth
 	}
 	op.Command = &command
 	s.st.PublicIngressOperations[tunnelID] = op
-	if err := s.saveLocked(); err != nil {
-		s.st = before
-		return err
+	if persist {
+		if err := s.saveLocked(); err != nil {
+			s.st = before
+			return err
+		}
 	}
 	return nil
 }

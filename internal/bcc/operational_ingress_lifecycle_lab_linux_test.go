@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/zarkmakerburg/baft/internal/agent"
+	"github.com/zarkmakerburg/baft/internal/agentjob"
 	"github.com/zarkmakerburg/baft/internal/ingressauthority"
 	"github.com/zarkmakerburg/baft/internal/ingressinventory"
 	"github.com/zarkmakerburg/baft/internal/release"
@@ -30,6 +31,30 @@ import (
 // This is an ingress lifecycle LAB with a persisted active-tunnel prerequisite,
 // not a two-node tunnel/transport or public WAN acceptance. All public ingress
 // effects, signed polling, TCP bytes and authenticated receipts are real.
+
+func readOperationalIngressStatus(t *testing.T, endpoint *httptest.Server, client *http.Client, tunnelID, adminToken string) publicIngressOperationResponse {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodGet, endpoint.URL+"/api/ingress/deploy?tunnel_id="+tunnelID, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("ingress status GET=%d body=%s", resp.StatusCode, body)
+	}
+	var status publicIngressOperationResponse
+	if err := json.NewDecoder(resp.Body).Decode(&status); err != nil {
+		t.Fatal(err)
+	}
+	return status
+}
+
 func TestOperationalIngressFullLifecycleLAB(t *testing.T) {
 	requireOperationalLifecycleLAB(t)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
@@ -127,6 +152,10 @@ func TestOperationalIngressFullLifecycleLAB(t *testing.T) {
 		}
 	}
 	checkRun(command.JobID, "applied")
+	applyStatus := readOperationalIngressStatus(t, endpoint, client, spec.TunnelID, "gamma-admin")
+	if applyStatus.Action != agentjob.ActionPublicIngressApply || applyStatus.ReceiptPhase != "applied" || !applyStatus.ReceiptVerified || applyStatus.ReadyToApply || applyStatus.PlanHash != tun.PlanHash || applyStatus.PublicPort != spec.PublicPort {
+		t.Fatalf("status API did not expose exact verified Apply receipt safely: %+v", applyStatus)
+	}
 	applied, ok := s.GetPublicIngressOperation(spec.TunnelID)
 	if !ok || applied.Receipt == nil || applied.Receipt.ValidateForCommand(command) != nil || applied.Receipt.Phase != "applied" || !applied.Receipt.OwnershipVerified || applied.Status != PublicIngressPending {
 		t.Fatalf("actual receipt not durably pending: %+v", applied)
@@ -156,6 +185,10 @@ func TestOperationalIngressFullLifecycleLAB(t *testing.T) {
 	}
 	retire := retiredBeforeRun.Retirement.Command
 	checkRun(retire.JobID, "retired")
+	retireStatus := readOperationalIngressStatus(t, endpoint, client, spec.TunnelID, "gamma-admin")
+	if retireStatus.Action != agentjob.ActionPublicIngressRetire || retireStatus.ReceiptPhase != "retired" || !retireStatus.ReceiptVerified || retireStatus.ReadyToApply || retireStatus.PlanHash != tun.PlanHash || retireStatus.PublicPort != spec.PublicPort {
+		t.Fatalf("status API did not expose exact verified Retire receipt safely: %+v", retireStatus)
+	}
 	retired, ok := s.GetPublicIngressOperation(spec.TunnelID)
 	if !ok || retired.Receipt == nil || !reflect.DeepEqual(retired.Receipt, applied.Receipt) {
 		t.Fatal("retirement overwrote apply evidence")

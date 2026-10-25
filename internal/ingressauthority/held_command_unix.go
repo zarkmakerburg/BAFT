@@ -19,6 +19,10 @@ func (g *PendingGuard) CheckHeldCommand(ctx context.Context, command CommandV1) 
 	}
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	return g.checkHeldCommandLocked(ctx, command)
+}
+
+func (g *PendingGuard) checkHeldCommandLocked(ctx context.Context, command CommandV1) error {
 	if err := g.checkPolicyPendingLocked(ctx); err != nil {
 		return err
 	}

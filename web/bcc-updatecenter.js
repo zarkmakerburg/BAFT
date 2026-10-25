@@ -1,6 +1,6 @@
 /* BAFT Update Center page (v0.4.0).
    Everything that comes from the server is put on the page with textContent
-   only: this file never uses innerHTML, insertAdjacentHTML or inline handlers,
+   only: this file builds markup with DOM calls, never from HTML strings, and has no inline handlers,
    so it is safe under the Command Center CSP. BCC never updates by itself: the
    page imports a signed bundle, shows verified versions and prepares a reviewed
    plan; the update itself is run by the existing signed agent job or by the

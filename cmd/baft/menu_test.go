@@ -199,10 +199,11 @@ func TestMenuShowsTheHeaderAndTheListInTheHQOrder(t *testing.T) {
 	if strings.Contains(o, "Uninstall (planned)") {
 		t.Error("Uninstall is built now; it must not be marked planned")
 	}
-	for _, planned := range []string{"Update (planned)", "Repair (planned)"} {
-		if !strings.Contains(o, planned) {
-			t.Errorf("%s is not marked as planned", planned)
-		}
+	if strings.Contains(o, "Update (planned)") {
+		t.Error("Update is read-only guidance now; it must not be marked planned")
+	}
+	if !strings.Contains(o, "Repair (planned)") {
+		t.Error("Repair is not marked as planned")
 	}
 	if !strings.Contains(o, "B  A  F  T") || !strings.Contains(o, "ir-01") || !strings.Contains(o, "IR (dialer)") || !strings.Contains(o, "HEALTHY") {
 		t.Fatalf("header context missing:\n%s", o)
@@ -224,9 +225,9 @@ func TestMenuRunsTheRealCommands(t *testing.T) {
 func TestPlannedItemsDoNothing(t *testing.T) {
 	r := newMenuRig(t)
 	before := len(r.commands)
-	r.run(t, monoCaps, "11\n\n12\n\n0\n")
+	r.run(t, monoCaps, "12\n\n0\n")
 	o := r.out.String()
-	for _, name := range []string{"Update", "Repair"} {
+	for _, name := range []string{"Repair"} {
 		if !strings.Contains(o, name+" is not available in this version yet.") {
 			t.Errorf("%s: no honest message", name)
 		}
@@ -238,6 +239,23 @@ func TestPlannedItemsDoNothing(t *testing.T) {
 	for _, c := range r.commands[before:] {
 		if !strings.HasPrefix(c, "systemctl is-active") && !strings.HasPrefix(c, "systemctl show") {
 			t.Errorf("a planned item ran %q", c)
+		}
+	}
+}
+
+func TestUpdateMenuIsReadOnlyGuidance(t *testing.T) {
+	r := newMenuRig(t)
+	before := len(r.commands)
+	r.run(t, monoCaps, "11\n\n0\n")
+	o := r.out.String()
+	for _, want := range []string{"This menu never updates anything", "Update Center", "install.sh --offline . --plan", "--allow-downgrade", "Nothing was changed."} {
+		if !strings.Contains(o, want) {
+			t.Errorf("update guidance lacks %q:\n%s", want, o)
+		}
+	}
+	for _, c := range r.commands[before:] {
+		if !strings.HasPrefix(c, "systemctl is-active") && !strings.HasPrefix(c, "systemctl show") {
+			t.Errorf("Update ran %q", c)
 		}
 	}
 }

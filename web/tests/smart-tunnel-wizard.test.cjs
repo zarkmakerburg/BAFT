@@ -14,6 +14,8 @@ test('guided five-step UI remains mounted on real operational BCC card',()=>{
  }
  assert.match(js,/function tnWizardStep\(/);
  assert.match(js,/function tnWizardValidateStep\(/);
+ assert.match(html,/dedicated EX listener per tunnel/);
+ assert.match(html,/443 alone does not guarantee censorship resistance/);
  assert.match(js,/function tnWizardSummary\(/);
  assert.match(js,/async function tnPlan\(/);
  assert.match(js,/async function tnDeploy\(/);

@@ -43,6 +43,17 @@ func (a *Agent) CheckSignedHeldIngressAdmission(ctx context.Context, env release
 	return nil
 }
 
+// MintSignedHeldIngressLease additionally obtains the independently authenticated
+// fixed-local enrollment key and private measured LAB execution pin from the
+// authority package. Agent config, admission success and a pending guard alone
+// remain insufficient; unsupported hosts and recovered command mints deny.
+func (a *Agent) MintSignedHeldIngressLease(ctx context.Context, env release.Envelope, command ingressauthority.CommandV1, guard *ingressauthority.PendingGuard) (*ingressauthority.Lease, error) {
+	if err := a.CheckSignedHeldIngressAdmission(ctx, env, command, guard); err != nil {
+		return nil, err
+	}
+	return guard.MintSignedManagedLABLease(ctx, env)
+}
+
 // signedJobMatchesCommand correlates the verified signed job with the canonical
 // command derived from that same job by ingressV1Command, so optional params
 // (instance_id) and unrecognized fields follow the one shared parser instead of

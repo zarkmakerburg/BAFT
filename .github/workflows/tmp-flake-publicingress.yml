@@ -1,0 +1,18 @@
+name: tmp-flake-publicingress
+on: workflow_dispatch
+jobs:
+  stress:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: plain
+        run: go test -race -count=300 -run 'TestProbeRespectsMaxClientsAndReleasesSlot' ./internal/publicingress 2>&1 | tail -30
+      - name: loaded
+        run: |
+          for i in 1 2 3 4; do (while :; do :; done) & done
+          GOMAXPROCS=2 go test -race -count=300 -run 'TestProbeRespectsMaxClientsAndReleasesSlot' ./internal/publicingress 2>&1 | tail -30 | tee /tmp/out.txt
+          kill $(jobs -p) || true
+          grep -c -- '--- FAIL' /tmp/out.txt || true

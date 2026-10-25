@@ -532,6 +532,12 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 	if err := p.validate(); err != nil {
 		return "", err
 	}
+	if err := m.requireOwnedInstanceNamespace(); err != nil {
+		return "", err
+	}
+	if err := m.requireFreeListeners("0.0.0.0:" + strconv.Itoa(p.Port)); err != nil {
+		return "", err
+	}
 	if p.MetricsListen == "" {
 		p.MetricsListen = m.MetricsListen
 	}
@@ -614,6 +620,12 @@ func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (s
 	}
 	defer unlock()
 	if err := p.validate(); err != nil {
+		return "", err
+	}
+	if err := m.requireOwnedInstanceNamespace(); err != nil {
+		return "", err
+	}
+	if err := m.requireFreeListeners(p.RouteListen); err != nil {
 		return "", err
 	}
 	if p.MetricsListen == "" {
@@ -738,6 +750,10 @@ func (m *Manager) install(ctx context.Context, t Txn, port int) (string, error) 
 	staged := filepath.Join(stage, "baft.new.yaml")
 	if _, err := os.Stat(staged); err != nil {
 		return "", errors.New("no staged config")
+	}
+	// State may have changed since prepare; nothing live is touched yet.
+	if err := m.requireOwnedInstanceNamespace(); err != nil {
+		return "", err
 	}
 	if b, err := os.ReadFile(m.liveConfig()); err == nil {
 		t.HadConfig = true

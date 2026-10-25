@@ -34,6 +34,32 @@ HELLO → HELLO_ACK → two-sided READY → application frames
 
 HELLO metadata never overrides the authenticated certificate identity.
 
+### Capability negotiation (capability set v1)
+
+`HELLO.capabilities` and the optional `HELLO_ACK.capabilities` carry what each node's configuration enables. The Session negotiates the **intersection**; nothing is ever downgraded silently.
+
+| Token | Advertised when | Meaning |
+|---|---|---|
+| `carrier.h2` | `transport.primary` or `fallback` is `h2` | Carrier kind served (EX) or dialable (IR). |
+| `carrier.ws` | `transport.primary` or `fallback` is `ws` | Same for WebSocket. Always implies `noise.v1`. |
+| `noise.v1` | a `noise` section exists | The carrier is authenticated by the pinned-key Noise handshake. |
+| `shape.v1` | `noise.record_shaping.enabled` | Record shaping is on; both peers must enable it. |
+
+Not negotiated, because they are local behaviour with no peer-visible effect: the uTLS fingerprint profile, the per-Flow idle timeout. Multiplexing is not part of capability set v1.
+
+Wire format. The list is canonical: at most 16 tokens, each `[a-z0-9][a-z0-9._-]{0,31}`, **strictly ascending** (duplicates, reordering, upper-case aliases, empty tokens and `null` are refused). Well-formed tokens this build does not know are ignored (never enabled), so a later release can add tokens without breaking this one.
+
+Rules.
+
+1. A node enables a capability only if both sides advertised it.
+2. `transport.require_capabilities` (optional, default empty) lists capabilities the peer must negotiate. A peer lacking one is refused with a typed `*protocol.CapabilityError` (`required_missing`) and the carrier is closed. No `HELLO_ACK` is sent by a refusing EX. This also refuses a v0.3.7 peer, so enable it only after the upgrade is complete.
+3. Independently, a node expects `noise.v1` and `shape.v1` whenever it has them enabled, and an IR expects each carrier kind it may dial. If the peer negotiates capabilities but lacks one, the Session is refused (`expected_missing`). `carrier.ws` without `noise.v1` is refused (`ws_requires_noise`). Noise is never optional where configuration requires it: the carrier itself already refuses a non-Noise peer, and the capability check is a second, explicit gate.
+4. Refusal reasons are `required_missing`, `expected_missing`, `ws_requires_noise`, `unsolicited_capabilities` and `invalid`. They are logged, counted as handshake errors and exported as `baft_capability_refusals_total{reason}`.
+
+Compatibility with v0.3.7. A v0.3.7 node sends `capabilities: []`; its HELLO validation only bounds the list at 16 entries and ignores tokens, but its `HELLO_ACK` decoder rejects unknown fields. Therefore a v0.4 IR may advertise tokens to any EX, and a v0.4 EX adds `capabilities` to `HELLO_ACK` **only** when the IR advertised at least one token. A peer that negotiates nothing is the *baseline*: the frames are byte-identical to v0.3.7, `expect` rules are waived for it, and only an explicit `require_capabilities` refuses it. Baseline sessions are visible as `baft_capability_baseline_sessions`; negotiated ones as `baft_capability_negotiated_sessions{capability}`.
+
+Rolling-upgrade rule: upgrade both nodes with `require_capabilities` unset; set it only afterwards. A v0.3.7 config parser rejects unknown keys, so do not ship a `require_capabilities` config to a node that has not been upgraded.
+
 ## OPEN
 
 OPEN carries a Route ID plus a random open nonce, never an arbitrary destination address. Duplicate OPEN with identical identity must be idempotent and must not redial the target.

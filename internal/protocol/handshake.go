@@ -35,7 +35,11 @@ type NegotiatedLimits struct {
 }
 
 type AcceptedProfile struct { ID string `json:"id"`; Version uint32 `json:"version"` }
-type HelloAck struct { SelectedProtocol uint16 `json:"selected_protocol"`; SessionID string `json:"session_id"`; Epoch string `json:"epoch"`; PeerBootID string `json:"peer_boot_id"`; AcceptedProfile AcceptedProfile `json:"accepted_profile"`; NegotiatedLimits NegotiatedLimits `json:"negotiated_limits"` }
+type HelloAck struct { SelectedProtocol uint16 `json:"selected_protocol"`; SessionID string `json:"session_id"`; Epoch string `json:"epoch"`; PeerBootID string `json:"peer_boot_id"`; AcceptedProfile AcceptedProfile `json:"accepted_profile"`; NegotiatedLimits NegotiatedLimits `json:"negotiated_limits"`
+	// Capabilities is the listener's advertised capability list. It is omitted
+	// (never `[]`/null) unless the dialer advertised capabilities, so the frame
+	// stays byte-identical to v0.3.7, whose decoder rejects unknown fields.
+	Capabilities []string `json:"capabilities,omitempty"` }
 type Ready struct { SnapshotID *string `json:"snapshot_id"` }
 
 func DecodeHello(payload []byte) (Hello,error) {
@@ -53,7 +57,7 @@ func DecodeHello(payload []byte) (Hello,error) {
 	return v,nil
 }
 
-func DecodeHelloAck(payload []byte)(HelloAck,error){var v HelloAck;if err:=decodeStrictObject(payload,&v);err!=nil{return HelloAck{},err};if v.SelectedProtocol!=1||!validHex128(v.SessionID)||!validHex128(v.PeerBootID){return HelloAck{},errors.New("invalid HELLO_ACK identity/protocol")};if _,err:=parseDecimalU64(v.Epoch);err!=nil{return HelloAck{},errors.New("invalid HELLO_ACK epoch")};if v.AcceptedProfile.ID==""||v.NegotiatedLimits.MaxFramePayloadBytes==0||v.NegotiatedLimits.MaxFramePayloadBytes>MaxPayloadSize{return HelloAck{},errors.New("invalid negotiated limits/profile")};return v,nil}
+func DecodeHelloAck(payload []byte)(HelloAck,error){var v HelloAck;if err:=decodeStrictObject(payload,&v);err!=nil{return HelloAck{},err};if v.SelectedProtocol!=1||!validHex128(v.SessionID)||!validHex128(v.PeerBootID){return HelloAck{},errors.New("invalid HELLO_ACK identity/protocol")};if _,err:=parseDecimalU64(v.Epoch);err!=nil{return HelloAck{},errors.New("invalid HELLO_ACK epoch")};if v.AcceptedProfile.ID==""||v.NegotiatedLimits.MaxFramePayloadBytes==0||v.NegotiatedLimits.MaxFramePayloadBytes>MaxPayloadSize{return HelloAck{},errors.New("invalid negotiated limits/profile")};if err:=validateAckCapabilities(payload,v.Capabilities);err!=nil{return HelloAck{},err};return v,nil}
 func DecodeReady(payload []byte)(Ready,error){var v Ready;if err:=decodeStrictObject(payload,&v);err!=nil{return Ready{},err};if v.SnapshotID!=nil&&!validHex128(*v.SnapshotID){return Ready{},errors.New("invalid READY snapshot_id")};return v,nil}
 func decodeStrictObject(payload []byte,out any)error{if len(payload)==0||len(payload)>MaxPayloadSize{return errors.New("invalid JSON control payload length")};if err:=rejectDuplicateTopLevelKeys(payload);err!=nil{return err};dec:=json.NewDecoder(bytes.NewReader(payload));dec.DisallowUnknownFields();if err:=dec.Decode(out);err!=nil{return err};var extra any;if err:=dec.Decode(&extra);!errors.Is(err,io.EOF){if err==nil{return errors.New("multiple JSON values are not allowed")};return err};return nil}
 func validHex128(s string)bool{if len(s)!=32{return false};b,err:=hex.DecodeString(s);return err==nil&&len(b)==16&&s==fmt.Sprintf("%x",b)}
@@ -65,14 +69,30 @@ func parseDecimalU64(s string)(uint64,error){if s==""||(len(s)>1&&s[0]=='0'){ret
 // capability past a duplicate or allow-list check.
 func validateCapabilities(caps []string)error{
 	if caps==nil{return errors.New("capabilities must be a JSON array")}
-	if len(caps)>16{return errors.New("too many capabilities")}
-	seen:=make(map[string]struct{},len(caps))
-	for _,c:=range caps{
+	return validateCapabilityList(caps)
+}
+
+// validateCapabilityList requires the canonical form: at most 16 valid tokens
+// in strictly ascending order (so duplicates and reorderings are refused).
+func validateCapabilityList(caps []string)error{
+	if len(caps)>MaxCapabilities{return errors.New("too many capabilities")}
+	for i,c:=range caps{
 		if !validCapabilityToken(c){return errors.New("invalid capability token")}
-		if _,dup:=seen[c];dup{return errors.New("duplicate capability")}
-		seen[c]=struct{}{}
+		if i>0{
+			if c==caps[i-1]{return errors.New("duplicate capability")}
+			if c<caps[i-1]{return errors.New("capabilities must be sorted")}
+		}
 	}
 	return nil
+}
+
+// validateAckCapabilities validates the optional HELLO_ACK capability list. An
+// absent field is the v0.3.7 baseline; an explicit null is refused.
+func validateAckCapabilities(payload []byte,caps []string)error{
+	var raw map[string]json.RawMessage
+	if err:=json.Unmarshal(payload,&raw);err!=nil{return err}
+	if r,ok:=raw["capabilities"];ok&&bytes.Equal(bytes.TrimSpace(r),[]byte("null")){return errors.New("capabilities must be a JSON array")}
+	return validateCapabilityList(caps)
 }
 func validCapabilityToken(s string)bool{
 	if len(s)==0||len(s)>32{return false}

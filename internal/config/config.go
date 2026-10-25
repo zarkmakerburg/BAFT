@@ -69,6 +69,11 @@ type Transport struct {
 	// ClientHello instead of Go's distinctive one, closing the passive
 	// fingerprint gap. Supported on the ws transport.
 	UTLS bool `json:"utls,omitempty"`
+	// RequireCapabilities lists capabilities (internal/protocol capability set
+	// v1, e.g. "noise.v1") the peer MUST negotiate. A peer lacking one,
+	// including a v0.3.7 peer that negotiates nothing, is refused explicitly.
+	// Empty (default) keeps rolling upgrades from v0.3.7 working.
+	RequireCapabilities []string `json:"require_capabilities,omitempty"`
 }
 type Limits struct {
 	MaxFlows          int `json:"max_flows"`
@@ -197,6 +202,9 @@ func Validate(c Config) error {
 	}
 	if c.Transport.Profile == "" {
 		return errors.New("transport.profile is required")
+	}
+	if err := validateCapabilities(c); err != nil {
+		return err
 	}
 	if c.Limits.MaxFlows < 1 || c.Limits.MaxFlows > 65535 {
 		return errors.New("limits.max_flows is out of supported range")

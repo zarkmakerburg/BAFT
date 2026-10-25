@@ -9,7 +9,10 @@
 #   1. the tag, fetched fresh into a private ref, resolves to a commit that is
 #      an ancestor of (or equal to) the freshly fetched main;
 #   2. every required CI job succeeded on that commit, as produced by the
-#      intended GitHub Actions workflow file (see "CI evidence" below);
+#      intended GitHub Actions workflow file (see "CI evidence" below). The
+#      `operational ingress v1` workflow is required for every tag; the BCC UI,
+#      vulncheck, delta-ingress-pin and LAB workflows are required whenever
+#      the tagged commit carries them (see "Workflow gates");
 #   3. the signed manifest of the published release names that same commit;
 #   4. the published assets verify against the root key and revocation list
 #      committed at that commit;
@@ -65,30 +68,38 @@ row INFO "tag" "$tag -> $sha"
 if git merge-base --is-ancestor "$sha" refs/accept/main; then row PASS "on main" "commit is on $remote/main"; else row FAIL "on main" "commit is NOT on $remote/main"; fi
 
 # 2. CI evidence from workflow runs of the intended workflow files.
-# The kernel ingress LAB is mandatory for tagged candidates that contain its
-# workflow. Older release tags without the P0 workflow retain their original
-# admission requirements; never accept an ingress-capable release on main CI alone.
-ingress_lab_required=0
-if git cat-file -e "$sha:.github/workflows/p0-ingress-lab.yml" 2>/dev/null; then
-  ingress_lab_required=1
-fi
-# The two-namespace acceptance is an additional exact-tag gate only for
-# candidates that carry it. It cannot replace independent host acceptance.
-gamma_two_node_required=0
-if git cat-file -e "$sha:.github/workflows/gamma-two-node-lab.yml" 2>/dev/null; then
-  gamma_two_node_required=1
-fi
-gamma_v037_required=0
-if git cat-file -e "$sha:.github/workflows/gamma-v037-upgrade-lab.yml" 2>/dev/null; then
-  gamma_v037_required=1
-fi
-gamma_tunnel_upgrade_required=0
-if git cat-file -e "$sha:.github/workflows/gamma-v037-tunnel-upgrade-lab.yml" 2>/dev/null; then
-  gamma_tunnel_upgrade_required=1
-fi
-python3 - "$GH" "$repo" "$sha" "$ci_jobs" "$ingress_lab_required" "$gamma_two_node_required" "$gamma_v037_required" "$gamma_tunnel_upgrade_required" >"$work/ci.out" 2>"$work/ci.err" <<'PY'
+# Workflow gates, as "workflow-file|job|row-label". Two groups:
+#  - UNCONDITIONAL: required for every tag. The operational ingress v1 gate
+#    (the only workflow that proves the BCC -> signed Agent -> held lease ->
+#    listener/nft -> TCP -> authenticated receipt -> card path) is required even
+#    when its file is absent at the tag: a candidate that dropped the workflow
+#    must not pass by omission.
+#  - CONDITIONAL: required when the file exists at the tag SHA (older tags that
+#    predate a workflow keep their original admission requirements; never accept
+#    an ingress-capable release on main CI alone). Several are path-filtered on
+#    pull requests, so for a tag SHA they must be dispatched (workflow_dispatch)
+#    at that exact SHA; a missing run is a FAIL, not a skip.
+unconditional_gates=(
+  ".github/workflows/operational-ingress-v1.yml|operational-ingress-v1|operational-ingress-v1"
+)
+conditional_gates=(
+  ".github/workflows/p0-ingress-lab.yml|lab-acceptance|ingress-kernel-lab"
+  ".github/workflows/gamma-two-node-lab.yml|isolated-two-node|gamma-two-node-lab"
+  ".github/workflows/gamma-v037-upgrade-lab.yml|upgrade-rollback|gamma-v037-upgrade-lab"
+  ".github/workflows/gamma-v037-tunnel-upgrade-lab.yml|v037-two-node-upgrade|gamma-v037-tunnel-upgrade-lab"
+  ".github/workflows/bcc-v3-ui-tests.yml|test|bcc-ui-unit"
+  ".github/workflows/bcc-v3-ui-tests.yml|browser|bcc-ui-browser"
+  ".github/workflows/vulncheck.yml|govulncheck|vulncheck"
+  ".github/workflows/delta-ingress-pin.yml|check|delta-ingress-pin"
+)
+gates=("${unconditional_gates[@]}")
+for g in "${conditional_gates[@]}"; do
+  if git cat-file -e "$sha:${g%%|*}" 2>/dev/null; then gates+=("$g"); fi
+done
+python3 - "$GH" "$repo" "$sha" "$ci_jobs" "${gates[@]}" >"$work/ci.out" 2>"$work/ci.err" <<'PY'
 import json, subprocess, sys
-gh, repo, sha, jobs, ingress_lab_required, gamma_two_node_required, gamma_v037_required, gamma_tunnel_upgrade_required = sys.argv[1:9]
+gh, repo, sha, jobs = sys.argv[1:5]
+gates = [g.split("|") for g in sys.argv[5:]]
 def api(path):
     r = subprocess.run([gh, "api", path], capture_output=True, text=True)
     if r.returncode != 0:
@@ -128,38 +139,13 @@ try:
         else:
             s, n, d = job_row(independent, name, path)
             print(s, f"ci: {n}", d, sep="\t")
-    if ingress_lab_required == "1":
-        path = ".github/workflows/p0-ingress-lab.yml"
-        ingress = runs_for(path)
-        if ingress is None:
-            print("FAIL", "ci: ingress-kernel-lab", f"no {path} workflow run for this commit", sep="\t")
+    for path, jobname, label in gates:
+        gate_run = runs_for(path)
+        if gate_run is None:
+            print("FAIL", f"ci: {label}", f"no {path} workflow run for this commit", sep="\t")
         else:
-            status, _, detail = job_row(ingress, "lab-acceptance", path)
-            print(status, "ci: ingress-kernel-lab", detail, sep="\t")
-    if gamma_two_node_required == "1":
-        path = ".github/workflows/gamma-two-node-lab.yml"
-        gamma = runs_for(path)
-        if gamma is None:
-            print("FAIL", "ci: gamma-two-node-lab", f"no {path} workflow run for this commit", sep="\t")
-        else:
-            status, _, detail = job_row(gamma, "isolated-two-node", path)
-            print(status, "ci: gamma-two-node-lab", detail, sep="\t")
-    if gamma_v037_required == "1":
-        path = ".github/workflows/gamma-v037-upgrade-lab.yml"
-        upgrade = runs_for(path)
-        if upgrade is None:
-            print("FAIL", "ci: gamma-v037-upgrade-lab", f"no {path} workflow run for this commit", sep="\t")
-        else:
-            status, _, detail = job_row(upgrade, "upgrade-rollback", path)
-            print(status, "ci: gamma-v037-upgrade-lab", detail, sep="\t")
-    if gamma_tunnel_upgrade_required == "1":
-        path = ".github/workflows/gamma-v037-tunnel-upgrade-lab.yml"
-        upgraded = runs_for(path)
-        if upgraded is None:
-            print("FAIL", "ci: gamma-v037-tunnel-upgrade-lab", f"no {path} workflow run for this commit", sep="\t")
-        else:
-            status, _, detail = job_row(upgraded, "v037-two-node-upgrade", path)
-            print(status, "ci: gamma-v037-tunnel-upgrade-lab", detail, sep="\t")
+            status, _, detail = job_row(gate_run, jobname, path)
+            print(status, f"ci: {label}", detail, sep="\t")
 except Exception as e:
     print("FAIL", "ci", f"cannot read workflow runs: {e}", sep="\t")
 PY

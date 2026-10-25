@@ -47,8 +47,10 @@ test('only Native BAFT is runnable: engine is fixed by a hidden field; catalog r
  assert.doesNotMatch(html,/<option[^>]*value="(frp|rathole|wss)"/);
  assert.match(js,/if\(id!=='baft'/);
 });
-test('IR public client port is reviewed as data but no ingress listener is provisioned',()=>{
- assert.match(html,/BAFT.*does NOT create the public IR client listener/);
+test('IR public client port defaults from the service port and queues verified ingress on activation',()=>{
+ assert.match(html,/BAFT automatically queues a signed public IR ingress operation after tunnel activation/);
+ assert.match(html,/defaults from service port/);
+ assert.match(html,/I authorize BAFT to provision public IR ingress/);
  assert.match(html,/id="tnClientPort"/);
  assert.match(html,/id="tnIngressConfirm"/);
  assert.match(js,/if\(!q\('#tnIngressConfirm'\)\.checked\)/);

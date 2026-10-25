@@ -32,7 +32,9 @@ const (
 	probeBurst       = 5
 	probeRefill      = time.Second
 	probeMaxSources  = 4096
-	probeSourceStale = time.Minute
+	// A bucket idle for probeBurst*probeRefill has fully refilled, so dropping
+	// it loses no limiting state. This keeps the bounded table reclaimable.
+	probeSourceStale = probeBurst * probeRefill
 )
 
 // probeBytePossible reports whether b may sit at offset i of a probe frame.
@@ -71,7 +73,21 @@ type probeLimiter struct {
 	sources map[netip.Addr]*probeBucket
 }
 
+// probeKey collapses IPv6 sources to their /64 so one subscriber prefix, which
+// can mint 2^64 addresses, counts as a single source and cannot exhaust the
+// bounded table (a full table fails closed and would deny BCC's own probe).
+func probeKey(src netip.Addr) netip.Addr {
+	src = src.Unmap()
+	if src.Is6() {
+		if p, err := src.Prefix(64); err == nil {
+			return p.Addr()
+		}
+	}
+	return src
+}
+
 func (l *probeLimiter) allow(src netip.Addr, now time.Time) bool {
+	src = probeKey(src)
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.sources == nil {

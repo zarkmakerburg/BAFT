@@ -34,8 +34,20 @@ func validCommandIntents(entry lifecycleEntry) bool {
 			return false
 		}
 	}
-	if len(entry.Leased) > 2 {
+	if len(entry.Leased) > 2 || len(entry.Superseded) > maxSupersededRetires {
 		return false
+	}
+	seen := make(map[string]bool)
+	for _, spent := range entry.Superseded {
+		if !idPattern.MatchString(spent) || seen[spent] {
+			return false
+		}
+		seen[spent] = true
+		for _, cmd := range entry.Commands {
+			if cmd.JobID == spent {
+				return false
+			}
+		}
 	}
 	for action, jobID := range entry.Leased {
 		if cmd, ok := entry.Commands[action]; !ok || cmd.JobID != jobID {
@@ -49,6 +61,85 @@ func validCommandIntents(entry lifecycleEntry) bool {
 		}
 	}
 	return true
+}
+
+// maxSupersededRetires bounds the durable list of spent Retire job IDs.
+// Once reached, no further Retire supersession is allowed (fail closed).
+const maxSupersededRetires = 32
+
+func jobSpent(entries map[string]lifecycleEntry, jobID string) bool {
+	for _, record := range entries {
+		for _, spent := range record.Superseded {
+			if spent == jobID {
+				return true
+			}
+		}
+		for _, old := range record.Commands {
+			if old.JobID == jobID {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// planCommandRecord is the pure admission decision for recording command.
+// same reports an exact retry of the stored intent (nothing to write). A job
+// ID that was ever recorded, including one superseded by a later Retire, can
+// never be recorded again, so two signed Retires cannot ping-pong.
+func planCommandRecord(entries map[string]lifecycleEntry, entry lifecycleEntry, command CommandV1, now time.Time) (lifecycleEntry, bool, error) {
+	superseding := false
+	if old, ok := entry.Commands[command.Action]; ok {
+		if sameCommandIntent(old, command) {
+			return entry, true, nil
+		}
+		// Per-action identity is immutable EXCEPT for resuming a Retire whose
+		// previous attempt already consumed its lease and left the operation
+		// in NEEDS_RECONCILIATION (cleanup incomplete): a NEW, separately
+		// identified signed Retire may then replace the spent intent. An
+		// unspent Retire intent, an Apply intent, or any other state stays
+		// immutable. The spent JobID is remembered durably (Superseded) and
+		// can never be recorded or leased again.
+		if !mayResumeRetire(entry, old, command) || len(entry.Superseded) >= maxSupersededRetires {
+			return entry, false, ErrBinding
+		}
+		superseding = true
+	}
+	if err := command.Validate(now); err != nil {
+		return entry, false, err
+	}
+	if jobSpent(entries, command.JobID) {
+		return entry, false, ErrBinding
+	}
+	// Copy maps: never mutate the caller's decoded state on a refusal.
+	cmds := make(map[string]CommandV1, len(entry.Commands)+1)
+	for k, v := range entry.Commands {
+		cmds[k] = v
+	}
+	leased := make(map[string]string, len(entry.Leased))
+	for k, v := range entry.Leased {
+		leased[k] = v
+	}
+	superseded := append([]string(nil), entry.Superseded...)
+	if superseding {
+		superseded = append(superseded, cmds[commandIntentRetire].JobID)
+		delete(leased, commandIntentRetire)
+	}
+	command.IssuedAt = command.IssuedAt.UTC()
+	command.ExpiresAt = command.ExpiresAt.UTC()
+	cmds[command.Action] = command
+	entry.Commands, entry.Superseded = cmds, superseded
+	if len(leased) == 0 {
+		leased = nil
+	}
+	entry.Leased = leased
+	if len(superseded) == 0 {
+		entry.Superseded = nil
+	}
+	if !validCommandIntents(entry) {
+		return entry, false, ErrBinding
+	}
+	return entry, false, nil
 }
 
 // RecordCommandIntent records data under an existing held OS guard, exact
@@ -92,44 +183,12 @@ func (g *PendingGuard) RecordCommandIntent(ctx context.Context, command CommandV
 	if *entry.Policy != observed {
 		return ErrUnverified
 	}
-	superseding := false
-	if old, ok := entry.Commands[command.Action]; ok {
-		if sameCommandIntent(old, command) {
-			return nil
-		}
-		// Per-action identity is immutable EXCEPT for resuming a Retire whose
-		// previous attempt already consumed its lease and left the operation
-		// in NEEDS_RECONCILIATION (cleanup incomplete): a NEW, separately
-		// identified signed Retire may then replace the spent intent. An
-		// unspent Retire intent, an Apply intent, or any other state stays
-		// immutable. The spent JobID can never run again: its intent is gone
-		// and the Leased fence is re-keyed to the new job.
-		if !mayResumeRetire(entry, old, command) {
-			return ErrBinding
-		}
-		superseding = true
-	}
-	if err := command.Validate(time.Now()); err != nil {
+	entry, same, err := planCommandRecord(entries, entry, command, time.Now())
+	if err != nil {
 		return err
 	}
-	for _, record := range entries {
-		for _, old := range record.Commands {
-			if old.JobID == command.JobID {
-				return ErrBinding
-			}
-		}
-	}
-	if superseding {
-		delete(entry.Leased, commandIntentRetire)
-	}
-	if entry.Commands == nil {
-		entry.Commands = make(map[string]CommandV1)
-	}
-	command.IssuedAt = command.IssuedAt.UTC()
-	command.ExpiresAt = command.ExpiresAt.UTC()
-	entry.Commands[command.Action] = command
-	if !validCommandIntents(entry) {
-		return ErrBinding
+	if same {
+		return nil
 	}
 	entries[key] = entry
 	if err := writeLifecycle(g.fd, g.root, entries); err != nil {

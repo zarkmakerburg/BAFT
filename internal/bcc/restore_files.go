@@ -68,7 +68,9 @@ func RestoreFiles(statePath, backupPath string, key []byte, now time.Time) error
 	if err := verifyAuditEntries(currentAudit); err != nil {
 		return fmt.Errorf("current audit verification failed: %w", err)
 	}
-	if !auditContainsAnchor(currentAudit, header.AuditSequence, header.AuditHash) {
+	// An empty current audit (a fresh install or a wiped host) has nothing to
+	// roll back; this matches the transactional restore and the preview.
+	if len(currentAudit) > 0 && !auditContainsAnchor(currentAudit, header.AuditSequence, header.AuditHash) {
 		return errors.New("restore refused: current audit does not extend backup anchor")
 	}
 

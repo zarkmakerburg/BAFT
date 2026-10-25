@@ -28,6 +28,7 @@ type lifecycleEntry struct {
 	Policy     *InstalledPolicyIdentityV1 `json:"installed_policy,omitempty"`
 	Commands   map[string]CommandV1       `json:"command_intents,omitempty"`
 	MintedJobs map[string]bool            `json:"minted_jobs,omitempty"`
+	Outcomes   map[string]ReceiptV1       `json:"inert_outcomes,omitempty"`
 }
 
 func readLifecycle(root *os.Root) (map[string]lifecycleEntry, error) {
@@ -78,6 +79,15 @@ func readLifecycle(root *os.Root) (map[string]lifecycleEntry, error) {
 				known = known || cmd.JobID == jobID
 			}
 			if !minted || !known {
+				return nil, ErrUnverified
+			}
+		}
+		if len(value.Outcomes) > len(value.Commands) {
+			return nil, ErrUnverified
+		}
+		for jobID, receipt := range value.Outcomes {
+			cmd, ok := value.Commands[receipt.Action]
+			if !ok || jobID != receipt.JobID || !value.MintedJobs[jobID] || receipt.ValidateForCommand(cmd) != nil {
 				return nil, ErrUnverified
 			}
 		}

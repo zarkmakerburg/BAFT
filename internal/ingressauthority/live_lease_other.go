@@ -6,6 +6,8 @@ import "context"
 
 type liveLeaseState struct{}
 
+func (*LiveLease) RecordInertOutcome(context.Context, ReceiptV1) error { return ErrUnverified }
+
 func (*LiveLease) WithLockedIngress(context.Context, CommandV1, func() error) error {
 	return ErrUnverified
 }

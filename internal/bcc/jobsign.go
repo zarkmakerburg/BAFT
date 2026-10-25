@@ -95,6 +95,19 @@ func (s *Server) signAgentJobs(jobs []Job) ([]AgentJob, error) {
 	for _, j := range jobs {
 		aj := AgentJob{Job: j}
 		if s.jobKey != nil {
+			if isOperationalIngressJob(j) || j.IngressCommand != nil {
+				command, err := operationalIngressJobCommand(j, now)
+				if err != nil {
+					return nil, err
+				}
+				env, err := agentjob.Sign(s.jobKey, command)
+				if err != nil {
+					return nil, err
+				}
+				aj.Signed = &env
+				out = append(out, aj)
+				continue
+			}
 			deadline := now.Add(jobValidity)
 			if j.Type == agentjob.ActionPublicIngressPreflight || j.Type == agentjob.ActionPublicIngressInspect || j.Type == agentjob.ActionPublicIngressPrepare || j.Type == agentjob.ActionPublicIngressCancel {
 				if j.CreatedAt.IsZero() || !now.Before(publicIngressPreflightDeadline(j)) {

@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"errors"
+	"reflect"
 	"time"
 
 	"github.com/zarkmakerburg/baft/internal/agentjob"
@@ -153,4 +154,46 @@ func (l *LiveLease) WithLockedIngress(ctx context.Context, command CommandV1, ef
 	}
 	err := effect()
 	return errors.Join(err, checkLiveLeaseLocked(l, ctx, command))
+}
+
+// RecordInertOutcome durably logs a detached receipt while the original live
+// command is held. This log is never execution authority or independent proof
+// of physical state: only the Agent's concrete executor/readback supplies its
+// evidence, and a restored record cannot mint another lease or authorize Apply.
+func (l *LiveLease) RecordInertOutcome(ctx context.Context, receipt ReceiptV1) error {
+	if l == nil || l.state == nil || l.state.guard == nil {
+		return ErrUnverified
+	}
+	g := l.state.guard
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	command := l.state.command
+	if receipt.ValidateForCommand(command) != nil || receipt.Phase == "blocked" {
+		return ErrBinding
+	}
+	if err := checkLiveLeaseLocked(l, ctx, command); err != nil {
+		return err
+	}
+	entries, err := readLifecycle(g.root)
+	if err != nil {
+		return err
+	}
+	key := reservationKey(l.binding)
+	entry := entries[key]
+	if old, ok := entry.Outcomes[command.JobID]; ok {
+		if !reflect.DeepEqual(old, receipt) {
+			return ErrBinding
+		}
+		return nil
+	}
+	if entry.Outcomes == nil {
+		entry.Outcomes = make(map[string]ReceiptV1)
+	}
+	receipt.FirewallEvidence = append([]FirewallEvidenceV1(nil), receipt.FirewallEvidence...)
+	entry.Outcomes[command.JobID] = receipt
+	entries[key] = entry
+	if err := writeLifecycle(g.fd, g.root, entries); err != nil {
+		return err
+	}
+	return checkLiveLeaseLocked(l, ctx, command)
 }

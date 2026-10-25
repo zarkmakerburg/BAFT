@@ -29,7 +29,7 @@ func validatePersistedIngressOperations(st state) error {
 			return errors.New("persisted ingress manifest mismatch")
 		}
 		if op.ReviewedPlanHash == "" {
-			if op.OperationID != "" || op.LeaseID != "" || op.Command != nil || op.Receipt != nil || op.Dispatch != nil {
+			if op.OperationID != "" || op.LeaseID != "" || op.Command != nil || op.Receipt != nil || op.Dispatch != nil || op.Retirement != nil {
 				return errors.New("legacy operation cannot contain reviewed command or receipt")
 			}
 			continue
@@ -41,7 +41,7 @@ func validatePersistedIngressOperations(st state) error {
 			return errors.New("incomplete operation identity")
 		}
 		if op.OperationID == "" {
-			if op.Command != nil || op.Receipt != nil || op.Dispatch != nil {
+			if op.Command != nil || op.Receipt != nil || op.Dispatch != nil || op.Retirement != nil {
 				return errors.New("command before operation identity")
 			}
 			continue // legacy reviewed desired-only record, never dispatched
@@ -58,7 +58,7 @@ func validatePersistedIngressOperations(st state) error {
 		}
 		leaseIDs[op.LeaseID] = id
 		if op.Command == nil {
-			if op.Receipt != nil || op.Dispatch != nil {
+			if op.Receipt != nil || op.Dispatch != nil || op.Retirement != nil {
 				return errors.New("receipt or dispatch without command")
 			}
 			continue
@@ -73,13 +73,29 @@ func validatePersistedIngressOperations(st state) error {
 		jobIDs[cmd.JobID] = id
 		if op.Dispatch != nil {
 			d := *op.Dispatch
-			if d.Phase != "held" || d.JobID != cmd.JobID || d.OperationID != op.OperationID || d.LeaseID != op.LeaseID || d.CreatedAt.IsZero() {
+			if (d.Phase != "held" && d.Phase != "queued") || d.JobID != cmd.JobID || d.OperationID != op.OperationID || d.LeaseID != op.LeaseID || d.CreatedAt.IsZero() {
 				return errors.New("persisted held dispatch differs from staged reviewed command")
 			}
 			for _, job := range st.Jobs {
 				if job.ID == d.JobID {
-					return errors.New("held ingress job collides with runnable queue")
+					if d.Phase == "held" {
+						return errors.New("held ingress job collides with runnable queue")
+					}
+					if _, err := operationalIngressJobCommand(job, cmd.IssuedAt); err != nil || job.IngressCommand == nil || *job.IngressCommand != cmd {
+						return errors.New("queued ingress job differs from durable operation")
+					}
 				}
+			}
+		}
+		if op.Dispatch != nil && op.Dispatch.Phase == "queued" {
+			job, exists := st.Jobs[cmd.JobID]
+			if !exists || job.ID != cmd.JobID {
+				return errors.New("queued ingress command has no job")
+			}
+		}
+		if op.Retirement != nil {
+			if err := validateIngressRetirement(st, op, jobIDs); err != nil {
+				return err
 			}
 		}
 		if op.Receipt != nil {
@@ -87,12 +103,46 @@ func validatePersistedIngressOperations(st state) error {
 			if r.SchemaVersion != 1 || r.JobID != cmd.JobID || r.Action != cmd.Action || r.Binding != cmd.Binding {
 				return errors.New("receipt differs from exact persisted command")
 			}
+			if op.Dispatch != nil && op.Dispatch.Phase == "queued" {
+				if err := r.ValidateForCommand(cmd); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	for key, job := range st.Jobs {
+		if !isOperationalIngressJob(job) && job.IngressCommand == nil {
+			continue
+		}
+		if key != job.ID || job.IngressCommand == nil {
+			return errors.New("invalid operational queue key or command")
+		}
+		switch job.Status {
+		case "queued", "dispatched", "succeeded", "failed":
+		default:
+			return errors.New("invalid operational queue status")
+		}
+		op, ok := st.PublicIngressOperations[job.IngressCommand.Binding.Spec.TunnelID]
+		command, dispatch, _ := ingressQueuedParts(op, job.Type == "public_ingress_retire")
+		if !ok || command == nil || *command != *job.IngressCommand || dispatch == nil || dispatch.Phase != "queued" {
+			return errors.New("orphan operational queue record")
 		}
 	}
 	return nil
 }
 
 func cloneIngressOperation(op PublicIngressOperation) PublicIngressOperation {
+	if op.Retirement != nil {
+		r := *op.Retirement
+		d := r.Dispatch
+		r.Dispatch = d
+		if r.Receipt != nil {
+			receipt := *r.Receipt
+			receipt.FirewallEvidence = append([]ingressauthority.FirewallEvidenceV1(nil), receipt.FirewallEvidence...)
+			r.Receipt = &receipt
+		}
+		op.Retirement = &r
+	}
 	if op.Command != nil {
 		cmd := *op.Command
 		op.Command = &cmd

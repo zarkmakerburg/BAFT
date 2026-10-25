@@ -270,6 +270,7 @@ func wipeSecretParams(j *Job) {
 
 // publicJob is a job without secrets, for listings.
 func publicJob(j Job) Job {
+	j = cloneIngressJob(j)
 	wipeSecretParams(&j)
 	j.Output = ""
 	return j

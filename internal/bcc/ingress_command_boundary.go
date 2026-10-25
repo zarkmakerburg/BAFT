@@ -98,7 +98,12 @@ func (s *Store) RecordIngressAgentReceipt(receipt ingressauthority.ReceiptV1, to
 	if !ok || op.Command == nil || op.Status != PublicIngressPending {
 		return errors.New("missing staged command or duplicate receipt")
 	}
-	cmd := *op.Command
+	retiring := receipt.Action == "public_ingress_retire"
+	command, dispatch, oldReceipt := ingressQueuedParts(op, retiring)
+	if command == nil {
+		return errors.New("missing expected operational command")
+	}
+	cmd := *command
 	if cmd.JobID != receipt.JobID || cmd.Action != receipt.Action || cmd.Binding != b ||
 		b.PlanSHA256 != op.ReviewedPlanHash || b.OperationID != op.OperationID || b.LeaseID != op.LeaseID ||
 		b.NodeID != op.Spec.IRNode || uint16(op.Spec.PublicPort) != b.Port ||
@@ -108,8 +113,8 @@ func (s *Store) RecordIngressAgentReceipt(receipt ingressauthority.ReceiptV1, to
 	if err := b.MatchReviewed(cmd.Binding); err != nil {
 		return err
 	}
-	if op.Receipt != nil {
-		if reflect.DeepEqual(*op.Receipt, receipt) {
+	if oldReceipt != nil {
+		if reflect.DeepEqual(*oldReceipt, receipt) {
 			return nil
 		}
 		return errors.New("conflicting ingress receipt replay")
@@ -117,12 +122,33 @@ func (s *Store) RecordIngressAgentReceipt(receipt ingressauthority.ReceiptV1, to
 	if now.IsZero() || now.Before(cmd.IssuedAt) || !now.Before(cmd.ExpiresAt) {
 		return errors.New("receipt outside command lifetime")
 	}
+	// Only a command dispatched through the typed operational queue may
+	// accept coherent positive execution evidence. This remains a node's
+	// authenticated observation, not a local mutation permit or Wizard Ready.
+	if dispatch != nil && dispatch.Phase == "queued" {
+		job, exists := s.st.Jobs[cmd.JobID]
+		if !exists || job.Status != "dispatched" || job.IngressCommand == nil || *job.IngressCommand != cmd {
+			return errors.New("operational receipt requires exact dispatched job")
+		}
+		if err := receipt.ValidateForCommand(cmd); err != nil {
+			return err
+		}
+	}
 	before, err := cloneState(s.st)
 	if err != nil {
 		return err
 	}
 	receipt.FirewallEvidence = append([]ingressauthority.FirewallEvidenceV1(nil), receipt.FirewallEvidence...)
-	op.Receipt = &receipt
+	if retiring {
+		if receipt.Phase == "retired" && (op.Receipt == nil || !reflect.DeepEqual(receipt.FirewallEvidence, op.Receipt.FirewallEvidence)) {
+			return errors.New("retirement changed original firewall identity")
+		}
+		retired := *op.Retirement
+		retired.Receipt = &receipt
+		op.Retirement = &retired
+	} else {
+		op.Receipt = &receipt
+	}
 	// Even Phase=applied does not change the PENDING state.
 	s.st.PublicIngressOperations[b.Spec.TunnelID] = op
 	if err := s.saveLocked(); err != nil {

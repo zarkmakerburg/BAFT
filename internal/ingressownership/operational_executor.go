@@ -225,7 +225,10 @@ type RetiredIngressEvidence struct {
 	Port          uint16
 	Owner         ingressmanifest.Proof
 	NFTRuleHandle uint64
-	Phase         MutationPhase
+	// Firewall identifies the exact historical rule whose absence was just
+	// verified, not a claim that a removed rule remains installed.
+	Firewall ingressauthority.FirewallEvidenceV1
+	Phase    MutationPhase
 }
 
 func (x *OperationalExecutor) Retire(ctx context.Context, cmd ingressauthority.CommandV1, lease *ingressauthority.Lease) (RetiredIngressEvidence, error) {
@@ -273,7 +276,14 @@ func (x *OperationalExecutor) Retire(ctx context.Context, cmd ingressauthority.C
 	if err := CheckIngressExecutorAuthority(ctx, lease, cmd); err != nil {
 		return RetiredIngressEvidence{}, errors.Join(ErrUnverified, retireErr, err)
 	}
-	return RetiredIngressEvidence{Port: plan.Port, Owner: plan.Owner, NFTRuleHandle: before.FirewallHandle, Phase: after.Phase}, retireErr
+	return RetiredIngressEvidence{
+		Port: plan.Port, Owner: plan.Owner, NFTRuleHandle: before.FirewallHandle, Phase: after.Phase,
+		Firewall: ingressauthority.FirewallEvidenceV1{
+			Family: "inet", Table: "baft", Chain: "ingress",
+			ChainHandle: x.transaction.Firewall.ExpectedChainHandle,
+			RuleHandle:  before.FirewallHandle, OwnerTag: plan.Tag,
+		},
+	}, retireErr
 }
 
 // inspectExactOwned provides an independent owner-inode and nft handle readback,

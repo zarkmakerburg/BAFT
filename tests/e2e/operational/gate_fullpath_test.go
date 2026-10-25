@@ -4,6 +4,7 @@ package operational
 
 import (
 	"bytes"
+	"github.com/zarkmakerburg/baft/internal/agent"
 	"net"
 	"strconv"
 	"testing"
@@ -35,6 +36,8 @@ type fullPath struct {
 	b   *bccRig
 	a   *agentRig
 	tap *tap
+	// parked holds Agent results of other sites' Applies that one poll returned.
+	parked map[string]agent.Result
 }
 
 func setupFullPath(t *testing.T, clientPort int, route string) *fullPath {
@@ -102,9 +105,27 @@ func (s *site) apply(t *testing.T) {
 	if err := f.b.store.EnqueueOperationalIngress(s.tn.ID); err != nil {
 		t.Fatalf("enqueue with an enrolled, capable, fresh Agent: %v", err)
 	}
-	res := f.a.runOnce()
-	if len(res) != 1 || res[0].Status != "succeeded" || res[0].Action != agentjob.ActionPublicIngressApply {
-		t.Fatalf("Agent apply result: %+v", res)
+	// BCC queues every held Apply of the node as soon as the gate opens, so
+	// one poll can return several sites' results. Each site asserts its OWN
+	// result exactly; others are parked for their owners.
+	var mine []agent.Result
+	if r, ok := f.parked[s.cmd.JobID]; ok {
+		delete(f.parked, s.cmd.JobID)
+		mine = []agent.Result{r}
+	} else {
+		for _, r := range f.a.runOnce() {
+			if r.JobID == s.cmd.JobID {
+				mine = append(mine, r)
+			} else {
+				if f.parked == nil {
+					f.parked = map[string]agent.Result{}
+				}
+				f.parked[r.JobID] = r
+			}
+		}
+	}
+	if len(mine) != 1 || mine[0].Status != "succeeded" || mine[0].Action != agentjob.ActionPublicIngressApply {
+		t.Fatalf("Agent apply result: %+v", mine)
 	}
 }
 

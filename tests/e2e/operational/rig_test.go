@@ -350,6 +350,7 @@ type agentRig struct {
 	token  string
 	node   string
 	gate   bool // the Agent has polled with its capability at least once
+	gateAt time.Time
 }
 
 type agentOpt struct {
@@ -436,10 +437,17 @@ func (r *agentRig) runOnce() []agent.Result {
 // operational-ingress-v1 capability (the production enqueue gate).
 func (r *agentRig) openGate() {
 	r.t.Helper()
+	// BCC retries held applies on every capable poll, so once the capability
+	// is recorded (and fresh: the gate window is 2 minutes) another poll would
+	// only run whatever BCC already queued, ahead of the test's own steps.
+	if r.gate && time.Since(r.gateAt) < time.Minute {
+		return
+	}
 	r.gate = true
 	if jobs := r.runOnce(); len(jobs) != 0 {
 		r.t.Fatalf("unexpected jobs while opening the gate: %+v", jobs)
 	}
+	r.gateAt = time.Now()
 }
 
 // release/signing helper for forged jobs.

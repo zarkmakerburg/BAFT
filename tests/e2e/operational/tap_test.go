@@ -74,7 +74,19 @@ func newTap(t *testing.T, b *bccRig) *tap {
 	tp.srv = b.pki.server(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tp.mu.Lock()
 		tp.auth = append(tp.auth, r.Header.Get("Authorization"))
+		hook := tp.hook
 		tp.mu.Unlock()
+		if hook != nil && r.URL.Path == "/api/agent/jobs" {
+			// A forged poll answer is served by the attacker, never relayed
+			// through BCC: relaying would make BCC claim the honest queued job
+			// (production BCC queues it as soon as the gate opens) and the
+			// hook would then discard it.
+			out := hook(nil)
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Content-Length", strconv.Itoa(len(out)))
+			_, _ = w.Write(out)
+			return
+		}
 		p.ServeHTTP(w, r)
 	}))
 	return tp

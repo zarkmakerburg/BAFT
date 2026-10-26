@@ -10,12 +10,12 @@ const start=js.indexOf('async function tnAutoSelect()');
 assert.ok(start>=0,'tnAutoSelect missing');
 const body=js.slice(start,js.indexOf('\n',start));
 
-function run(fields,response){
+function run(fields,response,responses){
  const calls=[];let cleared=0;
  const c={
   q:sel=>{const k=sel.slice(1);return{get value(){return fields[k]},set value(v){fields[k]=v},get textContent(){return fields[k]},set textContent(v){fields[k]=v}}},
   tnWizardText:en=>en,ah:()=>({}),tnClearPlan:()=>{cleared++},
-  fetch:async(url,opts)=>{calls.push({url,body:JSON.parse(opts.body),method:opts.method});return{ok:response.ok!==false,status:response.status||200,json:async()=>response.json,text:async()=>response.text||''}},
+  fetch:async(url,opts)=>{calls.push({url,body:JSON.parse(opts.body),method:opts.method});const res=responses?responses[calls.length-1]:response;return{ok:res.ok!==false,status:res.status||200,json:async()=>res.json,text:async()=>res.text||''}},
  };
  vm.createContext(c);vm.runInContext(body,c);
  return vm.runInContext('tnAutoSelect()',c).then(()=>({calls,cleared}));
@@ -46,4 +46,11 @@ test('nothing is requested before both servers are chosen',async()=>{
  const r=await run(f,{json:{}});
  assert.equal(r.calls.length,0);
  assert.equal(f.tnPort,'8443');
+});
+
+test('IPv6 evidence is tried when IPv4 has no candidate',async()=>{
+ const f={tnEx:'ex-1',tnIr:'ir-1',tnPort:'8443',tnAutoSelectNote:''};
+ const r=await run(f,null,[{json:{reason:'no path evidence'}},{json:{selected:{port:2053,carrier_id:'h2',connect_rtt_ms:9}}}]);
+ assert.deepEqual(r.calls.map(c=>c.body.family),['4','6']);
+ assert.equal(String(f.tnPort),'2053');
 });

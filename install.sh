@@ -2455,7 +2455,13 @@ build_from_source() {
     log "trying configured mirror"
     git clone --filter=blob:none --no-checkout "$BAFT_MIRROR_URL" "$SRC.tmp"
   fi
-  git -C "$SRC.tmp" checkout --detach "$BAFT_REF"
+  # A fresh clone has only the default branch locally, so a branch name like
+  # feature/x resolves through origin/; tags and commit IDs resolve directly.
+  local rev
+  rev="$(git -C "$SRC.tmp" rev-parse --verify --quiet "$BAFT_REF^{commit}" ||
+    git -C "$SRC.tmp" rev-parse --verify --quiet "origin/$BAFT_REF^{commit}")" ||
+    die "BAFT_REF $BAFT_REF is not a branch, tag or commit of the repository"
+  git -C "$SRC.tmp" checkout --detach "$rev"
   mv "$SRC.tmp" "$SRC"
 
   (

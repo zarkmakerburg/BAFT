@@ -31,9 +31,13 @@ fi
 BAFT="$BIN_DIR/baft"; PAIR="$BIN_DIR/baft-pair"
 umask 077
 
-free_port() { python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1])'; }
-EX_PORT=$(free_port); T1=$(free_port); T2=$(free_port)
-IR1_PORT=$(free_port); IR2_PORT=$(free_port); EX_M=$(free_port); IR1_M=$(free_port); IR2_M=$(free_port)
+# Bind every port at once so one run never hands the same port out twice
+# (sequential bind/close lets the kernel reuse a port it just freed).
+free_ports() { python3 -c 'import socket,sys
+ss=[socket.socket() for _ in range(int(sys.argv[1]))]
+for s in ss: s.bind(("127.0.0.1",0))
+print(" ".join(str(s.getsockname()[1]) for s in ss))' "$1"; }
+read -r EX_PORT T1 T2 IR1_PORT IR2_PORT EX_M IR1_M IR2_M <<<"$(free_ports 8)"
 EX="$WORK/ex"; IR1="$WORK/ir1"; IR2="$WORK/ir2"; mkdir -p "$EX" "$IR1/state" "$IR2/state"
 
 wait_port() {

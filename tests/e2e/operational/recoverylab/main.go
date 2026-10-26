@@ -142,7 +142,9 @@ func (l *labCtx) hit(point string) {
 		return
 	}
 	_ = os.WriteFile(filepath.Join(l.dir, "at-"+point), []byte("x"), 0o600)
-	select {}
+	for {
+		time.Sleep(time.Hour)
+	}
 }
 
 type faultRunner struct {

@@ -384,6 +384,7 @@ func (e *Env) classifyAgent(u *Unit, raw string) {
 
 type bccPaths struct {
 	StateFile, AccessFile, JobKeyFile, BackupDir string
+	BackupKeyFile, UpdateRootFile                string   // empty when the unit does not name them
 	BootstrapScript, BootstrapSHA256             string   // installer-managed only when the unit marker and digest agree
 	Operator                                     []string // operator-provided files it names
 }
@@ -455,6 +456,8 @@ func parseBCC(raw string) *bccPaths {
 		b.JobKeyFile = b.StateFile + ".job-key"
 	}
 	b.BackupDir = abs(val["backup-dir"])
+	b.BackupKeyFile = abs(val["backup-key-file"])
+	b.UpdateRootFile = abs(val["update-root-pub"])
 	if b.BackupDir == "" {
 		b.BackupDir = abs("./backups")
 	}
@@ -946,6 +949,13 @@ func (e *Env) scanBCC(inv *Inventory, b *bccPaths, u *Unit) {
 	add(b.StateFile+".json.bak", ClassBCCState, isJSONHead, "the JSON state kept when BCC moved to SQLite")
 	add(b.AccessFile, ClassBCCState, isJSONHead, "the BCC web access file (credential hashes)")
 	add(b.JobKeyFile, ClassBCCState, nil, "the BCC job-signing key (agents pin its public key)")
+	if b.BackupKeyFile != "" {
+		// Kept and removed with the backups: without it they cannot be read.
+		add(b.BackupKeyFile, ClassBackups, nil, "the key of the encrypted BCC backups")
+	}
+	if b.UpdateRootFile != "" {
+		add(b.UpdateRootFile, ClassBCCState, nil, "the release root key pinned for Update Center imports")
+	}
 	add(b.StateFile+".lock", ClassRuntime, nil, "the BCC process lock")
 	add(b.StateFile+".audit.jsonl", ClassAudit, isJSONHead, "the BCC audit log (hash chain)")
 	add(b.StateFile+".audit-anchor-outbox.json", ClassAudit, isJSONHead, "the BCC audit anchor outbox")

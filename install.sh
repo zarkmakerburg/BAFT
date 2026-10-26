@@ -92,6 +92,10 @@ BAFT_BCC_ADMIN_TOKEN_FILE="${BAFT_BCC_ADMIN_TOKEN_FILE:-$BAFT_BCC_CONFIG_DIR/adm
 BAFT_BCC_ACCESS_FILE="${BAFT_BCC_ACCESS_FILE:-$BAFT_BCC_CONFIG_DIR/access.json}"
 BAFT_BCC_JOB_KEY_FILE="${BAFT_BCC_JOB_KEY_FILE:-$BAFT_BCC_CONFIG_DIR/job-key}"
 BAFT_BCC_BACKUP_DIR="${BAFT_BCC_BACKUP_DIR:-$BAFT_BCC_STATE_DIR/backups}"
+# Base64 32-byte key for the scheduled encrypted backups; created once, never rotated.
+BAFT_BCC_BACKUP_KEY_FILE="${BAFT_BCC_BACKUP_KEY_FILE:-$BAFT_BCC_CONFIG_DIR/backup-key}"
+# Release root public key that Update Center imports are verified against.
+BAFT_BCC_UPDATE_ROOT_FILE="${BAFT_BCC_UPDATE_ROOT_FILE:-$BAFT_BCC_CONFIG_DIR/release-root.pub}"
 BAFT_BCC_SERVICE="${BAFT_BCC_SERVICE:-baft-bcc}"
 BAFT_BCC_UNIT_FILE="$BAFT_SYSTEMD_DIR/$BAFT_BCC_SERVICE.service"
 BCC_LISTEN_EXPLICIT=0
@@ -498,7 +502,8 @@ Environment:
   BAFT_TUNE_NETWORK (1 turns on BBR and network tuning, 0 never asks)
   BAFT_BCC_BIN BAFT_BCC_CONFIG_DIR BAFT_BCC_STATE_DIR BAFT_BCC_STATE_FILE
   BAFT_BCC_ADMIN_TOKEN_FILE BAFT_BCC_ACCESS_FILE BAFT_BCC_JOB_KEY_FILE
-  BAFT_BCC_BACKUP_DIR BAFT_BCC_SERVICE BAFT_BCC_LISTEN BAFT_BCC_PUBLIC_URL
+  BAFT_BCC_BACKUP_DIR BAFT_BCC_BACKUP_KEY_FILE BAFT_BCC_UPDATE_ROOT_FILE
+  BAFT_BCC_SERVICE BAFT_BCC_LISTEN BAFT_BCC_PUBLIC_URL
   BAFT_BCC_BOOTSTRAP_SCRIPT
   BAFT_BCC_TLS_CERT BAFT_BCC_TLS_KEY BAFT_BCC_ALLOW_INSECURE_HTTP
   BAFT_SHAPE_DISTRIBUTION BAFT_SHAPE_MEAN BAFT_SHAPE_STDDEV
@@ -655,6 +660,7 @@ F_KEY=0; F_KEY_OK=0; F_PKI=0; F_PENDING=0; F_USER=0; F_ACTIVE=0; F_ENABLED=0; F_
 F_AGENT_UNIT=0; F_AGENT_ACTIVE=0; F_AGENT_ENABLED=0; F_TOKEN=0; F_JOBKEY=0
 F_BCC_BIN=0; F_BCC_UNIT=0; F_BCC_UNIT_MANAGED=0; F_BCC_ACTIVE=0; F_BCC_ENABLED=0
 F_BCC_ADMIN=0; F_BCC_ACCESS=0; F_BCC_JOBKEY=0; F_BCC_STATE=0; F_BCC_DIRS=0
+F_BCC_BACKUPKEY=0; F_BCC_ROOTPIN=0
 F_BCC_BOOTSTRAP=0; F_BCC_BOOTSTRAP_OK=0; F_BCC_BOOTSTRAP_ENABLED=0
 
 INSPECTED=0; CFG_INVALID_WHY=""
@@ -695,6 +701,8 @@ inspect_install() {
   [[ -s "$BAFT_BCC_ADMIN_TOKEN_FILE" ]] && F_BCC_ADMIN=1
   [[ -s "$BAFT_BCC_ACCESS_FILE" ]] && F_BCC_ACCESS=1
   [[ -s "$BAFT_BCC_JOB_KEY_FILE" ]] && F_BCC_JOBKEY=1
+  [[ -s "$BAFT_BCC_BACKUP_KEY_FILE" ]] && F_BCC_BACKUPKEY=1
+  [[ -n "$BAFT_ROOT_PUB" && "$(cat "$BAFT_BCC_UPDATE_ROOT_FILE" 2>/dev/null)" == "$BAFT_ROOT_PUB" ]] && F_BCC_ROOTPIN=1
   [[ -f "$BAFT_BCC_STATE_FILE" ]] && F_BCC_STATE=1
   [[ -f "$BAFT_BCC_BOOTSTRAP_SCRIPT" ]] && F_BCC_BOOTSTRAP=1
   if [[ "$F_BCC_BOOTSTRAP" == 1 && "$(stat -c '%a %U' "$BAFT_BCC_BOOTSTRAP_SCRIPT" 2>/dev/null)" == "700 root" ]]; then
@@ -795,7 +803,7 @@ plan_relstate() {
 }
 DO_UNIT=0; DO_PKI=0; DO_KEYGEN=0; DO_PAIRING=0; DO_RESTART=0; DO_START=0; DO_ENABLE=0; DO_FIXPERM=0
 DO_AGENT_UNIT=0; DO_AGENT_ENABLE=0; DO_TOKEN=0; DO_JOBKEY=0; DO_ROOTPIN=0
-DO_BCC_UNIT=0; DO_BCC_ENABLE=0; DO_BCC_ADMIN=0; DO_BCC_ACCESS=0; DO_BCC_JOBKEY=0; DO_BCC_BOOTSTRAP=0
+DO_BCC_UNIT=0; DO_BCC_ENABLE=0; DO_BCC_ADMIN=0; DO_BCC_ACCESS=0; DO_BCC_JOBKEY=0; DO_BCC_BOOTSTRAP=0; DO_BCC_BACKUPKEY=0; DO_BCC_ROOTPIN=0
 REFUSED=""
 
 build_role_plan() {
@@ -900,6 +908,14 @@ build_bcc_plan() {
 
   if [[ "$F_BCC_JOBKEY" == 0 ]]; then plan_add "BCC job key" create "$BAFT_BCC_JOB_KEY_FILE (owner-only)"; DO_BCC_JOBKEY=1
   else plan_add "BCC job key" keep "exists; rerun never rotates it"; fi
+
+  if [[ "$F_BCC_BACKUPKEY" == 0 ]]; then plan_add "BCC backup key" create "$BAFT_BCC_BACKUP_KEY_FILE (root-only; enables scheduled encrypted backups)"; DO_BCC_BACKUPKEY=1
+  else plan_add "BCC backup key" keep "exists; rerun never rotates it"; fi
+
+  if [[ -z "$BAFT_ROOT_PUB" ]]; then plan_add "BCC update root pin" skip "no release root key: Update Center imports stay disabled"
+  elif [[ "$F_BCC_ROOTPIN" == 1 ]]; then plan_add "BCC update root pin" keep "same as installed"
+  elif [[ -f "$BAFT_BCC_UPDATE_ROOT_FILE" ]]; then plan_add "BCC update root pin" replace "a DIFFERENT release root key was given"; DO_BCC_ROOTPIN=1
+  else plan_add "BCC update root pin" create "$BAFT_BCC_UPDATE_ROOT_FILE (enables Update Center imports)"; DO_BCC_ROOTPIN=1; fi
 
   if [[ "$STAGED" == 1 ]]; then
     if same_file "$STAGE_BCC_BOOTSTRAP" "$BAFT_BCC_BOOTSTRAP_SCRIPT" && [[ "$F_BCC_BOOTSTRAP_OK" == 1 ]]; then
@@ -1745,7 +1761,7 @@ PY
       die "--bcc-public-url must be https://host[:port] (http only with --bcc-allow-insecure-http)"
   fi
   local v
-  for v in "$BAFT_BCC_BIN" "$BAFT_BCC_CONFIG_DIR" "$BAFT_BCC_STATE_DIR" "$BAFT_BCC_STATE_FILE"     "$BAFT_BCC_ADMIN_TOKEN_FILE" "$BAFT_BCC_ACCESS_FILE" "$BAFT_BCC_JOB_KEY_FILE" "$BAFT_BCC_BACKUP_DIR" "$BAFT_BCC_UNIT_FILE" "$BAFT_BCC_BOOTSTRAP_SCRIPT"; do
+  for v in "$BAFT_BCC_BIN" "$BAFT_BCC_CONFIG_DIR" "$BAFT_BCC_STATE_DIR" "$BAFT_BCC_STATE_FILE"     "$BAFT_BCC_ADMIN_TOKEN_FILE" "$BAFT_BCC_ACCESS_FILE" "$BAFT_BCC_JOB_KEY_FILE" "$BAFT_BCC_BACKUP_DIR" "$BAFT_BCC_BACKUP_KEY_FILE" "$BAFT_BCC_UPDATE_ROOT_FILE" "$BAFT_BCC_UNIT_FILE" "$BAFT_BCC_BOOTSTRAP_SCRIPT"; do
     [[ "$v" != *[[:space:]]* ]] || die "BCC install paths must not contain whitespace"
   done
 }
@@ -2131,6 +2147,9 @@ render_bcc_unit() {
   local tls_args="" insecure="" caps="" allow_line="" bootstrap_args="" bootstrap_hash="absent" bootstrap_src="" port host
   local bootstrap_path="${BAFT_BCC_BOOTSTRAP_SCRIPT:-}" public_url="${BAFT_BCC_PUBLIC_URL:-}"
   port="${BAFT_BCC_LISTEN##*:}"
+  local backup_key="" update_root=""
+  if [[ -n "${BAFT_BCC_BACKUP_KEY_FILE:-}" ]]; then backup_key=" --backup-key-file $BAFT_BCC_BACKUP_KEY_FILE"; fi
+  if [[ -n "${BAFT_ROOT_PUB:-}" && -n "${BAFT_BCC_UPDATE_ROOT_FILE:-}" ]]; then update_root=" --update-root-pub $BAFT_BCC_UPDATE_ROOT_FILE"; fi
   if [[ "$BAFT_BCC_LISTEN" == \[*\]:* ]]; then
     host="${BAFT_BCC_LISTEN#\[}"
     host="${host%%\]:*}"
@@ -2170,7 +2189,7 @@ StartLimitIntervalSec=0
 [Service]
 Type=simple
 $allow_line
-ExecStart=$BAFT_BCC_BIN --listen $BAFT_BCC_LISTEN --state-file $BAFT_BCC_STATE_FILE --admin-token-file $BAFT_BCC_ADMIN_TOKEN_FILE --access-file $BAFT_BCC_ACCESS_FILE --job-key-file $BAFT_BCC_JOB_KEY_FILE --backup-dir $BAFT_BCC_BACKUP_DIR$tls_args$bootstrap_args$insecure
+ExecStart=$BAFT_BCC_BIN --listen $BAFT_BCC_LISTEN --state-file $BAFT_BCC_STATE_FILE --admin-token-file $BAFT_BCC_ADMIN_TOKEN_FILE --access-file $BAFT_BCC_ACCESS_FILE --job-key-file $BAFT_BCC_JOB_KEY_FILE --backup-dir $BAFT_BCC_BACKUP_DIR$backup_key$update_root$tls_args$bootstrap_args$insecure
 Restart=on-failure
 RestartSec=5s
 $caps
@@ -2308,7 +2327,7 @@ reset_plan() {
   PLAN_ITEM=(); PLAN_ACT=(); PLAN_DETAIL=(); PLAN_CHANGES=0; REFUSED=""
   DO_BIN=0; DO_UNIT=0; DO_PKI=0; DO_KEYGEN=0; DO_PAIRING=0; DO_RESTART=0; DO_START=0; DO_ENABLE=0
   DO_FIXPERM=0; DO_AGENT_UNIT=0; DO_AGENT_ENABLE=0; DO_TOKEN=0; DO_JOBKEY=0; DO_ROOTPIN=0; DO_RELSTATE=0
-  DO_BCC_UNIT=0; DO_BCC_ENABLE=0; DO_BCC_ADMIN=0; DO_BCC_ACCESS=0; DO_BCC_JOBKEY=0; DO_BCC_BOOTSTRAP=0
+  DO_BCC_UNIT=0; DO_BCC_ENABLE=0; DO_BCC_ADMIN=0; DO_BCC_ACCESS=0; DO_BCC_JOBKEY=0; DO_BCC_BOOTSTRAP=0; DO_BCC_BACKUPKEY=0; DO_BCC_ROOTPIN=0
 }
 
 # Prerequisites (apt packages, the Go toolchain for --from-source) are the only
@@ -3389,7 +3408,23 @@ install_bcc() {
       die "verify: BCC job-signing key is invalid"
   fi
 
-  for f in "$BAFT_BCC_ADMIN_TOKEN_FILE" "$BAFT_BCC_ACCESS_FILE" "$BAFT_BCC_JOB_KEY_FILE"; do
+  if [[ "$DO_BCC_BACKUPKEY" == "1" ]]; then
+    backup_file "$BAFT_BCC_BACKUP_KEY_FILE"
+    tmp="$(mktemp)"; CLEANUP+=("$tmp")
+    openssl rand -base64 32 >"$tmp"
+    install -m 0600 -o root -g root "$tmp" "$BAFT_BCC_BACKUP_KEY_FILE"
+  fi
+  [[ "$(base64 -d "$BAFT_BCC_BACKUP_KEY_FILE" 2>/dev/null | wc -c)" == 32 ]] ||
+    die "verify: $BAFT_BCC_BACKUP_KEY_FILE must hold a base64-encoded 32-byte key"
+
+  if [[ "$DO_BCC_ROOTPIN" == "1" ]]; then
+    backup_file "$BAFT_BCC_UPDATE_ROOT_FILE"
+    tmp="$(mktemp)"; CLEANUP+=("$tmp")
+    printf '%s\n' "$BAFT_ROOT_PUB" >"$tmp"
+    install -m 0644 -o root -g root "$tmp" "$BAFT_BCC_UPDATE_ROOT_FILE"
+  fi
+
+  for f in "$BAFT_BCC_ADMIN_TOKEN_FILE" "$BAFT_BCC_ACCESS_FILE" "$BAFT_BCC_JOB_KEY_FILE" "$BAFT_BCC_BACKUP_KEY_FILE"; do
     [[ "$(stat -c '%a %U' "$f" 2>/dev/null)" == "600 root" ]] ||
       die "verify: $f must be root-owned mode 0600"
   done

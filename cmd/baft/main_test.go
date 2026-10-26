@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
+
+	"github.com/zarkmakerburg/baft/internal/protocol"
 )
 
 func TestVersionJSON(t *testing.T) {
@@ -19,6 +22,9 @@ func TestVersionJSON(t *testing.T) {
 	}
 	if v.Name != "baft" || v.Version != version {
 		t.Fatalf("unexpected version: %#v", v)
+	}
+	if !slices.Equal(v.Capabilities, protocol.KnownCapabilities()) {
+		t.Fatalf("capabilities=%v want %v", v.Capabilities, protocol.KnownCapabilities())
 	}
 }
 

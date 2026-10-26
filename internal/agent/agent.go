@@ -88,6 +88,11 @@ type Agent struct {
 	// policyProvisioned reports whether this host has a loadable trusted
 	// managed-node policy; nil uses the real installed-policy loader.
 	policyProvisioned func(ctx context.Context, nodeID string) error
+	// capsMu guards the cached transport capabilities of the installed baft
+	// binary, keyed by its size and modification time.
+	capsMu           sync.Mutex
+	transportCapsKey string
+	transportCaps    []string
 }
 
 type pendingAck struct {

@@ -14,6 +14,7 @@ import (
 
 	"github.com/zarkmakerburg/baft/internal/config"
 	"github.com/zarkmakerburg/baft/internal/node"
+	"github.com/zarkmakerburg/baft/internal/protocol"
 )
 
 var version = "0.2.0-pro-rc1"
@@ -21,6 +22,11 @@ var version = "0.2.0-pro-rc1"
 type versionInfo struct {
 	Name    string `json:"name"`
 	Version string `json:"version"`
+	// Capabilities is the transport capability set this binary implements
+	// (protocol capability set v1). It is what the binary can do, not what a
+	// node's configuration enables; the agent reports it so BCC never
+	// selects a carrier the installed binary lacks.
+	Capabilities []string `json:"capabilities"`
 }
 
 func main() {
@@ -93,7 +99,7 @@ func runContext(ctx context.Context, args []string, stdout, stderr io.Writer) in
 
 func runVersion(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 1 && args[0] == "--json" {
-		_ = json.NewEncoder(stdout).Encode(versionInfo{Name: "baft", Version: version})
+		_ = json.NewEncoder(stdout).Encode(versionInfo{Name: "baft", Version: version, Capabilities: protocol.KnownCapabilities()})
 		return 0
 	}
 	if len(args) == 0 {

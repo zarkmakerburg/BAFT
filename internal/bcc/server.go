@@ -254,6 +254,7 @@ func (s *Server) Handler() http.Handler {
 	m.HandleFunc("/api/change-ledger", s.changeLedgerAPI)
 	m.HandleFunc("/api/tunnels/cancel", s.tunnelCancel)
 	m.HandleFunc("/api/tunnels/plan", s.tunnelPlan)
+	m.HandleFunc("/api/tunnels/auto-select", s.tunnelAutoSelect)
 	m.HandleFunc("/api/tunnels/decommission/plan", s.tunnelDecommissionPlan)
 	m.HandleFunc("/api/tunnels/decommission", s.tunnelDecommission)
 	m.HandleFunc("/api/tunnels/drift", s.tunnelDrift)

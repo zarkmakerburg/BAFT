@@ -4,6 +4,13 @@
 
 Status: implementation contract for `hq/auto-select`; design only until API/UI integration is reviewed. Base: `claude/v040-integration@28d5cd187542f269953acaa4f633d34b9890c978`. This document does not claim carrier support or censorship resistance beyond verified capability and path evidence.
 
+Implementation status (2026-10-26):
+
+- `internal/bcc/auto_select.go`: the fail-closed selector (`SelectAutoTransport`).
+- `baft version --json` lists the transport capabilities the binary implements. The agent reads that list from the **installed** `baft` and sends it on its authenticated poll as `carrier-h2`, `carrier-ws`, `noise-v1` and `shape-v1`, cached until the binary changes.
+- `POST /api/tunnels/auto-select` (admin, read-only, no job or host change) builds candidates from the IR -> EX path-matrix cell, capability reports no older than 2 minutes from both agents, and EX ports held by tunnel records, then returns `selected`, `rejected` and `reason`. WebSocket is never selected without `noise.v1` on both nodes.
+- Not done yet: the Wizard does not call the endpoint; the selection is not bound into the reviewed plan hash; uTLS support and multiplex-shared listeners are never reported, so they are always refused.
+
 ## Goals and invariants
 
 - Recommend a viable route using fresh `internal/bcc` path-probe / path-matrix evidence and installed-node capability reports; never infer availability from a port number, a stale probe, a UI default, or a successful TCP connect alone.

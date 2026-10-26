@@ -11,24 +11,24 @@ import (
 // port ownership. It is a planning input only; selection never reserves or
 // mutates a host resource.
 type AutoTransportCandidate struct {
-	SourceNode                 string
-	DestinationNode            string
-	Family                     string
-	Port                       int
-	Class                      string
-	State                      string
-	EvidenceAt                 time.Time
-	ConnectRTTMS               int64
-	TricklePassed              bool
-	CarrierID                  string
-	InstalledAtSource          bool
-	InstalledAtDestination     bool
-	CapabilityEvidenceVerified bool
-	NegotiatedCapabilities     []string
-	ListenerAvailable          bool
-	SharedListener             bool
-	MultiplexVerified          bool
-	UTLSSupported              bool
+	SourceNode                 string    `json:"source_node"`
+	DestinationNode            string    `json:"destination_node"`
+	Family                     string    `json:"family"`
+	Port                       int       `json:"port"`
+	Class                      string    `json:"class"`
+	State                      string    `json:"state"`
+	EvidenceAt                 time.Time `json:"evidence_at"`
+	ConnectRTTMS               int64     `json:"connect_rtt_ms"`
+	TricklePassed              bool      `json:"trickle_passed"`
+	CarrierID                  string    `json:"carrier_id"`
+	InstalledAtSource          bool      `json:"installed_at_source"`
+	InstalledAtDestination     bool      `json:"installed_at_destination"`
+	CapabilityEvidenceVerified bool      `json:"capability_evidence_verified"`
+	NegotiatedCapabilities     []string  `json:"negotiated_capabilities,omitempty"`
+	ListenerAvailable          bool      `json:"listener_available"`
+	SharedListener             bool      `json:"shared_listener"`
+	MultiplexVerified          bool      `json:"multiplex_verified"`
+	UTLSSupported              bool      `json:"utls_supported"`
 }
 
 type AutoTransportRequest struct {
@@ -43,16 +43,16 @@ type AutoTransportRequest struct {
 }
 
 type AutoTransportRejection struct {
-	CarrierID string
-	Family    string
-	Port      int
-	Reason    string
+	CarrierID string `json:"carrier_id"`
+	Family    string `json:"family"`
+	Port      int    `json:"port"`
+	Reason    string `json:"reason"`
 }
 
 type AutoTransportSelection struct {
-	Selected *AutoTransportCandidate
-	Rejected []AutoTransportRejection
-	Reason   string
+	Selected *AutoTransportCandidate  `json:"selected,omitempty"`
+	Rejected []AutoTransportRejection `json:"rejected,omitempty"`
+	Reason   string                   `json:"reason"`
 }
 
 func hasCapability(values []string, want string) bool {

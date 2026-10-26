@@ -302,8 +302,16 @@ func TestJobsFromAnUnpinnedKeyAreRefused(t *testing.T) {
 	if res.Status != "refused" || !strings.Contains(res.Detail, "job signature") {
 		t.Fatalf("result %+v", res)
 	}
-	if r.bin("baft") != "old baft" || len(r.sys.calls) != 0 {
-		t.Fatalf("refused job touched the host: %v", r.sys.calls)
+	// The poll's read-only capability probe of the installed binary is not a
+	// host change; anything else the refused job caused would be.
+	var touched []string
+	for _, c := range r.sys.calls {
+		if c != "baft version --json" {
+			touched = append(touched, c)
+		}
+	}
+	if r.bin("baft") != "old baft" || len(touched) != 0 {
+		t.Fatalf("refused job touched the host: %v", touched)
 	}
 }
 

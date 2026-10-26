@@ -1,6 +1,6 @@
 # BAFT Adversarial Resilience & Intrusion Report
 
-**Verdict: ✅ PASS** · generated 2026-10-25 08:44 UTC · commit `94c55dccf5af` · profile `bounded`
+**Verdict: ✅ PASS** · generated 2026-10-26 09:22 UTC · commit `94c55dccf5af` · profile `bounded`
 
 This report is produced automatically by the periodic resilience tester (`tests/adversary/`). It launches a real BAFT EX/IR pair on loopback and, acting as a censor / DoS attacker and as an on-path intruder, tries to break or penetrate it with real traffic. All scenarios are loopback only and never target any third-party host.
 
@@ -8,18 +8,18 @@ This report is produced automatically by the periodic resilience tester (`tests/
 
 | scenario | result | heal | EX rss MB | IR rss MB | EX fd | IR fd | note |
 |---|---|---|---|---|---|---|---|
-| connflood | ✅ | ok | 21 | 22 | 14 | 14 | — |
+| connflood | ✅ | ok | 22 | 22 | 14 | 14 | — |
 | garbage | ✅ | ok | 22 | 23 | 14 | 14 | — |
-| slowloris | ✅ | ok | 22 | 23 | 14 | 14 | — |
-| probe | ✅ | ok | 24 | 24 | 14 | 14 | — |
-| manyflows | ✅ | ok | 47 | 45 | 192 | 192 | — |
+| slowloris | ✅ | ok | 23 | 22 | 14 | 14 | — |
+| probe | ✅ | ok | 20 | 23 | 14 | 14 | — |
+| manyflows | ✅ | ok | 49 | 44 | 202 | 202 | — |
 
 ## 2. Intrusion / penetration attempts
 
 | intrusion | boundary held | detail |
 |---|---|---|
 | pairing_replay | ✅ | replayed one-time pairing reply rejected |
-| rogue_key | ✅ | rogue carrier rejected; legit traffic intact: node stopped: open shard 0: h2: OpenNoise failed phase=h2_first_response_byte elapsed=2ms trace=connection_acquire@0ms,tcp_connect_start@0ms,tcp_connect_complete@0ms,tls_handshake_start@0ms,noise_ik_msg1_write@0ms,tls_handshake_complete@1ms(alpn=h2),connection_ready@1ms,h2_headers_sent@1ms,noise_ik_msg1_written@1ms,noise_ik_msg2_read@1ms,h2_first_response_byte@1ms: h2: endpoint did not accept Noise carrier |
+| rogue_key | ✅ | rogue carrier rejected; legit traffic intact: node stopped: open shard 0: h2: OpenNoise failed phase=h2_first_response_byte elapsed=3ms trace=connection_acquire@0ms,tcp_connect_start@0ms,tcp_connect_complete@0ms,tls_handshake_start@0ms,noise_ik_msg1_write@0ms,tls_handshake_complete@1ms(alpn=h2),connection_ready@2ms,h2_headers_sent@2ms,noise_ik_msg1_written@2ms,noise_ik_msg2_read@2ms,h2_first_response_byte@3ms: h2: endpoint did not accept Noise carrier |
 | onpath_tamper | ✅ | on-path tamper detected and failed closed (no corrupted delivery) |
 
 ## 3. Findings

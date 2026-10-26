@@ -112,4 +112,15 @@
 - مسیر rollback؛
 - ثبت محدودیت‌ها و نتیجه بدون اغراق.
 
+## پس از v0.4.0: multiplex مشترک با مدیریت BCC
+
+در v0.4.0، multiplex مشترک فقط از مسیر خط فرمان عرضه می‌شود (`baft-pair ex-accept --join` و reload زنده؛ KNOWN-LIMITATIONS را ببینید). نسخه‌ی بعدی طرح کامل را با تست‌ها و LAB مخصوص خودش پیاده می‌کند:
+
+- نوع تازه‌ای از تراکنش tunnel که یک tenant را با reload (نه restart) به listener در حال اجرای EX اضافه یا از آن حذف می‌کند، با پشتیبان، بررسی سلامت و rollback جداگانه که به tenantهای دیگر دست نمی‌زند؛
+- مدل مالکیتی که در آن یک instance (marker، generation، unit و metrics claim) چند tunnel را حمل می‌کند تا شناسایی، drift، retire و rollback دقیق بمانند؛
+- برنامه‌ریزی BCC، ویزارد و drift برای tenantهای listener مشترک، فقط وقتی هر دو طرف این قابلیت را گزارش کنند؛
+- چند tenant در یک session و قابلیت wire به نام `multiplex-v1` که در HELLO مذاکره می‌شود؛
+- reload زنده برای listenerهای فقط mTLS، یا رد صریح آن؛
+- LAB دو هاست: افزودن و حذف tenant هنگام عبور ترافیک بقیه، crash یک tenant و reboot.
+
 </div>

@@ -123,4 +123,33 @@
 - reload زنده برای listenerهای فقط mTLS، یا رد صریح آن؛
 - LAB دو هاست: افزودن و حذف tenant هنگام عبور ترافیک بقیه، crash یک tenant و reboot.
 
+
+## پس از v0.4.0: موتورهای تونل دیگر (مستقیم و معکوس)
+
+امروز BCC فقط یک موتور را مستقر می‌کند، یعنی بافت بومی، و فقط در جهت **مستقیم** (IR به EX وصل می‌شود). کاتالوگ موتورها (`internal/tunnelengine/catalog.go`) موتورهای جدول زیر را «در دسترس نیست» نشان می‌دهد و در plan و deploy رد می‌کند. هر tunnel در BCC با jobهای امضاشده‌ی agent ساخته می‌شود: `tunnel_prepare_ex`/`tunnel_prepare_ir`، `tunnel_commit_ex`/`tunnel_commit_ir`، `tunnel_health`، `tunnel_finalize`، `tunnel_rollback`، `tunnel_retire` و `tunnel_discover`. هر job یک تراکنش `tunnelnode` اجرا می‌کند که config، unit و marker مالکیت یک instance را می‌نویسد و می‌تواند آن را برگرداند. باینری‌ها فقط از release امضاشده می‌آیند (`update_baft` فقط `baft` و `baft-pair` را عوض می‌کند).
+
+اصطلاحات. **مستقیم**: سرور ایران اتصال را به سرور خارج باز می‌کند؛ کاربران به ایران وصل می‌شوند و ترافیک از خارج خارج می‌شود. **معکوس**: سرور خارج اتصال را به سرور ایران باز می‌کند و ایران برای کاربران گوش می‌دهد؛ برای وقتی که ایران نمی‌تواند به بیرون وصل شود ولی خارج به ایران می‌رسد.
+
+| موتور | مجوز upstream (بررسی‌شده ۲۰۲۶-۱۰-۲۶) | مستقیم (ایران به خارج) | معکوس (خارج به ایران) | ترنسپورت اتصال | برنامه |
+|---|---|---|---|---|---|
+| FRP (`fatedier/frp`) | Apache-2.0 | frps روی خارج، frpc روی خارج برای مقصد، و frpc از نوع stcp/xtcp visitor روی ایران | frps روی ایران، frpc روی خارج مقصد خارج را منتشر می‌کند | TCP، KCP، QUIC، WebSocket/WSS | درایور P0 |
+| Rathole (`rathole-org/rathole`) | Apache-2.0 | طبیعی نیست (سرور پورت عمومی را روی خود میزبان باز می‌کند) | سرور روی ایران پورت کاربران را باز می‌کند و کلاینت روی خارج به مقصد می‌فرستد | TCP، TLS، Noise (پیش‌فرض `Noise_NK_25519_ChaChaPoly_BLAKE2s`)، WebSocket | درایور P0، فقط معکوس |
+| Backhaul (`Musixal/Backhaul`) | AGPL-3.0 | مستند نشده | سرور روی ایران (در مثال‌هایش «Local, IRAN»)، کلاینت روی خارج | tcp، tcpmux، udp، udp روی tcp، ws، wsmux، wss، wssmux | درایور P1، فقط معکوس |
+| WireGuard (کرنل، `wireguard-tools`، `wireguard-go`) | ماژول کرنل در Linux 5.6 به بعد؛ `wireguard-go` با MIT؛ مجوز tools تأیید نشد (صفحه در دسترس نبود) | هر طرف می‌تواند شروع کند؛ ایران پورت‌های کاربران را با nft DNAT وارد tunnel می‌کند | همان، با خارج به‌عنوان آغازگر | فقط UDP (لایه ۳) | درایور P1، با rollback مسیر و فایروال |
+| SSH | OpenSSH (بسته‌ی سیستم) | `ssh -L` از ایران، یا SOCKS پویا (مدخل کاتالوگ `ssh-socks`) | `ssh -R` از خارج؛ برای bind عمومی، sshd ایران به `GatewayPorts` نیاز دارد | TCP روی SSH | P1، با کلید محدود، هرگز حساب اپراتور |
+| GOST v3 (`go-gost/gost`) | MIT | listener فوروارد روی ایران با relay/TLS/WS به خارج | handler از نوع `rtcp`/tunnel (معکوس از v3.0.0-rc) | TCP، TLS، WS، WSS، QUIC، KCP و غیره | نامزد، هنوز در کاتالوگ نیست |
+| Chisel (`jpillora/chisel`) | MIT | کلاینت روی ایران یک پورت محلی به سرور روی خارج باز می‌کند | سرور روی ایران با remoteهای `R:`، کلاینت روی خارج | HTTP/WebSocket، رمزشده با SSH | نامزد، هنوز در کاتالوگ نیست |
+| WSS و QUIC | (حامل‌های بافت) | حامل‌های موتور بومی‌اند، نه موتور جداگانه | | | کار حامل P1 |
+
+هر موتور پیش از فعال شدن مدخلش در کاتالوگ به این‌ها نیاز دارد (همان gateهای `docs/en/38-smart-tunnel-ports-and-drivers.md` و `docs/en/41-engine-inventory-evidence-contract.md`):
+
+1. **منشأ باینری.** نسخه‌ی upstream ثابت و SHA-256 برای هر معماری، که دوباره ساخته یا تأیید شود و داخل release امضاشده‌ی بافت همراه فایل مجوز و پیشنهاد کد منبع عرضه شود. agent هرگز موتور را مستقیم از upstream دانلود نمی‌کند.
+2. **نصب و موجودی.** یک job امضاشده که باینری موتور را نصب یا تأیید می‌کند، به‌علاوه‌ی گزارش فقط‌خواندنی موجودی (سند ۴۱)، تا BCC موتور را فقط روی دو نودی بپذیرد که هر دو نسخه و digest مورد انتظار را گزارش کنند.
+3. **قرارداد درایور.** برای هر موتور یک درایور که config را از plan بازبینی‌شده می‌سازد (بدون فیلد آزاد)، با نقش‌های وابسته به جهت (کدام طرف گوش می‌دهد و کدام وصل می‌شود)، unit سیستم‌دی برای هر instance، رمزهایی که روی خود نود ساخته و هرگز نمایش داده نمی‌شوند، و رزرو پورت از راه بررسی‌های تعارض موجود.
+4. **تراکنش‌ها.** همان چرخه‌ی prepare، commit، health، finalize، rollback، retire و discover بافت بومی، با marker مالکیت دقیق، پایداری پس از restart و حذف امن.
+5. **BCC و ویزارد.** ویزارد جهت (مستقیم یا معکوس)، موتور و ترنسپورت را فقط وقتی نشان می‌دهد که مدخل کاتالوگ فعال باشد و هر دو نود موتور را گزارش کنند؛ plan hash، drift، metrics و health برای هر موتور.
+6. **شواهد.** تست واحد و تست خطا، سپس LAB دو نودی برای هر موتور و هر جهت (ترافیک، restart، reboot، rollback، حذف) پیش از فعال کردن گزینه.
+
+منابع: https://github.com/fatedier/frp، https://github.com/rathole-org/rathole (و `docs/transport.md` آن)، https://github.com/Musixal/Backhaul، https://github.com/go-gost/gost، https://gost.run/en/blog/2023/reverse-proxy/، https://github.com/jpillora/chisel، https://github.com/WireGuard/wireguard-go، https://wiki.gentoo.org/wiki/WireGuard.
+
 </div>

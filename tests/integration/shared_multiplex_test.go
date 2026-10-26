@@ -470,6 +470,10 @@ func TestCrossTenantRouteAccessRefused(t *testing.T) {
 		config.Route{ID: "steal", Listen: steal, RemoteRoute: "only-a", Direction: "outbound"},
 		config.Route{ID: "ghost", Listen: unknown, RemoteRoute: "no-such-route", Direction: "outbound"})
 	irB := startNode(t, irBcfg, b.local)
+	// The route listeners bind after the node reports its local address; a dial
+	// that races them is reset by the kernel (flake seen on CI).
+	waitTCP(t, steal, time.Now().Add(10*time.Second))
+	waitTCP(t, unknown, time.Now().Add(10*time.Second))
 	var mu sync.Mutex
 	var errs []string
 	irB.rt.SetFlowOpenErrorHookForTest(func(route string, err error) {

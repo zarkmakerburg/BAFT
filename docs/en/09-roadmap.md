@@ -52,4 +52,60 @@ What every engine needs before its catalog entry can be enabled (the gates alrea
 
 Sources: https://github.com/fatedier/frp, https://github.com/rathole-org/rathole (and its `docs/transport.md`), https://github.com/Musixal/Backhaul, https://github.com/go-gost/gost, https://gost.run/en/blog/2023/reverse-proxy/, https://github.com/jpillora/chisel, https://github.com/WireGuard/wireguard-go, https://wiki.gentoo.org/wiki/WireGuard.
 
+## Connection toolbox plan for Iran conditions (from the 2026-10-26 research)
+
+Basis: the research report (Persian) at `docs/research/tunnel-engines-iran-2026.fa.md`. Its main finding: in a crisis, IP, SNI and protocol whitelists decide what survives, not encryption strength. UDP is blocked first, and connections from abroad into Iran are fragile in a crisis. **Direct** (IR dials EX) therefore stays the default, and reverse is for normal conditions only. A phase is done only when its exit criterion is met with recorded evidence.
+
+### Phase 0 — harden what exists (v0.4.x, short)
+
+- Tunnel health checks push more than 64 KB both ways, so a silent cut after a few packets or kilobytes is detected; "connected" is not enough.
+- A per-connection byte/packet cap for the carrier: at the cap a fresh connection is opened and flows move over without interruption.
+- Carrier SNI and server name configurable in the Wizard (an allowed SNI or the operator's own domain).
+- The Wizard and docs state which server dials which, not just "direct" or "reverse".
+- **Exit:** unit and e2e tests of rotation under load; in the LAB, the health check detects a firewall that cuts after N packets.
+
+### Phase 1 — BCC platform for external engines (v0.5.0)
+
+- A signed manifest per engine binary (engine, version, arch, url, sha256) shipped in the BAFT release, with a local mirror. A hash or signature mismatch stops the install; never warn and continue.
+- A signed install/verify job and the inventory report of doc 41 from both nodes.
+- Driver contract: configs are rendered only from typed schemas that reject newlines, control characters and free-form fields (the lesson of the 3x-ui `PostUp` advisories). The engine's own config check runs before any switch-over.
+- One hardened systemd unit per instance: separate user, `NoNewPrivileges`, `ProtectSystem`, and no periodic reset timers.
+- Engine dashboards and APIs on localhost only; secrets created on the node and never displayed.
+- An install ledger with uninstall driven only by it; firewall rules tagged with comments; MTU/MSS clamping for stacked tunnels.
+- Automatic rollback when the Phase 0 health check fails.
+- **Exit:** one external engine from Phase 2 installs, runs, reboots, rolls back and uninstalls through this platform in a two-node LAB.
+
+### Phase 2 — first engines, direct before reverse (v0.5.x)
+
+1. **GOST v3** (MIT, 3.3.0 or later): direct and reverse, TLS/WS/gRPC transports and Prometheus metrics. The first driver, since it covers both directions.
+2. **FRP** (Apache-2.0, 0.71 or later, wire protocol v2): reverse, and direct via an stcp visitor; the version is pinned on both servers.
+3. **Rathole** (Apache-2.0) and **Backhaul** (AGPL-3.0): reverse only, for normal conditions. Re-check Rathole's maintenance status before starting.
+4. **Chisel** (MIT, 1.10.0 or later) as a light HTTP/WebSocket option if needed.
+- Every engine, in every direction, passes its own two-node LAB (traffic, restart, reboot, rollback, uninstall) before its catalog entry is enabled.
+- **Exit:** the Wizard offers an engine only when both nodes report it, and auto-select knows these engines.
+
+### Phase 3 — native engine resistance to whitelists and DPI (v0.6.0)
+
+- **No TLS-in-TLS:** keep one outer TLS carrier with Noise inside, as today; no mode nests TLS.
+- The first bytes look like a real protocol (TLS or HTTP), not uniformly random data.
+- A real web server next to the listener (fallback site) so the server fingerprint is authentic; accept TLS 1.2 as well.
+- An XHTTP-like mode: upload and download on separate connections, with multiplexing.
+- A **two-hop domestic relay** mode: user to IR, IR to a domestic relay with a whitelisted IP or SNI, relay to EX (the pattern reported working in Russia).
+- A CDN-fronted carrier mode (WebSocket or HTTP/2 on the operator's domain) for when only CDN ranges are open.
+- **Exit:** a LAB with a whitelist-policy simulator and a cut-after-N-packets firewall, plus basic detection tests (first-byte entropy, TLS fingerprint). No "undetectable" claims.
+
+### Phase 4 — UDP paths and emergency channels (v0.6.x)
+
+- **AmneziaWG 2.0** and **Hysteria2 with BBR** drivers, for normal conditions only and labelled "blocked first in a crisis".
+- A **DNS** fallback (dnstt or slipstream) only for the agent's control channel and small messages, not user traffic; evidence on its survival in a full shutdown conflicts.
+- **Shutdown mode:** IR serves users over the domestic network, and BCC shows plainly that the international link is down.
+- **Exit:** a LAB per driver, and an operations note "what to do in a shutdown" in Persian and English.
+
+### Phase 5 — automatic selection and fallback, field measurement (continuous)
+
+- Extend auto-select (`/api/tunnels/auto-select`) to every engine and transport, with fallback chains driven only by fresh probe evidence, never by periodic restarts.
+- Path probes also classify the cut: after N packets or bytes, SNI-dependent, or UDP.
+- A field-measurement programme on real servers in Iran, with dated results.
+- Re-verify the report's list of unconfirmed claims (licenses, versions, CVEs, the "~8 KB in Iranian datacenters" premise).
+
 The project does not promise resume across process restart unless a future persistence design explicitly adds and tests that property.

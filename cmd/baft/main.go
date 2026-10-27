@@ -81,6 +81,10 @@ func runContext(ctx context.Context, args []string, stdout, stderr io.Writer) in
 		return runRecover(ctx, args[1:], stdout, stderr)
 	case "ingress":
 		return runIngress(ctx, args[1:], stderr)
+	case "failover":
+		return runFailover(ctx, args[1:], stderr)
+	case "echo":
+		return runEcho(ctx, args[1:], stderr)
 	case "dns-failover":
 		return runDNSFailover(ctx, args[1:], stdout, stderr)
 	case "status":
@@ -236,6 +240,8 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w, "  baft tunnel <ex-code|ir-apply|ex-accept|ir-start|health|inspect|finalize|rollback> --instance ID --metrics-listen IP:PORT --id TXN [flags]")
 	fmt.Fprintln(w, "  baft recover boot [--json]   # boot-time reconciliation of interrupted tunnel changes (run by baft-recover.service)")
 	fmt.Fprintln(w, "  baft ingress run --listen IP:PORT --target LOOPBACK_IP:PORT   # foreground TCP runtime; no firewall changes")
+	fmt.Fprintln(w, "  baft failover --listen IP:PORT --target ex1=ROUTE,probe=ECHO_ROUTE --target ex2=...   # IR: prefer the first EX whose path carries a full probe")
+	fmt.Fprintln(w, "  baft echo [--listen 127.0.0.1:2444]   # EX: probe endpoint for baft failover")
 	fmt.Fprintln(w, "  baft dns-failover --config <file.json> [--once]   # keep a Cloudflare DNS name on reachable IR servers (free DNS API)")
 	fmt.Fprintln(w, "  baft status [--file /etc/baft/baft.yaml] [--service baft] [--json]")
 	fmt.Fprintln(w, "  baft doctor [--file /etc/baft/baft.yaml] [--service baft] [--json] [--preview-fixes]")

@@ -19,11 +19,26 @@ free Cloudflare DNS API. No paid load balancer is needed.
   Any other A/AAAA/CNAME record with the same name stops reconciliation.
 - A restart starts with every target healthy and never withdraws before probing.
 
+## One-step setup
+
+The operator gives only the Cloudflare API token and the name; the zone is
+found automatically and the service is installed and started:
+
+```bash
+echo "$CF_TOKEN" | sudo baft dns-failover setup --record t.example.com \
+  --target ir-a=193.201.66.33 --target ir-b=194.110.24.20 --target ir-c=109.70.76.143
+```
+
+The token is read from stdin (never a command-line argument), checked against
+Cloudflare before anything is written, and stored as `/etc/baft/cloudflare-dns.token`
+(0600). The token needs `Zone:Read` and `DNS:Edit` on that zone. `--probe-port`
+(default 443) or `name=IP:port` sets what is probed.
+
 ## Config
 
 ```json
 {
-  "zone_id": "<Cloudflare zone id>",
+  "zone_id": "<optional; found from record when empty>",
   "record": "t.example.com",
   "token_file": "/etc/baft/cloudflare-dns.token",
   "targets": [
@@ -34,7 +49,7 @@ free Cloudflare DNS API. No paid load balancer is needed.
 }
 ```
 
-The token needs only `Zone.DNS: Edit` for that zone. The token file must be
+The token needs `Zone:Read` (to find the zone) and `DNS:Edit` for that zone. The token file must be
 mode 0600 (group/other access is refused).
 
 ```bash

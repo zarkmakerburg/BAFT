@@ -39,7 +39,7 @@ type Target struct {
 
 // Config is the on-disk configuration.
 type Config struct {
-	ZoneID          string   `json:"zone_id"`
+	ZoneID          string   `json:"zone_id,omitempty"` // found from record when empty
 	Record          string   `json:"record"`
 	TokenFile       string   `json:"token_file"`
 	TTL             int      `json:"ttl"`
@@ -82,8 +82,10 @@ func (c *Config) normalize() error {
 		c.RecoverAfter = 3
 	}
 	switch {
-	case c.ZoneID == "" || c.Record == "" || c.TokenFile == "":
-		return errors.New("zone_id, record and token_file are required")
+	case c.Record == "" || c.TokenFile == "":
+		return errors.New("record and token_file are required")
+	case strings.Count(strings.Trim(c.Record, "."), ".") < 1:
+		return errors.New("record must be a full DNS name such as t.example.com")
 	case c.TTL != 1 && (c.TTL < 30 || c.TTL > 86400):
 		return errors.New("ttl must be 1 (auto) or 30..86400")
 	case c.IntervalSeconds < 2 || c.IntervalSeconds > 3600:
@@ -158,6 +160,9 @@ func New(cfg Config, token string, probe Prober, logf func(string, ...any)) *Con
 	return &Controller{cfg: cfg, token: token, apiBase: defaultAPIBase,
 		client: &http.Client{Timeout: 20 * time.Second}, probe: probe, state: st, logf: logf}
 }
+
+// SetAPIBase points the controller at another Cloudflare API endpoint (tests).
+func (c *Controller) SetAPIBase(u string) { c.apiBase = u }
 
 // Healthy returns the names of targets currently considered healthy.
 func (c *Controller) Healthy() []string {
@@ -257,9 +262,38 @@ func recordType(ip string) string {
 	return "AAAA"
 }
 
+// FindZone returns the id of the most specific zone the token can see that
+// contains the record (t.a.example.com tries a.example.com, then example.com).
+func (c *Controller) FindZone(ctx context.Context) (string, error) {
+	labels := strings.Split(strings.Trim(strings.ToLower(c.cfg.Record), "."), ".")
+	for i := 0; i+2 <= len(labels); i++ {
+		name := strings.Join(labels[i:], ".")
+		var zones []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		}
+		if err := c.api(ctx, http.MethodGet, "/zones?"+url.Values{"name": {name}}.Encode(), nil, &zones); err != nil {
+			return "", err
+		}
+		for _, z := range zones {
+			if strings.EqualFold(z.Name, name) && z.ID != "" {
+				return z.ID, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("no Cloudflare zone visible to this token contains %s", c.cfg.Record)
+}
+
 // Reconcile makes the managed records equal the healthy target set. It
 // returns the published addresses after the change.
 func (c *Controller) Reconcile(ctx context.Context) ([]string, error) {
+	if c.cfg.ZoneID == "" {
+		id, err := c.FindZone(ctx)
+		if err != nil {
+			return nil, err
+		}
+		c.cfg.ZoneID = id
+	}
 	zone := url.PathEscape(c.cfg.ZoneID)
 	var recs []dnsRecord
 	q := url.Values{"name": {c.cfg.Record}, "per_page": {"100"}}

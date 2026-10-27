@@ -38,6 +38,19 @@ func (f *fakeCF) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	switch r.Method {
 	case http.MethodGet:
+		if strings.HasSuffix(r.URL.Path, "/zones") {
+			if r.URL.Query().Get("name") == "example.com" {
+				write([]map[string]string{{"id": "z1", "name": "example.com"}})
+			} else {
+				write([]map[string]string{})
+			}
+			return
+		}
+		if !strings.Contains(r.URL.Path, "/zones/z1/") {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"success":false,"errors":[{"code":7003}]}`))
+			return
+		}
 		out := []dnsRecord{}
 		for _, rec := range f.recs {
 			if rec.Name == r.URL.Query().Get("name") {
@@ -239,18 +252,18 @@ func TestConfigValidation(t *testing.T) {
 		return p
 	}
 	bad := []string{
-		`{"zone_id":"z","record":"r","token_file":"f","targets":[{"name":"a","address":"1.2.3.4","probe":"1.2.3.4:1"}]}`,
-		`{"zone_id":"z","record":"r","token_file":"f","targets":[{"name":"a","address":"host","probe":"1.2.3.4:1"},{"name":"b","address":"1.2.3.5","probe":"1.2.3.5:1"}]}`,
-		`{"zone_id":"z","record":"r","token_file":"f","targets":[{"name":"a","address":"1.2.3.4","probe":"1.2.3.4:1"},{"name":"b","address":"1.2.3.4","probe":"1.2.3.4:2"}]}`,
-		`{"zone_id":"z","record":"r","token_file":"f","ttl":5,"targets":[{"name":"a","address":"1.2.3.4","probe":"1.2.3.4:1"},{"name":"b","address":"1.2.3.5","probe":"1.2.3.5:1"}]}`,
-		`{"zone_id":"z","record":"r","token_file":"f","unknown":1,"targets":[]}`,
+		`{"zone_id":"z","record":"t.example.com","token_file":"f","targets":[{"name":"a","address":"1.2.3.4","probe":"1.2.3.4:1"}]}`,
+		`{"zone_id":"z","record":"t.example.com","token_file":"f","targets":[{"name":"a","address":"host","probe":"1.2.3.4:1"},{"name":"b","address":"1.2.3.5","probe":"1.2.3.5:1"}]}`,
+		`{"zone_id":"z","record":"t.example.com","token_file":"f","targets":[{"name":"a","address":"1.2.3.4","probe":"1.2.3.4:1"},{"name":"b","address":"1.2.3.4","probe":"1.2.3.4:2"}]}`,
+		`{"zone_id":"z","record":"t.example.com","token_file":"f","ttl":5,"targets":[{"name":"a","address":"1.2.3.4","probe":"1.2.3.4:1"},{"name":"b","address":"1.2.3.5","probe":"1.2.3.5:1"}]}`,
+		`{"zone_id":"z","record":"t.example.com","token_file":"f","unknown":1,"targets":[]}`,
 	}
 	for i, s := range bad {
 		if _, err := LoadConfig(write(s)); err == nil {
 			t.Fatalf("case %d accepted", i)
 		}
 	}
-	good := `{"zone_id":"z","record":"r","token_file":"f","targets":[{"name":"a","address":"1.2.3.4","probe":"1.2.3.4:1"},{"name":"b","address":"2001:db8::1","probe":"[2001:db8::1]:1"}]}`
+	good := `{"zone_id":"z","record":"t.example.com","token_file":"f","targets":[{"name":"a","address":"1.2.3.4","probe":"1.2.3.4:1"},{"name":"b","address":"2001:db8::1","probe":"[2001:db8::1]:1"}]}`
 	c, err := LoadConfig(write(good))
 	if err != nil || c.TTL != 60 || c.FailAfter != 3 {
 		t.Fatalf("good config: %+v %v", c, err)
@@ -273,5 +286,25 @@ func TestReadTokenRefusesLoosePermissions(t *testing.T) {
 	}
 	if tok, err := ReadToken(p); err != nil || tok != "abc" {
 		t.Fatalf("tok=%q err=%v", tok, err)
+	}
+}
+
+func TestZoneIsFoundFromTheRecordName(t *testing.T) {
+	c, f := rig(t, map[string]bool{})
+	c.cfg.ZoneID = ""
+	c.cfg.Record = "t.sub.example.com"
+	id, err := c.FindZone(context.Background())
+	if err != nil || id != "z1" {
+		t.Fatalf("zone=%q err=%v", id, err)
+	}
+	c.cfg.Record = "t.example.com"
+	c.ProbeOnce(context.Background())
+	if _, err := c.Reconcile(context.Background()); err != nil || len(f.contents()) != 3 {
+		t.Fatalf("reconcile with discovered zone: %v %v", err, f.contents())
+	}
+	c.cfg.ZoneID = ""
+	c.cfg.Record = "t.other.org"
+	if _, err := c.FindZone(context.Background()); err == nil {
+		t.Fatal("found a zone the token cannot see")
 	}
 }

@@ -70,6 +70,13 @@ baft dns-failover --config /etc/baft/dns-failover.json --once   # one probe + re
 baft dns-failover --config /etc/baft/dns-failover.json          # long-running (systemd)
 ```
 
+## Real-account result (2026-10-27, #67)
+
+On the owner's Cloudflare zone, run from EX-2 for Iran IR A and IR B: the
+generated `baft-0d58c3.<zone>` resolved to both IPs; dropping the probe to IR B
+withdrew it after about 36 s (three failed 10 s probes) and it was published
+again about 28 s after the drop was removed. TTL 60 s.
+
 ## Limits
 
 - The probe runs from wherever this command runs (an EX). If that host cannot

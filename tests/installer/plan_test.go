@@ -292,3 +292,22 @@ func TestPlanAgentOnly(t *testing.T) {
 		t.Fatalf("different token: %+v", p.Steps)
 	}
 }
+
+// A pairing code given to an already-paired IR is refused, not silently ignored.
+func TestPlanPairedIRRefusesPairingCodeWithoutRePair(t *testing.T) {
+	r := newPlanRig(t)
+	r.installed(true)
+	cmd := exec.Command("bash", filepath.Join("..", "..", "install.sh"), "--plan", "--json",
+		"--role", "ir", "--pairing-code", "BAFTPAIR1:x")
+	cmd.Env = r.env
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("plan accepted an ignored pairing code:\n%s", out)
+	}
+	if !strings.Contains(string(out), "--re-pair") {
+		t.Fatalf("refusal does not name --re-pair:\n%s", out)
+	}
+	if p := r.plan("--role", "ir", "--pairing-code", "BAFTPAIR1:x", "--re-pair"); p.action("pairing") != "create" {
+		t.Fatalf("--re-pair with a code: pairing=%q", p.action("pairing"))
+	}
+}

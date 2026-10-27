@@ -832,6 +832,10 @@ build_role_plan() {
   if [[ "$F_CFG_VALID" == 1 ]]; then cfg_kept=1
   elif [[ "$F_CFG" == 1 && "$STAGED" == 0 ]]; then cfg_kept=1; fi
   if [[ "$cfg_kept" == 1 && "$RE_PAIR" == 0 ]]; then
+    # A pairing code given to an already-paired IR would be silently ignored.
+    if [[ "$ROLE" == "ir" && -n "$PAIRING_CODE" ]]; then
+      die "this host is already paired and the given pairing code would be ignored: add --re-pair to pair again with it"
+    fi
     if [[ "$F_CFG_VALID" == 1 ]]; then plan_add "config" keep "valid; it is not overwritten"
     else plan_add "config" keep "exists; validated with the verified release binary once it is downloaded, never overwritten"; fi
     plan_add "pairing" skip "already paired; --re-pair starts a new pairing"

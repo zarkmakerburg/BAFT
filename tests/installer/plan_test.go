@@ -311,3 +311,24 @@ func TestPlanPairedIRRefusesPairingCodeWithoutRePair(t *testing.T) {
 		t.Fatalf("--re-pair with a code: pairing=%q", p.action("pairing"))
 	}
 }
+
+// An IR install rerun with --role ex is refused as a role change, not
+// described as a broken install and not changed in place.
+func TestPlanRefusesRoleChangeWithClearMessage(t *testing.T) {
+	r := newPlanRig(t)
+	r.installed(true)
+	r.write("etc/baft.yaml", `{"routes":[{"listen":"127.0.0.1:1443","remote_route":"service-main"}]}`, 0o640)
+	cmd := exec.Command("bash", filepath.Join("..", "..", "install.sh"), "--plan", "--json", "--role", "ex", "--re-pair")
+	cmd.Env = r.env
+	out, _ := cmd.CombinedOutput()
+	if !strings.Contains(string(out), "installed as IR") || !strings.Contains(string(out), "baft uninstall") {
+		t.Fatalf("role change not explained:\n%s", out)
+	}
+	r.write("etc/baft.yaml", `{"server":{"listen":"0.0.0.0:8443"}}`, 0o640)
+	cmd = exec.Command("bash", filepath.Join("..", "..", "install.sh"), "--plan", "--json", "--role", "ir")
+	cmd.Env = r.env
+	out, _ = cmd.CombinedOutput()
+	if !strings.Contains(string(out), "installed as EX") {
+		t.Fatalf("EX->IR role change not explained:\n%s", out)
+	}
+}

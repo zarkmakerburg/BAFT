@@ -758,6 +758,16 @@ classify_state() {
   if [[ "$F_CFG" == 1 && "$F_KEY" == 0 ]]; then
     STATE="BROKEN_INSTALL"; STATE_WHY="$CONFIG exists but the Noise key $NOISE_KEY is missing (a new key would need a new pairing)"; return
   fi
+  # A config written for the other role is not damage: say so instead of
+  # calling it broken. A role change is never done in place.
+  local _cfg_role=""
+  if [[ "$F_CFG" == 1 ]]; then
+    if grep -q '"server"[[:space:]]*:' "$CONFIG" 2>/dev/null; then _cfg_role=ex
+    elif grep -q '"remote_route"[[:space:]]*:' "$CONFIG" 2>/dev/null; then _cfg_role=ir; fi
+  fi
+  if [[ -n "$_cfg_role" && -n "$ROLE" && "$_cfg_role" != "$ROLE" ]]; then
+    STATE="BROKEN_INSTALL"; STATE_WHY="this host is installed as ${_cfg_role^^} and --role $ROLE would change its role: run 'baft uninstall --full --delete-tunnel-configs --stop-active-tunnels --yes' first, then install as ${ROLE^^}"; return
+  fi
   if [[ "$F_CFG" == 1 && "$ROLE" == "ex" && "$F_PKI" == 0 ]]; then
     STATE="BROKEN_INSTALL"; STATE_WHY="$CONFIG exists but the certificate files in $BAFT_CONFIG_DIR/pki are missing"; return
   fi

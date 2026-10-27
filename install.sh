@@ -53,6 +53,7 @@ BAFT_PORTS="${BAFT_PORTS:-}"
 # use the IR addresses directly.
 CF_DOMAIN="${BAFT_CLOUDFLARE_DOMAIN:-}"
 CF_TARGETS="${BAFT_DNS_TARGETS:-}"
+CF_NAME="${BAFT_DNS_NAME:-}"   # subdomain label; empty generates baft-xxxxxx
 # EX only: set up the IR server from here over SSH (user@host[:port]).
 IR_SSH="${BAFT_IR_SSH:-}"
 IR_SSH_KEY="${BAFT_IR_SSH_KEY:-}"
@@ -503,8 +504,9 @@ Environment:
   BAFT_PORTS (EX: comma-separated ports the IR serves publicly, e.g. 443,2053;
              each is carried to the same port on 127.0.0.1 here)
   BAFT_ROUTE_LISTEN (IR: loopback address local clients use, default 127.0.0.1:1443)
-  BAFT_CLOUDFLARE_DOMAIN BAFT_CLOUDFLARE_TOKEN BAFT_DNS_TARGETS (EX, optional:
-             DNS failover on a generated subdomain; targets are IR public IPs)
+  BAFT_CLOUDFLARE_DOMAIN BAFT_CLOUDFLARE_TOKEN BAFT_DNS_TARGETS BAFT_DNS_NAME
+             (EX, optional: DNS failover; the subdomain is BAFT_DNS_NAME or a
+             generated baft-xxxxxx; targets are IR public IPs)
   BAFT_METRICS_LISTEN BAFT_RUN_TESTS BAFT_PAIRING_CODE BAFT_REPLY_CODE
   BAFT_WITH_PANEL (EX: 1 installs the web panel too, 0 never offers it)
   BAFT_TUNE_NETWORK (1 turns on BBR and network tuning, 0 never asks)
@@ -536,6 +538,7 @@ while [[ $# -gt 0 ]]; do
     --ports) BAFT_PORTS="${2:-}"; shift 2 ;;
     --cloudflare-domain) CF_DOMAIN="${2:-}"; shift 2 ;;
     --dns-targets) CF_TARGETS="${2:-}"; shift 2 ;;
+    --dns-name) CF_NAME="${2:-}"; shift 2 ;;
     --port) BAFT_PORT="${2:-}"; BAFT_PORT_EXPLICIT=1; shift 2 ;;
     --reply-code) REPLY_CODE="${2:-}"; shift 2 ;;
     --ir-ssh) IR_SSH="${2:-}"; shift 2 ;;
@@ -805,6 +808,16 @@ dns_failover_setup() {
     ok "DNS failover not used; clients connect to the IR addresses directly"
     return 0
   fi
+  if [[ -z "$CF_NAME" && "$ASK_TTY" == 1 ]]; then
+    ask CF_NAME "$(ui_ask_prompt "Subdomain of $CF_DOMAIN for clients (Enter for a random baft-xxxxxx):")" || CF_NAME=""
+  fi
+  CF_NAME="$(printf '%s' "$CF_NAME" | tr '[:upper:]' '[:lower:]')"; CF_NAME="${CF_NAME%.$CF_DOMAIN}"
+  if [[ -n "$CF_NAME" && ! "$CF_NAME" =~ ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$ ]]; then
+    warn "DNS failover skipped: '$CF_NAME' is not a valid subdomain label (letters, digits and '-')"
+    return 0
+  fi
+  local _which=(--domain "$CF_DOMAIN")
+  [[ -z "$CF_NAME" ]] || _which=(--record "$CF_NAME.$CF_DOMAIN")
   if [[ -z "$CF_TARGETS" ]]; then
     CF_TARGETS="${IR_SSH_HOST:-}"
     if [[ "$ASK_TTY" == 1 ]]; then
@@ -826,10 +839,10 @@ dns_failover_setup() {
     warn "DNS failover skipped: it needs a Cloudflare API token and at least two IR IPs (--dns-targets); the tunnel works without it"
     return 0
   fi
-  if _out="$(printf '%s\n' "$_tok" | "$BAFT_BIN" dns-failover setup --domain "$CF_DOMAIN" --probe-port "$_port" "${_args[@]}" 2>&1)"; then
+  if _out="$(printf '%s\n' "$_tok" | "$BAFT_BIN" dns-failover setup "${_which[@]}" --probe-port "$_port" "${_args[@]}" 2>&1)"; then
     ok "${_out}"
   else
-    warn "DNS failover was not set up (${_out##*: }); the tunnel works without it. Retry: echo TOKEN | sudo baft dns-failover setup --domain $CF_DOMAIN ${_args[*]}"
+    warn "DNS failover was not set up (${_out##*: }); the tunnel works without it. Retry: echo TOKEN | sudo baft dns-failover setup ${_which[*]} ${_args[*]}"
   fi
 }
 
@@ -912,7 +925,7 @@ build_role_plan() {
   fi
   if [[ "$ROLE" == "ex" ]]; then
     if [[ -f "$BAFT_CONFIG_DIR/dns-failover.json" ]]; then plan_add "dns failover" keep "configured; a rerun never changes it"
-    elif [[ -n "$CF_DOMAIN" ]]; then plan_add "dns failover" create "generate a baft-xxxxxx.$CF_DOMAIN name on Cloudflare for the IR servers"
+    elif [[ -n "$CF_DOMAIN" ]]; then plan_add "dns failover" create "publish ${CF_NAME:-a generated baft-xxxxxx}.$CF_DOMAIN on Cloudflare for the IR servers"
     else plan_add "dns failover" skip "not requested (--cloudflare-domain); clients use the IR addresses directly"; fi
   fi
   # systemd unit: created when missing; an existing one is never overwritten.

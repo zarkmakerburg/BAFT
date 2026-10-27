@@ -2,6 +2,7 @@ package installer_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"os/user"
@@ -343,6 +344,9 @@ func TestPlanDNSFailoverIsOptional(t *testing.T) {
 	}
 	if a := r.plan("--role", "ex", "--cloudflare-domain", "example.com").action("dns failover"); a != "create" {
 		t.Fatalf("with a domain: %q", a)
+	}
+	if p := r.plan("--role", "ex", "--cloudflare-domain", "example.com", "--dns-name", "vpn"); !strings.Contains(fmt.Sprint(p.Steps), "vpn.example.com") {
+		t.Fatalf("chosen subdomain not in plan: %+v", p.Steps)
 	}
 	r.write("etc/dns-failover.json", "{}", 0o600)
 	if a := r.plan("--role", "ex", "--cloudflare-domain", "example.com").action("dns failover"); a != "keep" {

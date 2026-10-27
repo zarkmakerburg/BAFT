@@ -23,9 +23,10 @@ free Cloudflare DNS API. No paid load balancer is needed.
 
 DNS failover is opt-in. On the EX the installer asks for a Cloudflare domain
 (Enter skips it) or takes `--cloudflare-domain example.com`; with a domain it
-also needs the IR public IPs (`--dns-targets 1.2.3.4,5.6.7.8`) and an API token
+asks for the subdomain clients will use (`--dns-name vpn`, or Enter for a
+random `baft-xxxxxx`), and it also needs the IR public IPs (`--dns-targets 1.2.3.4,5.6.7.8`) and an API token
 (`BAFT_CLOUDFLARE_TOKEN`, or asked hidden; never a command-line argument). It
-then generates `baft-xxxxxx.example.com` and starts the service. Without a
+then publishes `vpn.example.com` (or the generated name) and starts the service. Without a
 domain nothing changes: clients use the IR addresses directly, exactly as
 before. A failure here only warns, because the tunnel is already working; a
 rerun keeps an existing setup.

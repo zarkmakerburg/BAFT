@@ -164,17 +164,20 @@ esac
 		t.Helper()
 		code, reply := filepath.Join(dir, p.id+".code"), filepath.Join(dir, p.id+".reply")
 		_, port, _ := net.SplitHostPort(p.ex)
-		p.releaseEXMetrics()
 		invoke(p, "ex", "ex-code", "--address", "127.0.0.1", "--port", port,
 			"--target", target.Addr().String(), "--route-id", p.id, "--output-file", code)
-		p.releaseIRMetrics()
 		invoke(p, "ir", "ir-apply", "--code-file", code, "--route-listen", p.ir,
 			"--route-id", p.id, "--output-file", reply)
 		invoke(p, "ex", "ex-accept", "--reply-file", reply)
 		p.releaseEX()
+		// Keep metrics candidates reserved through provisioning. Releasing them
+		// earlier leaves a window where another parallel test can claim the port
+		// before the owned runtime process binds it.
+		p.releaseEXMetrics()
 		stopEX := start(p, "ex", p.ex)
 		invoke(p, "ir", "ir-start")
 		p.releaseIR()
+		p.releaseIRMetrics()
 		return []func(){stopEX, start(p, "ir", p.ir)}
 	}
 	echo := func(c net.Conn, label string) {

@@ -59,6 +59,12 @@ listener all came back intact via EX-2. In that run the EX-1 tunnel process
 had exited, so the case seen was a dead route; the open-but-stalling case is
 covered by the unit test, not yet by a real host.
 
+Iran mesh (same day, `8b82e50`): IR A and IR B each with tunnels to EX-2
+and EX-3 and `baft failover` installed as a service. Stopping `baft` on EX-2
+marked it down on both IRs and traffic through the failover listener kept
+working via EX-3; starting it again marked it healthy and A preferred EX-2
+again.
+
 ## Limits
 
 - Failover moves new connections only; a connection already on a path that

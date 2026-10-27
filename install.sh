@@ -47,6 +47,12 @@ PUBLIC_ADDR="${BAFT_PUBLIC_ADDR:-}"
 # EX: service ports the IR serves publicly, each carried to the same port here
 # (e.g. x-ui inbounds). Empty keeps the single loopback route.
 BAFT_PORTS="${BAFT_PORTS:-}"
+# EX only, optional: Cloudflare DNS failover. With a domain and an API token
+# (BAFT_CLOUDFLARE_TOKEN, or asked hidden) a baft-xxxxxx.<domain> name is made
+# and kept on the reachable IR servers. Without them nothing changes: clients
+# use the IR addresses directly.
+CF_DOMAIN="${BAFT_CLOUDFLARE_DOMAIN:-}"
+CF_TARGETS="${BAFT_DNS_TARGETS:-}"
 # EX only: set up the IR server from here over SSH (user@host[:port]).
 IR_SSH="${BAFT_IR_SSH:-}"
 IR_SSH_KEY="${BAFT_IR_SSH_KEY:-}"
@@ -497,6 +503,8 @@ Environment:
   BAFT_PORTS (EX: comma-separated ports the IR serves publicly, e.g. 443,2053;
              each is carried to the same port on 127.0.0.1 here)
   BAFT_ROUTE_LISTEN (IR: loopback address local clients use, default 127.0.0.1:1443)
+  BAFT_CLOUDFLARE_DOMAIN BAFT_CLOUDFLARE_TOKEN BAFT_DNS_TARGETS (EX, optional:
+             DNS failover on a generated subdomain; targets are IR public IPs)
   BAFT_METRICS_LISTEN BAFT_RUN_TESTS BAFT_PAIRING_CODE BAFT_REPLY_CODE
   BAFT_WITH_PANEL (EX: 1 installs the web panel too, 0 never offers it)
   BAFT_TUNE_NETWORK (1 turns on BBR and network tuning, 0 never asks)
@@ -526,6 +534,8 @@ while [[ $# -gt 0 ]]; do
     --pairing-code) PAIRING_CODE="${2:-}"; shift 2 ;;
     --public-address) PUBLIC_ADDR="${2:-}"; shift 2 ;;
     --ports) BAFT_PORTS="${2:-}"; shift 2 ;;
+    --cloudflare-domain) CF_DOMAIN="${2:-}"; shift 2 ;;
+    --dns-targets) CF_TARGETS="${2:-}"; shift 2 ;;
     --port) BAFT_PORT="${2:-}"; BAFT_PORT_EXPLICIT=1; shift 2 ;;
     --reply-code) REPLY_CODE="${2:-}"; shift 2 ;;
     --ir-ssh) IR_SSH="${2:-}"; shift 2 ;;
@@ -782,6 +792,47 @@ classify_state() {
   STATE="PARTIAL_INSTALL"; STATE_WHY="some of the install is missing (an interrupted install, or a node still waiting for pairing)"
 }
 
+# dns_failover_setup is optional and EX-only. The tunnel is already installed
+# and working, so a failure here warns instead of rolling the install back.
+dns_failover_setup() {
+  [[ "$ROLE" == "ex" ]] || return 0
+  [[ -f "$BAFT_CONFIG_DIR/dns-failover.json" ]] && return 0
+  local _args=() _i=0 _ip _t="" _ips=() _tok="${BAFT_CLOUDFLARE_TOKEN:-}" _port _out
+  if [[ -z "$CF_DOMAIN" && "$ASK_TTY" == 1 ]]; then
+    ask CF_DOMAIN "$(ui_ask_prompt "Optional: Cloudflare domain for automatic DNS failover (Enter to skip):")" || CF_DOMAIN=""
+  fi
+  if [[ -z "$CF_DOMAIN" ]]; then
+    ok "DNS failover not used; clients connect to the IR addresses directly"
+    return 0
+  fi
+  if [[ -z "$CF_TARGETS" ]]; then
+    CF_TARGETS="${IR_SSH_HOST:-}"
+    if [[ "$ASK_TTY" == 1 ]]; then
+      ask _t "$(ui_ask_prompt "Public IPs of the IR servers, comma-separated${CF_TARGETS:+ [$CF_TARGETS]}:")" || _t=""
+      CF_TARGETS="${_t:-$CF_TARGETS}"
+    fi
+  fi
+  if [[ -z "$_tok" && "$ASK_TTY" == 1 ]]; then
+    ask _tok "$(ui_ask_prompt "Cloudflare API token (Zone:Read + DNS:Edit for $CF_DOMAIN):")" -s || _tok=""
+    printf '\n' >&2
+  fi
+  IFS=, read -r -a _ips <<<"$CF_TARGETS"
+  for _ip in "${_ips[@]}"; do
+    _ip="${_ip// /}"; [[ -n "$_ip" ]] || continue
+    _i=$((_i + 1)); _args+=(--target "ir$_i=$_ip")
+  done
+  _port="${BAFT_PORTS%%,*}"; _port="${_port:-443}"
+  if [[ -z "$_tok" || "$_i" -lt 2 ]]; then
+    warn "DNS failover skipped: it needs a Cloudflare API token and at least two IR IPs (--dns-targets); the tunnel works without it"
+    return 0
+  fi
+  if _out="$(printf '%s\n' "$_tok" | "$BAFT_BIN" dns-failover setup --domain "$CF_DOMAIN" --probe-port "$_port" "${_args[@]}" 2>&1)"; then
+    ok "${_out}"
+  else
+    warn "DNS failover was not set up (${_out##*: }); the tunnel works without it. Retry: echo TOKEN | sudo baft dns-failover setup --domain $CF_DOMAIN ${_args[*]}"
+  fi
+}
+
 # plan_binaries compares the staged (verified) binaries with the installed ones.
 # STAGED=1 once a release was downloaded and verified; before that (--plan) the
 # comparison can only use the requested version.
@@ -858,6 +909,11 @@ build_role_plan() {
     if [[ "$ROLE" == "ex" ]]; then plan_add "pairing" create "issue a one-time pairing code${REPLY_CODE:+ and finish with the given reply code}"
     else plan_add "pairing" create "pair with the EX using the pairing code"; fi
     DO_PAIRING=1
+  fi
+  if [[ "$ROLE" == "ex" ]]; then
+    if [[ -f "$BAFT_CONFIG_DIR/dns-failover.json" ]]; then plan_add "dns failover" keep "configured; a rerun never changes it"
+    elif [[ -n "$CF_DOMAIN" ]]; then plan_add "dns failover" create "generate a baft-xxxxxx.$CF_DOMAIN name on Cloudflare for the IR servers"
+    else plan_add "dns failover" skip "not requested (--cloudflare-domain); clients use the IR addresses directly"; fi
   fi
   # systemd unit: created when missing; an existing one is never overwritten.
   if [[ "$F_UNIT" == 0 ]]; then plan_add "systemd unit" create "$UNIT_FILE"; DO_UNIT=1
@@ -3748,6 +3804,7 @@ fi
 install_recover_unit
 ok "baft is installed: $BAFT_BIN and $BAFT_PAIR_BIN"
 net_setup "$(dirname "$BAFT_BIN")"
+dns_failover_setup
 if [[ "$UI" == 1 ]]; then
   phase "Done" "what is running and where to look"
   _st="$(systemctl is-active "$BAFT_SERVICE.service" 2>/dev/null || true)"

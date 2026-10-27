@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -82,6 +83,29 @@ func TestDNSFailoverSetupRejectsBadTokenAndWritesNothing(t *testing.T) {
 	for _, d := range []string{dir, units} {
 		if ents, _ := os.ReadDir(d); len(ents) != 0 {
 			t.Fatalf("%s not empty after a failed setup: %v", d, ents)
+		}
+	}
+}
+
+func TestDNSFailoverSetupGeneratesSubdomain(t *testing.T) {
+	srv := fakeZones(t)
+	dir, units := t.TempDir(), t.TempDir()
+	var out, errb bytes.Buffer
+	code := runDNSFailoverSetup(context.Background(), []string{"--domain", "Example.com.",
+		"--target", "ir-a=192.0.2.1", "--target", "ir-b=192.0.2.2", "--config-dir", dir, "--unit-dir", units, "--no-start"},
+		strings.NewReader("good-token\n"), &out, &errb, nil, srv.URL)
+	if code != 0 {
+		t.Fatalf("code %d: %s", code, errb.String())
+	}
+	var cfg struct{ Record string }
+	raw, _ := os.ReadFile(filepath.Join(dir, "dns-failover.json"))
+	_ = json.Unmarshal(raw, &cfg)
+	if !regexp.MustCompile(`^baft-[0-9a-f]{6}\.example\.com$`).MatchString(cfg.Record) || !strings.Contains(out.String(), cfg.Record) {
+		t.Fatalf("record %q, out %q", cfg.Record, out.String())
+	}
+	for _, args := range [][]string{{"--target", "a=192.0.2.1", "--target", "b=192.0.2.2"}, {"--domain", "x.com", "--record", "t.x.com", "--target", "a=192.0.2.1", "--target", "b=192.0.2.2"}} {
+		if code := runDNSFailoverSetup(context.Background(), args, strings.NewReader("t"), &out, &errb, nil, srv.URL); code != 2 {
+			t.Fatalf("%v accepted", args)
 		}
 	}
 }

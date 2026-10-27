@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -110,15 +111,24 @@ func runDNSFailoverSetup(ctx context.Context, args []string, stdin io.Reader, st
 	fs := flag.NewFlagSet("dns-failover setup", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	record := fs.String("record", "", "DNS name clients use, e.g. t.example.com")
+	domain := fs.String("domain", "", "Cloudflare domain; a random baft-xxxxxx subdomain of it is generated when --record is not given")
 	probePort := fs.String("probe-port", "443", "default TCP port probed on each target")
 	dir := fs.String("config-dir", "/etc/baft", "where the token and config are written")
 	unitDir := fs.String("unit-dir", "/etc/systemd/system", "systemd unit directory")
 	noStart := fs.Bool("no-start", false, "write files only; do not enable or start the service")
 	var targets targetList
 	fs.Var(&targets, "target", "IR entry server as name=IP[:port] (repeat)")
-	if err := fs.Parse(args); err != nil || *record == "" || fs.NArg() != 0 {
-		fmt.Fprintln(stderr, "usage: echo TOKEN | baft dns-failover setup --record t.example.com --target ir-a=IP --target ir-b=IP [--probe-port 443]")
+	if err := fs.Parse(args); err != nil || (*record == "") == (*domain == "") || fs.NArg() != 0 {
+		fmt.Fprintln(stderr, "usage: echo TOKEN | baft dns-failover setup (--domain example.com | --record t.example.com) --target ir-a=IP --target ir-b=IP [--probe-port 443]")
 		return 2
+	}
+	if *domain != "" {
+		name, err := generatedRecord(*domain)
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			return 2
+		}
+		*record = name
 	}
 	for i := range targets {
 		if targets[i].Probe == "" {
@@ -209,4 +219,17 @@ func writeFileAtomic(path string, data []byte, mode os.FileMode) error {
 		return err
 	}
 	return os.Rename(tmp.Name(), path)
+}
+
+// generatedRecord returns baft-<6 hex>.<domain>.
+func generatedRecord(domain string) (string, error) {
+	d := strings.Trim(strings.ToLower(domain), ".")
+	if strings.Count(d, ".") < 1 || strings.ContainsAny(d, " /:@") {
+		return "", fmt.Errorf("--domain must be a domain such as example.com")
+	}
+	b := make([]byte, 3)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("baft-%x.%s", b, d), nil
 }

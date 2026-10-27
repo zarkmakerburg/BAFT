@@ -332,3 +332,23 @@ func TestPlanRefusesRoleChangeWithClearMessage(t *testing.T) {
 		t.Fatalf("EX->IR role change not explained:\n%s", out)
 	}
 }
+
+// DNS failover is optional: skipped unless a Cloudflare domain is given, and
+// an existing setup is kept on a rerun.
+func TestPlanDNSFailoverIsOptional(t *testing.T) {
+	r := newPlanRig(t)
+	r.installed(true)
+	if a := r.plan("--role", "ex").action("dns failover"); a != "skip" {
+		t.Fatalf("without a domain: %q", a)
+	}
+	if a := r.plan("--role", "ex", "--cloudflare-domain", "example.com").action("dns failover"); a != "create" {
+		t.Fatalf("with a domain: %q", a)
+	}
+	r.write("etc/dns-failover.json", "{}", 0o600)
+	if a := r.plan("--role", "ex", "--cloudflare-domain", "example.com").action("dns failover"); a != "keep" {
+		t.Fatalf("existing setup: %q", a)
+	}
+	if a := r.plan("--role", "ir").action("dns failover"); a != "" {
+		t.Fatalf("IR plans dns failover: %q", a)
+	}
+}

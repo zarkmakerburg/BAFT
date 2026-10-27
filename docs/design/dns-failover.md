@@ -19,17 +19,29 @@ free Cloudflare DNS API. No paid load balancer is needed.
   Any other A/AAAA/CNAME record with the same name stops reconciliation.
 - A restart starts with every target healthy and never withdraws before probing.
 
+## Optional, from the installer
+
+DNS failover is opt-in. On the EX the installer asks for a Cloudflare domain
+(Enter skips it) or takes `--cloudflare-domain example.com`; with a domain it
+also needs the IR public IPs (`--dns-targets 1.2.3.4,5.6.7.8`) and an API token
+(`BAFT_CLOUDFLARE_TOKEN`, or asked hidden; never a command-line argument). It
+then generates `baft-xxxxxx.example.com` and starts the service. Without a
+domain nothing changes: clients use the IR addresses directly, exactly as
+before. A failure here only warns, because the tunnel is already working; a
+rerun keeps an existing setup.
+
 ## One-step setup
 
 The operator gives only the Cloudflare API token and the name; the zone is
 found automatically and the service is installed and started:
 
 ```bash
-echo "$CF_TOKEN" | sudo baft dns-failover setup --record t.example.com \
+echo "$CF_TOKEN" | sudo baft dns-failover setup --domain example.com \
   --target ir-a=193.201.66.33 --target ir-b=194.110.24.20 --target ir-c=109.70.76.143
 ```
 
-The token is read from stdin (never a command-line argument), checked against
+`--domain` generates a random `baft-xxxxxx.<domain>` name (printed at the
+end); `--record` uses a name you choose instead. The token is read from stdin (never a command-line argument), checked against
 Cloudflare before anything is written, and stored as `/etc/baft/cloudflare-dns.token`
 (0600). The token needs `Zone:Read` and `DNS:Edit` on that zone. `--probe-port`
 (default 443) or `name=IP:port` sets what is probed.

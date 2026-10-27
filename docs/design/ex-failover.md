@@ -39,6 +39,26 @@ baft failover --listen 127.0.0.1:1080 \
   --target ex1=127.0.0.1:1543,probe=127.0.0.1:2544
 ```
 
+## As a service
+
+`install` validates the arguments, writes a systemd unit (Restart=always) and
+starts it:
+
+```bash
+sudo baft echo install --listen 127.0.0.1:2444            # EX (loopback only)
+sudo baft failover install --listen 127.0.0.1:1080 \
+  --target ex2=127.0.0.1:1443,probe=127.0.0.1:2444 \
+  --target ex1=127.0.0.1:1543,probe=127.0.0.1:2544      # IR
+```
+
+## Real-host result (2026-10-27, #67)
+
+On Iran server A with EX-1 (throttled from Iran) preferred and EX-2 second,
+`baft failover` marked EX-1 down and three 64 KiB echoes through the failover
+listener all came back intact via EX-2. In that run the EX-1 tunnel process
+had exited, so the case seen was a dead route; the open-but-stalling case is
+covered by the unit test, not yet by a real host.
+
 ## Limits
 
 - Failover moves new connections only; a connection already on a path that

@@ -164,6 +164,9 @@ type TunnelRequest struct {
 	EXMetricsListen        string `json:"ex_metrics_listen,omitempty"`
 	IRMetricsListen        string `json:"ir_metrics_listen,omitempty"`
 	RecordShaping          bool   `json:"record_shaping"`
+	// AutoSelectEvidence binds a path/capability recommendation into this
+	// reviewed request. BCC revalidates it during both Review and Deploy.
+	AutoSelectEvidence *AutoTransportCandidate `json:"auto_select_evidence,omitempty"`
 	// PlanHash, when set, must equal the hash of the plan BCC computes now.
 	PlanHash string `json:"plan_hash,omitempty"`
 }
@@ -521,6 +524,11 @@ func (s *Store) CreateTunnelFromPlan(req TunnelRequest, planHash string, now tim
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	// Deploy must revalidate the exact auto-select evidence atomically with the
+	// state used to compare the reviewed plan hash and create the tunnel.
+	if err := s.validateAutoSelectEvidenceLocked(req, now); err != nil {
+		return Tunnel{}, Plan{}, err
+	}
 	if planHash != "" {
 		cur, err := s.buildPlanLocked(req, now)
 		if err != nil {

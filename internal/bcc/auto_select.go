@@ -11,24 +11,30 @@ import (
 // port ownership. It is a planning input only; selection never reserves or
 // mutates a host resource.
 type AutoTransportCandidate struct {
-	SourceNode                 string    `json:"source_node"`
-	DestinationNode            string    `json:"destination_node"`
-	Family                     string    `json:"family"`
-	Port                       int       `json:"port"`
-	Class                      string    `json:"class"`
-	State                      string    `json:"state"`
-	EvidenceAt                 time.Time `json:"evidence_at"`
-	ConnectRTTMS               int64     `json:"connect_rtt_ms"`
-	TricklePassed              bool      `json:"trickle_passed"`
-	CarrierID                  string    `json:"carrier_id"`
-	InstalledAtSource          bool      `json:"installed_at_source"`
-	InstalledAtDestination     bool      `json:"installed_at_destination"`
-	CapabilityEvidenceVerified bool      `json:"capability_evidence_verified"`
-	NegotiatedCapabilities     []string  `json:"negotiated_capabilities,omitempty"`
-	ListenerAvailable          bool      `json:"listener_available"`
-	SharedListener             bool      `json:"shared_listener"`
-	MultiplexVerified          bool      `json:"multiplex_verified"`
-	UTLSSupported              bool      `json:"utls_supported"`
+	SourceNode                      string    `json:"source_node"`
+	DestinationNode                 string    `json:"destination_node"`
+	// ProbeID and capability observation timestamps bind the exact observations
+	// used to make the recommendation, not just their measured values.
+	ProbeID                         string    `json:"probe_id"`
+	CapabilityEvidenceAtSource      time.Time `json:"capability_evidence_at_source"`
+	CapabilityEvidenceAtDestination time.Time `json:"capability_evidence_at_destination"`
+	Family                          string    `json:"family"`
+	Port                            int       `json:"port"`
+	Class                           string    `json:"class"`
+	State                           string    `json:"state"`
+	EvidenceAt                      time.Time `json:"evidence_at"`
+	ConnectRTTMS                    int64     `json:"connect_rtt_ms"`
+	TricklePassed                   bool      `json:"trickle_passed"`
+	CarrierID                       string    `json:"carrier_id"`
+	InstalledAtSource               bool      `json:"installed_at_source"`
+	InstalledAtDestination          bool      `json:"installed_at_destination"`
+	CapabilityEvidenceVerified      bool      `json:"capability_evidence_verified"`
+	NegotiatedCapabilities          []string  `json:"negotiated_capabilities,omitempty"`
+	ListenerAvailable               bool      `json:"listener_available"`
+	SharedListener                  bool      `json:"shared_listener"`
+	MultiplexVerified               bool      `json:"multiplex_verified"`
+	UTLSSupported                   bool      `json:"utls_supported"`
+
 }
 
 type AutoTransportRequest struct {

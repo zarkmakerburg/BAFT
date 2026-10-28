@@ -139,6 +139,20 @@ func TestAutoSelectEvidenceIsBoundAndRevalidated(t *testing.T) {
 		t.Fatalf("fresh selected evidence rejected: %v", err)
 	}
 
+	// A new heartbeat with unchanged capability values is still valid; the
+	// observation must be fresh, but ordinary polling must not invalidate a
+	// reviewed route by itself.
+	s.mu.Lock()
+	for _, id := range []string{"ir", "ex"} {
+		n := s.st.Nodes[id]
+		n.AgentSeen = now.Add(time.Second)
+		s.st.Nodes[id] = n
+	}
+	s.mu.Unlock()
+	if err := s.validateAutoSelectEvidence(req, now.Add(time.Second)); err != nil {
+		t.Fatalf("fresh unchanged capabilities should preserve the path choice: %v", err)
+	}
+
 	// Evidence cannot be attached to another requested port or node pair.
 	mismatch := req
 	mismatch.Port++

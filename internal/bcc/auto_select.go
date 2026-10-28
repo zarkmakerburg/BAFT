@@ -13,6 +13,11 @@ import (
 type AutoTransportCandidate struct {
 	SourceNode                 string    `json:"source_node"`
 	DestinationNode            string    `json:"destination_node"`
+	// ProbeID and capability observation timestamps bind the exact observations
+	// used to make the recommendation, not just their measured values.
+	ProbeID                    string    `json:"probe_id"`
+	CapabilityEvidenceAtSource time.Time `json:"capability_evidence_at_source"`
+	CapabilityEvidenceAtDestination time.Time `json:"capability_evidence_at_destination"`
 	Family                     string    `json:"family"`
 	Port                       int       `json:"port"`
 	Class                      string    `json:"class"`

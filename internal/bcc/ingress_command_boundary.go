@@ -20,14 +20,25 @@ func newIngressIdentity(prefix string) (string, error) {
 }
 
 func (s *Store) StageReviewedIngressCommand(tunnelID string, command ingressauthority.CommandV1, now time.Time) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.stageReviewedIngressCommandLocked(tunnelID, command, now, true)
+}
+
+func (s *Store) stageReviewedIngressCommandLocked(tunnelID string, command ingressauthority.CommandV1, now time.Time, persist bool) error {
 	if err := command.Validate(now); err != nil {
 		return err
 	}
 	if command.Action != "public_ingress_apply" {
 		return errors.New("retire requires separate authorization")
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	// Persist exactly what the normal signed Agent job can carry: signing
+	// truncates to whole seconds, caps the validity window and admits only the
+	// bounded v1 parameter schema. Refuse anything else BEFORE durable staging
+	// so a lossy or unsignable command can never become a reviewed identity.
+	if _, err := operationalIngressJob(command, now); err != nil {
+		return err
+	}
 	op, ok := s.st.PublicIngressOperations[tunnelID]
 	if !ok || op.Status != PublicIngressPending || op.ReviewedPlanHash == "" || op.OperationID == "" || op.LeaseID == "" {
 		return errors.New("missing durable reviewed operation")
@@ -70,9 +81,11 @@ func (s *Store) StageReviewedIngressCommand(tunnelID string, command ingressauth
 	}
 	op.Command = &command
 	s.st.PublicIngressOperations[tunnelID] = op
-	if err := s.saveLocked(); err != nil {
-		s.st = before
-		return err
+	if persist {
+		if err := s.saveLocked(); err != nil {
+			s.st = before
+			return err
+		}
 	}
 	return nil
 }
@@ -92,6 +105,9 @@ func (s *Store) RecordIngressAgentReceipt(receipt ingressauthority.ReceiptV1, to
 	op, ok := s.st.PublicIngressOperations[b.Spec.TunnelID]
 	if !ok || op.Command == nil || op.Status != PublicIngressPending {
 		return errors.New("missing staged command or duplicate receipt")
+	}
+	if op.RetireCommand != nil && receipt.JobID == op.RetireCommand.JobID {
+		return s.recordRetireReceiptLocked(op, receipt, now)
 	}
 	cmd := *op.Command
 	if cmd.JobID != receipt.JobID || cmd.Action != receipt.Action || cmd.Binding != b ||
@@ -120,6 +136,36 @@ func (s *Store) RecordIngressAgentReceipt(receipt ingressauthority.ReceiptV1, to
 	op.Receipt = &receipt
 	// Even Phase=applied does not change the PENDING state.
 	s.st.PublicIngressOperations[b.Spec.TunnelID] = op
+	if err := s.saveLocked(); err != nil {
+		s.st = before
+		return err
+	}
+	return nil
+}
+
+// recordRetireReceiptLocked stores an exact Retire receipt as inert evidence.
+// It never marks the ingress REMOVED; absence must be independently observed.
+func (s *Store) recordRetireReceiptLocked(op PublicIngressOperation, receipt ingressauthority.ReceiptV1, now time.Time) error {
+	rc := *op.RetireCommand
+	if op.Receipt == nil || rc.Action != receipt.Action || rc.Binding != receipt.Binding || receipt.SchemaVersion != 1 {
+		return errors.New("retire receipt not bound to stored retire command")
+	}
+	if op.RetireReceipt != nil {
+		if reflect.DeepEqual(*op.RetireReceipt, receipt) {
+			return nil
+		}
+		return errors.New("conflicting ingress retire receipt replay")
+	}
+	if now.IsZero() || now.Before(rc.IssuedAt) || !now.Before(rc.ExpiresAt) {
+		return errors.New("retire receipt outside command lifetime")
+	}
+	before, err := cloneState(s.st)
+	if err != nil {
+		return err
+	}
+	receipt.FirewallEvidence = append([]ingressauthority.FirewallEvidenceV1(nil), receipt.FirewallEvidence...)
+	op.RetireReceipt = &receipt
+	s.st.PublicIngressOperations[rc.Binding.Spec.TunnelID] = op
 	if err := s.saveLocked(); err != nil {
 		s.st = before
 		return err

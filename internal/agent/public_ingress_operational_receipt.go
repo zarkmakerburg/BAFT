@@ -45,15 +45,44 @@ func (a *Agent) publicIngressOperationalRefusal(ctx context.Context, j agentjob.
 	return errors.Join(ingressauthority.ErrUnverified, a.postBlockedIngressReceipt(ctx, receipt))
 }
 
-// Only negative, evidence-free receipts may use this sender. A future live
-// outcome needs its own durable authority/readback integration.
+// postBlockedIngressReceipt sends only negative, evidence-free pre-effect receipts.
 func (a *Agent) postBlockedIngressReceipt(ctx context.Context, receipt ingressauthority.ReceiptV1) error {
-	if a == nil || ctx == nil || a.cfg.Token == "" || receipt.SchemaVersion != 1 || receipt.Binding.NodeID != a.cfg.NodeID ||
-		receipt.Binding.Validate() != nil || receipt.JobID == "" ||
-		(receipt.Action != agentjob.ActionPublicIngressApply && receipt.Action != agentjob.ActionPublicIngressRetire) ||
-		receipt.Phase != "blocked" || receipt.OwnershipVerified || receipt.FailureCause == "" || receipt.RollbackStatus != "not_attempted" ||
-		receipt.ListenerEvidence != (ingressauthority.ListenerEvidenceV1{}) || len(receipt.FirewallEvidence) != 0 {
+	if receipt.Phase != "blocked" || receipt.FailureCause == "" || receipt.RollbackStatus != "not_attempted" {
 		return errors.New("invalid blocked operational ingress receipt")
+	}
+	return a.postIngressReceipt(ctx, receipt)
+}
+
+// validOutboundIngressReceipt admits exactly four shapes: blocked (no effects
+// attempted), applied (owned listener + exact firewall evidence), retired
+// (no ownership claim) and failed (effects possible; reconciliation required).
+func validOutboundIngressReceipt(r ingressauthority.ReceiptV1) bool {
+	if r.SchemaVersion != 1 || r.JobID == "" || r.Binding.Validate() != nil ||
+		(r.Action != agentjob.ActionPublicIngressApply && r.Action != agentjob.ActionPublicIngressRetire) {
+		return false
+	}
+	noEvidence := r.ListenerEvidence == (ingressauthority.ListenerEvidenceV1{}) && len(r.FirewallEvidence) == 0
+	switch r.Phase {
+	case "blocked":
+		return !r.OwnershipVerified && r.FailureCause != "" && r.RollbackStatus == "not_attempted" && noEvidence
+	case "failed":
+		return !r.OwnershipVerified && r.FailureCause != "" && r.RollbackStatus == "reconciliation_required" && noEvidence
+	case "applied":
+		return r.Action == agentjob.ActionPublicIngressApply && r.OwnershipVerified && r.FailureCause == "" && r.RollbackStatus == "" &&
+			r.ListenerEvidence.Endpoint == r.Binding.ListenEndpoint && r.ListenerEvidence.SocketIdentity != "" &&
+			len(r.FirewallEvidence) == 1 && r.FirewallEvidence[0].RuleHandle != 0
+	case "retired":
+		return r.Action == agentjob.ActionPublicIngressRetire && !r.OwnershipVerified && r.FailureCause == "" && r.RollbackStatus == "" && noEvidence
+	}
+	return false
+}
+
+// postIngressReceipt sends one validated receipt to BCC over certificate
+// validated HTTPS with the enrolled bearer token. The receipt is inert
+// evidence; BCC decides what it means.
+func (a *Agent) postIngressReceipt(ctx context.Context, receipt ingressauthority.ReceiptV1) error {
+	if a == nil || ctx == nil || a.cfg.Token == "" || receipt.Binding.NodeID != a.cfg.NodeID || !validOutboundIngressReceipt(receipt) {
+		return errors.New("invalid operational ingress receipt")
 	}
 	endpoint, err := url.Parse(a.cfg.BCCURL)
 	if err != nil || endpoint.Scheme != "https" || endpoint.Hostname() == "" || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" || (endpoint.Path != "" && endpoint.Path != "/") {

@@ -95,7 +95,7 @@ func TestRuntimeWildcardForeignRebindAfterRetireDoesNotImplyLeakLinux(t *testing
 	defer foreign.Close()
 	// The old wildcard rebind assertion would incorrectly say "retire
 	// leaked socket" here, despite the inode proof above.
-	rebound, err := net.Listen("tcp4", spec.Config.Listen)
+	rebound, err := listenWithForensics(t, "tcp4", spec.Config.Listen)
 	if err == nil {
 		rebound.Close()
 		t.Fatal("kernel unexpectedly permitted wildcard LISTEN across foreign live same-port service")

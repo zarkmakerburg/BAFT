@@ -168,6 +168,9 @@ func TestBCCUnitFromInstallerIsRecognized(t *testing.T) {
 		"BAFT_BCC_ALLOW_INSECURE_HTTP": "0",
 		"BAFT_BCC_BOOTSTRAP_SCRIPT":    bootstrap,
 		"BAFT_BCC_PUBLIC_URL":          "https://bcc.example.test",
+		"BAFT_BCC_BACKUP_KEY_FILE":     "/etc/baft-bcc/backup-key",
+		"BAFT_BCC_UPDATE_ROOT_FILE":    "/etc/baft-bcc/release-root.pub",
+		"BAFT_ROOT_PUB":                "NJq0LmZ503x67pdXSuNGmSOqaiNJDpYf9nDE8Bwa-JI",
 	}
 	unit := runInstaller(t, "render_bcc_unit", env)
 	if !labelled(unit, "bcc") {
@@ -181,7 +184,9 @@ func TestBCCUnitFromInstallerIsRecognized(t *testing.T) {
 		p.AccessFile != "/etc/baft-bcc/access.json" ||
 		p.JobKeyFile != "/etc/baft-bcc/job-key" ||
 		p.BackupDir != "/var/lib/baft-bcc/backups" ||
-		p.BootstrapScript != bootstrap || p.BootstrapSHA256 != wantBootstrapSHA {
+		p.BootstrapScript != bootstrap || p.BootstrapSHA256 != wantBootstrapSHA ||
+		p.BackupKeyFile != "/etc/baft-bcc/backup-key" ||
+		p.UpdateRootFile != "/etc/baft-bcc/release-root.pub" {
 		t.Fatalf("wrong BCC paths parsed: %+v", p)
 	}
 	if !strings.Contains(unit, "--install-script "+bootstrap+" --public-url https://bcc.example.test") {

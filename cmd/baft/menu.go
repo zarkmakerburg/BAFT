@@ -255,7 +255,7 @@ func (m *menu) mainItems() []menuItem {
 		{label: "Backup / Restore", run: (*menu).backup},
 		{label: "Logs", run: func(m *menu) { m.logsMenu() }},
 		{label: "Support bundle", run: (*menu).supportBundle},
-		{label: "Update", planned: true},
+		{label: "Update", run: (*menu).updateGuide},
 		{label: "Repair", planned: true},
 		{label: "Uninstall", run: (*menu).uninstallMenu},
 		{label: "Advanced", run: func(m *menu) { m.advancedMenu() }},

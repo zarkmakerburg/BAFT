@@ -90,11 +90,45 @@ type Lease = LiveLease
 // LiveLease is an inert zero value. Only a future Alpha-owned durable
 // authority can construct a valid lock-held permit. Never use as a bypass.
 type LiveLease struct {
-	minted  bool
-	binding BindingV1
+	minted    bool
+	binding   BindingV1
+	authority leaseAuthority
+}
+
+// leaseAuthority is implemented only by a held PendingGuard lease (unix).
+type leaseAuthority interface {
+	checkLease(ctx context.Context, command CommandV1) error
+	withLease(ctx context.Context, command CommandV1, effect func() error) error
 }
 
 func (l *LiveLease) CheckLockedIngress(ctx context.Context, command CommandV1) error {
+	if err := l.precheck(ctx, command); err != nil {
+		return err
+	}
+	// A flag alone never suffices: a live lease must re-prove, under the
+	// still-held OS lock, the exact durable intent, policy and state.
+	return l.authority.checkLease(ctx, command)
+}
+
+// WithLockedIngress runs one leaf host effect while the lease's guard mutex
+// is held: the exact durable intent, policy and state are re-proved under the
+// lock, the effect runs, and the lease is re-proved again before the lock is
+// released. Guard Close, supersession or a recorded uncertain state cannot
+// interleave between the final authority check and the effect. effect is not
+// an authorization callback and must not call guard or lease methods (the
+// mutex is not reentrant). An effect error is returned unchanged, joined with
+// any post-effect revalidation failure.
+func (l *LiveLease) WithLockedIngress(ctx context.Context, command CommandV1, effect func() error) error {
+	if effect == nil {
+		return ErrUnverified
+	}
+	if err := l.precheck(ctx, command); err != nil {
+		return err
+	}
+	return l.authority.withLease(ctx, command, effect)
+}
+
+func (l *LiveLease) precheck(ctx context.Context, command CommandV1) error {
 	if ctx == nil {
 		return ErrUnverified
 	}
@@ -107,9 +141,10 @@ func (l *LiveLease) CheckLockedIngress(ctx context.Context, command CommandV1) e
 	if err := command.Validate(time.Now()); err != nil {
 		return err
 	}
-	// Until the durable cross-process lock and restart fences are implemented,
-	// even an internal mint flag is insufficient to permit host mutation.
-	return ErrUnverified
+	if l.authority == nil {
+		return ErrUnverified
+	}
+	return nil
 }
 
 func (*LiveLease) MarshalJSON() ([]byte, error) { return nil, ErrUnverified }

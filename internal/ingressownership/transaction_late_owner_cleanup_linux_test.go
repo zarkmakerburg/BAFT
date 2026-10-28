@@ -190,6 +190,9 @@ func TestLabApplyRollsBackExactOwnedFirewallOnForeignPortDuringInstallLinux(t *t
 		}
 	}()
 	err = tx.Apply(context.Background(), spec, proof)
+	if foreign == nil {
+		t.Skip("kernel does not permit cross-family same-port listeners (no IPv6 loopback)")
+	}
 	if err == nil {
 		t.Fatal("unexpected successful Apply after foreign listener arrived during installation")
 	}

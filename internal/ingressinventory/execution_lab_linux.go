@@ -10,9 +10,11 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func measurePrivateLinuxLAB(ctx context.Context, expectedNetNS string) (PrivateLABExecutionEvidence, error) {
@@ -72,15 +74,34 @@ func measurePrivateLinuxLAB(ctx context.Context, expectedNetNS string) (PrivateL
 		if err != nil || n < 1 {
 			continue
 		}
-		ns, err := os.Readlink(filepath.Join("/proc", entry.Name(), "ns", "net"))
-		if err != nil {
-			// Ignore a process if and only if it truly disappeared while
-			// enumerating; unreadable live processes invalidate scope.
-			_, statErr := os.Stat(filepath.Join("/proc", entry.Name()))
-			if errors.Is(statErr, os.ErrNotExist) {
-				continue
+		procDir := filepath.Join("/proc", entry.Name())
+		nsPath := filepath.Join(procDir, "ns", "net")
+		var ns string
+		for attempt := 0; attempt < 4; attempt++ {
+			ns, err = os.Readlink(nsPath)
+			if err == nil {
+				break
 			}
+			// /proc enumeration races with short-lived tasks. Retry a bounded
+			// number of times, but only ignore a PID after procfs confirms it
+			// has disappeared. A still-present unreadable PID remains UNKNOWN
+			// and must fail closed; this is not a blanket permission fallback.
+			_, statErr := os.Stat(procDir)
+			if errors.Is(statErr, os.ErrNotExist) {
+				err = nil
+				break
+			}
+			if attempt < 3 {
+				runtime.Gosched()
+				time.Sleep(time.Millisecond)
+			}
+		}
+		if err != nil {
 			return e, fmt.Errorf("%w: cannot inspect live namespace holder PID %d", ErrCoverageIncomplete, n)
+		}
+		if ns == "" {
+			// PID disappeared during the bounded retry above.
+			continue
 		}
 		if ns == current {
 			shared = append(shared, n)

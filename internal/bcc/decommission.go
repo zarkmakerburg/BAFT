@@ -388,7 +388,21 @@ func (s *Server) tunnelDecommission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	audit := AuditEntry{Actor: "admin", Details: map[string]any{"plan_hash": in.PlanHash}}
+	// An applied public ingress must be retired while the tunnel is still
+	// ACTIVE (Retire needs the reviewed identity). Fail closed if it cannot be.
+	retireQueued := false
+	if !ingressGlueDisabled.Load() {
+		queued, rerr := s.store.RetireAppliedOperationalIngress(in.ID)
+		if rerr != nil {
+			s.auditFailure(w, r, "tunnel.decommission.request", in.ID, map[string]any{"plan_hash": in.PlanHash}, errors.New("applied public ingress cannot be retired now: "+rerr.Error()), http.StatusConflict)
+			return
+		}
+		retireQueued = queued
+	}
 	t, _, err := s.store.StartDecommissionFromPlanAudited(in.ID, in.PlanHash, s.now(), audit)
+	if err != nil && retireQueued {
+		_ = s.store.AbandonQueuedOperationalRetire(in.ID)
+	}
 	var stale ErrStaleDecommissionPlan
 	if errors.As(err, &stale) {
 		_ = s.auditAdmin(r, "tunnel.decommission.request", in.ID, "failure", map[string]any{"plan_hash": in.PlanHash, "current_plan_hash": stale.Current.Hash})

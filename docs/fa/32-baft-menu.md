@@ -20,7 +20,7 @@ HQ A3 (منو و هدر). اجرای `baft` روی ترمینال (یا `baft me
 | 8 | Backup / Restore | راهنمای backup، فرمان فقط‌خواندنی `baft-bcc restore-preview` و restore محلی/offline با `baft-bcc restore ... --yes` |
 | 9 | Logs | ۱۰۰ یا ۵۰۰ خط آخر (برای دنبال‌کردن زنده `baft logs -f`) |
 | 10 | Support bundle | بعد از «بله»ی صریح آرشیو عیب‌یابی secret-safe را می‌نویسد |
-| 11 | Update | **planned** |
+| 11 | Update | راهنمای فقط‌خواندنی: نسخهٔ امضاشدهٔ نصب‌شده و دستورهای تأییدشدهٔ به‌روزرسانی و بازگشت را نشان می‌دهد (مرکز به‌روزرسانی BCC، `install.sh --offline`)؛ چیزی را تغییر نمی‌دهد |
 | 12 | Repair | **planned** |
 | 13 | Uninstall | زیرمنوی HQ: ۱ فقط باینری‌ها، ۲ فقط agent، ۳ فقط BCC، ۴ سرویس‌ها + باینری‌ها، ۵ حذف کامل، ۶ پیش‌نمایش، ۰ بازگشت؛ هر گزینه اول plan را نشان می‌دهد و بدون تأییدها چیزی حذف نمی‌کند (سند ۳۴) |
 | 14 | Advanced | بررسی config، اطلاعات release، agent، عیب‌یابی شبکه، اطلاعات debug، اطلاعات سرویس، ownership/drift، مسیرهای محلی، نسخه و build |

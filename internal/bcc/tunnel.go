@@ -380,6 +380,16 @@ func (s *Store) resolveTunnelLocked(req TunnelRequest, now time.Time) (Tunnel, N
 			return Tunnel{}, Node{}, Node{}, err
 		}
 	}
+	if t.Port == 22 {
+		return Tunnel{}, Node{}, Node{}, errors.New("EX listener port 22 is reserved for SSH management")
+	}
+	exMetrics := t.EXMetricsListen
+	if exMetrics == "" {
+		exMetrics = "127.0.0.1:9191" // legacy singleton runtime default
+	}
+	if _, mp, err := net.SplitHostPort(exMetrics); err == nil && mp == strconv.Itoa(t.Port) {
+		return Tunnel{}, Node{}, Node{}, fmt.Errorf("EX listener port %d conflicts with the EX metrics listener", t.Port)
+	}
 	for _, other := range s.st.Tunnels {
 		if !tunnelsShareNode(t, other) {
 			continue
@@ -739,6 +749,10 @@ func (s *Store) AdvanceTunnels(now time.Time) ([]TunnelEvent, error) {
 			s.st.Tunnels[id] = t
 		}
 		if ev != nil {
+			if ev.Action == "tunnel.active" {
+				// Same lock and same save as the activation itself.
+				s.stageReviewedIngressOnActivationLocked(id, now.UTC())
+			}
 			events = append(events, *ev)
 		}
 	}
@@ -966,6 +980,11 @@ func (s *Server) AdvanceTunnels() {
 	}
 	_ = s.FlushSecurityAuditIntents()
 	for _, e := range events {
+		if e.Action == "tunnel.active" && !ingressGlueDisabled.Load() {
+			// Held until the production gate (enrolled IR node + fresh
+			// capability heartbeat) opens; a refusal leaves it staged/held.
+			_ = s.store.EnqueueOperationalIngress(e.TunnelID)
+		}
 		if strings.HasPrefix(e.Action, "cert.rotation.") || strings.HasPrefix(e.Action, "tunnel.decommission") {
 			continue
 		}
@@ -1012,10 +1031,15 @@ func (s *Server) tunnels(w http.ResponseWriter, r *http.Request) {
 				http.NotFound(w, r)
 				return
 			}
-			writeJSON(w, 200, t)
+			writeJSON(w, 200, s.tunnelWithIngress(t))
 			return
 		}
-		writeJSON(w, 200, s.store.ListTunnels())
+		list := s.store.ListTunnels()
+		out := make([]tunnelIngressView, 0, len(list))
+		for _, t := range list {
+			out = append(out, s.tunnelWithIngress(t))
+		}
+		writeJSON(w, 200, out)
 	case http.MethodPost:
 		if !s.admin(w, r) {
 			return
@@ -1032,6 +1056,21 @@ func (s *Server) tunnels(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		details := map[string]any{"ex_node": in.EXNode, "ir_node": in.IRNode, "port": in.Port, "target": in.Target, "route_listen": in.RouteListen}
+		// Replacing a tunnel whose public ingress is applied requires a Retire.
+		// Fail closed BEFORE anything durable exists when it cannot be queued.
+		replaced := ""
+		if !ingressGlueDisabled.Load() {
+			if cur, perr := s.store.BuildPlan(in, s.now()); perr == nil && cur.Hash == in.PlanHash {
+				replaced = cur.Replaces
+			}
+			if replaced != "" {
+				if needed, perr := s.store.PrecheckOperationalIngressRetire(replaced); needed && perr != nil {
+					details["replaces"] = replaced
+					s.auditFailure(w, r, "tunnel.create", in.EXNode+"->"+in.IRNode, details, errors.New("replacement refused: applied public ingress of "+replaced+" cannot be retired now: "+perr.Error()), http.StatusConflict)
+					return
+				}
+			}
+		}
 		t, _, err := s.store.CreateTunnelFromPlan(in, in.PlanHash, s.now(), AuditEntry{
 			Timestamp: s.now().UTC(), Actor: "admin", RemoteIP: s.clientIP(r), Details: withRequest(r, details),
 		})
@@ -1048,6 +1087,14 @@ func (s *Server) tunnels(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			s.auditFailure(w, r, "tunnel.create", in.EXNode+"->"+in.IRNode, details, err, 400)
 			return
+		}
+		if replaced != "" {
+			if _, rerr := s.store.RetireAppliedOperationalIngress(replaced); rerr != nil {
+				// Compensate: no half-replaced tunnel with an orphaned ingress.
+				_, _ = s.store.CancelTunnel(t.ID, "ingress retire could not be queued: "+rerr.Error(), s.now())
+				s.auditFailure(w, r, "tunnel.create", in.EXNode+"->"+in.IRNode, details, errors.New("replacement cancelled: ingress retire failed: "+rerr.Error()), http.StatusConflict)
+				return
+			}
 		}
 		if err := s.FlushSecurityAuditIntents(); err != nil {
 			w.Header().Set("X-BAFT-Audit-State", "pending")
@@ -1191,4 +1238,22 @@ func (s *Server) tunnelDrift(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 202, t)
+}
+
+// tunnelIngressView is the Tunnel JSON plus the derived operational ingress
+// state (never persisted). Ready only uses an already cached fresh BCC probe.
+type tunnelIngressView struct {
+	Tunnel
+	Ingress *IngressOperationalState `json:"ingress,omitempty"`
+}
+
+func (s *Server) tunnelWithIngress(t Tunnel) tunnelIngressView {
+	now := s.now()
+	var obs *IndependentIngressObservation
+	s.ingressObsMu.Lock()
+	if e, ok := s.ingressObsCache[t.ID]; ok && now.Sub(e.at) < ingressObsTTL && !e.at.After(now) {
+		obs = e.obs
+	}
+	s.ingressObsMu.Unlock()
+	return tunnelIngressView{Tunnel: t, Ingress: s.store.IngressOperationalState(t.ID, obs, now)}
 }

@@ -18,7 +18,7 @@ Direct commands (`baft status`, `baft doctor --json`, `baft logs`, `baft version
 | 8 | Backup / Restore | backup guidance, read-only `baft-bcc restore-preview`, and the offline local `baft-bcc restore ... --yes` command |
 | 9 | Logs | last 100 or 500 lines (follow live with `baft logs -f`) |
 | 10 | Support bundle | after an explicit yes, writes the secret-safe diagnostics archive |
-| 11 | Update | **planned** |
+| 11 | Update | read-only guidance: shows the installed signed release and the verified update and rollback commands (BCC Update Center, `install.sh --offline`); changes nothing |
 | 12 | Repair | **planned** |
 | 13 | Uninstall | HQ's submenu: 1 binaries only, 2 agent only, 3 BCC only, 4 services + binaries, 5 full uninstall, 6 preview, 0 back; every entry shows the plan first and removes nothing without the confirmations (doc 34) |
 | 14 | Advanced | configuration check, release information, agent, network diagnostics, debug information, service information, ownership/drift, local paths, version and build metadata |

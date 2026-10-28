@@ -72,6 +72,7 @@ func agentAction(j Job) (string, map[string]string, error) {
 	case JobTunnelPrepareEX, JobTunnelPrepareIR, JobTunnelCommitEX, JobTunnelCommitIR, JobTunnelHealth, JobTunnelObserve, JobTunnelInspect, JobTunnelDiscover, JobTunnelFinalize, JobTunnelRollback, agentjob.ActionTunnelRetire,
 		agentjob.ActionPathProbeInventory, agentjob.ActionPathProbeListen, agentjob.ActionPathProbeRun, agentjob.ActionPathProbeStop,
 		agentjob.ActionPublicIngressPreflight, agentjob.ActionPublicIngressInspect, agentjob.ActionPublicIngressPrepare, agentjob.ActionPublicIngressCancel,
+		agentjob.ActionPublicIngressApply, agentjob.ActionPublicIngressRetire,
 		agentjob.ActionCertPrepareEX, agentjob.ActionCertTrustIR, agentjob.ActionCertVerifyEX, agentjob.ActionCertVerifyIR,
 		agentjob.ActionCertActivateEX, agentjob.ActionCertConfirmIR, agentjob.ActionCertRetireIR, agentjob.ActionCertRetireEX,
 		agentjob.ActionCertRollback:
@@ -108,9 +109,19 @@ func (s *Server) signAgentJobs(jobs []Job) ([]AgentJob, error) {
 			if err != nil {
 				return nil, err
 			}
+			issued := now
+			if j.Type == agentjob.ActionPublicIngressApply || j.Type == agentjob.ActionPublicIngressRetire {
+				// Operational ingress is signed only from the persisted reviewed
+				// command: identical params and the command's own signed window.
+				cmd, err := s.store.signableOperationalIngress(j, now)
+				if err != nil {
+					return nil, err
+				}
+				issued, deadline = cmd.IssuedAt, cmd.ExpiresAt
+			}
 			env, err := agentjob.Sign(s.jobKey, agentjob.Job{
 				JobID: j.ID, NodeID: j.NodeID, Action: action, Params: params,
-				IssuedAt: now, ExpiresAt: deadline,
+				IssuedAt: issued, ExpiresAt: deadline,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("sign job %s: %w", j.ID, err)

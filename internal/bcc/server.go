@@ -58,8 +58,12 @@ type Alert struct {
 
 type Server struct {
 	store                   *Store
+	ingressObserver         *IngressObserver
+	ingressObsMu            sync.Mutex
+	ingressObsCache         map[string]ingressObsEntry
 	version                 string
 	verifiedCatalog         *VerifiedReleaseCatalog
+	updateRootKey           ed25519.PublicKey
 	adminToken              string
 	audit                   *AuditLog
 	guard                   *IPGuard
@@ -119,6 +123,7 @@ func NewServer(store *Store, adminToken string) (*Server, error) {
 		smartIngressHTTPClient:  &http.Client{Timeout: 5 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
 		smartIngressLiveEnabled: strings.TrimSpace(os.Getenv("BAFT_SMART_INGRESS_LIVE")) == "1", smartIngressTokenEnv: strings.TrimSpace(os.Getenv("BAFT_CLOUDFLARE_API_TOKEN_ENV")), smartIngressRouteLocks: map[string]*sync.Mutex{},
 		auditAnchorRetryBase: time.Second, auditAnchorRetryMax: time.Minute, anchorOutbox: outbox, anchorWake: make(chan struct{}, 1),
+		ingressObserver: NewIngressObserver(), ingressObsCache: map[string]ingressObsEntry{},
 		now:      func() time.Time { return time.Now().UTC() },
 		loginLim: newLoginLimiter(), hashing: newHashSlots(2),
 	}
@@ -230,6 +235,10 @@ func (s *Server) Handler() http.Handler {
 	m.HandleFunc("/api/nodes/platform", s.nodePlatform)
 	m.HandleFunc("/api/nodes/versions", s.nodeVersions)
 	m.HandleFunc("/api/nodes/versions/accept", s.nodeReleaseAccept)
+	m.HandleFunc("/api/updates", s.updates)
+	m.HandleFunc("/api/updates/import", s.updateImport)
+	m.HandleFunc("/api/updates/plan", s.updatePlan)
+	m.HandleFunc("/api/updates/apply", s.updateApply)
 	m.HandleFunc("/api/jobs", s.jobs)
 	m.HandleFunc("/api/enroll", s.enroll)
 	m.HandleFunc("/api/bootstrap", s.bootstrap)
@@ -245,6 +254,7 @@ func (s *Server) Handler() http.Handler {
 	m.HandleFunc("/api/change-ledger", s.changeLedgerAPI)
 	m.HandleFunc("/api/tunnels/cancel", s.tunnelCancel)
 	m.HandleFunc("/api/tunnels/plan", s.tunnelPlan)
+	m.HandleFunc("/api/tunnels/auto-select", s.tunnelAutoSelect)
 	m.HandleFunc("/api/tunnels/decommission/plan", s.tunnelDecommissionPlan)
 	m.HandleFunc("/api/tunnels/decommission", s.tunnelDecommission)
 	m.HandleFunc("/api/tunnels/drift", s.tunnelDrift)
@@ -259,6 +269,9 @@ func (s *Server) Handler() http.Handler {
 	m.HandleFunc("/api/ingress/reservations", s.publicIngressReservationsAPI)
 	m.HandleFunc("/api/ingress/reviewed-reservations", s.reviewedPublicIngressReservationAPI)
 	m.HandleFunc("/api/ingress/operational-receipt", s.operationalIngressReceiptAPI)
+	m.HandleFunc("/api/ingress/readiness", s.ingressReadinessAPI)
+	m.HandleFunc("/api/ingress/deploy", s.publicIngressDeployAPI)
+	m.HandleFunc("/api/ingress/retire", s.publicIngressRetireAPI)
 	m.HandleFunc("/api/ingress/evaluate", s.ingressEvaluateAPI)
 	m.HandleFunc("/api/ingress/distribution", s.distributionAPI)
 	m.HandleFunc("/api/ingress/distribution/evaluate", s.distributionEvaluateAPI)
@@ -432,7 +445,12 @@ func (s *Server) agentJobs(w http.ResponseWriter, r *http.Request) {
 	}
 	nodeID := r.URL.Query().Get("node_id")
 	var signed []AgentJob
-	_, err := s.store.pullJobs(nodeID, bearer(r), func(jobs []Job) error {
+	caps, capErr := parseAgentCapabilities(r.Header.Values(agentCapabilitiesHeader))
+	if capErr != nil {
+		http.Error(w, "invalid capability report", http.StatusBadRequest)
+		return
+	}
+	_, err := s.store.pullJobsReporting(nodeID, bearer(r), caps, func(jobs []Job) error {
 		var signErr error
 		signed, signErr = s.signAgentJobs(jobs)
 		return signErr
@@ -445,6 +463,11 @@ func (s *Server) agentJobs(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "job dispatch failed", http.StatusInternalServerError)
 		}
 		return
+	}
+	if !ingressGlueDisabled.Load() {
+		// The poll just recorded this node's capabilities and heartbeat; retry
+		// any held operational Apply (idempotent, gate-controlled).
+		s.store.RetryHeldOperationalIngress(nodeID)
 	}
 	writeJSON(w, http.StatusOK, signed)
 }

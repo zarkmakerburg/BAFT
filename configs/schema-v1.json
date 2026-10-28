@@ -133,7 +133,11 @@
         "h3_enabled": {"const": false},
         "shards": {"type": "integer", "minimum": 1, "maximum": 8},
         "profile": {"type": "string", "minLength": 1, "maxLength": 64},
-        "utls": {"type": "boolean"}
+        "utls": {"type": "boolean"},
+        "require_capabilities": {
+          "type": "array", "uniqueItems": true, "maxItems": 4,
+          "items": {"enum": ["carrier.h2", "carrier.ws", "noise.v1", "shape.v1"]}
+        }
       }
     },
     "limits": {
@@ -144,7 +148,9 @@
         "data_memory_mib": {"type": "integer", "minimum": 16, "maximum": 4096},
         "receive_initial_kib": {"type": "integer", "minimum": 1},
         "receive_max_mib": {"type": "integer", "minimum": 1},
-        "replay_max_mib": {"type": "integer", "minimum": 1}
+        "replay_max_mib": {"type": "integer", "minimum": 1},
+        "flow_idle_seconds": {"type": "integer", "minimum": 0, "maximum": 86400},
+        "max_flows_per_peer": {"type": "integer", "minimum": 0, "maximum": 65535}
       }
     },
     "recovery": {

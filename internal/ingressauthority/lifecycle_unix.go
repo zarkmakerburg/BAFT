@@ -27,6 +27,12 @@ type lifecycleEntry struct {
 	State    RecoveryState              `json:"state"`
 	Policy   *InstalledPolicyIdentityV1 `json:"installed_policy,omitempty"`
 	Commands map[string]CommandV1       `json:"command_intents,omitempty"`
+	// Leased maps action to the one signed JobID whose live lease was ever
+	// minted. It is a durable single-use fence: restart never re-mints.
+	Leased map[string]string `json:"leased_jobs,omitempty"`
+	// Superseded lists Retire JobIDs replaced by a newer Retire. They are
+	// permanently spent: never recordable or leasable again (no ping-pong).
+	Superseded []string `json:"superseded_jobs,omitempty"`
 }
 
 func readLifecycle(root *os.Root) (map[string]lifecycleEntry, error) {
@@ -76,6 +82,12 @@ func readLifecycle(root *os.Root) (map[string]lifecycleEntry, error) {
 				return nil, ErrUnverified
 			}
 			jobs[command.JobID] = true
+		}
+		for _, spent := range value.Superseded {
+			if jobs[spent] {
+				return nil, ErrUnverified
+			}
+			jobs[spent] = true
 		}
 	}
 	return result, nil

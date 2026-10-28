@@ -3,6 +3,8 @@ package metrics
 import (
 	"fmt"
 	"net/http"
+
+	"github.com/zarkmakerburg/baft/internal/protocol"
 )
 
 type Snapshot struct {
@@ -25,6 +27,13 @@ type Snapshot struct {
 	RecoveryCurrentEpoch  uint64
 	RecoveryReplayedBytes uint64
 	RecoveryFailures      map[string]uint64
+	// CapabilitySessions counts live sessions that negotiated each capability;
+	// CapabilityBaselineSessions counts sessions on the v0.3.7 baseline (peer
+	// negotiated nothing); CapabilityRefusals counts refused negotiations by
+	// reason. Label sets are bounded by the protocol's known sets.
+	CapabilitySessions         map[string]uint64
+	CapabilityBaselineSessions uint64
+	CapabilityRefusals         map[string]uint64
 }
 
 type Provider func() Snapshot
@@ -121,6 +130,20 @@ func Handler(provider Provider) http.Handler {
 		fmt.Fprintln(w, "# TYPE baft_recovery_failures_total counter")
 		for _,reason:=range []string{"candidate_setup","snapshot_exchange","peer_restart","state_mismatch","replay_unavailable","lease_conflict","commit","post_commit_failure","other"} {
 			fmt.Fprintf(w, "baft_recovery_failures_total{reason=%q} %d\n", reason, s.RecoveryFailures[reason])
+		}
+
+		fmt.Fprintln(w, "# HELP baft_capability_negotiated_sessions Live sessions that negotiated each transport capability.")
+		fmt.Fprintln(w, "# TYPE baft_capability_negotiated_sessions gauge")
+		for _, c := range protocol.KnownCapabilities() {
+			fmt.Fprintf(w, "baft_capability_negotiated_sessions{capability=%q} %d\n", c, s.CapabilitySessions[c])
+		}
+		fmt.Fprintln(w, "# HELP baft_capability_baseline_sessions Live sessions whose peer negotiated no capabilities (v0.3.7 wire baseline).")
+		fmt.Fprintln(w, "# TYPE baft_capability_baseline_sessions gauge")
+		fmt.Fprintf(w, "baft_capability_baseline_sessions %d\n", s.CapabilityBaselineSessions)
+		fmt.Fprintln(w, "# HELP baft_capability_refusals_total Capability negotiations refused, by typed reason.")
+		fmt.Fprintln(w, "# TYPE baft_capability_refusals_total counter")
+		for _, reason := range protocol.RefusalReasons() {
+			fmt.Fprintf(w, "baft_capability_refusals_total{reason=%q} %d\n", reason, s.CapabilityRefusals[reason])
 		}
 	})
 }

@@ -11,12 +11,18 @@ import (
 // reservation and pending operation. This does NOT enqueue an Agent Apply,
 // claim a host listener, prove foreign service ownership, or mint a lease.
 func (s *Store) RecordReviewedPublicIngressOperation(spec PublicIngressSpec, planHash string, proof PublicIngressExpectedProof, now time.Time, audit AuditEntry) (PublicIngressOperation, error) {
-	canonical, err := PlanPublicIngress(spec.IRNode, spec.TunnelID, spec.PublicPort, spec.LocalTarget)
-	if err != nil || canonical != spec || now.IsZero() || !proof.valid() || proof.Generation != 1 {
-		return PublicIngressOperation{}, errors.New("invalid reviewed ingress operation identity or proof")
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.recordReviewedPublicIngressOperationLocked(spec, planHash, proof, now, audit, true)
+}
+
+// recordReviewedPublicIngressOperationLocked requires s.mu. With persist=false
+// the caller owns the single atomic save (and restores state on failure).
+func (s *Store) recordReviewedPublicIngressOperationLocked(spec PublicIngressSpec, planHash string, proof PublicIngressExpectedProof, now time.Time, audit AuditEntry, persist bool) (PublicIngressOperation, error) {
+	canonical, err := PlanPublicIngress(spec.IRNode, spec.TunnelID, spec.PublicPort, spec.LocalTarget)
+	if err != nil || canonical != spec || now.IsZero() || !proof.valid() || proof.Generation != s.nextIngressGenerationLocked(spec.IRNode, spec.PublicPort) {
+		return PublicIngressOperation{}, errors.New("invalid reviewed ingress operation identity or proof")
+	}
 	tunnel, ok := s.st.Tunnels[spec.TunnelID]
 	if !ok || tunnel.Phase != TunnelActive || tunnel.PlanHash == "" || tunnel.PlanHash != planHash || tunnel.ClientPort != spec.PublicPort || tunnel.IRNode != spec.IRNode || tunnel.RouteListen != spec.LocalTarget {
 		return PublicIngressOperation{}, errors.New("reviewed tunnel and canonical client port must match active persisted plan")
@@ -83,9 +89,11 @@ func (s *Store) RecordReviewedPublicIngressOperation(spec PublicIngressSpec, pla
 		s.st = before
 		return PublicIngressOperation{}, err
 	}
-	if err := s.saveLocked(); err != nil {
-		s.st = before
-		return PublicIngressOperation{}, err
+	if persist {
+		if err := s.saveLocked(); err != nil {
+			s.st = before
+			return PublicIngressOperation{}, err
+		}
 	}
 	return op, nil
 }

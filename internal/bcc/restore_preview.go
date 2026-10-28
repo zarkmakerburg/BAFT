@@ -106,6 +106,7 @@ func buildRestorePreview(payload backupPayload, header BackupHeader, current sta
 		p.WouldRefuse = "public ingress operation conflict: " + err.Error()
 		return p, nil
 	}
+	mergeUpdateCenter(&restored, current)
 
 	p.Nodes = diffIDs(current.Nodes, restored.Nodes, func(a, b Node) bool { return sameJSON(a, b) })
 	p.Tunnels = diffIDs(current.Tunnels, restored.Tunnels, func(a, b Tunnel) bool { return a.Phase == b.Phase && a.PlanHash == b.PlanHash && a.Error == b.Error })

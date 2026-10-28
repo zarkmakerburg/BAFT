@@ -35,7 +35,7 @@ func TestNFTLabFailedApplyCleanupCanRetireExactRuleInSameProcess(t *testing.T) {
 		t.Fatal("failed apply claimed success")
 	}
 	defer tx.Runtime.Retire(spec.Config.Listen, owner)
-	foreign, err := net.Listen("tcp4", spec.Config.Listen)
+	foreign, err := listenWithForensics(t, "tcp4", spec.Config.Listen)
 	if err != nil {
 		t.Fatal(err)
 	}

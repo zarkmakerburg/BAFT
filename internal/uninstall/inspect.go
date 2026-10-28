@@ -178,6 +178,9 @@ func (e *Env) inspectUnit(ctx context.Context, name string) *Unit {
 	if len(u.execs) > 0 {
 		prog = u.execs[0]
 	}
+	if e.classifyRecover(u, raw) {
+		return u
+	}
 	switch filepath.Base(firstField(firstValue(raw, "ExecStart"))) {
 	case "baft":
 		u.Kind = "transport"
@@ -197,6 +200,24 @@ func (e *Env) inspectUnit(ctx context.Context, name string) *Unit {
 		u.Ownership, u.Evidence = Unmanaged, "not a BAFT unit (runs "+clip(prog)+")"
 	}
 	return u
+}
+
+// classifyRecover recognizes the boot-recovery unit install.sh writes. It is
+// BAFT's only when ALL hold: the exact file name, the managed+recover header
+// labels and `<abs>/baft recover boot ...` as its program. A look-alike with a
+// different name, no label or another program is not claimed (it falls through
+// to the normal classification and is never removed as BAFT's).
+func (e *Env) classifyRecover(u *Unit, raw string) bool {
+	if u.Name != "baft-recover.service" || !labelled(raw, "recover") {
+		return false
+	}
+	f := strings.Fields(firstValue(raw, "ExecStart"))
+	if len(f) < 3 || !filepath.IsAbs(f[0]) || filepath.Base(f[0]) != "baft" || f[1] != "recover" || f[2] != "boot" {
+		return false
+	}
+	u.Kind = "recover"
+	u.Ownership, u.Evidence = Managed, "labelled as BAFT's boot recovery unit (# baft-managed: true, # baft-component: recover) running `baft recover boot`"
+	return true
 }
 
 func firstField(s string) string {
@@ -363,6 +384,7 @@ func (e *Env) classifyAgent(u *Unit, raw string) {
 
 type bccPaths struct {
 	StateFile, AccessFile, JobKeyFile, BackupDir string
+	BackupKeyFile, UpdateRootFile                string   // empty when the unit does not name them
 	BootstrapScript, BootstrapSHA256             string   // installer-managed only when the unit marker and digest agree
 	Operator                                     []string // operator-provided files it names
 }
@@ -434,6 +456,8 @@ func parseBCC(raw string) *bccPaths {
 		b.JobKeyFile = b.StateFile + ".job-key"
 	}
 	b.BackupDir = abs(val["backup-dir"])
+	b.BackupKeyFile = abs(val["backup-key-file"])
+	b.UpdateRootFile = abs(val["update-root-pub"])
 	if b.BackupDir == "" {
 		b.BackupDir = abs("./backups")
 	}
@@ -925,6 +949,13 @@ func (e *Env) scanBCC(inv *Inventory, b *bccPaths, u *Unit) {
 	add(b.StateFile+".json.bak", ClassBCCState, isJSONHead, "the JSON state kept when BCC moved to SQLite")
 	add(b.AccessFile, ClassBCCState, isJSONHead, "the BCC web access file (credential hashes)")
 	add(b.JobKeyFile, ClassBCCState, nil, "the BCC job-signing key (agents pin its public key)")
+	if b.BackupKeyFile != "" {
+		// Kept and removed with the backups: without it they cannot be read.
+		add(b.BackupKeyFile, ClassBackups, nil, "the key of the encrypted BCC backups")
+	}
+	if b.UpdateRootFile != "" {
+		add(b.UpdateRootFile, ClassBCCState, nil, "the release root key pinned for Update Center imports")
+	}
 	add(b.StateFile+".lock", ClassRuntime, nil, "the BCC process lock")
 	add(b.StateFile+".audit.jsonl", ClassAudit, isJSONHead, "the BCC audit log (hash chain)")
 	add(b.StateFile+".audit-anchor-outbox.json", ClassAudit, isJSONHead, "the BCC audit anchor outbox")

@@ -371,3 +371,37 @@ func (v Verifier) Verify(env release.Envelope, now time.Time) (Job, error) {
 	}
 	return j, nil
 }
+
+// VerifiedJob is evidence that a job passed signature, node, window and
+// replay checks in Verifier.VerifyAdmitted. Its fields are unexported, so no
+// other package can construct a non-zero value or mutate one; the zero value
+// is never valid. It carries no authority to mutate a host by itself.
+type VerifiedJob struct {
+	job      Job
+	verified bool
+}
+
+// Valid reports whether v was produced by VerifyAdmitted.
+func (v VerifiedJob) Valid() bool { return v.verified }
+
+// Job returns a detached copy of the verified job (zero Job if not Valid).
+func (v VerifiedJob) Job() Job {
+	if !v.verified {
+		return Job{}
+	}
+	j := v.job
+	j.Params = make(map[string]string, len(v.job.Params))
+	for k, val := range v.job.Params {
+		j.Params[k] = val
+	}
+	return j
+}
+
+// VerifyAdmitted is Verify returning sealed evidence for lease minting.
+func (v Verifier) VerifyAdmitted(env release.Envelope, now time.Time) (VerifiedJob, error) {
+	j, err := v.Verify(env, now)
+	if err != nil {
+		return VerifiedJob{}, err
+	}
+	return VerifiedJob{job: j, verified: true}, nil
+}

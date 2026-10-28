@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/zarkmakerburg/baft/internal/bcc"
+	"github.com/zarkmakerburg/baft/internal/release"
 )
 
 // version is set at release build time (-X main.version).
@@ -32,6 +33,7 @@ func main(){
 	catalogRoot:=flag.String("component-catalog-root","","file containing pinned Ed25519 root public key")
 	catalogRevocations:=flag.String("component-catalog-revocations","","external root-signed revocations file")
 	catalogState:=flag.String("component-catalog-trust-state","","persistent anti-rollback state file outside signed release directory")
+	updateRoot:=flag.String("update-root-pub","","file containing the pinned release root public key; enables Update Center imports (defaults to --component-catalog-root)")
 	healthInterval:=flag.Duration("health-interval",10*time.Second,"node TCP health-check interval")
 	telemetryStale:=flag.Duration("telemetry-stale",3*time.Minute,"telemetry stale threshold")
 	handshakeErrorRate:=flag.Float64("handshake-error-rate",5.0,"handshake error alert threshold per minute")
@@ -94,6 +96,13 @@ func main(){
 		catalog,err:=bcc.NewVerifiedReleaseCatalog(*catalogDir,*catalogRoot,*catalogRevocations,*catalogState)
 		if err!=nil{fmt.Fprintln(os.Stderr,"BCC component catalog:",err);os.Exit(2)}
 		app.ConfigureVerifiedCatalog(catalog)
+	}
+	if *updateRoot!="" {
+		rawRoot,err:=os.ReadFile(*updateRoot)
+		if err!=nil{fmt.Fprintln(os.Stderr,"update root:",err);os.Exit(2)}
+		pub,err:=release.DecodePublic(strings.TrimSpace(string(rawRoot)))
+		if err!=nil{fmt.Fprintln(os.Stderr,"update root:",err);os.Exit(2)}
+		if err:=app.ConfigureUpdateCenter(pub);err!=nil{fmt.Fprintln(os.Stderr,"update root:",err);os.Exit(2)}
 	}
 	trustedProxies:=[]string{}
 	for _,part:=range strings.Split(os.Getenv("BAFT_BCC_TRUSTED_PROXIES"),","){

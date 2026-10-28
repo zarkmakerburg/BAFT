@@ -14,6 +14,7 @@ import (
 	carrierws "github.com/zarkmakerburg/baft/internal/carrier/ws"
 	"github.com/zarkmakerburg/baft/internal/carrier/utlsdial"
 	"github.com/zarkmakerburg/baft/internal/config"
+	"github.com/zarkmakerburg/baft/internal/identity"
 	"github.com/zarkmakerburg/baft/internal/protocol"
 	"github.com/zarkmakerburg/baft/internal/recovery"
 	"github.com/zarkmakerburg/baft/internal/securityinternal"
@@ -90,6 +91,11 @@ func (r *Runtime) nextRecoveryCandidate(shard int) string {
 	return fmt.Sprintf("shard-%d-replacement-%d",shard,n)
 }
 
+// flowIdleTimeout is the optional per-Flow idle window; zero disables it.
+func flowIdleTimeout(cfg config.Config) time.Duration {
+	return time.Duration(cfg.Limits.FlowIdleSeconds) * time.Second
+}
+
 func primaryTransport(cfg config.Config) string {
 	if cfg.Transport.Primary == "" {
 		return "h2"
@@ -143,17 +149,40 @@ func (r *Runtime) dialCarrier(ctx context.Context,cfg config.Config,tlsCfg *tls.
 	return r.dialCarrierTransport(ctx,cfg,tlsCfg,primaryTransport(cfg))
 }
 
+// carrierPeerPath resolves the network path for one physical carrier. Only the
+// configured fallback carrier may use the distinct peer.fallback_* path; every
+// empty field inherits the primary value. An unreadable or invalid fallback CA
+// is an explicit error: the fallback never silently verifies against the
+// primary CA, and never loosens verification.
+func carrierPeerPath(cfg config.Config,tlsCfg *tls.Config,transport string)(string,*tls.Config,error){
+	if cfg.Peer==nil{return "",nil,errors.New("carrier requires a peer")}
+	addr:=cfg.Peer.Address
+	if cfg.Transport.Fallback==""||transport!=cfg.Transport.Fallback||transport==primaryTransport(cfg){return addr,tlsCfg,nil}
+	if cfg.Peer.FallbackAddress!=""{addr=cfg.Peer.FallbackAddress}
+	if cfg.Peer.FallbackServerName==""&&cfg.Peer.FallbackCAFile==""{return addr,tlsCfg,nil}
+	out:=tlsCfg.Clone()
+	if cfg.Peer.FallbackServerName!=""{out.ServerName=cfg.Peer.FallbackServerName}
+	if cfg.Peer.FallbackCAFile!=""{
+		pool,err:=identity.LoadCertPool(cfg.Peer.FallbackCAFile)
+		if err!=nil{return "",nil,fmt.Errorf("fallback carrier CA: %w",err)}
+		out.RootCAs=pool
+	}
+	return addr,out,nil
+}
+
 // dialCarrierTransport opens exactly one requested physical transport. The
 // caller chooses primary vs fallback; this function never changes Session
 // identity, recovery epoch, or authority ownership.
 func (r *Runtime) dialCarrierTransport(ctx context.Context,cfg config.Config,tlsCfg *tls.Config,transport string)(*openedRuntimeCarrier,error){
+	peerAddr,tlsCfg,err:=carrierPeerPath(cfg,tlsCfg,transport)
+	if err!=nil{return nil,err}
 	if transport=="ws"{
 		if cfg.Noise==nil{return nil,errors.New("ws carrier requires noise")}
 		nc,e:=noiseConfig(cfg);if e!=nil{return nil,e}
 		// The WebSocket carrier speaks HTTP/1.1; offer that in ALPN rather than
 		// the HTTP/2 the shared client config carries.
 		wsTLS:=tlsCfg.Clone();wsTLS.NextProtos=[]string{"http/1.1"}
-		d:=&carrierws.Dialer{Endpoint:"wss://"+cfg.Peer.Address,TLSConfig:wsTLS,Header:wsCarrierHeaders(cfg.Peer.ServerName)}
+		d:=&carrierws.Dialer{Endpoint:"wss://"+peerAddr,TLSConfig:wsTLS,Header:wsCarrierHeaders(wsTLS.ServerName)}
 		if cfg.Transport.UTLS{
 			// Present a browser-fidelity ClientHello to blend the IR->carrier TLS
 			// into ordinary HTTPS; the server is still verified (and the inner
@@ -168,7 +197,7 @@ func (r *Runtime) dialCarrierTransport(ctx context.Context,cfg config.Config,tls
 		return &openedRuntimeCarrier{carrier:session.Carrier{In:secure,Out:secure},transport:"ws",closeFn:func(){_ = conn.Close()}},nil
 	}
 	if transport!="h2"{return nil,fmt.Errorf("unsupported carrier transport %q",transport)}
-	client,err:=carrierh2.NewClient("https://"+cfg.Peer.Address,tlsCfg)
+	client,err:=carrierh2.NewClient("https://"+peerAddr,tlsCfg)
 	if err!=nil{return nil,err}
 	var pw *io.PipeWriter
 	var resp *http.Response

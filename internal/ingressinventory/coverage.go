@@ -76,6 +76,9 @@ type ActiveTCPClaim struct {
 	Family string
 	State  string
 	Inode  uint64
+	// Uid is the kernel-reported owner (/proc/net/tcp column uid). It is a
+	// classification input only: never a permission, and never trusted alone.
+	Uid    uint32
 	Local  string
 	Source string
 }

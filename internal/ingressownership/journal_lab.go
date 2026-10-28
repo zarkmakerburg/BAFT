@@ -98,7 +98,13 @@ func (j *LabJournal) Advance(next MutationRecord) error {
 	}
 	allowed := map[MutationPhase]MutationPhase{PhaseIntent: PhaseListenerBound, PhaseListenerBound: PhaseFirewallInstalled, PhaseFirewallInstalled: PhaseVerified, PhaseVerified: PhaseRetireIntent, PhaseRetireIntent: PhaseRetired}
 	rollbackIntent := (old.Phase == PhaseListenerBound || old.Phase == PhaseFirewallInstalled) && next.Phase == PhaseRetireIntent && next.FirewallHandle != 0
-	if allowed[old.Phase] != next.Phase && !rollbackIntent {
+	// Restart reconciliation only: an operation that was interrupted before
+	// any firewall rule was journaled owns no rule. After the kernel evidence
+	// (no rule readback, no agent socket) is established it may be closed
+	// directly. It still can never reopen: a retired generation is final.
+	abandoned := (old.Phase == PhaseIntent || old.Phase == PhaseListenerBound) && old.FirewallHandle == 0 &&
+		next.Phase == PhaseRetired && next.FirewallHandle == 0
+	if allowed[old.Phase] != next.Phase && !rollbackIntent && !abandoned {
 		return errors.Join(ErrInvalid, ErrUnverified)
 	}
 	j.entries[key] = next

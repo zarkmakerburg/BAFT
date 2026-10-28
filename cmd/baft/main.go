@@ -14,6 +14,7 @@ import (
 
 	"github.com/zarkmakerburg/baft/internal/config"
 	"github.com/zarkmakerburg/baft/internal/node"
+	"github.com/zarkmakerburg/baft/internal/protocol"
 )
 
 var version = "0.2.0-pro-rc1"
@@ -21,6 +22,11 @@ var version = "0.2.0-pro-rc1"
 type versionInfo struct {
 	Name    string `json:"name"`
 	Version string `json:"version"`
+	// Capabilities is the transport capability set this binary implements
+	// (protocol capability set v1). It is what the binary can do, not what a
+	// node's configuration enables; the agent reports it so BCC never
+	// selects a carrier the installed binary lacks.
+	Capabilities []string `json:"capabilities"`
 }
 
 func main() {
@@ -71,8 +77,16 @@ func runContext(ctx context.Context, args []string, stdout, stderr io.Writer) in
 		return runNode(ctx, args[1:], stdout, stderr)
 	case "tunnel":
 		return runTunnelCLI(ctx, args[1:], stdout, stderr)
+	case "recover":
+		return runRecover(ctx, args[1:], stdout, stderr)
 	case "ingress":
 		return runIngress(ctx, args[1:], stderr)
+	case "failover":
+		return runFailover(ctx, args[1:], stderr)
+	case "echo":
+		return runEcho(ctx, args[1:], stderr)
+	case "dns-failover":
+		return runDNSFailover(ctx, args[1:], stdout, stderr)
 	case "status":
 		return runStatus(args[1:], stdout, stderr, hostOps)
 	case "doctor":
@@ -91,7 +105,7 @@ func runContext(ctx context.Context, args []string, stdout, stderr io.Writer) in
 
 func runVersion(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 1 && args[0] == "--json" {
-		_ = json.NewEncoder(stdout).Encode(versionInfo{Name: "baft", Version: version})
+		_ = json.NewEncoder(stdout).Encode(versionInfo{Name: "baft", Version: version, Capabilities: protocol.KnownCapabilities()})
 		return 0
 	}
 	if len(args) == 0 {
@@ -148,7 +162,7 @@ func runNode(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stdout, "starting BAFT node %s (%s)\n", cfg.Node.ID, cfg.Node.Role)
 	rt := node.NewRuntime()
-	stopReload := reloadOnHUP(ctx, rt, stderr)
+	stopReload := reloadOnHUPFile(ctx, rt, stderr, *file)
 	defer stopReload()
 	if err := rt.Run(ctx, cfg); err != nil {
 		fmt.Fprintln(stderr, "node stopped:", err)
@@ -161,6 +175,13 @@ func runNode(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 // Handling SIGHUP unconditionally also keeps a reload from terminating a node
 // that has no revocation file.
 func reloadOnHUP(ctx context.Context, rt *node.Runtime, stderr io.Writer) func() {
+	return reloadOnHUPFile(ctx, rt, stderr, "")
+}
+
+// reloadOnHUPFile additionally re-reads configFile on SIGHUP and applies a
+// changed tenant set (routes, allowed peers) to a running shared listener
+// without restarting it. A rejected config keeps the running tenants.
+func reloadOnHUPFile(ctx context.Context, rt *node.Runtime, stderr io.Writer, configFile string) func() {
 	ctx, cancel := context.WithCancel(ctx)
 	hup := make(chan os.Signal, 1)
 	signal.Notify(hup, syscall.SIGHUP)
@@ -181,6 +202,23 @@ func reloadOnHUP(ctx context.Context, rt *node.Runtime, stderr io.Writer) func()
 				default:
 					fmt.Fprintf(stderr, "reload: %d revocation entries applied\n", n)
 				}
+				if configFile == "" {
+					continue
+				}
+				cfg, err := config.LoadFile(configFile)
+				if err != nil {
+					fmt.Fprintln(stderr, "reload: config rejected, keeping current tenants:", err)
+					continue
+				}
+				res, err := rt.ReloadListener(cfg)
+				switch {
+				case errors.Is(err, node.ErrNoListener):
+					// A dialer has no tenant set to reload.
+				case err != nil:
+					fmt.Fprintln(stderr, "reload: tenant change rejected, keeping current tenants:", err)
+				default:
+					fmt.Fprintf(stderr, "reload: tenants applied added=%v removed=%v routes=%d\n", res.Added, res.Removed, res.Routes)
+				}
 			}
 		}
 	}()
@@ -200,7 +238,11 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w, "  baft config stealth-pro --file <config.yaml> [padding/jitter flags]")
 	fmt.Fprintln(w, "  baft run --file <config.yaml>")
 	fmt.Fprintln(w, "  baft tunnel <ex-code|ir-apply|ex-accept|ir-start|health|inspect|finalize|rollback> --instance ID --metrics-listen IP:PORT --id TXN [flags]")
+	fmt.Fprintln(w, "  baft recover boot [--json]   # boot-time reconciliation of interrupted tunnel changes (run by baft-recover.service)")
 	fmt.Fprintln(w, "  baft ingress run --listen IP:PORT --target LOOPBACK_IP:PORT   # foreground TCP runtime; no firewall changes")
+	fmt.Fprintln(w, "  baft failover --listen IP:PORT --target ex1=ROUTE,probe=ECHO_ROUTE --target ex2=...   # IR: prefer the first EX whose path carries a full probe")
+	fmt.Fprintln(w, "  baft echo [--listen 127.0.0.1:2444]   # EX: probe endpoint for baft failover")
+	fmt.Fprintln(w, "  baft dns-failover --config <file.json> [--once]   # keep a Cloudflare DNS name on reachable IR servers (free DNS API)")
 	fmt.Fprintln(w, "  baft status [--file /etc/baft/baft.yaml] [--service baft] [--json]")
 	fmt.Fprintln(w, "  baft doctor [--file /etc/baft/baft.yaml] [--service baft] [--json] [--preview-fixes]")
 	fmt.Fprintln(w, "  baft logs [--service baft] [-n 100] [-f]")

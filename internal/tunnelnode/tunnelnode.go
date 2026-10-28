@@ -112,6 +112,11 @@ type Txn struct {
 	PKIReplaced   bool `json:"pki_replaced"`
 	ConfigWritten bool `json:"config_written"`
 
+	// MetricsClaimed is true only when this change created the instance's
+	// metrics claim. A re-pair of a live instance reuses the claim its running
+	// service still depends on and must never release it.
+	MetricsClaimed bool `json:"metrics_claimed,omitempty"`
+
 	// Ownership: what this change installed, so rollback only ever restores or
 	// deletes files that are still exactly the ones BAFT wrote.
 	HadMarker          bool   `json:"had_marker"`
@@ -209,6 +214,14 @@ func (m *Manager) ForInstance(instance, metricsListen string) (*Manager, error) 
 		path := filepath.Join(siblings, entry.Name(), "baft.yaml")
 		cfg, loadErr := config.LoadFile(path)
 		if os.IsNotExist(loadErr) {
+			// A sibling that never committed a config is not a port owner when
+			// its durable state proves it only ever prepared or cancelled a
+			// pairing (its metrics port is held by an exclusive claim, so a
+			// pairing in progress is still fenced). Anything else, including a
+			// bare directory with no state, stays unverifiable and fails closed.
+			if m.uncommittedSibling(entry.Name()) {
+				continue
+			}
 			return nil, errors.New("tunnelnode: sibling instance has no verifiable config")
 		}
 		if loadErr != nil {
@@ -224,6 +237,47 @@ func (m *Manager) ForInstance(instance, metricsListen string) (*Manager, error) 
 	env.Instance = instance
 	env.MetricsListen = metricsListen
 	return New(env)
+}
+
+// uncommittedSibling reports whether the named sibling instance has durable
+// transaction state and every transaction in it is readable and either
+// prepared or rolled back. Committed, finalized, unreadable or missing state
+// is not "uncommitted": the caller must then fail closed.
+func (m *Manager) uncommittedSibling(name string) bool {
+	env := m.Env
+	env.Instance = name
+	sib, err := New(env)
+	if err != nil {
+		return false
+	}
+	entries, err := os.ReadDir(filepath.Join(sib.StateDir, "tunnels"))
+	if err != nil {
+		return false
+	}
+	seen := 0
+	for _, e := range entries {
+		if !e.IsDir() {
+			if e.Name() == "active" || e.Name() == "generation" {
+				continue
+			}
+			return false
+		}
+		t, err := sib.readTxn(e.Name())
+		if err != nil || (t.Phase != PhasePrepared && t.Phase != PhaseRolledBack) {
+			return false
+		}
+		seen++
+	}
+	if seen == 0 {
+		return false
+	}
+	if _, err := os.Lstat(sib.unitPath()); err == nil {
+		return false
+	}
+	if _, err := os.Lstat(sib.markerPath()); err == nil {
+		return false
+	}
+	return true
 }
 
 // ---- parameters ----
@@ -244,6 +298,37 @@ type IRParams struct {
 }
 
 func validPort(p int) bool { return p >= 1 && p <= 65535 }
+
+// sshManagementPort is never a transport listener, route listener or metrics
+// endpoint of a managed instance.
+const sshManagementPort = 22
+
+func portOf(hostport string) int {
+	_, port, err := net.SplitHostPort(hostport)
+	if err != nil {
+		return 0
+	}
+	n, err := strconv.Atoi(port)
+	if err != nil {
+		return 0
+	}
+	return n
+}
+
+// refuseProtectedPorts rejects, before any state or host change, a listener
+// port that is SSH management or that aliases the metrics endpoint.
+func refuseProtectedPorts(metricsListen string, listenPort int) error {
+	metricsPort := portOf(metricsListen)
+	switch {
+	case listenPort == sshManagementPort:
+		return errors.New("tunnelnode: port 22 is reserved for SSH management")
+	case metricsPort == sshManagementPort:
+		return errors.New("tunnelnode: metrics port 22 is reserved for SSH management")
+	case metricsPort != 0 && listenPort == metricsPort:
+		return fmt.Errorf("tunnelnode: listener port %d conflicts with the metrics port", listenPort)
+	}
+	return nil
+}
 
 func (p ExParams) validate() error {
 	switch {
@@ -483,6 +568,12 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 	if err := p.validate(); err != nil {
 		return "", err
 	}
+	if err := m.requireOwnedInstanceNamespace(); err != nil {
+		return "", err
+	}
+	if err := m.requireFreeListeners("0.0.0.0:" + strconv.Itoa(p.Port)); err != nil {
+		return "", err
+	}
 	if p.MetricsListen == "" {
 		p.MetricsListen = m.MetricsListen
 	}
@@ -490,6 +581,10 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 	// through Prepare parameters after the initial instance preflight.
 	if m.Instance != "" && p.MetricsListen != m.MetricsListen {
 		return "", errors.New("tunnelnode: instance metrics address differs from scoped allocation")
+	}
+	claimCreated := false
+	if err := refuseProtectedPorts(p.MetricsListen, p.Port); err != nil {
+		return "", err
 	}
 	if m.Instance != "" {
 		_, metricsPort, err := net.SplitHostPort(p.MetricsListen)
@@ -500,13 +595,15 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 		if err != nil {
 			return "", err
 		}
-		if _, err := m.ClaimMetricsPort(n); err != nil {
+		created, err := m.acquireMetricsClaim(n)
+		if err != nil {
 			return "", fmt.Errorf("tunnelnode: metrics reservation before prepare: %w", err)
 		}
+		claimCreated = created
 	}
 	t, err := m.begin(id, RoleEX)
 	if err != nil {
-		if m.Instance != "" {
+		if claimCreated {
 			_, portText, splitErr := net.SplitHostPort(m.MetricsListen)
 			if splitErr == nil {
 				if port, parseErr := strconv.Atoi(portText); parseErr == nil {
@@ -519,6 +616,11 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 		return "", err
 	}
 	t.Port = p.Port
+	t.MetricsClaimed = claimCreated
+	if err := m.writeTxn(t); err != nil {
+		m.abort(ctx, t)
+		return "", err
+	}
 	code, err := func() (string, error) {
 		if err := m.ensureNoiseKey(ctx); err != nil {
 			return "", err
@@ -567,6 +669,12 @@ func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (s
 	if err := p.validate(); err != nil {
 		return "", err
 	}
+	if err := m.requireOwnedInstanceNamespace(); err != nil {
+		return "", err
+	}
+	if err := m.requireFreeListeners(p.RouteListen); err != nil {
+		return "", err
+	}
 	if p.MetricsListen == "" {
 		p.MetricsListen = m.MetricsListen
 	}
@@ -574,6 +682,10 @@ func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (s
 	// through Prepare parameters after the initial instance preflight.
 	if m.Instance != "" && p.MetricsListen != m.MetricsListen {
 		return "", errors.New("tunnelnode: instance metrics address differs from scoped allocation")
+	}
+	claimCreated := false
+	if err := refuseProtectedPorts(p.MetricsListen, portOf(p.RouteListen)); err != nil {
+		return "", err
 	}
 	if m.Instance != "" {
 		_, metricsPort, err := net.SplitHostPort(p.MetricsListen)
@@ -584,13 +696,15 @@ func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (s
 		if err != nil {
 			return "", err
 		}
-		if _, err := m.ClaimMetricsPort(n); err != nil {
+		created, err := m.acquireMetricsClaim(n)
+		if err != nil {
 			return "", fmt.Errorf("tunnelnode: metrics reservation before prepare: %w", err)
 		}
+		claimCreated = created
 	}
 	t, err := m.begin(id, RoleIR)
 	if err != nil {
-		if m.Instance != "" {
+		if claimCreated {
 			_, portText, splitErr := net.SplitHostPort(m.MetricsListen)
 			if splitErr == nil {
 				if port, parseErr := strconv.Atoi(portText); parseErr == nil {
@@ -603,6 +717,11 @@ func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (s
 		return "", err
 	}
 	t.RouteListen = p.RouteListen
+	t.MetricsClaimed = claimCreated
+	if err := m.writeTxn(t); err != nil {
+		m.abort(ctx, t)
+		return "", err
+	}
 	reply, err := func() (string, error) {
 		if err := m.ensureNoiseKey(ctx); err != nil {
 			return "", err
@@ -689,6 +808,10 @@ func (m *Manager) install(ctx context.Context, t Txn, port int) (string, error) 
 	staged := filepath.Join(stage, "baft.new.yaml")
 	if _, err := os.Stat(staged); err != nil {
 		return "", errors.New("no staged config")
+	}
+	// State may have changed since prepare; nothing live is touched yet.
+	if err := m.requireOwnedInstanceNamespace(); err != nil {
+		return "", err
 	}
 	if b, err := os.ReadFile(m.liveConfig()); err == nil {
 		t.HadConfig = true
@@ -1003,7 +1126,7 @@ func (m *Manager) rollbackTxn(ctx context.Context, t Txn) (string, error) {
 	if cur == t.ID {
 		m.clearActive()
 	}
-	if m.Instance != "" {
+	if m.Instance != "" && t.MetricsClaimed {
 		_, port, err := net.SplitHostPort(m.MetricsListen)
 		if err != nil {
 			return "rollback completed but metrics claim requires reconciliation", err
@@ -1708,9 +1831,28 @@ func (m *Manager) Retire(ctx context.Context, id string, want RetireExpectation)
 	if err := m.verifyRetireLive(m.inspectUnlocked(ctx), id, want, true); err != nil {
 		return ev, err
 	}
+	metricsPort := ""
+	if m.Instance != "" {
+		_, metricsPort, _ = net.SplitHostPort(m.MetricsListen)
+		if cfg, err := config.LoadFile(m.liveConfig()); err == nil {
+			if _, p, err := net.SplitHostPort(cfg.Management.MetricsListen); err == nil {
+				metricsPort = p
+			}
+		}
+	}
 	for _, path := range []string{m.liveConfig(), m.unitPath(), m.markerPath()} {
 		if err := removeDurable(path); err != nil {
 			return ev, err
+		}
+	}
+	// The instance no longer exists: free its metrics reservation so the name
+	// and port can be paired again. Only a claim this instance owns is removed;
+	// an altered or foreign claim is kept and the retire reports incomplete.
+	if m.Instance != "" {
+		if n, err := strconv.Atoi(metricsPort); err == nil && validPort(n) {
+			if err := m.ReleaseMetricsPort(n); err != nil {
+				return ev, fmt.Errorf("retire incomplete: metrics claim: %w", err)
+			}
 		}
 	}
 	_, _ = m.System.Systemctl(ctx, "daemon-reload")

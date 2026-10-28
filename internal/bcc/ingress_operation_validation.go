@@ -73,13 +73,33 @@ func validatePersistedIngressOperations(st state) error {
 		jobIDs[cmd.JobID] = id
 		if op.Dispatch != nil {
 			d := *op.Dispatch
-			if d.Phase != "held" || d.JobID != cmd.JobID || d.OperationID != op.OperationID || d.LeaseID != op.LeaseID || d.CreatedAt.IsZero() {
+			if !validIngressDispatchPhase(d.Phase) || d.JobID != cmd.JobID || d.OperationID != op.OperationID || d.LeaseID != op.LeaseID || d.CreatedAt.IsZero() {
 				return errors.New("persisted held dispatch differs from staged reviewed command")
 			}
+			jobFound := false
 			for _, job := range st.Jobs {
 				if job.ID == d.JobID {
-					return errors.New("held ingress job collides with runnable queue")
+					jobFound = true
+					if d.Phase == ingressPhaseHeld || job.Type != cmd.Action || job.NodeID != cmd.Binding.NodeID || job.Params["tunnel_id"] != id || job.Params["operation_id"] != op.OperationID {
+						return errors.New("ingress dispatch job differs from staged reviewed command")
+					}
 				}
+			}
+			if d.Phase == ingressPhaseQueued && !jobFound {
+				return errors.New("queued ingress dispatch has no queue job")
+			}
+		}
+		if op.RetireCommand != nil || op.RetireReceipt != nil {
+			rc := op.RetireCommand
+			if rc == nil || op.Receipt == nil || op.Dispatch == nil || op.Dispatch.Phase != ingressPhaseQueued || rc.Action != "public_ingress_retire" || rc.Validate(rc.IssuedAt) != nil || rc.Binding != cmd.Binding || rc.JobID == cmd.JobID {
+				return errors.New("retire command differs from applied reviewed operation")
+			}
+			if previous := jobIDs[rc.JobID]; previous != "" {
+				return errors.New("duplicate staged command ID")
+			}
+			jobIDs[rc.JobID] = id
+			if rr := op.RetireReceipt; rr != nil && (rr.SchemaVersion != 1 || rr.JobID != rc.JobID || rr.Action != rc.Action || rr.Binding != rc.Binding) {
+				return errors.New("retire receipt differs from exact persisted retire command")
 			}
 		}
 		if op.Receipt != nil {
@@ -105,6 +125,15 @@ func cloneIngressOperation(op PublicIngressOperation) PublicIngressOperation {
 		r := *op.Receipt
 		r.FirewallEvidence = append([]ingressauthority.FirewallEvidenceV1(nil), r.FirewallEvidence...)
 		op.Receipt = &r
+	}
+	if op.RetireCommand != nil {
+		cmd := *op.RetireCommand
+		op.RetireCommand = &cmd
+	}
+	if op.RetireReceipt != nil {
+		r := *op.RetireReceipt
+		r.FirewallEvidence = append([]ingressauthority.FirewallEvidenceV1(nil), r.FirewallEvidence...)
+		op.RetireReceipt = &r
 	}
 	return op
 }

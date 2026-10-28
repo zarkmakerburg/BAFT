@@ -2,6 +2,7 @@ package installer_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"os/user"
@@ -290,5 +291,68 @@ func TestPlanAgentOnly(t *testing.T) {
 	p = r.plan("--agent-only")
 	if p.action("agent token") != "replace" {
 		t.Fatalf("different token: %+v", p.Steps)
+	}
+}
+
+// A pairing code given to an already-paired IR is refused, not silently ignored.
+func TestPlanPairedIRRefusesPairingCodeWithoutRePair(t *testing.T) {
+	r := newPlanRig(t)
+	r.installed(true)
+	cmd := exec.Command("bash", filepath.Join("..", "..", "install.sh"), "--plan", "--json",
+		"--role", "ir", "--pairing-code", "BAFTPAIR1:x")
+	cmd.Env = r.env
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("plan accepted an ignored pairing code:\n%s", out)
+	}
+	if !strings.Contains(string(out), "--re-pair") {
+		t.Fatalf("refusal does not name --re-pair:\n%s", out)
+	}
+	if p := r.plan("--role", "ir", "--pairing-code", "BAFTPAIR1:x", "--re-pair"); p.action("pairing") != "create" {
+		t.Fatalf("--re-pair with a code: pairing=%q", p.action("pairing"))
+	}
+}
+
+// An IR install rerun with --role ex is refused as a role change, not
+// described as a broken install and not changed in place.
+func TestPlanRefusesRoleChangeWithClearMessage(t *testing.T) {
+	r := newPlanRig(t)
+	r.installed(true)
+	r.write("etc/baft.yaml", `{"routes":[{"listen":"127.0.0.1:1443","remote_route":"service-main"}]}`, 0o640)
+	cmd := exec.Command("bash", filepath.Join("..", "..", "install.sh"), "--plan", "--json", "--role", "ex", "--re-pair")
+	cmd.Env = r.env
+	out, _ := cmd.CombinedOutput()
+	if !strings.Contains(string(out), "installed as IR") || !strings.Contains(string(out), "baft uninstall") {
+		t.Fatalf("role change not explained:\n%s", out)
+	}
+	r.write("etc/baft.yaml", `{"server":{"listen":"0.0.0.0:8443"}}`, 0o640)
+	cmd = exec.Command("bash", filepath.Join("..", "..", "install.sh"), "--plan", "--json", "--role", "ir")
+	cmd.Env = r.env
+	out, _ = cmd.CombinedOutput()
+	if !strings.Contains(string(out), "installed as EX") {
+		t.Fatalf("EX->IR role change not explained:\n%s", out)
+	}
+}
+
+// DNS failover is optional: skipped unless a Cloudflare domain is given, and
+// an existing setup is kept on a rerun.
+func TestPlanDNSFailoverIsOptional(t *testing.T) {
+	r := newPlanRig(t)
+	r.installed(true)
+	if a := r.plan("--role", "ex").action("dns failover"); a != "skip" {
+		t.Fatalf("without a domain: %q", a)
+	}
+	if a := r.plan("--role", "ex", "--cloudflare-domain", "example.com").action("dns failover"); a != "create" {
+		t.Fatalf("with a domain: %q", a)
+	}
+	if p := r.plan("--role", "ex", "--cloudflare-domain", "example.com", "--dns-name", "vpn"); !strings.Contains(fmt.Sprint(p.Steps), "vpn.example.com") {
+		t.Fatalf("chosen subdomain not in plan: %+v", p.Steps)
+	}
+	r.write("etc/dns-failover.json", "{}", 0o600)
+	if a := r.plan("--role", "ex", "--cloudflare-domain", "example.com").action("dns failover"); a != "keep" {
+		t.Fatalf("existing setup: %q", a)
+	}
+	if a := r.plan("--role", "ir").action("dns failover"); a != "" {
+		t.Fatalf("IR plans dns failover: %q", a)
 	}
 }

@@ -10,6 +10,8 @@ Development target: **v0.4.0**, draft PR #270. Not released. See [readiness and 
 
 ### Added
 
+- **Transport capability negotiation (capability set v1)**: `HELLO`/`HELLO_ACK` now carry and act on `carrier.h2`, `carrier.ws`, `noise.v1` and `shape.v1`. Each side advertises what its config enables, the Session enables the intersection, and a missing required capability is refused with a typed reason (no silent downgrade; `ws` still requires Noise). New optional `transport.require_capabilities`. Wire-compatible with v0.3.7 in both directions (proved against a frozen copy of the v0.3.7 codec and real v0.3.7 binaries); negotiated and baseline sessions and refusals are exported as `baft_capability_*` metrics. HELLO capability lists must now be strictly ascending.
+- BCC Update Center (P0): operator-imported signed release bundles verified against the pinned release root (revocation, version floor, re-tag checks), per-server installed-vs-latest status from component reports, upgrade notice badge, hash-bound upgrade/rollback plans, and an admin-confirmed apply that queues the existing signed `update_baft` job for one server. BCC never updates anything by itself. SQLite schema 16 and encrypted backup schema 5 persist imports; restore never forgets an import or resurrects an older revocation list. The `baft` menu Update item is now read-only guidance. Design: [docs/design/update-center.md](docs/design/update-center.md).
 - Read-only Public Ingress host preflight with signed BCC-to-Agent dispatch, strict receipt validation and authenticated result retrieval for an existing owned tunnel. It observes listeners without binding, connecting or changing host state; ingress apply remains unavailable.
 - Durable desired Public Ingress port reservations with authenticated API, concurrent conflict protection, atomic audit, restart persistence and allocator/restore guards. They do not bind ports or authorize host changes. SQLite schema 14 and encrypted backup schema 3 prevent older binaries from silently losing allocations; legacy schema 2 backups remain readable without reservation data. Retain a verified pre-upgrade snapshot for downgrade.
 - BCC now persists a pending Public Ingress operation proof bound to an exact reservation, generation, manifest digest and listener/firewall IDs. Conflicting retries and restore snapshots are refused. SQLite schema 15 and encrypted backup schema 4 protect this cursor; it does not run an agent action or prove a live resource.
@@ -23,12 +25,21 @@ Development target: **v0.4.0**, draft PR #270. Not released. See [readiness and 
 - **Smart Tunnel Wizard**: create a tunnel in five steps, with port suggestions checked against the catalog (a suggested port is not a reservation) and a truthful mapping for x-ui/Xray ports.
 - **Engine inventory evidence contract**: a versioned format for what an agent reports about installed engines. It is not yet connected to live probes.
 
+- **Public ingress operational path (release-gated, default-closed)**: the Wizard's reviewed plan fixes the IR client config port equal to the actual public ingress port (`ConfigPort == Port`) together with nodes, target, transport, generation and plan hash. BCC sends signed Apply/Retire jobs to the normal enrolled Agent; the Agent opens the listener and nftables rule only under a held, locally verified lease. BCC marks the ingress Verified/Ready and shows the deployable client config card only after the Agent's authenticated HTTPS receipt (Agent to BCC, certificate-validated, no downgrade) and the BCC-side probe agree. Nothing is opened by default; a tag is accepted only when the exact-SHA `operational ingress v1` workflow passes with zero skipped required tests.
+- **Installer provisions the pinned nftables chain**: the Agent install creates the empty `inet baft ingress` chain with the pinned layout (idempotent; foreign nft objects are never touched; a differing layout is refused; opt out with `--no-ingress-chain`).
+- **Release acceptance**: `scripts/release/accept.sh` now requires the `operational ingress v1` run at the tag SHA for every tag, and the BCC UI, vulncheck and delta-ingress-pin workflows whenever the tagged commit carries them.
+
 ### Changed
 
+- The ingress probe responder waits up to 50 ms for a new client's first bytes before treating the connection as ordinary traffic, so clients that send nothing first (server-speaks-first protocols) see up to 50 ms of added connection latency on an ingress port.
 - Tunnel Studio no longer assumes a particular destination service; the destination is any IPv4 or IPv6 address and port.
 - Classic and Aurora panels reach the same cards and actions (parity documented in `docs/release/r1-classic-aurora-parity-stage286.md`).
 
 ### Fixed
+
+- Public ingress: the Agent now holds the lease's guard lock across the final authority check, the fresh socket evidence and the single nftables Install/Remove (`LiveLease.WithLockedIngress`). A concurrent guard close, supersession or uncertain-state record can no longer slip between the last check and the firewall change.
+
+- Test reliability: the late foreign-port-owner ingress test no longer picks an ephemeral port that parallel tests can take, and the slow-receiver backpressure fixture uses 8 KiB instead of 1 KiB buffers to avoid kernel zero-window stalls (assertions unchanged).
 
 - Public welcome/sign-in headers wrap on mobile with the preview launcher visible, preventing horizontal overflow. Full browser checks now cover public control bounds as well as authenticated pages.
 

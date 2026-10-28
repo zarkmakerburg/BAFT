@@ -21,7 +21,7 @@ import (
 
 const (
 	backupMagic = "BAFT-BCC-BACKUP"
-	BackupSchemaVersion = 4
+	BackupSchemaVersion = 5
 )
 
 type BackupHeader struct {
@@ -258,7 +258,7 @@ func decodeBackup(data,key []byte)(backupPayload,BackupHeader,error){
 	var env encryptedBackup
 	if err:=json.Unmarshal(data,&env);err!=nil{return backupPayload{},BackupHeader{},errors.New("invalid backup envelope")}
 	if env.Header.Magic!=backupMagic{return backupPayload{},BackupHeader{},errors.New("invalid backup magic")}
-	if env.Header.SchemaVersion!=BackupSchemaVersion&&env.Header.SchemaVersion!=3&&env.Header.SchemaVersion!=2{return backupPayload{},BackupHeader{},fmt.Errorf("unsupported backup schema version %d",env.Header.SchemaVersion)}
+	if env.Header.SchemaVersion!=BackupSchemaVersion&&env.Header.SchemaVersion!=4&&env.Header.SchemaVersion!=3&&env.Header.SchemaVersion!=2{return backupPayload{},BackupHeader{},fmt.Errorf("unsupported backup schema version %d",env.Header.SchemaVersion)}
 	aad,err:=json.Marshal(env.Header);if err!=nil{return backupPayload{},BackupHeader{},err}
 	aead,err:=newAEAD(key);if err!=nil{return backupPayload{},BackupHeader{},err}
 	nonce,err:=base64.StdEncoding.DecodeString(env.Nonce);if err!=nil{return backupPayload{},BackupHeader{},errors.New("invalid backup nonce")}
@@ -271,6 +271,7 @@ func decodeBackup(data,key []byte)(backupPayload,BackupHeader,error){
 	if err:=json.Unmarshal(plain,&payload);err!=nil{return backupPayload{},BackupHeader{},errors.New("invalid backup payload")}
 	if env.Header.SchemaVersion==2&&len(payload.State.PublicIngressReservations)>0{return backupPayload{},BackupHeader{},errors.New("legacy backup schema cannot contain public ingress reservations")}
 	if env.Header.SchemaVersion<4&&len(payload.State.PublicIngressOperations)>0{return backupPayload{},BackupHeader{},errors.New("legacy backup schema cannot contain public ingress operations")}
+	if env.Header.SchemaVersion<5&&(len(payload.State.UpdateReleases)>0||payload.State.UpdateRevocation!=nil){return backupPayload{},BackupHeader{},errors.New("legacy backup schema cannot contain Update Center state")}
 	normalizeState(&payload.State)
 	if payload.Alerts.ActiveAlerts==nil{payload.Alerts.ActiveAlerts=map[string]Alert{}}
 	if err:=verifyAuditEntries(payload.Audit);err!=nil{return backupPayload{},BackupHeader{},fmt.Errorf("backup audit invalid: %w",err)}

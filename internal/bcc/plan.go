@@ -85,14 +85,13 @@ func setAppliedGeneration(n *Node, instance string, generation int) {
 
 // BuildPlan describes the change; it never writes.
 func (s *Store) BuildPlan(req TunnelRequest, now time.Time) (Plan, error) {
-	// Validate externally observed path/capability evidence before building a
-	// plan. Deploy invokes BuildPlan again, so stale evidence or changed port
-	// ownership refuses before any tunnel mutation.
-	if err := s.validateAutoSelectEvidence(req, now); err != nil {
-		return Plan{}, err
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	// Keep evidence validation and plan construction under the same Store
+	// lock so the request is reviewed against one coherent state snapshot.
+	if err := s.validateAutoSelectEvidenceLocked(req, now); err != nil {
+		return Plan{}, err
+	}
 	return s.buildPlanLocked(req, now)
 }
 

@@ -43,15 +43,22 @@ func nodeTransportCapabilities(n Node, ok bool, now time.Time) ([]string, bool) 
 // records that occupy EX ports) and lets SelectAutoTransport refuse anything
 // short of fresh FULL_DATA on a carrier both installed binaries implement.
 func (s *Store) AutoSelectTransport(req AutoSelectRequest, now time.Time) (AutoTransportSelection, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.autoSelectTransportLocked(req, now)
+}
+
+// autoSelectTransportLocked assembles the complete candidate snapshot under
+// Store.mu. Review/deploy validation can call this while holding the same lock
+// used to build the plan, avoiding mixed path/node/port snapshots.
+func (s *Store) autoSelectTransportLocked(req AutoSelectRequest, now time.Time) (AutoTransportSelection, error) {
 	now = now.UTC()
 	if req.Carrier != "" {
 		if _, ok := autoSelectCarriers[req.Carrier]; !ok {
 			return AutoTransportSelection{}, errors.New(`carrier must be empty (Auto), "h2" or "ws"`)
 		}
 	}
-	matrix := s.PathMatrix(now)
 
-	s.mu.Lock()
 	ex, exOK := s.st.Nodes[req.EXNode]
 	ir, irOK := s.st.Nodes[req.IRNode]
 	exCaps, exFresh := nodeTransportCapabilities(ex, exOK, now)
@@ -62,7 +69,6 @@ func (s *Store) AutoSelectTransport(req AutoSelectRequest, now time.Time) (AutoT
 			used[t.Port] = true
 		}
 	}
-	s.mu.Unlock()
 
 	var negotiated []string
 	for _, c := range irCaps {
@@ -70,36 +76,75 @@ func (s *Store) AutoSelectTransport(req AutoSelectRequest, now time.Time) (AutoT
 			negotiated = append(negotiated, c)
 		}
 	}
-	var cell *PathMatrixCell
-	for i := range matrix.Cells {
-		if matrix.Cells[i].SourceNode == req.IRNode && matrix.Cells[i].DestinationNode == req.EXNode {
-			cell = &matrix.Cells[i]
-			break
+
+	// Mirror the path-matrix eligibility and ordering directly from the same
+	// locked Store snapshot. Only the ordered IR -> EX pair is a candidate.
+	var paths []PathMatrixCandidate
+	if exOK && irOK && !ex.Revoked && !ir.Revoked && req.EXNode != req.IRNode {
+		for _, p := range s.st.PathProbes {
+			if p.Phase != PathProbeComplete || p.SourceNode != req.IRNode || p.DestinationNode != req.EXNode || p.SourceNode == p.DestinationNode {
+				continue
+			}
+			for _, candidate := range p.Candidates {
+				if candidate.Class == "" {
+					continue
+				}
+				age := now.Sub(p.UpdatedAt)
+				if age < 0 {
+					age = 0
+				}
+				state := matrixState(candidate.Class)
+				if age > pathDiscoveryFreshFor {
+					state = PathMatrixStale
+				}
+				paths = append(paths, PathMatrixCandidate{
+					ProbeID: p.ID, Family: p.Family, Port: candidate.Port,
+					Class: candidate.Class, State: state, ConnectRTTMS: candidate.ConnectRTTMS,
+					ByteCeiling: candidate.ByteCeiling, TricklePassed: candidate.TricklePassed,
+					Detail: candidate.Detail, EvidenceAt: p.UpdatedAt, AgeSeconds: int64(age / time.Second),
+				})
+			}
 		}
 	}
+	sort.Slice(paths, func(i, j int) bool {
+		a, b := paths[i], paths[j]
+		if matrixStateRank(a.State) != matrixStateRank(b.State) {
+			return matrixStateRank(a.State) > matrixStateRank(b.State)
+		}
+		if !a.EvidenceAt.Equal(b.EvidenceAt) {
+			return a.EvidenceAt.After(b.EvidenceAt)
+		}
+		if a.Family != b.Family {
+			return a.Family < b.Family
+		}
+		if a.Port != b.Port {
+			return a.Port < b.Port
+		}
+		return a.ProbeID < b.ProbeID
+	})
+
 	carriers := []string{"h2", "ws"}
 	if req.Carrier != "" {
 		carriers = []string{req.Carrier}
 	}
 	var candidates []AutoTransportCandidate
-	if cell != nil {
-		for _, pc := range cell.Candidates {
-			for _, carrier := range carriers {
-				capName := autoSelectCarriers[carrier]
-				candidates = append(candidates, AutoTransportCandidate{
-					SourceNode: req.IRNode, DestinationNode: req.EXNode,
-					Family: pc.Family, Port: pc.Port, Class: pc.Class, State: pc.State,
-					EvidenceAt: pc.EvidenceAt, ConnectRTTMS: pc.ConnectRTTMS, TricklePassed: pc.TricklePassed,
-					CarrierID:                  carrier,
-					InstalledAtSource:          slices.Contains(irCaps, capName),
-					InstalledAtDestination:     slices.Contains(exCaps, capName),
-					CapabilityEvidenceVerified: exFresh && irFresh,
-					NegotiatedCapabilities:     negotiated,
-					// The probe proved the port was bindable on EX when it ran;
-					// a port another tunnel record holds is not available.
-					ListenerAvailable: !used[pc.Port],
-				})
-			}
+	for _, pc := range paths {
+		for _, carrier := range carriers {
+			capName := autoSelectCarriers[carrier]
+			candidates = append(candidates, AutoTransportCandidate{
+				SourceNode: req.IRNode, DestinationNode: req.EXNode,
+				ProbeID: pc.ProbeID, CapabilityEvidenceAtSource: ir.AgentSeen, CapabilityEvidenceAtDestination: ex.AgentSeen,
+				Family: pc.Family, Port: pc.Port, Class: pc.Class, State: pc.State,
+				EvidenceAt: pc.EvidenceAt, ConnectRTTMS: pc.ConnectRTTMS, TricklePassed: pc.TricklePassed,
+				CarrierID:                  carrier,
+				InstalledAtSource:          slices.Contains(irCaps, capName),
+				InstalledAtDestination:     slices.Contains(exCaps, capName),
+				CapabilityEvidenceVerified: exFresh && irFresh,
+				NegotiatedCapabilities:     negotiated,
+				// The probe proved the port was bindable on EX when it ran; a port
+				// another tunnel record holds is not currently available.
+				ListenerAvailable: !used[pc.Port],
+			})
 		}
 	}
 	required := []string{}
@@ -119,7 +164,7 @@ func (s *Store) AutoSelectTransport(req AutoSelectRequest, now time.Time) (AutoT
 	if sel.Selected == nil && sel.Reason == "" {
 		sel.Reason = "no secure compatible candidate satisfies all path, capability, and ownership constraints"
 	}
-	if (cell == nil || len(cell.Candidates) == 0) && sel.Selected == nil {
+	if len(paths) == 0 && sel.Selected == nil {
 		sel.Reason = "no path evidence for this IR -> EX pair; run path discovery first"
 	}
 	return sel, nil
@@ -131,6 +176,9 @@ func (s *Store) AutoSelectTransport(req AutoSelectRequest, now time.Time) (AutoT
 func sameAutoTransportCandidate(a, b AutoTransportCandidate) bool {
 	return a.SourceNode == b.SourceNode &&
 		a.DestinationNode == b.DestinationNode &&
+		a.ProbeID == b.ProbeID &&
+		a.CapabilityEvidenceAtSource.Equal(b.CapabilityEvidenceAtSource) &&
+		a.CapabilityEvidenceAtDestination.Equal(b.CapabilityEvidenceAtDestination) &&
 		a.Family == b.Family &&
 		a.Port == b.Port &&
 		a.Class == b.Class &&
@@ -153,6 +201,12 @@ func sameAutoTransportCandidate(a, b AutoTransportCandidate) bool {
 // and port ownership. Client-supplied evidence is a binding only, never
 // authority by itself. BuildPlan calls this for review and again at deploy.
 func (s *Store) validateAutoSelectEvidence(req TunnelRequest, now time.Time) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.validateAutoSelectEvidenceLocked(req, now)
+}
+
+func (s *Store) validateAutoSelectEvidenceLocked(req TunnelRequest, now time.Time) error {
 	evidence := req.AutoSelectEvidence
 	if evidence == nil {
 		return nil
@@ -161,7 +215,7 @@ func (s *Store) validateAutoSelectEvidence(req TunnelRequest, now time.Time) err
 		evidence.Port != req.Port || evidence.CarrierID == "" {
 		return errors.New("auto-select evidence does not match the requested IR -> EX path, carrier, and port")
 	}
-	selection, err := s.AutoSelectTransport(AutoSelectRequest{
+	selection, err := s.autoSelectTransportLocked(AutoSelectRequest{
 		EXNode: req.EXNode, IRNode: req.IRNode,
 		Family: evidence.Family, Carrier: evidence.CarrierID,
 	}, now)

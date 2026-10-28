@@ -125,6 +125,55 @@ func (s *Store) AutoSelectTransport(req AutoSelectRequest, now time.Time) (AutoT
 	return sel, nil
 }
 
+// sameAutoTransportCandidate compares every field that can affect whether a
+// recommendation is valid. It intentionally includes evidence time, measured
+// RTT, negotiated capabilities, and current listener ownership.
+func sameAutoTransportCandidate(a, b AutoTransportCandidate) bool {
+	return a.SourceNode == b.SourceNode &&
+		a.DestinationNode == b.DestinationNode &&
+		a.Family == b.Family &&
+		a.Port == b.Port &&
+		a.Class == b.Class &&
+		a.State == b.State &&
+		a.EvidenceAt.Equal(b.EvidenceAt) &&
+		a.ConnectRTTMS == b.ConnectRTTMS &&
+		a.TricklePassed == b.TricklePassed &&
+		a.CarrierID == b.CarrierID &&
+		a.InstalledAtSource == b.InstalledAtSource &&
+		a.InstalledAtDestination == b.InstalledAtDestination &&
+		a.CapabilityEvidenceVerified == b.CapabilityEvidenceVerified &&
+		slices.Equal(a.NegotiatedCapabilities, b.NegotiatedCapabilities) &&
+		a.ListenerAvailable == b.ListenerAvailable &&
+		a.SharedListener == b.SharedListener &&
+		a.MultiplexVerified == b.MultiplexVerified &&
+		a.UTLSSupported == b.UTLSSupported
+}
+
+// validateAutoSelectEvidence re-reads live path evidence, node capabilities,
+// and port ownership. Client-supplied evidence is a binding only, never
+// authority by itself. BuildPlan calls this for review and again at deploy.
+func (s *Store) validateAutoSelectEvidence(req TunnelRequest, now time.Time) error {
+	evidence := req.AutoSelectEvidence
+	if evidence == nil {
+		return nil
+	}
+	if evidence.SourceNode != req.IRNode || evidence.DestinationNode != req.EXNode ||
+		evidence.Port != req.Port || evidence.CarrierID == "" {
+		return errors.New("auto-select evidence does not match the requested IR -> EX path, carrier, and port")
+	}
+	selection, err := s.AutoSelectTransport(AutoSelectRequest{
+		EXNode: req.EXNode, IRNode: req.IRNode,
+		Family: evidence.Family, Carrier: evidence.CarrierID,
+	}, now)
+	if err != nil {
+		return err
+	}
+	if selection.Selected == nil || !sameAutoTransportCandidate(*evidence, *selection.Selected) {
+		return errors.New("auto-select evidence changed or expired; select a fresh transport and review the plan again")
+	}
+	return nil
+}
+
 func (s *Server) tunnelAutoSelect(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)

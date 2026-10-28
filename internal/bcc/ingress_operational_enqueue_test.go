@@ -84,8 +84,17 @@ func TestExpiredNeverQueuedHeldApplyRestagesWithFreshIdentities(t *testing.T) {
 	if old.Dispatch == nil || old.Dispatch.Phase != ingressPhaseExpired || len(s.ListJobs()) != 0 {
 		t.Fatalf("expired held command was not safely fenced: dispatch=%+v jobs=%+v", old.Dispatch, s.ListJobs())
 	}
-	if err := s.enqueueOperationalIngress(spec.TunnelID, now); err != nil {
-		t.Fatalf("safe fresh restage and enqueue: %v", err)
+	// Automatic activation/poll retries must not mint a replacement command.
+	if err := s.EnqueueOperationalIngress(spec.TunnelID); err == nil {
+		t.Fatal("automatic retry silently restaged an expired command without review")
+	}
+	afterAutomaticRetry, _ := s.GetPublicIngressOperation(spec.TunnelID)
+	if afterAutomaticRetry.OperationID != old.OperationID || afterAutomaticRetry.Dispatch.Phase != ingressPhaseExpired || len(s.ListJobs()) != 0 {
+		t.Fatalf("automatic retry changed an expired operation: before=%+v after=%+v jobs=%+v", old, afterAutomaticRetry, s.ListJobs())
+	}
+	// Only the explicit reviewed-operation route may safely restage it.
+	if err := s.EnqueueReviewedOperationalIngress(spec.TunnelID); err != nil {
+		t.Fatalf("reviewed fresh restage and enqueue: %v", err)
 	}
 	got, _ := s.GetPublicIngressOperation(spec.TunnelID)
 	if got.OperationID == old.OperationID || got.LeaseID == old.LeaseID || got.Command.JobID == old.Command.JobID ||

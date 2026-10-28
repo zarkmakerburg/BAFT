@@ -575,6 +575,11 @@ func (s *Store) CreateTunnelFromPlan(req TunnelRequest, planHash string, now tim
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	// Deploy must revalidate the exact auto-select evidence atomically with the
+	// state used to compare the reviewed plan hash and create the tunnel.
+	if err := s.validateAutoSelectEvidenceLocked(req, now); err != nil {
+		return Tunnel{}, Plan{}, err
+	}
 	if planHash != "" {
 		cur, err := s.buildPlanLocked(req, now)
 		if err != nil {

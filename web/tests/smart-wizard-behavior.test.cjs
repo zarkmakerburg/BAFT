@@ -399,16 +399,17 @@ test('ambiguous deploy response never erases newer reviewed wizard plan',async()
  assert.equal(vm.runInContext('tnPlanReq.instance_id',c),'new');
  assert.equal(inventory,1);assert.equal(audit,1);
 });
-test('auto-selected path evidence is carried into the reviewed request and cleared on edits',()=>{
+test('auto-selected path evidence survives unrelated edits and is bound when pair and port still match',()=>{
  const clear=fn('function tnClearPlan()','async function tnAutoSelect()');
  const select=fn('async function tnAutoSelect()','async function tnPlan()');
  const plan=fn('async function tnPlan()','async function tnDeploy()');
- assert.match(clear,/tnAutoSelection=null/,'editing/reselecting invalidates the old evidence');
+ assert.doesNotMatch(clear,/tnAutoSelection=null/,'clearing a reviewed plan must not silently discard path evidence after an unrelated form edit');
+ assert.match(select,/tnAutoSelection=null/,'a new selection attempt clears the previous candidate before fetching');
  assert.match(select,/tnAutoSelection=selected/,'selected server evidence is retained with the chosen port');
  assert.match(plan,/const autoSelection=tnAutoSelection/,'Review captures evidence before clearing the old plan');
  assert.match(plan,/body\.auto_select_evidence=autoSelection/,'Review sends the full selection binding to BCC');
  assert.match(plan,/autoSelection\.source_node===body\.ir_node/,'binding must match the IR node');
  assert.match(plan,/autoSelection\.destination_node===body\.ex_node/,'binding must match the EX node');
- assert.match(plan,/Number\(autoSelection\.port\)===Number\(body\.port\)/,'manual port edits cannot silently inherit stale evidence');
+ assert.match(plan,/Number\(autoSelection\.port\)===Number\(body\.port\)/,'manual port changes cannot inherit evidence for a different port');
 });
 

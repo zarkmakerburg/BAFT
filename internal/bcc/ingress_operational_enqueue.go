@@ -106,17 +106,20 @@ func (s *Store) enqueueOperationalIngress(tunnelID string, now time.Time) error 
 	if err := s.ingressEnqueueGateLocked(tunnelID, now); err != nil {
 		return err
 	}
+	if err := s.restageExpiredUndispatchedIngressLocked(tunnelID, now); err != nil {
+		return err
+	}
 	op, err := s.operationalIngressContextLocked(tunnelID)
 	if err != nil {
 		return err
 	}
 	cmd := *op.Command
-	want, err := operationalIngressJob(cmd, now)
-	if err != nil {
-		return err
-	}
 	switch op.Dispatch.Phase {
 	case ingressPhaseQueued:
+		want, err := operationalIngressJob(cmd, now)
+		if err != nil {
+			return err
+		}
 		if old, ok := s.st.Jobs[cmd.JobID]; ok && sameIngressJobIdentity(old, want) {
 			return nil
 		}
@@ -147,6 +150,11 @@ func (s *Store) enqueueOperationalIngress(tunnelID string, now time.Time) error 
 			return saveErr
 		}
 		return errors.New("staged ingress command outside its signed window")
+	}
+	want, err := operationalIngressJob(cmd, now)
+	if err != nil {
+		s.st = before
+		return err
 	}
 	d := *op.Dispatch
 	d.Phase = ingressPhaseQueued

@@ -21,7 +21,7 @@ func validatePersistedIngressOperations(st state) error {
 			return errors.New("persisted ingress operation has no reservation")
 		}
 		tunnel, ok := st.Tunnels[id]
-		if !ok || tunnel.IRNode != op.Spec.IRNode || tunnel.RouteListen != op.Spec.LocalTarget || tunnel.ClientPort != op.Spec.PublicPort || !terminalTunnel(tunnel.Phase) {
+		if !ok || tunnel.IRNode != op.Spec.IRNode || tunnel.RouteListen != op.Spec.LocalTarget || !terminalTunnel(tunnel.Phase) || (op.ReviewedPlanHash != "" && tunnel.ClientPort != op.Spec.PublicPort) {
 			return errors.New("persisted ingress operation tunnel mismatch")
 		}
 		proof, err := ingressmanifest.Preview(publicIngressManifestSpec(op.Spec, tunnel.InstanceID, op.Proof.Generation))

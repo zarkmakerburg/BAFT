@@ -211,9 +211,12 @@ func (s *Store) validateAutoSelectEvidenceLocked(req TunnelRequest, now time.Tim
 	if evidence == nil {
 		return nil
 	}
+	// The current managed tunnel transaction deploys the native H2 carrier.
+	// Until BCC has a reviewed per-carrier deployment field, a WS recommendation
+	// must not authorize a plan that will actually deploy H2 instead.
 	if evidence.SourceNode != req.IRNode || evidence.DestinationNode != req.EXNode ||
-		evidence.Port != req.Port || evidence.CarrierID == "" {
-		return errors.New("auto-select evidence does not match the requested IR -> EX path, carrier, and port")
+		evidence.Port != req.Port || evidence.CarrierID != "h2" {
+		return errors.New("auto-select evidence does not match the requested IR -> EX path, supported H2 carrier, and port")
 	}
 	selection, err := s.autoSelectTransportLocked(AutoSelectRequest{
 		EXNode: req.EXNode, IRNode: req.IRNode,

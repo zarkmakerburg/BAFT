@@ -153,6 +153,16 @@ func TestAutoSelectEvidenceIsBoundAndRevalidated(t *testing.T) {
 		t.Fatalf("fresh unchanged capabilities should preserve the path choice: %v", err)
 	}
 
+	// The managed BCC tunnel transaction currently deploys H2 only; a WS
+	// probe cannot authorize a plan that will create an H2 listener.
+	wrongCarrier := req
+	wsEvidence := evidence
+	wsEvidence.CarrierID = "ws"
+	wrongCarrier.AutoSelectEvidence = &wsEvidence
+	if err := s.validateAutoSelectEvidence(wrongCarrier, now); err == nil {
+		t.Fatal("WebSocket path evidence authorized an H2 deployment")
+	}
+
 	// Evidence cannot be attached to another requested port or node pair.
 	mismatch := req
 	mismatch.Port++

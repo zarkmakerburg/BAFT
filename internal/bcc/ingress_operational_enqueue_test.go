@@ -60,6 +60,74 @@ func TestOperationalIngressRefusesSubSecondWindowThatAgentCouldNotMatch(t *testi
 	}
 }
 
+func TestExpiredNeverQueuedHeldApplyRestagesWithFreshIdentities(t *testing.T) {
+	openIngressGateForTest(t)
+	s, spec, original, _ := heldIngress(t)
+	now := time.Now().UTC().Truncate(time.Second)
+	// Simulate a held command whose signed window expired before it was queued.
+	s.mu.Lock()
+	op := s.st.PublicIngressOperations[spec.TunnelID]
+	cmd := *op.Command
+	cmd.IssuedAt = now.Add(-25 * time.Hour).Truncate(time.Second)
+	cmd.ExpiresAt = now.Add(-time.Second).Truncate(time.Second)
+	op.Command = &cmd
+	s.st.PublicIngressOperations[spec.TunnelID] = op
+	if err := s.saveLocked(); err != nil {
+		s.mu.Unlock()
+		t.Fatal(err)
+	}
+	s.mu.Unlock()
+	if err := s.enqueueOperationalIngress(spec.TunnelID, now); err == nil {
+		t.Fatal("first expired enqueue must durably expire, not dispatch, the old command")
+	}
+	old, _ := s.GetPublicIngressOperation(spec.TunnelID)
+	if old.Dispatch == nil || old.Dispatch.Phase != ingressPhaseExpired || len(s.ListJobs()) != 0 {
+		t.Fatalf("expired held command was not safely fenced: dispatch=%+v jobs=%+v", old.Dispatch, s.ListJobs())
+	}
+	// Automatic activation/poll retries must not mint a replacement command.
+	if err := s.EnqueueOperationalIngress(spec.TunnelID); err == nil {
+		t.Fatal("automatic retry silently restaged an expired command without review")
+	}
+	afterAutomaticRetry, _ := s.GetPublicIngressOperation(spec.TunnelID)
+	if afterAutomaticRetry.OperationID != old.OperationID || afterAutomaticRetry.Dispatch.Phase != ingressPhaseExpired || len(s.ListJobs()) != 0 {
+		t.Fatalf("automatic retry changed an expired operation: before=%+v after=%+v jobs=%+v", old, afterAutomaticRetry, s.ListJobs())
+	}
+	// Only the explicit reviewed-operation route may safely restage it.
+	if err := s.EnqueueReviewedOperationalIngress(spec.TunnelID); err != nil {
+		t.Fatalf("reviewed fresh restage and enqueue: %v", err)
+	}
+	got, _ := s.GetPublicIngressOperation(spec.TunnelID)
+	if got.OperationID == old.OperationID || got.LeaseID == old.LeaseID || got.Command.JobID == old.Command.JobID ||
+		got.Command.JobID == original.JobID || got.Dispatch.Phase != ingressPhaseQueued {
+		t.Fatalf("restage did not use fresh identities and queue the new command: old=%+v new=%+v", old, got)
+	}
+	if len(s.ListJobs()) != 1 {
+		t.Fatalf("expected one queued Apply, got %+v", s.ListJobs())
+	}
+	if err := validatePersistedIngressOperations(s.st); err != nil {
+		t.Fatalf("restaged operation failed durable validation: %v", err)
+	}
+}
+
+func TestDecommissionedTunnelRetainedIngressOperationDoesNotBlockStoreRestart(t *testing.T) {
+	s, spec, _, _ := heldIngress(t)
+	s.mu.Lock()
+	tun := s.st.Tunnels[spec.TunnelID]
+	tun.Phase = TunnelDecommissioned
+	s.st.Tunnels[spec.TunnelID] = tun
+	if err := s.saveLocked(); err != nil {
+		s.mu.Unlock()
+		t.Fatal(err)
+	}
+	s.mu.Unlock()
+	if err := validatePersistedIngressOperations(s.st); err != nil {
+		t.Fatalf("retained terminal ingress history should validate: %v", err)
+	}
+	if _, err := OpenStore(s.Path()); err != nil {
+		t.Fatalf("decommissioned tunnel with retained ingress operation blocked BCC restart: %v", err)
+	}
+}
+
 func TestOperationalIngressEnqueueGateDefaultsClosed(t *testing.T) {
 	s, spec, _, _ := heldIngress(t)
 	if err := s.EnqueueOperationalIngress(spec.TunnelID); !errors.Is(err, ErrIngressAuthorityUnavailable) {

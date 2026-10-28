@@ -85,6 +85,12 @@ func setAppliedGeneration(n *Node, instance string, generation int) {
 
 // BuildPlan describes the change; it never writes.
 func (s *Store) BuildPlan(req TunnelRequest, now time.Time) (Plan, error) {
+	// Validate externally observed path/capability evidence before building a
+	// plan. Deploy invokes BuildPlan again, so stale evidence or changed port
+	// ownership refuses before any tunnel mutation.
+	if err := s.validateAutoSelectEvidence(req, now); err != nil {
+		return Plan{}, err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.buildPlanLocked(req, now)
@@ -110,6 +116,7 @@ func (s *Store) buildPlanLocked(req TunnelRequest, now time.Time) (Plan, error) 
 			Engine: req.Engine, InstanceID: t.InstanceID, JoinExistingTunnelID: t.JoinOwnerID, AllowLegacyCoexistence: req.AllowLegacyCoexistence, EXNode: t.EXNode, IRNode: t.IRNode, PublicAddress: t.PublicAddress, Port: t.Port, ClientPort: t.ClientPort, Target: t.Target,
 			RouteListen: t.RouteListen, RouteID: t.RouteID, EXMetricsListen: t.EXMetricsListen, IRMetricsListen: t.IRMetricsListen,
 			RecordShaping: t.RecordShaping,
+			AutoSelectEvidence: req.AutoSelectEvidence,
 		},
 		Nodes: []PlanNode{
 			{NodeID: ex.ID, Role: "ex", GenerationFrom: exFrom, GenerationTo: exTo, GenerationNote: exNote, Changes: []string{

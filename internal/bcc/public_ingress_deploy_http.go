@@ -221,7 +221,7 @@ func (s *Server) publicIngressOperationAPI(w http.ResponseWriter, r *http.Reques
 	}
 	// The gate may keep the dispatch HELD (agent lacks the capability): that is
 	// reported honestly as state "held", not as an error and never as success.
-	if err := s.store.EnqueueOperationalIngress(req.TunnelID); err != nil && !errors.Is(err, ErrIngressAuthorityUnavailable) {
+	if err := s.store.EnqueueReviewedOperationalIngress(req.TunnelID); err != nil && !errors.Is(err, ErrIngressAuthorityUnavailable) {
 		view, found := s.store.publicIngressOperationView(req.TunnelID, now)
 		if !found || view.DispatchPhase == ingressPhaseHeld {
 			s.auditFailure(w, r, "public_ingress.operation.enqueue", req.TunnelID, details, err, http.StatusConflict)

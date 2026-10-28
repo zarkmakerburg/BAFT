@@ -173,7 +173,7 @@ test('blocked backend plan cannot leave a deployable plan hash',()=>{
 
 test('stale async plan response cannot restore deploy state after user edits',async()=>{
  const fields={...defaults,tnPlan:'',tnIngressConfirm:true};let resolveFetch;
- const c=context(fields,'const esc=String;let tnEditBase=null;let tnWizardTunnels=[];const tnWizardText=en=>en;const tnWizardSharesLegacy=()=>false;const tnWizardEnsureID=()=>{};'+req+fn('function tnWizardValidateStep(i)','function tnWizardStep(i)')+'let tnPlanHash="",tnPlanReq=null,tnPlanReplaces="",tnPlanEpoch=0;'+fn('function tnShowPlan(p)','async function tnDeploy()'));
+ const c=context(fields,'const esc=String;let tnEditBase=null;let tnWizardTunnels=[];const tnWizardText=en=>en;const tnWizardSharesLegacy=()=>false;const tnWizardEnsureID=()=>{};'+req+fn('function tnWizardValidateStep(i)','function tnWizardStep(i)')+'let tnPlanHash="",tnPlanReq=null,tnPlanReplaces="",tnPlanEpoch=0,tnAutoSelection=null;'+fn('function tnShowPlan(p)','async function tnDeploy()'));
  c.fetch=()=>new Promise(resolve=>{resolveFetch=resolve});c.ah=()=>({});c.loadAudit=()=>{};
  const pending=vm.runInContext('tnPlan()',c);
  vm.runInContext('tnClearPlan()',c);
@@ -185,7 +185,7 @@ test('stale async plan response cannot restore deploy state after user edits',as
 
 test('starting a new backend plan invalidates previously deployable plan immediately',async()=>{
  const fields={...defaults,tnPlan:'old rendered plan',tnIngressConfirm:true};let resolveFetch;
- const c=context(fields,'const esc=String;let tnEditBase=null;let tnWizardTunnels=[];const tnWizardText=en=>en;const tnWizardSharesLegacy=()=>false;const tnWizardEnsureID=()=>{};'+req+fn('function tnWizardValidateStep(i)','function tnWizardStep(i)')+'let tnPlanHash="old-hash",tnPlanReq={old:true},tnPlanReplaces="",tnPlanEpoch=0;'+fn('function tnShowPlan(p)','async function tnDeploy()'));
+ const c=context(fields,'const esc=String;let tnEditBase=null;let tnWizardTunnels=[];const tnWizardText=en=>en;const tnWizardSharesLegacy=()=>false;const tnWizardEnsureID=()=>{};'+req+fn('function tnWizardValidateStep(i)','function tnWizardStep(i)')+'let tnPlanHash="old-hash",tnPlanReq={old:true},tnPlanReplaces="",tnPlanEpoch=0,tnAutoSelection=null;'+fn('function tnShowPlan(p)','async function tnDeploy()'));
  c.fetch=()=>new Promise(resolve=>{resolveFetch=resolve});c.ah=()=>({});c.loadAudit=()=>{};
  const pending=vm.runInContext('tnPlan()',c);
  assert.equal(vm.runInContext('tnPlanHash',c),'');

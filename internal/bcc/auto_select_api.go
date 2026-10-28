@@ -172,14 +172,13 @@ func (s *Store) autoSelectTransportLocked(req AutoSelectRequest, now time.Time) 
 }
 
 // sameAutoTransportCandidate compares every field that can affect whether a
-// recommendation is valid. It intentionally includes evidence time, measured
-// RTT, negotiated capabilities, and current listener ownership.
+// recommendation is valid. Path observation identity/time must remain exact;
+// a newer capability heartbeat is acceptable only if it is still fresh and
+// advertises the same installed/negotiated capability set.
 func sameAutoTransportCandidate(a, b AutoTransportCandidate) bool {
 	return a.SourceNode == b.SourceNode &&
 		a.DestinationNode == b.DestinationNode &&
 		a.ProbeID == b.ProbeID &&
-		a.CapabilityEvidenceAtSource.Equal(b.CapabilityEvidenceAtSource) &&
-		a.CapabilityEvidenceAtDestination.Equal(b.CapabilityEvidenceAtDestination) &&
 		a.Family == b.Family &&
 		a.Port == b.Port &&
 		a.Class == b.Class &&

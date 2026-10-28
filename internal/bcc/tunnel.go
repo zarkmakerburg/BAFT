@@ -173,6 +173,9 @@ type TunnelRequest struct {
 	EXMetricsListen        string `json:"ex_metrics_listen,omitempty"`
 	IRMetricsListen        string `json:"ir_metrics_listen,omitempty"`
 	RecordShaping          bool   `json:"record_shaping"`
+	// AutoSelectEvidence binds a path/capability recommendation into this
+	// reviewed request. BCC revalidates it during both Review and Deploy.
+	AutoSelectEvidence *AutoTransportCandidate `json:"auto_select_evidence,omitempty"`
 	// PlanHash, when set, must equal the hash of the plan BCC computes now.
 	PlanHash string `json:"plan_hash,omitempty"`
 }

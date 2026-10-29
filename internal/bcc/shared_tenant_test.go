@@ -332,6 +332,8 @@ func TestSharedTenantRemovalReceiptUpdatesOwnerWithoutRetiringIt(t *testing.T) {
 		NodeID: "ex-1", Message: "tenant removed", Output: string(output)}
 	tenant.DecommissionMutationID = ev.ID
 	s.mu.Lock()
+	if s.st.Tunnels == nil { s.st.Tunnels = map[string]Tunnel{} }
+	if s.st.Jobs == nil { s.st.Jobs = map[string]Job{} }
 	s.st.Tunnels[ownerID], s.st.Tunnels[tenantID], s.st.Tunnels[siblingID] = owner, tenant, sibling
 	s.st.Jobs[job.ID] = job
 	event := s.advanceSharedTenantRemovalLocked(&tenant, &job, now)

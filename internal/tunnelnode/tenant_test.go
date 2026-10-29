@@ -54,7 +54,7 @@ func TestApplyTenantMutationAddsAndRemovesWithDigestFence(t *testing.T) {
 	}
 	peerID := "urn:baft:node:tenant-test"
 	add := TenantMutation{
-		ID: "tenant-add-1", Operation: "add", NodeID: cfg.Node.ID, Listen: cfg.Server.Listen,
+		ID: "tenant-add-1", Operation: "add", ExpectedOwnerTunnelID: "tenant-base", NodeID: cfg.Node.ID, Listen: cfg.Server.Listen,
 		ExpectedConfigSHA256: cfgSHA, ExpectedUnitSHA256: unitSHA, ExpectedMarkerSHA256: markerSHA,
 		PeerID: peerID, PeerPublicKey: publicKey, RouteID: p.exp.RouteID, Target: "127.0.0.1:2444",
 	}
@@ -81,7 +81,7 @@ markerBytes, err := os.ReadFile(p.ex.markerPath())
 		t.Fatalf("unit and ownership marker generation did not advance together: marker=%+v", markerAfterAdd)
 	}
 	remove := TenantMutation{
-		ID: "tenant-remove-1", Operation: "remove", NodeID: cfg.Node.ID, Listen: cfg.Server.Listen,
+		ID: "tenant-remove-1", Operation: "remove", ExpectedOwnerTunnelID: "tenant-base", NodeID: cfg.Node.ID, Listen: cfg.Server.Listen,
 		ExpectedConfigSHA256: cfgSHA, ExpectedUnitSHA256: unitSHA, ExpectedMarkerSHA256: markerSHA,
 		PeerID: peerID, PeerPublicKey: publicKey, RouteID: p.exp.RouteID,
 	}
@@ -123,7 +123,7 @@ func TestApplyTenantMutationRejectsStaleDigest(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = p.ex.ApplyTenantMutation(context.Background(), TenantMutation{
-		ID: "tenant-stale-1", Operation: "add", NodeID: cfg.Node.ID, Listen: cfg.Server.Listen,
+		ID: "tenant-stale-1", Operation: "add", ExpectedOwnerTunnelID: "tenant-stale", NodeID: cfg.Node.ID, Listen: cfg.Server.Listen,
 		ExpectedConfigSHA256: "0000000000000000000000000000000000000000000000000000000000000000",
 		ExpectedUnitSHA256: shaHex(mustReadTestFile(t, p.ex.unitPath())), ExpectedMarkerSHA256: shaHex(markerBytes), PeerID: "urn:baft:node:tenant-stale",
 		PeerPublicKey: publicKey, RouteID: p.exp.RouteID, Target: "127.0.0.1:2444",

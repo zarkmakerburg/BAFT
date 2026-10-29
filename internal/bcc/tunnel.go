@@ -976,10 +976,16 @@ func (s *Store) nextAfterFinalizeLocked(t *Tunnel, now time.Time) *TunnelEvent {
 		}
 	}
 	for id, other := range s.st.Tunnels {
-		if id != t.ID && other.Phase == TunnelActive && sameManagedSlot(*t, other) {
-			other.Phase, other.UpdatedAt = TunnelSuperseded, now
-			s.st.Tunnels[id] = other
+		if id == t.ID || other.Phase != TunnelActive || !sameManagedSlot(*t, other) {
+			continue
 		}
+		sharedGroup := (t.JoinOwnerID != "" && (id == t.JoinOwnerID || other.JoinOwnerID == t.JoinOwnerID)) ||
+			(t.JoinOwnerID == "" && other.JoinOwnerID == t.ID)
+		if sharedGroup {
+			continue
+		}
+		other.Phase, other.UpdatedAt = TunnelSuperseded, now
+		s.st.Tunnels[id] = other
 	}
 	detail := fmt.Sprintf("%s <-> %s via %s:%d", t.IRNode, t.EXNode, t.PublicAddress, t.Port)
 	if t.Error != "" {

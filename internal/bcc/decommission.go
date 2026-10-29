@@ -99,14 +99,38 @@ func (s *Store) buildDecommissionPlanLocked(id string, now time.Time) (Decommiss
 		gate("certificate rotation", "PASS", "no blocking certificate rotation is running")
 	}
 	conflict := ""
+	sharedOwnerID := t.JoinOwnerID
+	if sharedOwnerID == "" {
+		sharedOwnerID = t.ID
+	}
+	for _, job := range s.st.Jobs {
+		if (job.Type != agentjob.ActionTunnelTenantAdd && job.Type != agentjob.ActionTunnelTenantRemove) ||
+			(job.Status != "queued" && job.Status != "dispatched") {
+			continue
+		}
+		if job.Params["owner_tunnel_id"] == sharedOwnerID || job.Params["tunnel_id"] == sharedOwnerID {
+			conflict = fmt.Sprintf("shared listener %s has pending tenant mutation job %s (%s)", sharedOwnerID, job.ID, job.Status)
+			break
+		}
+	}
 	for otherID, other := range s.st.Tunnels {
 		if otherID == t.ID || !sameManagedSlot(t, other) {
 			continue
 		}
 		if t.JoinOwnerID != "" && (otherID == t.JoinOwnerID || other.JoinOwnerID == t.JoinOwnerID) {
-			if !terminalTunnel(other.Phase) {
-				conflict = fmt.Sprintf("shared owner/tenant %s is %s; finish that operation before decommissioning another tenant", other.ID, other.Phase)
+			if other.Phase == TunnelRollbackFailed || other.Phase == TunnelDecommissionFailed || !terminalTunnel(other.Phase) {
+				conflict = fmt.Sprintf("shared owner/tenant %s is %s; reconcile that operation before decommissioning another tenant", other.ID, other.Phase)
 				break
+			}
+			if other.Phase == TunnelActive {
+				if len(other.DriftJobs) > 0 {
+					conflict = fmt.Sprintf("shared owner/tenant %s has a drift check in progress", other.ID)
+					break
+				}
+				if other.Drift != nil && other.Drift.State != DriftInSync {
+					conflict = fmt.Sprintf("shared owner/tenant %s has known drift: %s", other.ID, other.Drift.State)
+					break
+				}
 			}
 			continue
 		}

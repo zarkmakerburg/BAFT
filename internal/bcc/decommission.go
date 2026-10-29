@@ -334,6 +334,9 @@ func (s *Store) advanceDecommissionLocked(t *Tunnel, now time.Time) *TunnelEvent
 	default:
 		return nil
 	}
+	if j.Type == agentjob.ActionTunnelTenantRemove {
+		return s.advanceSharedTenantRemovalLocked(t, &j, now)
+	}
 	var ev tunnelnode.RetireEvidence
 	var problems []string
 	if err := json.Unmarshal([]byte(j.Message), &ev); err != nil {
@@ -363,6 +366,58 @@ func (s *Store) advanceDecommissionLocked(t *Tunnel, now time.Time) *TunnelEvent
 			TunnelID: t.ID, Action: "tunnel.decommissioned",
 			Detail: fmt.Sprintf("%s <-> %s retired in IR-to-EX order", t.IRNode, t.EXNode),
 		}
+	}
+	return nil
+}
+
+func (s *Store) advanceSharedTenantRemovalLocked(t *Tunnel, j *Job, now time.Time) *TunnelEvent {
+	var ev tunnelnode.TenantMutationEvidence
+	var problems []string
+	if err := json.Unmarshal([]byte(j.Output), &ev); err != nil {
+		problems = []string{"tenant removal receipt is unreadable"}
+	} else {
+		d := t.Digests[t.EXNode]
+		if ev.ID != t.DecommissionMutationID || ev.Operation != "remove" ||
+			ev.OwnerTunnelID != t.JoinOwnerID || ev.NodeID != t.EXConfigNodeID ||
+			ev.BeforeConfigSHA != d.Config || ev.BeforeUnitSHA != d.Unit || ev.BeforeMarkerSHA != d.Marker ||
+			!goodDigest(ev.AfterConfigSHA) || !goodDigest(ev.AfterUnitSHA) || !goodDigest(ev.AfterMarkerSHA) ||
+			ev.Generation != t.ObservedGen[t.EXNode]+1 {
+			problems = append(problems, "tenant removal receipt does not match the reviewed owner, digests or next generation")
+		}
+	}
+	if len(problems) > 0 {
+		t.Evidence = append(t.Evidence, TunnelEvidence{Step: "tenant_remove", Node: j.NodeID, At: now, OK: false, Detail: j.Message, Problems: problems})
+		t.Phase, t.Error, t.JobID, t.UpdatedAt = TunnelDecommissionFailed,
+			"shared tenant removal evidence is invalid: "+strings.Join(problems, "; "), "", now
+		return &TunnelEvent{TunnelID: t.ID, Action: "tunnel.decommission_failed", Detail: t.Error}
+	}
+	j.Output = ""
+	s.st.Jobs[j.ID] = *j
+	t.Digests[t.EXNode] = NodeDigests{Config: ev.AfterConfigSHA, Unit: ev.AfterUnitSHA, Marker: ev.AfterMarkerSHA}
+	t.ObservedGen[t.EXNode] = ev.Generation
+	if t.ExpectedGen == nil { t.ExpectedGen = map[string]GenExpect{} }
+	t.ExpectedGen[t.EXNode] = GenExpect{From: ev.Generation - 1, To: ev.Generation}
+	s.syncSharedTenantBaselineLocked(t.JoinOwnerID, *t, now)
+	if n, ok := s.st.Nodes[t.EXNode]; ok {
+		if t.InstanceID == "" {
+			n.AppliedGeneration = ev.Generation
+		} else {
+			if n.AppliedGenerations == nil { n.AppliedGenerations = map[string]int{} }
+			n.AppliedGenerations[t.InstanceID] = ev.Generation
+		}
+		s.st.Nodes[t.EXNode] = n
+	}
+	t.Evidence = append(t.Evidence, TunnelEvidence{
+		Step: "tenant_remove", Node: j.NodeID, At: now, OK: true,
+		Detail: "selected authenticated tenant removed; shared EX listener preserved",
+	})
+	if t.DecommissionedNodes == nil { t.DecommissionedNodes = map[string]bool{} }
+	t.DecommissionedNodes[t.EXNode] = true
+	t.JobID = ""
+	s.queueNextDecommissionLocked(t, now)
+	if t.Phase == TunnelDecommissioned {
+		t.Error = ""
+		return &TunnelEvent{TunnelID: t.ID, Action: "tunnel.decommissioned", Detail: "selected IR route retired and tenant removed; shared EX listener remains active"}
 	}
 	return nil
 }

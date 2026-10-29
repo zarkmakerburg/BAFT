@@ -105,3 +105,52 @@ func TestSharedTenantMutationRejectsMissingAcceptedDigests(t *testing.T) {
 		t.Fatal("must refuse tenant mutation without BCC-accepted ownership digests")
 	}
 }
+
+
+func TestSharedTenantMutationHTTPQueuesAuditedJob(t *testing.T) {
+	s := tunnelStore(t)
+	now := time.Now().UTC()
+	tn := newTunnel(t, s, now)
+	if err := s.AckJob("ex-1", "tok-ex-1", tn.Jobs[0], "failed", "fixture job retired"); err != nil {
+		t.Fatal(err)
+	}
+	s.mu.Lock()
+	active := s.st.Tunnels[tn.ID]
+	active.Phase = TunnelActive
+	active.Digests = map[string]NodeDigests{
+		active.EXNode: {Config: strings.Repeat("a", 64), Unit: strings.Repeat("b", 64), Marker: strings.Repeat("c", 64)},
+	}
+	active.ObservedGen = map[string]int{active.EXNode: 4}
+	s.st.Tunnels[tn.ID] = active
+	if err := s.saveLocked(); err != nil {
+		s.mu.Unlock()
+		t.Fatal(err)
+	}
+	s.mu.Unlock()
+
+	srv, err := NewServer(s, "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := json.Marshal(SharedTenantMutationRequest{
+		TunnelID: tn.ID, Operation: "add", NodeID: "ex-config-id", Listen: "0.0.0.0:443",
+		PeerID: "urn:baft:node:ir-new", PeerPublicKey: strings.Repeat("A", 43),
+		RouteID: "port-443", Target: "127.0.0.1:9003",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := authReq(http.MethodPost, "/api/tunnels/tenant", "admin", body)
+	rr := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rr, req)
+	if rr.Code != http.StatusAccepted {
+		t.Fatalf("tenant API status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	jobs := pullAll(t, s, "ex-1")
+	if len(jobs) != 1 || jobs[0].Type != agentjob.ActionTunnelTenantAdd ||
+		jobs[0].Params["config_sha256"] != strings.Repeat("a", 64) ||
+		jobs[0].Params["unit_sha256"] != strings.Repeat("b", 64) ||
+		jobs[0].Params["marker_sha256"] != strings.Repeat("c", 64) {
+		t.Fatalf("HTTP endpoint did not queue a digest-bound tenant action: %+v", jobs)
+	}
+}

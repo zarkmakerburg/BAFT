@@ -122,9 +122,21 @@ func TestRuntimeCancelledParentRequiresExplicitRetire(t *testing.T) {
 	if err = r.Retire(s.Config.Listen, p); err != nil {
 		t.Fatal(err)
 	}
+	// A stale replay must be rejected before it tries to bind a port that a
+	// different listener acquired after retirement.
+	foreign, err := net.Listen("tcp4", s.Config.Listen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer foreign.Close()
 	if err = r.Apply(context.Background(), s, p); !errors.Is(err, ErrStale) {
 		t.Fatalf("cancelled generation replay: %v", err)
 	}
+	c, err := net.DialTimeout("tcp4", s.Config.Listen, time.Second)
+	if err != nil {
+		t.Fatalf("stale replay changed foreign listener: %v", err)
+	}
+	c.Close()
 }
 func TestRuntimeConcurrentRetireCannotReleaseNewOwner(t *testing.T) {
 	r := NewRuntime()

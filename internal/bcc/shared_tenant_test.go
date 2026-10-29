@@ -14,6 +14,12 @@ func TestSharedTenantMutationJobUsesAcceptedDigestsAndReconcilesReceipt(t *testi
 	s := tunnelStore(t)
 	now := time.Now().UTC()
 	tn := newTunnel(t, s, now)
+	if len(tn.Jobs) == 0 {
+		t.Fatal("expected initial tunnel job in fixture")
+	}
+	if err := s.AckJob("ex-1", "tok-ex-1", tn.Jobs[0], "failed", "fixture job retired"); err != nil {
+		t.Fatal(err)
+	}
 	s.mu.Lock()
 	active, ok := s.st.Tunnels[tn.ID]
 	if !ok {

@@ -151,7 +151,7 @@ func (m *Manager) CommitEXJoin(ctx context.Context, id, reply string) (string, s
 	if err != nil {
 		unlock()
 		m.mu.Unlock()
-		return "", "", fmt.Errorf("baft-pair ex-accept --join: %v: %s", err, redact(tailOf(out), reply))
+		return "", "", fmt.Errorf("baft-pair ex-accept --join: %v: %s", err, redact(tailOf(acceptOut), reply))
 	}
 	if out, err := m.System.Run(ctx, m.BaftBin, "config", "validate", "--file", filepath.Join(stage, "baft.new.yaml")); err != nil {
 		unlock()
@@ -159,7 +159,7 @@ func (m *Manager) CommitEXJoin(ctx context.Context, id, reply string) (string, s
 		return "", "", fmt.Errorf("staged joined config is invalid: %v: %s", err, tailOf(out))
 	}
 	staged, err := config.LoadFile(filepath.Join(stage, "baft.new.yaml"))
-	if err != nil || staged.Server == nil || staged.Noise == nil || staged.Node.Role != "listener" || staged.Noise.AllowedPeerPublicKeys[peerID] == "" {
+	if err != nil || staged == nil || staged.Server == nil || staged.Noise == nil || staged.Node.Role != "listener" || ownerCfg.Noise == nil {
 		unlock()
 		m.mu.Unlock()
 		return "", "", errors.New("tunnelnode: ex-accept did not produce verifiable tenant key evidence")

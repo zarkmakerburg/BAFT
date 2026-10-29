@@ -138,7 +138,6 @@ func TestNoiseListenerAcceptsAndSeparatesTwoIRPeers(t *testing.T) {
 		}
 	}
 	var wg sync.WaitGroup
-	errs := make(chan error, 2)
 	for _, tc := range []struct{ label, addr string; want byte }{
 		{ir1.Node.ID, ir1.Routes[0].Listen, 'A'},
 		{ir2.Node.ID, ir2.Routes[0].Listen, 'B'},
@@ -150,7 +149,6 @@ func TestNoiseListenerAcceptsAndSeparatesTwoIRPeers(t *testing.T) {
 		}(tc)
 	}
 	wg.Wait()
-	close(errs)
 	t.Logf("PASS concurrent authenticated peers were isolated to distinct targets: master=%s→A worker=%s→B", ir1.Node.ID, ir2.Node.ID)
 
 	cancel()

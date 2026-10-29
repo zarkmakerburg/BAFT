@@ -10,12 +10,12 @@ import (
 	"io"
 	"math/rand"
 	"net"
-	"syscall"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 

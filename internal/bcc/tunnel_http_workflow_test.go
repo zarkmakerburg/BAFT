@@ -150,6 +150,9 @@ func (f *tunnelHTTPFixture) step(tn Tunnel, node, action, message, output string
 	if len(jobs) != 1 || jobs[0].Type != action || jobs[0].Params["tunnel_id"] != tn.ID || jobs[0].Params["instance_id"] != tn.InstanceID {
 		f.t.Fatalf("%s: expected one %s for %s/%s: %+v", node, action, tn.ID, tn.InstanceID, jobs)
 	}
+	if tn.JoinOwnerID != "" && node == tn.EXNode && (action == JobTunnelPrepareEX || action == JobTunnelCommitEX) && jobs[0].Params["join_owner_id"] != tn.JoinOwnerID {
+		f.t.Fatalf("shared join EX job lost owner scope: %+v", jobs[0])
+	}
 	f.call(http.MethodPost, "/api/agent/ack", "tok-"+node, map[string]string{
 		"NodeID": node, "JobID": jobs[0].ID, "Status": "succeeded", "Message": message, "Output": output,
 	}, http.StatusOK, nil)
@@ -159,6 +162,10 @@ func (f *tunnelHTTPFixture) observe(tn Tunnel, node, role string, wrongTarget bo
 	f.t.Helper()
 	o := goodObserved(tn, role)
 	o.InstanceID = tn.InstanceID
+	if role == tunnelnode.RoleEX && tn.JoinOwnerID != "" {
+		o.MarkerTunnelID = tn.JoinOwnerID
+		o.ConfigSHA256, o.UnitSHA256, o.MarkerSHA256 = strings.Repeat("1", 64), strings.Repeat("2", 64), strings.Repeat("3", 64)
+	}
 	gen := tn.ExpectedGen[node].To
 	if tn.ExpectedGen[node].Bootstrap {
 		gen = 4
@@ -187,7 +194,20 @@ func (f *tunnelHTTPFixture) runToObservation(tn Tunnel) {
 		{tn.IRNode, JobTunnelHealth, ""},
 		{tn.EXNode, JobTunnelHealth, ""},
 	} {
-		f.step(tn, step.node, step.action, "ok", step.output)
+		output := step.output
+		if tn.JoinOwnerID != "" && step.node == tn.EXNode && step.action == JobTunnelCommitEX {
+			receipt, err := json.Marshal(tunnelnode.TenantJoinReceipt{
+				OwnerTunnelID: tn.JoinOwnerID, NodeID: tn.EXNode, Listen: "0.0.0.0:" + strconv.Itoa(tn.Port),
+				PeerID: "urn:baft:node:" + tn.IRNode, PeerPublicKey: "shared-join-public-key",
+				Generation: tn.ExpectedGen[tn.EXNode].To,
+				ConfigSHA256: strings.Repeat("1", 64), UnitSHA256: strings.Repeat("2", 64), MarkerSHA256: strings.Repeat("3", 64),
+			})
+			if err != nil {
+				f.t.Fatal(err)
+			}
+			output = string(receipt)
+		}
+		f.step(tn, step.node, step.action, "ok", output)
 	}
 }
 
@@ -246,6 +266,75 @@ func (f *tunnelHTTPFixture) siblingUnchanged(before Tunnel) {
 		if j.Params["tunnel_id"] == before.ID && (j.Status == "queued" || j.Status == "dispatched") {
 			f.t.Fatalf("operation queued work on active sibling: %+v", j)
 		}
+	}
+}
+
+func TestTunnelHTTPSharedJoinPlanAndActivationPreserveOwner(t *testing.T) {
+	f := newTunnelHTTPFixture(t)
+	ownerReq := scopedReq("shared-de", "ex-1", "ir-1", 8443, "127.0.0.1:1443", "127.0.0.1:9201", "127.0.0.1:9301")
+	ownerReq.Target = "192.0.2.10:2443"
+	owner := f.activate(f.create(f.plan(ownerReq)))
+	ownerBefore := f.get(owner.ID)
+
+	joinReq := TunnelRequest{
+		Engine: "baft", JoinExistingTunnelID: owner.ID, EXNode: owner.EXNode, IRNode: "ir-2",
+		Target: "192.0.2.20:2444", RouteListen: "127.0.0.1:1444", ClientPort: 2444,
+		IRMetricsListen: "127.0.0.1:9302",
+	}
+	plan := f.plan(joinReq)
+	if plan.Request.JoinExistingTunnelID != owner.ID || plan.Request.EXNode != owner.EXNode ||
+		plan.Request.InstanceID != owner.InstanceID || plan.Request.Port != owner.Port ||
+		plan.Request.EXMetricsListen != owner.EXMetricsListen {
+		t.Fatalf("reviewed plan did not preserve the selected shared listener scope: %+v", plan.Request)
+	}
+	if plan.Replaces != "" {
+		t.Fatalf("shared join was presented as replacing its physical owner: %s", plan.Replaces)
+	}
+	if plan.Request.RouteID == "" || plan.Request.RouteID == owner.RouteID {
+		t.Fatalf("join route id is not unique: owner=%q joined=%q", owner.RouteID, plan.Request.RouteID)
+	}
+	if len(plan.Nodes) < 1 || !strings.Contains(strings.Join(plan.Nodes[0].Changes, " "), owner.ID) {
+		t.Fatalf("join plan does not identify the physical owner: %+v", plan.Nodes)
+	}
+
+	// Removing the owner from the reviewed request must invalidate the hash.
+	before := f.domainState(f.store)
+	tampered := plan.Request
+	tampered.JoinExistingTunnelID = ""
+	tampered.PlanHash = plan.Hash
+	f.call(http.MethodPost, "/api/tunnels", tunnelHTTPAdmin, tampered, http.StatusConflict, nil)
+	f.unchanged(before)
+
+	joined := f.activate(f.create(plan))
+	if joined.JoinOwnerID != owner.ID || joined.PeerID != "urn:baft:node:ir-2" ||
+		joined.PeerPublicKey == "" || joined.EXConfigNodeID != owner.EXNode {
+		t.Fatalf("joined tenant identity/owner was not retained: %+v", joined)
+	}
+	ownerAfter := f.get(owner.ID)
+	if ownerAfter.Phase != TunnelActive || ownerAfter.RouteID != ownerBefore.RouteID || ownerAfter.Target != ownerBefore.Target {
+		t.Fatalf("joining changed or retired the physical owner: before=%+v after=%+v", ownerBefore, ownerAfter)
+	}
+	if ownerAfter.Digests[owner.EXNode].Config != strings.Repeat("1", 64) ||
+		ownerAfter.Digests[owner.EXNode].Unit != strings.Repeat("2", 64) ||
+		ownerAfter.Digests[owner.EXNode].Marker != strings.Repeat("3", 64) ||
+		ownerAfter.ObservedGen[owner.EXNode] != joined.ObservedGen[owner.EXNode] {
+		t.Fatalf("accepted shared EX baseline was not synchronized to its owner: %+v", ownerAfter)
+	}
+	if ownerAfter.ObservedGen[owner.IRNode] != ownerBefore.ObservedGen[owner.IRNode] {
+		t.Fatalf("joining changed the original IR generation: before=%+v after=%+v", ownerBefore.ObservedGen, ownerAfter.ObservedGen)
+	}
+	if got := f.get(joined.ID); got.Phase != TunnelActive || got.JoinOwnerID != owner.ID {
+		t.Fatalf("joined tenant did not remain an active logical record: %+v", got)
+	}
+	reopened, err := OpenStore(f.store.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := reopened.GetTunnel(owner.ID); !ok || got.Phase != TunnelActive {
+		t.Fatalf("physical owner not durable after join: %+v", got)
+	}
+	if got, ok := reopened.GetTunnel(joined.ID); !ok || got.Phase != TunnelActive || got.JoinOwnerID != owner.ID {
+		t.Fatalf("joined tenant relationship not durable: %+v", got)
 	}
 }
 

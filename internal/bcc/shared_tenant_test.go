@@ -190,7 +190,7 @@ func TestExplicitSharedJoinQueuesPrepareOnExistingOwner(t *testing.T) {
 	joined, err := s.CreateTunnel(TunnelRequest{
 		JoinExistingTunnelID: owner.ID, EXNode: owner.EXNode, IRNode: "ir-2",
 		PublicAddress: owner.PublicAddress, Port: owner.Port, Target: "127.0.0.1:2444",
-		RouteListen: "127.0.0.1:1444", RouteID: "service-main",
+		RouteListen: "127.0.0.1:1444",
 	}, now.Add(time.Second))
 	if err != nil {
 		t.Fatalf("explicit join was rejected: %v", err)
@@ -209,6 +209,9 @@ func TestExplicitSharedJoinQueuesPrepareOnExistingOwner(t *testing.T) {
 	}
 	if joined.JoinOwnerID != owner.ID || joined.ID == owner.ID || joined.Phase != TunnelPreparingEX {
 		t.Fatalf("joined tunnel record lost its owner relationship: %+v", joined)
+	}
+	if joined.RouteID == "" || joined.RouteID == owner.RouteID {
+		t.Fatalf("shared join reused the owner's route ID: owner=%q joined=%q", owner.RouteID, joined.RouteID)
 	}
 }
 

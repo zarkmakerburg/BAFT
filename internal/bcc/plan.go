@@ -107,7 +107,7 @@ func (s *Store) buildPlanLocked(req TunnelRequest, now time.Time) (Plan, error) 
 	peer := net.JoinHostPort(t.PublicAddress, strconv.Itoa(t.Port))
 	p := Plan{
 		Request: TunnelRequest{
-			Engine: req.Engine, InstanceID: t.InstanceID, AllowLegacyCoexistence: req.AllowLegacyCoexistence, EXNode: t.EXNode, IRNode: t.IRNode, PublicAddress: t.PublicAddress, Port: t.Port, ClientPort: t.ClientPort, Target: t.Target,
+			Engine: req.Engine, InstanceID: t.InstanceID, JoinExistingTunnelID: t.JoinOwnerID, AllowLegacyCoexistence: req.AllowLegacyCoexistence, EXNode: t.EXNode, IRNode: t.IRNode, PublicAddress: t.PublicAddress, Port: t.Port, ClientPort: t.ClientPort, Target: t.Target,
 			RouteListen: t.RouteListen, RouteID: t.RouteID, EXMetricsListen: t.EXMetricsListen, IRMetricsListen: t.IRMetricsListen,
 			RecordShaping: t.RecordShaping,
 		},
@@ -140,6 +140,33 @@ func (s *Store) buildPlanLocked(req TunnelRequest, now time.Time) (Plan, error) 
 			"IR is restored first, then EX",
 		},
 	}
+	if t.JoinOwnerID != "" {
+		p.Nodes[0].Changes = []string{
+			fmt.Sprintf("preserve the physical EX listener owned by tunnel %s at 0.0.0.0:%d", t.JoinOwnerID, t.Port),
+			fmt.Sprintf("add only tenant route %s to the fixed target %s", t.RouteID, t.Target),
+			"verify the shared owner marker and advance its accepted config, unit and generation baseline",
+		}
+		p.Steps = []string{
+			"prepare a one-time pairing on the existing EX listener without changing its live config",
+			"prepare the new IR dialer",
+			"add only the new authenticated peer and route to the shared EX listener",
+			"commit the new IR dialer",
+			"health check IR then EX",
+			"observe both nodes and compare the new tenant with this plan",
+			"finalize IR then EX and delete one-time secrets",
+		}
+		p.Verify = []string{
+			"the physical EX listener remains owned by the selected owner tunnel",
+			"the new authenticated peer and route match the reviewed tenant request",
+			"existing owner and sibling tenants remain active and their shared EX baseline advances",
+			"the new IR service and route are active and match the reviewed plan",
+		}
+		p.Rollback = []string{
+			"on failure before finalize, remove only the new tenant and restore the shared EX before-images without retiring the listener",
+			"restore the new IR's previous config, unit, service state and generation",
+			"existing owner and sibling tenants remain attached to the physical listener",
+		}
+	}
 	gate := func(name, status, detail string) {
 		p.Gates = append(p.Gates, PlanGate{Name: name, Status: status, Detail: detail})
 	}
@@ -169,7 +196,8 @@ func (s *Store) buildPlanLocked(req TunnelRequest, now time.Time) (Plan, error) 
 		if other.Phase == TunnelActive && req.AllowLegacyCoexistence && t.InstanceID != "" && other.InstanceID == "" && tunnelsShareNode(t, other) {
 			gate("keeps legacy tunnel active", "WARN", "explicit independent instance: "+id+" stays active; new instance must pass isolated listener and runtime health checks")
 		}
-		if other.Phase == TunnelActive && sameManagedSlot(t, other) {
+		sharedJoinMember := t.JoinOwnerID != "" && (id == t.JoinOwnerID || other.JoinOwnerID == t.JoinOwnerID)
+		if other.Phase == TunnelActive && sameManagedSlot(t, other) && !sharedJoinMember {
 			p.Replaces = id
 			gate("replaces active tunnel", "WARN", id+" owns the same BAFT instance and becomes superseded when this one is active; sibling instances remain active")
 		}

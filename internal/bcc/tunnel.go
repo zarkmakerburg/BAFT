@@ -13,6 +13,7 @@ package bcc
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -382,7 +383,12 @@ func (s *Store) resolveTunnelLocked(req TunnelRequest, now time.Time) (Tunnel, N
 		t.RouteListen = "127.0.0.1:1443"
 	}
 	if t.RouteID == "" {
-		t.RouteID = "service-main"
+		if t.JoinOwnerID != "" {
+			sum := sha256.Sum256([]byte(t.JoinOwnerID + "\x00" + t.IRNode))
+			t.RouteID = "tenant-" + hex.EncodeToString(sum[:8])
+		} else {
+			t.RouteID = "service-main"
+		}
 	}
 	if t.InstanceID == "default" {
 		return Tunnel{}, Node{}, Node{}, errors.New("instance_id default is reserved for the legacy singleton")
@@ -417,6 +423,11 @@ func (s *Store) resolveTunnelLocked(req TunnelRequest, now time.Time) (Tunnel, N
 			owner.PublicAddress != t.PublicAddress || owner.EXMetricsListen != t.EXMetricsListen ||
 			owner.RecordShaping != t.RecordShaping || owner.IRNode == t.IRNode {
 			return Tunnel{}, Node{}, Node{}, errors.New("shared join does not match the owner's listener, transport or independent IR")
+		}
+		for _, other := range s.st.Tunnels {
+			if other.Phase == TunnelActive && (other.ID == owner.ID || other.JoinOwnerID == owner.ID) && other.RouteID == t.RouteID {
+				return Tunnel{}, Node{}, Node{}, fmt.Errorf("shared listener route id %q is already used by tunnel %s", t.RouteID, other.ID)
+			}
 		}
 	}
 	for _, other := range s.st.Tunnels {

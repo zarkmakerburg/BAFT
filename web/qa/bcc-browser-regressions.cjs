@@ -175,12 +175,16 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       const owner={id:'qa-owner',phase:'active',ex_node:'qa-ex',ir_node:'qa-ir-owner',instance_id:'qa-shared',public_address:'203.0.113.20',port:8443,target:'127.0.0.1:2443',route_listen:'127.0.0.1:1443',route_id:'service-main',ex_metrics_listen:'127.0.0.1:9202',ir_metrics_listen:'127.0.0.1:9302',record_shaping:false};
       const child={...owner,id:'qa-child',ir_node:'qa-ir-child',join_owner_id:'qa-owner'};
       await page.route(tunnels,r=>r.fulfill({json:[owner,child]}));
-      await nav('tunnels');const originalTunnels=await page.evaluate(()=>tnWizardTunnels);
+      await nav('tunnels');await page.evaluate(()=>tnNew());
+      const originalTunnels=await page.evaluate(()=>tnWizardTunnels);
       await page.evaluate(()=>loadTunnels());
       assert.equal(await page.locator('#ops_tnJoinOwner option[value="qa-owner"]').count(),1);
       assert.equal(await page.locator('#ops_tnJoinOwner option[value="qa-child"]').count(),0);
       await page.locator('#ops_tnMode').selectOption('join');
+      await page.evaluate(()=>tnModeChanged());
+      assert.equal(await page.locator('#ops_tnJoinOwnerField').getAttribute('hidden'),null);
       await page.locator('#ops_tnWizardNext').click();
+      await page.locator('#ops_tnJoinOwner').waitFor({state:'visible'});
       await page.locator('#ops_tnJoinOwner').selectOption('qa-owner');
       await page.locator('#ops_tnIr').selectOption('qa-ir');
       assert.equal(await page.locator('#ops_tnExField').isHidden(),true);

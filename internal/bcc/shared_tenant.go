@@ -180,6 +180,8 @@ func (s *Store) ReconcileSharedTenantMutationAcks(now time.Time) error {
 			}
 			sibling.Digests[t.EXNode] = NodeDigests{Config: ev.AfterConfigSHA, Unit: ev.AfterUnitSHA, Marker: ev.AfterMarkerSHA}
 			sibling.ObservedGen[t.EXNode] = ev.Generation
+			if sibling.ExpectedGen == nil { sibling.ExpectedGen = map[string]GenExpect{} }
+			sibling.ExpectedGen[t.EXNode] = GenExpect{From: ev.Generation - 1, To: ev.Generation}
 			sibling.UpdatedAt = now.UTC()
 			if id == tunnelID {
 				sibling.Evidence = append(sibling.Evidence, TunnelEvidence{
@@ -205,4 +207,34 @@ func (s *Store) ReconcileSharedTenantMutationAcks(now time.Time) error {
 		}
 	}
 	return nil
+}
+
+
+// syncSharedTenantBaselineLocked propagates the verified EX observation from a
+// newly joined tenant to the physical owner and sibling tenant records.
+func (s *Store) syncSharedTenantBaselineLocked(ownerID string, source Tunnel, now time.Time) {
+	if ownerID == "" {
+		return
+	}
+	digest, hasDigest := source.Digests[source.EXNode]
+	generation, hasGeneration := source.ObservedGen[source.EXNode]
+	if !hasDigest || !hasGeneration {
+		return
+	}
+	for id, sibling := range s.st.Tunnels {
+		if id != ownerID && sibling.JoinOwnerID != ownerID {
+			continue
+		}
+		if sibling.EXNode != source.EXNode {
+			continue
+		}
+		if sibling.Digests == nil { sibling.Digests = map[string]NodeDigests{} }
+		if sibling.ObservedGen == nil { sibling.ObservedGen = map[string]int{} }
+		if sibling.ExpectedGen == nil { sibling.ExpectedGen = map[string]GenExpect{} }
+		sibling.Digests[source.EXNode] = digest
+		sibling.ObservedGen[source.EXNode] = generation
+		sibling.ExpectedGen[source.EXNode] = GenExpect{From: generation - 1, To: generation}
+		sibling.UpdatedAt = now.UTC()
+		s.st.Tunnels[id] = sibling
+	}
 }

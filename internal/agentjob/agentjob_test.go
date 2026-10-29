@@ -179,7 +179,7 @@ func TestSharedTenantActionsRequireExactDigestFencedShape(t *testing.T) {
 		Params: map[string]string{
 			"tunnel_id": "tun-tenant-test", "mutation_id": "mut-tenant-test",
 			"node_id": "ex-config", "listen": "0.0.0.0:443",
-			"config_sha256": strings.Repeat("a", 64), "marker_sha256": strings.Repeat("b", 64),
+			"config_sha256": strings.Repeat("a", 64), "unit_sha256": strings.Repeat("c", 64), "marker_sha256": strings.Repeat("b", 64),
 			"peer_id": "urn:baft:node:ir-two", "peer_public_key": strings.Repeat("A", 43),
 			"route_id": "port-443", "target": "127.0.0.1:9002",
 		},

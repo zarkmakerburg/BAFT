@@ -109,7 +109,7 @@ func TestSharedTenantMutationRejectsMissingAcceptedDigests(t *testing.T) {
 }
 
 
-func TestSharedTenantMutationHTTPQueuesAuditedJob(t *testing.T) {
+func TestSharedTenantMaintenanceHTTPQueuesUntrackedPeerRemoval(t *testing.T) {
 	s := tunnelStore(t)
 	now := time.Now().UTC()
 	tn := newTunnel(t, s, now)
@@ -135,9 +135,9 @@ func TestSharedTenantMutationHTTPQueuesAuditedJob(t *testing.T) {
 		t.Fatal(err)
 	}
 	req := authReq(http.MethodPost, "/api/tunnels/tenant", "admin", SharedTenantMutationRequest{
-		TunnelID: tn.ID, Operation: "add", NodeID: "ex-config-id", Listen: "0.0.0.0:443",
-		PeerID: "urn:baft:node:ir-new", PeerPublicKey: strings.Repeat("A", 43),
-		RouteID: "port-443", Target: "127.0.0.1:9003",
+		TunnelID: tn.ID, Operation: "remove", NodeID: "ex-config-id", Listen: "0.0.0.0:443",
+		PeerID: "urn:baft:node:ir-untracked", PeerPublicKey: strings.Repeat("A", 43),
+		RouteID: "port-443",
 	})
 	rr := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rr, req)
@@ -145,7 +145,7 @@ func TestSharedTenantMutationHTTPQueuesAuditedJob(t *testing.T) {
 		t.Fatalf("tenant API status=%d body=%s", rr.Code, rr.Body.String())
 	}
 	jobs := pullAll(t, s, "ex-1")
-	if len(jobs) != 1 || jobs[0].Type != agentjob.ActionTunnelTenantAdd ||
+	if len(jobs) != 1 || jobs[0].Type != agentjob.ActionTunnelTenantRemove ||
 		jobs[0].Params["owner_tunnel_id"] != tn.ID || jobs[0].Params["config_sha256"] != strings.Repeat("a", 64) ||
 		jobs[0].Params["unit_sha256"] != strings.Repeat("b", 64) ||
 		jobs[0].Params["marker_sha256"] != strings.Repeat("c", 64) {

@@ -86,7 +86,7 @@ func (s *Store) CreateSharedTenantMutationJob(in SharedTenantMutationRequest, no
 	action := agentjob.ActionTunnelTenantAdd
 	params := map[string]string{
 		"tunnel_id": in.TunnelID, "mutation_id": mutationID, "node_id": in.NodeID,
-		"listen": in.Listen, "config_sha256": digests.Config, "marker_sha256": digests.Marker,
+		"listen": in.Listen, "config_sha256": digests.Config, "unit_sha256": digests.Unit, "marker_sha256": digests.Marker,
 		"peer_id": in.PeerID, "peer_public_key": in.PeerPublicKey, "route_id": in.RouteID,
 	}
 	if in.Operation == "add" {
@@ -147,8 +147,8 @@ func (s *Store) ReconcileSharedTenantMutationAcks(now time.Time) error {
 			wantOperation = "remove"
 		}
 		if ev.ID != p["mutation_id"] || ev.Operation != wantOperation || ev.NodeID != p["node_id"] ||
-			ev.BeforeConfigSHA != p["config_sha256"] || ev.BeforeMarkerSHA != p["marker_sha256"] ||
-			!validSHA256Digest(ev.AfterConfigSHA) || !validSHA256Digest(ev.AfterMarkerSHA) {
+			ev.BeforeConfigSHA != p["config_sha256"] || ev.BeforeUnitSHA != p["unit_sha256"] || ev.BeforeMarkerSHA != p["marker_sha256"] ||
+			!validSHA256Digest(ev.AfterConfigSHA) || !validSHA256Digest(ev.AfterUnitSHA) || !validSHA256Digest(ev.AfterMarkerSHA) {
 			return fmt.Errorf("tenant mutation job %s receipt does not match the signed request", job.ID)
 		}
 		if digests.Config != ev.BeforeConfigSHA || digests.Marker != ev.BeforeMarkerSHA {
@@ -161,7 +161,7 @@ func (s *Store) ReconcileSharedTenantMutationAcks(now time.Time) error {
 		if err != nil {
 			return err
 		}
-		t.Digests[t.EXNode] = NodeDigests{Config: ev.AfterConfigSHA, Unit: digests.Unit, Marker: ev.AfterMarkerSHA}
+		t.Digests[t.EXNode] = NodeDigests{Config: ev.AfterConfigSHA, Unit: ev.AfterUnitSHA, Marker: ev.AfterMarkerSHA}
 		if t.ObservedGen == nil {
 			t.ObservedGen = map[string]int{}
 		}

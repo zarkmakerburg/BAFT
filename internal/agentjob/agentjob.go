@@ -404,9 +404,9 @@ var paramRules = map[string]map[string]*regexp.Regexp{
 // Legacy BCCs may omit these fields; new BCCs use them for multi-instance
 // tunnel isolation.
 var optionalParamRules = map[string]map[string]*regexp.Regexp{
-	ActionTunnelPrepareEX:      {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
+	ActionTunnelPrepareEX:      {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR, "join_owner_id": tunnelIDRe},
 	ActionTunnelPrepareIR:      {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
-	ActionTunnelCommitEX:       {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
+	ActionTunnelCommitEX:       {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR, "join_owner_id": tunnelIDRe},
 	ActionTunnelCommitIR:       {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
 	ActionTunnelHealth:         {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
 	ActionTunnelObserve:        {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},

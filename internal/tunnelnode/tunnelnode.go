@@ -1102,6 +1102,13 @@ func (m *Manager) rollbackTxn(ctx context.Context, t Txn) (string, error) {
 		} else {
 			note(removeIfExists(m.markerPath()))
 		}
+		if t.JoinOwnerID != "" {
+			if b, err := os.ReadFile(m.backup(t.ID, "owner-txn.json")); err == nil {
+				note(writeFile(m.txnPath(t.JoinOwnerID), b, 0o600))
+			} else {
+				note(err)
+			}
+		}
 		_, _ = m.System.Systemctl(ctx, "daemon-reload")
 		if t.HadConfig && t.WasActive {
 			if _, err := m.System.Systemctl(ctx, "restart", m.Service); err != nil {

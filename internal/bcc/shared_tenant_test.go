@@ -292,3 +292,56 @@ func TestPhysicalOwnerCannotBeDecommissionedWhileTenantIsActive(t *testing.T) {
 		t.Fatalf("missing explicit shared-tenant decommission gate: %+v", plan.Gates)
 	}
 }
+
+
+func TestSharedTenantRemovalReceiptUpdatesOwnerWithoutRetiringIt(t *testing.T) {
+	s := tunnelStore(t)
+	now := time.Now().UTC()
+	ownerID := "tun-physical-owner"
+	tenantID := "tun-removing-tenant"
+	siblingID := "tun-sibling-tenant"
+	beforeConfig, beforeUnit, beforeMarker := strings.Repeat("a", 64), strings.Repeat("b", 64), strings.Repeat("c", 64)
+	afterConfig, afterUnit, afterMarker := strings.Repeat("d", 64), strings.Repeat("e", 64), strings.Repeat("f", 64)
+	owner := Tunnel{
+		ID: ownerID, EXNode: "ex-1", IRNode: "ir-1", Phase: TunnelActive,
+		Digests: map[string]NodeDigests{"ex-1": {Config: beforeConfig, Unit: beforeUnit, Marker: beforeMarker}},
+		ObservedGen: map[string]int{"ex-1": 4},
+	}
+	tenant := Tunnel{
+		ID: tenantID, JoinOwnerID: ownerID, EXNode: "ex-1", IRNode: "ir-2",
+		Phase: TunnelDecommissioningEX, DecommissionedNodes: map[string]bool{"ir-2": true},
+		Digests: map[string]NodeDigests{"ex-1": {Config: beforeConfig, Unit: beforeUnit, Marker: beforeMarker}},
+		ObservedGen: map[string]int{"ex-1": 4}, ExpectedGen: map[string]GenExpect{"ex-1": {From: 3, To: 4}},
+	}
+	sibling := Tunnel{
+		ID: siblingID, JoinOwnerID: ownerID, EXNode: "ex-1", IRNode: "ir-3", Phase: TunnelActive,
+		Digests: map[string]NodeDigests{"ex-1": {Config: beforeConfig, Unit: beforeUnit, Marker: beforeMarker}},
+		ObservedGen: map[string]int{"ex-1": 4},
+	}
+	ev := tunnelnode.TenantMutationEvidence{
+		ID: "mut-remove-1", Operation: "remove", NodeID: "ex-config", OwnerTunnelID: ownerID, Generation: 5,
+		BeforeConfigSHA: beforeConfig, AfterConfigSHA: afterConfig,
+		BeforeUnitSHA: beforeUnit, AfterUnitSHA: afterUnit,
+		BeforeMarkerSHA: beforeMarker, AfterMarkerSHA: afterMarker,
+	}
+	output, err := json.Marshal(ev)
+	if err != nil { t.Fatal(err) }
+	job := Job{ID: "job-remove-1", Type: agentjob.ActionTunnelTenantRemove, Status: "succeeded",
+		NodeID: "ex-1", Message: "tenant removed", Output: string(output)}
+	tenant.DecommissionMutationID = ev.ID
+	s.mu.Lock()
+	s.st.Tunnels[ownerID], s.st.Tunnels[tenantID], s.st.Tunnels[siblingID] = owner, tenant, sibling
+	s.st.Jobs[job.ID] = job
+	event := s.advanceSharedTenantRemovalLocked(&tenant, &job, now)
+	s.st.Tunnels[tenantID] = tenant
+	ownerAfter, siblingAfter := s.st.Tunnels[ownerID], s.st.Tunnels[siblingID]
+	s.mu.Unlock()
+	if tenant.Phase != TunnelDecommissioned || event == nil || event.Action != "tunnel.decommissioned" {
+		t.Fatalf("tenant decommission did not complete: phase=%s event=%+v", tenant.Phase, event)
+	}
+	if ownerAfter.Phase != TunnelActive || siblingAfter.Phase != TunnelActive ||
+		ownerAfter.Digests["ex-1"].Config != afterConfig || siblingAfter.Digests["ex-1"].Unit != afterUnit ||
+		ownerAfter.ObservedGen["ex-1"] != 5 || siblingAfter.ObservedGen["ex-1"] != 5 {
+		t.Fatalf("tenant removal damaged or desynchronized the shared owner: owner=%+v sibling=%+v", ownerAfter, siblingAfter)
+	}
+}

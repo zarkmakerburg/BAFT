@@ -182,6 +182,16 @@ func (m *Manager) CommitEXJoin(ctx context.Context, id, reply string) (string, s
 	}
 	// Reuse the same durable before-images for normal tunnel rollback, and
 	// update this logical transaction without claiming physical listener ownership.
+	rollbackJoin := func() {
+		jBytes, readErr := os.ReadFile(m.tenantMutationPath(id))
+		if readErr == nil {
+			var j tenantMutationJournal
+			if json.Unmarshal(jBytes, &j) == nil {
+				_ = m.rollbackTenantMutation(ctx, &j)
+			}
+		}
+		_ = m.Rollback(ctx, id)
+	}
 	mutationDir := m.tenantMutationDir()
 	for source, dest := range map[string]string{
 		"old-config": m.backup(id, "baft.yaml"), "old-unit": m.backup(id, "unit"),
@@ -189,14 +199,17 @@ func (m *Manager) CommitEXJoin(ctx context.Context, id, reply string) (string, s
 	} {
 		b, err := os.ReadFile(filepath.Join(mutationDir, id+"."+source))
 		if err != nil {
+			rollbackJoin()
 			return "", "", err
 		}
 		if err := writeFile(dest, b, 0o600); err != nil {
+			rollbackJoin()
 			return "", "", err
 		}
 	}
 	current, err := m.readTxn(id)
 	if err != nil {
+		rollbackJoin()
 		return "", "", err
 	}
 	current.HadConfig, current.HadUnit, current.HadMarker = true, true, true
@@ -211,13 +224,7 @@ func (m *Manager) CommitEXJoin(ctx context.Context, id, reply string) (string, s
 	current.TenantRouteID, current.TenantTarget = p.RouteID, p.Target
 	current.Phase = PhaseCommitted
 	if err := m.writeTxn(current); err != nil {
-		jBytes, readErr := os.ReadFile(m.tenantMutationPath(id))
-		if readErr == nil {
-			var j tenantMutationJournal
-			if json.Unmarshal(jBytes, &j) == nil {
-				_ = m.rollbackTenantMutation(ctx, &j)
-			}
-		}
+		rollbackJoin()
 		return "", "", err
 	}
 	receipt, err := json.Marshal(TenantJoinReceipt{
@@ -225,6 +232,7 @@ func (m *Manager) CommitEXJoin(ctx context.Context, id, reply string) (string, s
 		Generation: ev.Generation, ConfigSHA256: ev.AfterConfigSHA, UnitSHA256: ev.AfterUnitSHA, MarkerSHA256: ev.AfterMarkerSHA,
 	})
 	if err != nil {
+		rollbackJoin()
 		return "", "", err
 	}
 	return "shared listener tenant committed", string(receipt), nil

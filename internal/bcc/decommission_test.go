@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zarkmakerburg/baft/internal/agentjob"
 	"github.com/zarkmakerburg/baft/internal/tunnelnode"
 )
 
@@ -420,6 +421,218 @@ func TestDecommissionAPIPlanApplyStatusAndAudit(t *testing.T) {
 	for _, want := range []string{"tunnel.decommission.plan", "tunnel.decommission.request", "tunnel.decommissioned"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("audit lacks %s: %s", want, body)
+		}
+	}
+}
+
+
+func sharedTenantDecommissionFixture(t *testing.T) (*Store, Tunnel, Tunnel, Tunnel, time.Time) {
+	t.Helper()
+	now := time.Now().UTC()
+	s := tunnelStore(t)
+	owner := activateTunnel(t, s, now)
+	for id, address := range map[string]string{
+		"ir-2": "203.0.113.8:22",
+		"ir-3": "203.0.113.9:22",
+	} {
+		if _, err := s.UpsertNode(Node{ID: id, Address: address, Role: "worker"}, "tok-"+id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	digest := func(char string) NodeDigests {
+		return NodeDigests{Config: strings.Repeat(char, 64), Unit: strings.Repeat(char, 64), Marker: strings.Repeat(char, 64)}
+	}
+	tenant := Tunnel{
+		ID: "tun-shared-tenant-a", JoinOwnerID: owner.ID, InstanceID: owner.InstanceID,
+		EXNode: owner.EXNode, IRNode: "ir-2", EXConfigNodeID: "ex-config", EXListen: "0.0.0.0:8443",
+		Phase: TunnelActive, RouteID: "route-a", PeerID: "urn:baft:node:ir-2", PeerPublicKey: strings.Repeat("A", 43),
+		Digests: map[string]NodeDigests{owner.EXNode: owner.Digests[owner.EXNode], "ir-2": digest("1")},
+		ObservedGen: map[string]int{owner.EXNode: owner.ObservedGen[owner.EXNode], "ir-2": 1},
+	}
+	sibling := Tunnel{
+		ID: "tun-shared-tenant-b", JoinOwnerID: owner.ID, InstanceID: owner.InstanceID,
+		EXNode: owner.EXNode, IRNode: "ir-3", EXConfigNodeID: "ex-config", EXListen: "0.0.0.0:8443",
+		Phase: TunnelActive, RouteID: "route-b", PeerID: "urn:baft:node:ir-3", PeerPublicKey: strings.Repeat("B", 43),
+		Digests: map[string]NodeDigests{owner.EXNode: owner.Digests[owner.EXNode], "ir-3": digest("2")},
+		ObservedGen: map[string]int{owner.EXNode: owner.ObservedGen[owner.EXNode], "ir-3": 1},
+	}
+	s.mu.Lock()
+	for _, id := range []string{owner.EXNode, owner.IRNode, tenant.IRNode, sibling.IRNode} {
+		n := s.st.Nodes[id]
+		n.AgentSeen = now
+		s.st.Nodes[id] = n
+	}
+	s.st.Tunnels[tenant.ID] = tenant
+	s.st.Tunnels[sibling.ID] = sibling
+	if err := s.saveLocked(); err != nil {
+		s.mu.Unlock()
+		t.Fatal(err)
+	}
+	s.mu.Unlock()
+	return s, owner, tenant, sibling, now
+}
+
+func TestJoinedTenantDecommissionReviewedPlanRemovesOnlyTenant(t *testing.T) {
+	s, owner, tenant, sibling, now := sharedTenantDecommissionFixture(t)
+	plan, err := s.BuildDecommissionPlan(tenant.ID, now)
+	if err != nil || !plan.OK {
+		t.Fatalf("active shared owner and sibling should be allowed: plan=%+v err=%v", plan, err)
+	}
+	started, _, err := s.StartDecommissionFromPlan(tenant.ID, plan.Hash, now)
+	if err != nil || started.Phase != TunnelDecommissioningIR {
+		t.Fatalf("reviewed decommission did not start with the tenant IR: tunnel=%+v err=%v", started, err)
+	}
+	irJobs := pullAll(t, s, tenant.IRNode)
+	if len(irJobs) != 1 || irJobs[0].Type != JobTunnelRetire {
+		t.Fatalf("tenant IR retire job: %+v", irJobs)
+	}
+	if err := s.AckJobOutput(tenant.IRNode, "tok-"+tenant.IRNode, irJobs[0].ID, "succeeded", retireMessage(tenant, tenant.IRNode), ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AdvanceTunnels(now.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	exJobs := pullAll(t, s, tenant.EXNode)
+	if len(exJobs) != 1 || exJobs[0].Type != agentjob.ActionTunnelTenantRemove ||
+		exJobs[0].Params["owner_tunnel_id"] != owner.ID || exJobs[0].Params["peer_id"] != tenant.PeerID {
+		t.Fatalf("reviewed tenant decommission must remove only the selected tenant: %+v", exJobs)
+	}
+	before := tenant.Digests[tenant.EXNode]
+	ev := tunnelnode.TenantMutationEvidence{
+		ID: exJobs[0].Params["mutation_id"], Operation: "remove", NodeID: tenant.EXConfigNodeID,
+		OwnerTunnelID: owner.ID, Generation: tenant.ObservedGen[tenant.EXNode] + 1,
+		BeforeConfigSHA: before.Config, AfterConfigSHA: strings.Repeat("d", 64),
+		BeforeUnitSHA: before.Unit, AfterUnitSHA: strings.Repeat("e", 64),
+		BeforeMarkerSHA: before.Marker, AfterMarkerSHA: strings.Repeat("f", 64),
+	}
+	output, err := json.Marshal(ev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AckJobOutput(tenant.EXNode, "tok-"+tenant.EXNode, exJobs[0].ID, "succeeded", "tenant removed", string(output)); err != nil {
+		t.Fatal(err)
+	}
+	events, err := s.AdvanceTunnels(now.Add(2 * time.Second))
+	if err != nil || len(events) != 1 || events[0].Action != "tunnel.decommissioned" {
+		t.Fatalf("tenant decommission events=%+v err=%v", events, err)
+	}
+	removed, _ := s.GetTunnel(tenant.ID)
+	ownerAfter, _ := s.GetTunnel(owner.ID)
+	siblingAfter, _ := s.GetTunnel(sibling.ID)
+	if removed.Phase != TunnelDecommissioned || ownerAfter.Phase != TunnelActive || siblingAfter.Phase != TunnelActive {
+		t.Fatalf("shared listener lifecycle changed unexpectedly: tenant=%s owner=%s sibling=%s",
+			removed.Phase, ownerAfter.Phase, siblingAfter.Phase)
+	}
+	for _, got := range []Tunnel{ownerAfter, siblingAfter} {
+		if got.Digests[owner.EXNode].Config != ev.AfterConfigSHA ||
+			got.Digests[owner.EXNode].Unit != ev.AfterUnitSHA ||
+			got.Digests[owner.EXNode].Marker != ev.AfterMarkerSHA ||
+			got.ObservedGen[owner.EXNode] != ev.Generation {
+			t.Fatalf("shared owner/sibling baseline did not advance: %+v", got)
+		}
+	}
+}
+
+func TestJoinedTenantDecommissionBlocksUncertainSharedState(t *testing.T) {
+	tests := map[string]func(*Store, Tunnel, Tunnel, Tunnel){
+		"owner rollback failed": func(s *Store, owner, _, _ Tunnel) {
+			owner.Phase = TunnelRollbackFailed
+			s.st.Tunnels[owner.ID] = owner
+		},
+		"owner decommission failed": func(s *Store, owner, _, _ Tunnel) {
+			owner.Phase = TunnelDecommissionFailed
+			s.st.Tunnels[owner.ID] = owner
+		},
+		"sibling rollback failed": func(s *Store, _, _, sibling Tunnel) {
+			sibling.Phase = TunnelRollbackFailed
+			s.st.Tunnels[sibling.ID] = sibling
+		},
+		"sibling decommission failed": func(s *Store, _, _, sibling Tunnel) {
+			sibling.Phase = TunnelDecommissionFailed
+			s.st.Tunnels[sibling.ID] = sibling
+		},
+		"owner drift check running": func(s *Store, owner, _, _ Tunnel) {
+			owner.DriftJobs = []string{"drift-owner"}
+			s.st.Tunnels[owner.ID] = owner
+		},
+		"owner drifted": func(s *Store, owner, _, _ Tunnel) {
+			owner.Drift = &DriftReport{State: DriftDrifted}
+			s.st.Tunnels[owner.ID] = owner
+		},
+		"sibling drift check running": func(s *Store, _, _, sibling Tunnel) {
+			sibling.DriftJobs = []string{"drift-sibling"}
+			s.st.Tunnels[sibling.ID] = sibling
+		},
+		"sibling drifted": func(s *Store, _, _, sibling Tunnel) {
+			sibling.Drift = &DriftReport{State: DriftDrifted}
+			s.st.Tunnels[sibling.ID] = sibling
+		},
+	}
+	for name, mutate := range tests {
+		t.Run(name, func(t *testing.T) {
+			s, _, tenant, sibling, now := sharedTenantDecommissionFixture(t)
+			s.mu.Lock()
+			owner := s.st.Tunnels[tenant.JoinOwnerID]
+			sibling = s.st.Tunnels[sibling.ID]
+			mutate(s, owner, tenant, sibling)
+			s.mu.Unlock()
+			plan, err := s.BuildDecommissionPlan(tenant.ID, now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if plan.OK {
+				t.Fatalf("uncertain shared owner/sibling state passed the decommission plan: %+v", plan.Gates)
+			}
+			found := false
+			for _, gate := range plan.Gates {
+				if gate.Name == "conflicting tunnel change" && gate.Status == "FAIL" {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatalf("missing shared-state failure gate: %+v", plan.Gates)
+			}
+		})
+	}
+}
+
+func TestJoinedTenantDecommissionBlocksOwnerWidePendingMutation(t *testing.T) {
+	for _, op := range []string{agentjob.ActionTunnelTenantAdd, agentjob.ActionTunnelTenantRemove} {
+		for _, status := range []string{"queued", "dispatched"} {
+			for _, target := range []string{"owner", "sibling"} {
+				t.Run(op+"/"+status+"/"+target, func(t *testing.T) {
+					s, owner, tenant, sibling, now := sharedTenantDecommissionFixture(t)
+					targetID := owner.ID
+					if target == "sibling" {
+						targetID = sibling.ID
+					}
+					s.mu.Lock()
+					if s.st.Jobs == nil {
+						s.st.Jobs = map[string]Job{}
+					}
+					s.st.Jobs["pending-tenant-mutation"] = Job{
+						ID: "pending-tenant-mutation", Type: op, Status: status, NodeID: owner.EXNode,
+						Params: map[string]string{"tunnel_id": targetID, "owner_tunnel_id": owner.ID},
+					}
+					s.mu.Unlock()
+					plan, err := s.BuildDecommissionPlan(tenant.ID, now)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if plan.OK {
+						t.Fatalf("pending owner-wide %s job in %s state passed: %+v", op, status, plan.Gates)
+					}
+					found := false
+					for _, gate := range plan.Gates {
+						if gate.Name == "conflicting tunnel change" && gate.Status == "FAIL" && strings.Contains(gate.Detail, "pending tenant mutation") {
+							found = true
+						}
+					}
+					if !found {
+						t.Fatalf("missing pending-mutation gate: %+v", plan.Gates)
+					}
+				})
+			}
 		}
 	}
 }

@@ -170,3 +170,98 @@ func TestCarriedPortsBuildMatchingPublicRoutes(t *testing.T) {
 		}
 	}
 }
+
+
+func TestJoinConfigPreservesOwnerAndAddsOnlyNewTenant(t *testing.T) {
+	dir := t.TempDir()
+	pkiDir := filepath.Join(dir, "pki")
+	if err := writePKI(pkiDir, "192.0.2.10", time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	ex, err := securityinternal.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ownerIR, err := securityinternal.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	newIR, err := securityinternal.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ca, err := os.ReadFile(filepath.Join(pkiDir, "ca.pem"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	exIdentity := "urn:baft:node:ex-1"
+	ownerIdentity, newIdentity := "urn:baft:node:ir-1", "urn:baft:node:ir-2"
+	d, _, err := securityinternal.NewPairingDescriptor("192.0.2.10:8443", "192.0.2.10", exIdentity, ex.Public, ca, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := exPending{Version: 1, Identity: d.NodeIdentity, ServerName: d.ServerName}
+	pki := func(name string) string { return filepath.Join(pkiDir, name) }
+	ownerFlags := addCommonFlags(flag.NewFlagSet("owner", flag.ContinueOnError), filepath.Join(dir, "admin.sock"))
+	ownerCfg, err := exConfig(p, ownerIdentity, ownerIR.Public, "0.0.0.0:8443", pki("ca.pem"), pki("server.pem"), pki("server.key"), filepath.Join(dir, "ex.json"), "127.0.0.1:2443", "127.0.0.1", ownerFlags)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ownerPath := filepath.Join(dir, "owner.yaml")
+	if err := writeConfig(ownerPath, ownerCfg); err != nil {
+		t.Fatal(err)
+	}
+
+	joinFlags := addCommonFlags(flag.NewFlagSet("join", flag.ContinueOnError), filepath.Join(dir, "admin.sock"))
+	*joinFlags.routeID = "tenant-ir-2"
+	joined, err := joinConfig(ownerPath, p, newIdentity, newIR.Public, "127.0.0.1:2444", "127.0.0.1", joinFlags)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if joined.Server.Listen != ownerCfg.Server.Listen || joined.Server.ServerName != ownerCfg.Server.ServerName {
+		t.Fatalf("joining changed listener identity: before=%+v after=%+v", ownerCfg.Server, joined.Server)
+	}
+	if len(joined.Server.AllowedPeerIdentities) != 2 ||
+		joined.Server.AllowedPeerIdentities[0] != ownerIdentity ||
+		joined.Server.AllowedPeerIdentities[1] != newIdentity {
+		t.Fatalf("existing and new tenants were not both retained: %v", joined.Server.AllowedPeerIdentities)
+	}
+	ownerPub, err := securityinternal.EncodePublicKey(ownerIR.Public)
+	if err != nil {
+		t.Fatal(err)
+	}
+	newPub, err := securityinternal.EncodePublicKey(newIR.Public)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if joined.Noise.AllowedPeerPublicKeys[ownerIdentity] != ownerPub ||
+		joined.Noise.AllowedPeerPublicKeys[newIdentity] != newPub {
+		t.Fatalf("Noise peer keys were not preserved and extended: %v", joined.Noise.AllowedPeerPublicKeys)
+	}
+	if len(joined.Routes) != 2 {
+		t.Fatalf("want original and new tenant routes, got %+v", joined.Routes)
+	}
+	if got, want := joined.Routes[0], ownerCfg.Routes[0]; got.ID != want.ID || got.Target != want.Target ||
+		len(got.AllowedPeers) != 1 || got.AllowedPeers[0] != ownerIdentity {
+		t.Fatalf("joining changed the owner's route: before=%+v after=%+v", want, got)
+	}
+	if got := joined.Routes[1]; got.ID != "tenant-ir-2" || got.Target != "127.0.0.1:2444" ||
+		len(got.AllowedPeers) != 1 || got.AllowedPeers[0] != newIdentity {
+		t.Fatalf("new tenant route mismatch: %+v", got)
+	}
+
+	joinedPath := filepath.Join(dir, "joined.yaml")
+	if err := writeConfig(joinedPath, joined); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := config.LoadFile(joinedPath)
+	if err != nil {
+		t.Fatalf("joined config does not load: %v", err)
+	}
+	if len(loaded.Server.AllowedPeerIdentities) != 2 || len(loaded.Routes) != 2 {
+		t.Fatalf("validated config lost tenant state: %+v", loaded)
+	}
+	if _, err := joinConfig(joinedPath, p, newIdentity, newIR.Public, "127.0.0.1:2444", "127.0.0.1", joinFlags); err == nil {
+		t.Fatal("duplicate tenant join was accepted")
+	}
+}

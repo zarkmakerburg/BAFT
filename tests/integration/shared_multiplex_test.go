@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -14,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -548,14 +550,21 @@ func TestPerTenantFlowCapEnforced(t *testing.T) {
 	// Third flow of tenant a is refused.
 	c3, err := net.DialTimeout("tcp", a.local, time.Second)
 	if err != nil {
-		t.Fatal(err)
+		// The listener rejects a capped OPEN with TypeOpenErr. That can close
+		// the local socket before DialTimeout returns, surfacing the same
+		// intentional refusal as ECONNRESET instead of a readable connection.
+		if !errors.Is(err, syscall.ECONNRESET) {
+			t.Fatalf("third flow returned unexpected dial error: %v", err)
+		}
+		t.Logf("third flow correctly refused during dial: %v", err)
+	} else {
+		_ = c3.SetDeadline(time.Now().Add(5 * time.Second))
+		_, _ = c3.Write([]byte("x"))
+		if n, err := c3.Read(make([]byte, 1)); err == nil || n != 0 {
+			t.Fatalf("flow beyond the per-tenant cap was admitted: n=%d err=%v", n, err)
+		}
+		_ = c3.Close()
 	}
-	_ = c3.SetDeadline(time.Now().Add(5 * time.Second))
-	_, _ = c3.Write([]byte("x"))
-	if n, err := c3.Read(make([]byte, 1)); err == nil || n != 0 {
-		t.Fatalf("flow beyond the per-tenant cap was admitted: n=%d err=%v", n, err)
-	}
-	c3.Close()
 	// Tenant b is not affected by a's exhaustion.
 	b1, b2 := hold(b.local), hold(b.local)
 	if u := ex.rt.FlowSlots.Used(); u != 4 {

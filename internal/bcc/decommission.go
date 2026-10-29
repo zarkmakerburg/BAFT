@@ -75,7 +75,7 @@ func (s *Store) buildDecommissionPlanLocked(id string, now time.Time) (Decommiss
 	}
 	p := DecommissionPlan{
 		TunnelID: t.ID, InstanceID: t.InstanceID, Phase: t.Phase, Disruptive: true,
-		Warning: "Decommission stops the selected IR route first and then the EX listener. Existing flows are not promised to survive.",
+		Warning: "Decommission stops the selected IR route first. Existing flows on this tenant are not promised to survive.",
 		Steps: []string{
 			"verify the reviewed generation and BCC-held config/unit/marker digests",
 			"retire the IR dialer/route and prove its managed artifacts are absent",
@@ -99,15 +99,54 @@ func (s *Store) buildDecommissionPlanLocked(id string, now time.Time) (Decommiss
 		gate("certificate rotation", "PASS", "no blocking certificate rotation is running")
 	}
 	conflict := ""
+	sharedOwnerID := t.JoinOwnerID
+	if sharedOwnerID == "" {
+		sharedOwnerID = t.ID
+	}
+	for _, job := range s.st.Jobs {
+		if (job.Type != agentjob.ActionTunnelTenantAdd && job.Type != agentjob.ActionTunnelTenantRemove) ||
+			(job.Status != "queued" && job.Status != "dispatched") {
+			continue
+		}
+		if job.Params["owner_tunnel_id"] == sharedOwnerID || job.Params["tunnel_id"] == sharedOwnerID {
+			conflict = fmt.Sprintf("shared listener %s has pending tenant mutation job %s (%s)", sharedOwnerID, job.ID, job.Status)
+			break
+		}
+	}
 	for otherID, other := range s.st.Tunnels {
 		if otherID == t.ID || !sameManagedSlot(t, other) {
 			continue
+		}
+		if t.JoinOwnerID != "" && (otherID == t.JoinOwnerID || other.JoinOwnerID == t.JoinOwnerID) {
+			if other.Phase == TunnelRollbackFailed || other.Phase == TunnelDecommissionFailed || !terminalTunnel(other.Phase) {
+				conflict = fmt.Sprintf("shared owner/tenant %s is %s; reconcile that operation before decommissioning another tenant", other.ID, other.Phase)
+				break
+			}
+			if other.Phase == TunnelActive {
+				if len(other.DriftJobs) > 0 {
+					conflict = fmt.Sprintf("shared owner/tenant %s has a drift check in progress", other.ID)
+					break
+				}
+				if other.Drift != nil && other.Drift.State != DriftInSync {
+					conflict = fmt.Sprintf("shared owner/tenant %s has known drift: %s", other.ID, other.Drift.State)
+					break
+				}
+			}
+			continue
+		}
+		if t.JoinOwnerID == "" && other.JoinOwnerID == t.ID && other.Phase == TunnelActive {
+			conflict = fmt.Sprintf("shared tenant %s is still active; remove tenants before retiring the physical owner", other.ID)
+			break
 		}
 		if other.Phase == TunnelActive || !terminalTunnel(other.Phase) ||
 			other.Phase == TunnelRollbackFailed || other.Phase == TunnelDecommissionFailed {
 			conflict = fmt.Sprintf("tunnel %s is %s in the same managed slot", other.ID, other.Phase)
 			break
 		}
+	}
+	if t.JoinOwnerID != "" {
+		p.Warning = "Decommission stops this tenant's IR route and removes only this authenticated tenant from the shared EX listener; other tenants remain active."
+		p.Steps[2] = "remove this tenant's authenticated identity/route from the shared EX listener while preserving its owner and sibling tenants"
 	}
 	if conflict != "" {
 		gate("conflicting tunnel change", "FAIL", conflict)
@@ -235,7 +274,12 @@ func (s *Store) queueNextDecommissionLocked(t *Tunnel, now time.Time) {
 	}
 	if !t.DecommissionedNodes[t.EXNode] {
 		t.Phase = TunnelDecommissioningEX
-		s.tunnelJobLocked(t, t.EXNode, JobTunnelRetire, decommissionParams(*t, t.EXNode), now)
+		if t.JoinOwnerID != "" {
+			t.DecommissionMutationID = newTunnelID()
+			s.tunnelJobLocked(t, t.EXNode, agentjob.ActionTunnelTenantRemove, decommissionTenantParams(*t), now)
+		} else {
+			s.tunnelJobLocked(t, t.EXNode, JobTunnelRetire, decommissionParams(*t, t.EXNode), now)
+		}
 		return
 	}
 	t.Phase, t.JobID, t.UpdatedAt = TunnelDecommissioned, "", now
@@ -248,6 +292,16 @@ func decommissionParams(t Tunnel, node string) map[string]string {
 		"config_sha256": d.Config,
 		"unit_sha256":   d.Unit,
 		"marker_sha256": d.Marker,
+	}
+}
+
+func decommissionTenantParams(t Tunnel) map[string]string {
+	d := t.Digests[t.EXNode]
+	return map[string]string{
+		"owner_tunnel_id": t.JoinOwnerID, "mutation_id": t.DecommissionMutationID,
+		"node_id": t.EXConfigNodeID, "listen": t.EXListen,
+		"config_sha256": d.Config, "unit_sha256": d.Unit, "marker_sha256": d.Marker,
+		"peer_id": t.PeerID, "peer_public_key": t.PeerPublicKey, "route_id": t.RouteID,
 	}
 }
 
@@ -308,6 +362,9 @@ func (s *Store) advanceDecommissionLocked(t *Tunnel, now time.Time) *TunnelEvent
 	default:
 		return nil
 	}
+	if j.Type == agentjob.ActionTunnelTenantRemove {
+		return s.advanceSharedTenantRemovalLocked(t, &j, now)
+	}
 	var ev tunnelnode.RetireEvidence
 	var problems []string
 	if err := json.Unmarshal([]byte(j.Message), &ev); err != nil {
@@ -337,6 +394,58 @@ func (s *Store) advanceDecommissionLocked(t *Tunnel, now time.Time) *TunnelEvent
 			TunnelID: t.ID, Action: "tunnel.decommissioned",
 			Detail: fmt.Sprintf("%s <-> %s retired in IR-to-EX order", t.IRNode, t.EXNode),
 		}
+	}
+	return nil
+}
+
+func (s *Store) advanceSharedTenantRemovalLocked(t *Tunnel, j *Job, now time.Time) *TunnelEvent {
+	var ev tunnelnode.TenantMutationEvidence
+	var problems []string
+	if err := json.Unmarshal([]byte(j.Output), &ev); err != nil {
+		problems = []string{"tenant removal receipt is unreadable"}
+	} else {
+		d := t.Digests[t.EXNode]
+		if ev.ID != t.DecommissionMutationID || ev.Operation != "remove" ||
+			ev.OwnerTunnelID != t.JoinOwnerID || ev.NodeID != t.EXConfigNodeID ||
+			ev.BeforeConfigSHA != d.Config || ev.BeforeUnitSHA != d.Unit || ev.BeforeMarkerSHA != d.Marker ||
+			!goodDigest(ev.AfterConfigSHA) || !goodDigest(ev.AfterUnitSHA) || !goodDigest(ev.AfterMarkerSHA) ||
+			ev.Generation != t.ObservedGen[t.EXNode]+1 {
+			problems = append(problems, "tenant removal receipt does not match the reviewed owner, digests or next generation")
+		}
+	}
+	if len(problems) > 0 {
+		t.Evidence = append(t.Evidence, TunnelEvidence{Step: "tenant_remove", Node: j.NodeID, At: now, OK: false, Detail: j.Message, Problems: problems})
+		t.Phase, t.Error, t.JobID, t.UpdatedAt = TunnelDecommissionFailed,
+			"shared tenant removal evidence is invalid: "+strings.Join(problems, "; "), "", now
+		return &TunnelEvent{TunnelID: t.ID, Action: "tunnel.decommission_failed", Detail: t.Error}
+	}
+	j.Output = ""
+	s.st.Jobs[j.ID] = *j
+	t.Digests[t.EXNode] = NodeDigests{Config: ev.AfterConfigSHA, Unit: ev.AfterUnitSHA, Marker: ev.AfterMarkerSHA}
+	t.ObservedGen[t.EXNode] = ev.Generation
+	if t.ExpectedGen == nil { t.ExpectedGen = map[string]GenExpect{} }
+	t.ExpectedGen[t.EXNode] = GenExpect{From: ev.Generation - 1, To: ev.Generation}
+	s.syncSharedTenantBaselineLocked(t.JoinOwnerID, *t, now)
+	if n, ok := s.st.Nodes[t.EXNode]; ok {
+		if t.InstanceID == "" {
+			n.AppliedGeneration = ev.Generation
+		} else {
+			if n.AppliedGenerations == nil { n.AppliedGenerations = map[string]int{} }
+			n.AppliedGenerations[t.InstanceID] = ev.Generation
+		}
+		s.st.Nodes[t.EXNode] = n
+	}
+	t.Evidence = append(t.Evidence, TunnelEvidence{
+		Step: "tenant_remove", Node: j.NodeID, At: now, OK: true,
+		Detail: "selected authenticated tenant removed; shared EX listener preserved",
+	})
+	if t.DecommissionedNodes == nil { t.DecommissionedNodes = map[string]bool{} }
+	t.DecommissionedNodes[t.EXNode] = true
+	t.JobID = ""
+	s.queueNextDecommissionLocked(t, now)
+	if t.Phase == TunnelDecommissioned {
+		t.Error = ""
+		return &TunnelEvent{TunnelID: t.ID, Action: "tunnel.decommissioned", Detail: "selected IR route retired and tenant removed; shared EX listener remains active"}
 	}
 	return nil
 }

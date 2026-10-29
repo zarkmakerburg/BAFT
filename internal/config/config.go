@@ -86,8 +86,9 @@ type Limits struct {
 	// of no per-Flow idle limit.
 	FlowIdleSeconds int `json:"flow_idle_seconds,omitempty"`
 	// MaxFlowsPerPeer caps concurrently open Flows for any one authenticated
-	// peer (tenant) of a shared listener, on top of max_flows. Zero means no
-	// per-peer cap beyond max_flows.
+	// peer (tenant) of a shared listener, on top of max_flows. Zero preserves
+	// the legacy single-peer behavior; shared listeners use a conservative
+	// one-quarter-of-max_flows default (minimum one) unless explicitly set.
 	MaxFlowsPerPeer int `json:"max_flows_per_peer,omitempty"`
 }
 type Recovery struct {

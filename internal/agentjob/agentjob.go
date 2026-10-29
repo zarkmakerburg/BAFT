@@ -69,6 +69,8 @@ const (
 	// ActionTunnelRetire removes one finalized BAFT-owned instance only when
 	// BCC-provided generation and live file digests still match.
 	ActionTunnelRetire = "tunnel_retire"
+	ActionTunnelTenantAdd    = "tunnel_tenant_add"
+	ActionTunnelTenantRemove = "tunnel_tenant_remove"
 
 	// P0 host observation is read-only. Prepare writes only private manifest
 	// bytes; listener/firewall application needs a separate owned-resource path.
@@ -111,6 +113,7 @@ var (
 	replyCodeRe     = regexp.MustCompile(`^BAFTREPLY1:[A-Za-z0-9_-]{16,}$`)
 	epochRe         = regexp.MustCompile(`^[1-9][0-9]{0,8}$`)
 	sha256Re        = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	noisePublicKeyRe = regexp.MustCompile(`^[A-Za-z0-9_-]{43}$`)
 	derB64Re        = regexp.MustCompile(`^[A-Za-z0-9_-]{64,}$`)
 	familyRe        = regexp.MustCompile(`^[46]$`)
 	probeSecondsRe  = regexp.MustCompile(`^(1[0-9]|[2-9][0-9]|1[01][0-9]|120)$`)
@@ -118,6 +121,7 @@ var (
 	probeBytesRe    = regexp.MustCompile(`^[1-9][0-9]{3,6}$`)
 	probeDelayRe    = regexp.MustCompile(`^[1-9][0-9]{1,3}$`)
 	endpointRe      = regexp.MustCompile(`^[0-9A-Fa-f:.\[\]]{3,255}$`)
+	listenEndpointRe = regexp.MustCompile(`^(([0-9]{1,3}\.){3}[0-9]{1,3}|\[[0-9A-Fa-f:]+\]):[1-9][0-9]{0,4}$`)
 )
 
 // paramRules lists, per action, the parameters it takes and how each is
@@ -146,6 +150,8 @@ var paramRules = map[string]map[string]*regexp.Regexp{
 	ActionTunnelFinalize:         {"tunnel_id": tunnelIDRe},
 	ActionTunnelRollback:         {"tunnel_id": tunnelIDRe},
 	ActionTunnelRetire:           {"tunnel_id": tunnelIDRe, "generation": epochRe, "config_sha256": sha256Re, "unit_sha256": sha256Re, "marker_sha256": sha256Re},
+	ActionTunnelTenantAdd:        {"tunnel_id": tunnelIDRe, "owner_tunnel_id": tunnelIDRe, "mutation_id": tunnelIDRe, "node_id": idRe, "listen": listenEndpointRe, "config_sha256": sha256Re, "unit_sha256": sha256Re, "marker_sha256": sha256Re, "peer_id": idRe, "peer_public_key": noisePublicKeyRe, "route_id": tunnelIDRe, "target": fixedTargetR},
+	ActionTunnelTenantRemove:     {"tunnel_id": tunnelIDRe, "owner_tunnel_id": tunnelIDRe, "mutation_id": tunnelIDRe, "node_id": idRe, "listen": listenEndpointRe, "config_sha256": sha256Re, "unit_sha256": sha256Re, "marker_sha256": sha256Re, "peer_id": idRe, "peer_public_key": noisePublicKeyRe, "route_id": tunnelIDRe},
 	ActionPublicIngressPreflight: {"tunnel_id": tunnelIDRe, "public_port": portRe, "local_target": loopbackListenR},
 	ActionPublicIngressInspect:   {"tunnel_id": tunnelIDRe, "public_port": portRe, "local_target": loopbackListenR, "generation": epochRe, "manifest_digest": sha256Re, "listener_id": idRe, "firewall_id": idRe},
 	ActionPublicIngressPrepare:   {"tunnel_id": tunnelIDRe, "public_port": portRe, "local_target": loopbackListenR, "generation": epochRe, "manifest_digest": sha256Re, "listener_id": idRe, "firewall_id": idRe},
@@ -168,13 +174,13 @@ var paramRules = map[string]map[string]*regexp.Regexp{
 // Legacy BCCs may omit these fields; new BCCs use them for multi-instance
 // tunnel isolation.
 var optionalParamRules = map[string]map[string]*regexp.Regexp{
-	ActionTunnelPrepareEX:      {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
+	ActionTunnelPrepareEX:      {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR, "join_owner_id": tunnelIDRe},
 	ActionTunnelPrepareIR:      {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
-	ActionTunnelCommitEX:       {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
+	ActionTunnelCommitEX:       {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR, "join_owner_id": tunnelIDRe},
 	ActionTunnelCommitIR:       {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
 	ActionTunnelHealth:         {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
 	ActionTunnelObserve:        {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
-	ActionTunnelInspect:        {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
+	ActionTunnelInspect:        {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR, "tunnel_id": tunnelIDRe},
 	ActionTunnelFinalize:       {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
 	ActionTunnelRollback:       {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
 	ActionTunnelRetire:         {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},

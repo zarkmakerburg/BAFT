@@ -56,6 +56,47 @@ func valid(p ingressmanifest.Proof) bool {
 	return true
 }
 
+// checkClaimLocked checks generation and ownership fences without mutating
+// them. Runtime uses this before binding so stale replays fail deterministically
+// even when a foreign listener currently owns the port.
+func (r *Registry) checkClaimLocked(resource, canonical string, p ingressmanifest.Proof) error {
+	if p.Generation < r.generations[key(p)] {
+		return ErrStale
+	}
+	if current, ok := r.active[key(p)]; ok && current != resource {
+		return ErrConflict
+	}
+	if old, ok := r.owners[resource]; ok {
+		if old == p && r.endpoints[resource] == canonical {
+			return nil
+		}
+		return ErrConflict
+	}
+	if p.Generation == r.generations[key(p)] && r.generations[key(p)] != 0 {
+		return ErrStale
+	}
+	return nil
+}
+
+func (r *Registry) checkClaim(endpoint string, p ingressmanifest.Proof) error {
+	if r == nil || !valid(p) {
+		return ErrInvalid
+	}
+	host, port, err := net.SplitHostPort(endpoint)
+	if err != nil || net.ParseIP(host) == nil {
+		return ErrInvalid
+	}
+	n, err := strconv.Atoi(port)
+	if err != nil || n < 1 || n > 65535 {
+		return ErrInvalid
+	}
+	resource := strconv.Itoa(n)
+	canonical := net.JoinHostPort(net.ParseIP(host).String(), resource)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.checkClaimLocked(resource, canonical, p)
+}
+
 // Claim reserves the entire TCP port, intentionally rejecting even IPv4/IPv6
 // wildcard aliases. It is conservative until OS socket ownership is proven.
 func (r *Registry) Claim(endpoint string, p ingressmanifest.Proof) error {
@@ -87,20 +128,8 @@ func (r *Registry) Claim(endpoint string, p ingressmanifest.Proof) error {
 	if r.active == nil {
 		r.active = make(map[string]string)
 	}
-	if p.Generation < r.generations[key(p)] {
-		return ErrStale
-	}
-	if current, ok := r.active[key(p)]; ok && current != resource {
-		return ErrConflict
-	}
-	if old, ok := r.owners[resource]; ok {
-		if old == p && r.endpoints[resource] == canonical {
-			return nil
-		}
-		return ErrConflict
-	}
-	if p.Generation == r.generations[key(p)] && r.generations[key(p)] != 0 {
-		return ErrStale
+	if err := r.checkClaimLocked(resource, canonical, p); err != nil {
+		return err
 	}
 	r.owners[resource] = p
 	r.endpoints[resource] = canonical

@@ -127,6 +127,17 @@ type Txn struct {
 	// Generation counts committed configuration changes on this node.
 	Generation         int `json:"generation,omitempty"`
 	PreviousGeneration int `json:"previous_generation,omitempty"`
+
+	// JoinOwnerID marks a logical tenant whose listener is physically owned by
+	// another finalized tunnel transaction. The owner keeps the shared unit.
+	JoinOwnerID   string `json:"join_owner_id,omitempty"`
+	JoinConfigSHA string `json:"join_config_sha256,omitempty"`
+	JoinUnitSHA   string `json:"join_unit_sha256,omitempty"`
+	JoinMarkerSHA string `json:"join_marker_sha256,omitempty"`
+	PeerID        string `json:"peer_id,omitempty"`
+	PeerPublicKey string `json:"peer_public_key,omitempty"`
+	TenantRouteID string `json:"tenant_route_id,omitempty"`
+	TenantTarget  string `json:"tenant_target,omitempty"`
 }
 
 type Manager struct {
@@ -289,6 +300,7 @@ type ExParams struct {
 	RouteID       string
 	RecordShaping bool
 	MetricsListen string // default 127.0.0.1:9191
+	JoinOwnerID   string `json:"join_owner_id,omitempty"`
 }
 
 type IRParams struct {
@@ -521,6 +533,9 @@ func (m *Manager) begin(id, role string) (Txn, error) {
 				return Txn{}, fmt.Errorf("unfinished tunnel change %s needs reconciliation", old.ID)
 			}
 		}
+	}
+	if existing, err := m.readTxn(id); err == nil && existing.JoinOwnerID != "" {
+		return Txn{}, errors.New("shared tenant must be removed without retiring its physical listener")
 	}
 	if rid := m.rotationInProgress(); rid != "" {
 		return Txn{}, fmt.Errorf("certificate rotation %s is in progress on this node", rid)
@@ -1035,7 +1050,40 @@ func (m *Manager) Rollback(ctx context.Context, id string) (string, error) {
 	case PhaseFinalized:
 		return "", fmt.Errorf("tunnel change %s is finalized; make a new change instead", id)
 	}
+	if t.JoinOwnerID != "" {
+		if err := m.rollbackSharedJoinTenantMutation(ctx, t); err != nil {
+			return "", fmt.Errorf("rollback shared tenant mutation for %s: %w", id, err)
+		}
+		if t.ConfigWritten {
+			// The tenant journal already restored and verified the shared
+			// listener; do not restore the same before-images a second time.
+			t.ConfigWritten, t.UnitChanged = false, false
+		}
+	}
 	return m.rollbackTxn(ctx, t)
+}
+
+func (m *Manager) rollbackSharedJoinTenantMutation(ctx context.Context, t Txn) error {
+	b, err := os.ReadFile(m.tenantMutationPath(t.ID))
+	if errors.Is(err, os.ErrNotExist) {
+		if t.ConfigWritten {
+			return errors.New("committed shared join has no tenant mutation journal; reconciliation required")
+		}
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var j tenantMutationJournal
+	if err := json.Unmarshal(b, &j); err != nil || j.ID != t.ID || j.OwnerTunnelID != t.JoinOwnerID {
+		return errors.New("unreadable or mismatched shared tenant mutation journal; reconciliation required")
+	}
+	switch j.Phase {
+	case "prepared", "applying", "committed", "rolled_back":
+		return m.rollbackTenantMutation(ctx, &j)
+	default:
+		return errors.New("unknown shared tenant mutation journal phase; reconciliation required")
+	}
 }
 
 func (m *Manager) abort(ctx context.Context, t Txn) { _, _ = m.rollbackTxn(ctx, t) }
@@ -1086,6 +1134,13 @@ func (m *Manager) rollbackTxn(ctx context.Context, t Txn) (string, error) {
 			}
 		} else {
 			note(removeIfExists(m.markerPath()))
+		}
+		if t.JoinOwnerID != "" {
+			if b, err := os.ReadFile(m.backup(t.ID, "owner-txn.json")); err == nil {
+				note(writeFile(m.txnPath(t.JoinOwnerID), b, 0o600))
+			} else {
+				note(err)
+			}
 		}
 		_, _ = m.System.Systemctl(ctx, "daemon-reload")
 		if t.HadConfig && t.WasActive {
@@ -1570,7 +1625,9 @@ func (m *Manager) Observe(ctx context.Context, id string) (Observed, error) {
 	if cfg.Peer != nil {
 		o.PeerAddress = cfg.Peer.Address
 	}
-	if len(cfg.Routes) > 0 {
+	if t.JoinOwnerID != "" {
+		o.RouteID, o.Target = t.TenantRouteID, t.TenantTarget
+	} else if len(cfg.Routes) > 0 {
 		o.RouteID, o.RouteListen, o.Target = cfg.Routes[0].ID, cfg.Routes[0].Listen, cfg.Routes[0].Target
 	}
 	state, _ := m.System.Systemctl(ctx, "is-active", m.Service)
@@ -1578,11 +1635,20 @@ func (m *Manager) Observe(ctx context.Context, id string) (Observed, error) {
 	o.Restarts, _ = m.System.Systemctl(ctx, "show", "-p", "NRestarts", "--value", m.Service)
 	var unitSHA string
 	if unit, err := os.ReadFile(m.unitPath()); err == nil {
-		port := t.Port
+		port, ownerID, generation := t.Port, t.ID, t.Generation
 		if t.Role == RoleIR {
 			port = 0
 		}
-		o.UnitMatches = string(unit) == m.ManagedUnit(port, t.ID, t.Generation)
+		if t.JoinOwnerID != "" {
+			ownerID = t.JoinOwnerID
+			if mb, readErr := os.ReadFile(m.markerPath()); readErr == nil {
+				var mk Marker
+				if json.Unmarshal(mb, &mk) == nil {
+					generation = mk.Generation
+				}
+			}
+		}
+		o.UnitMatches = string(unit) == m.ManagedUnit(port, ownerID, generation)
 		unitSHA = shaHex(unit)
 		o.UnitSHA256 = unitSHA
 	}
@@ -1594,6 +1660,13 @@ func (m *Manager) Observe(ctx context.Context, id string) (Observed, error) {
 			o.MarkerTunnelID, o.MarkerGeneration = mk.TunnelID, mk.Generation
 			o.MarkerConfigMatches = mk.ConfigSHA256 == o.ConfigSHA256
 			o.MarkerUnitMatches = unitSHA != "" && mk.UnitSHA256 == unitSHA
+		}
+	}
+	if t.JoinOwnerID != "" {
+		if problems := m.ownershipViolations(t); len(problems) > 0 {
+			o.UnitMatches = false
+			o.MarkerConfigMatches = false
+			o.MarkerUnitMatches = false
 		}
 	}
 	return o, nil
@@ -1631,6 +1704,50 @@ func (m *Manager) ManagedUnit(port int, tunnelID string, generation int) string 
 // byte-for-byte what it wrote (and are not simply the original again).
 func (m *Manager) ownershipViolations(t Txn) []string {
 	var v []string
+	if t.JoinOwnerID != "" {
+		cfgBytes, cfgErr := os.ReadFile(m.liveConfig())
+		unitBytes, unitErr := os.ReadFile(m.unitPath())
+		markerBytes, markerErr := os.ReadFile(m.markerPath())
+		var marker Marker
+		if cfgErr != nil || unitErr != nil || markerErr != nil || json.Unmarshal(markerBytes, &marker) != nil {
+			return []string{"shared listener ownership evidence is unreadable"}
+		}
+		cfg, err := config.LoadFile(m.liveConfig())
+		if err != nil || cfg.Server == nil || cfg.Noise == nil || cfg.Node.Role != "listener" {
+			return []string{"shared physical listener config is invalid or no longer a listener"}
+		}
+		if marker.TunnelID != t.JoinOwnerID || marker.InstanceID != m.Instance ||
+			marker.ConfigSHA256 != shaHex(cfgBytes) || marker.UnitSHA256 != shaHex(unitBytes) ||
+			marker.Generation != m.readGeneration() {
+			v = append(v, "shared physical listener ownership or generation changed")
+		}
+		if owner, err := m.readTxn(t.JoinOwnerID); err != nil ||
+			owner.Phase != PhaseFinalized || owner.InstalledConfigSHA != shaHex(cfgBytes) ||
+			owner.InstalledUnitSHA != shaHex(unitBytes) || owner.InstalledMarkerSHA != shaHex(markerBytes) {
+			v = append(v, "shared physical owner transaction no longer matches live artifacts")
+		}
+		if cfg.Noise == nil || cfg.Noise.AllowedPeerPublicKeys[t.PeerID] != t.PeerPublicKey {
+			v = append(v, "this tenant's authenticated Noise key is missing or changed")
+		}
+		identityPresent, routePresent := false, false
+		if cfg.Server != nil {
+			for _, id := range cfg.Server.AllowedPeerIdentities {
+				if id == t.PeerID { identityPresent = true }
+			}
+		}
+		for _, route := range cfg.Routes {
+			if route.ID != t.TenantRouteID || route.Direction != "inbound" || route.Target != t.TenantTarget {
+				continue
+			}
+			for _, peer := range route.AllowedPeers {
+				if peer == t.PeerID { routePresent = true }
+			}
+		}
+		if !identityPresent || !routePresent {
+			v = append(v, "this tenant's authenticated identity or inbound route is missing")
+		}
+		return v
+	}
 	check := func(label, live, installed, backup string, had bool) {
 		if installed == "" {
 			return // change recorded before ownership tracking: nothing to compare
@@ -1908,6 +2025,36 @@ func (m *Manager) Inspect(ctx context.Context) Live {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.inspectUnlocked(ctx)
+}
+
+func (m *Manager) InspectForTunnel(ctx context.Context, id string) Live {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	l := m.inspectUnlocked(ctx)
+	t, err := m.readTxn(id)
+	if err != nil || t.JoinOwnerID == "" {
+		return l
+	}
+	if cfg, err := config.LoadFile(m.liveConfig()); err == nil {
+		l.RouteID, l.RouteListen, l.Target = t.TenantRouteID, "", t.TenantTarget
+		routeFound, peerFound := false, false
+		if cfg.Noise != nil && cfg.Noise.AllowedPeerPublicKeys[t.PeerID] == t.PeerPublicKey {
+			peerFound = true
+		}
+		for _, route := range cfg.Routes {
+			if route.ID != t.TenantRouteID || route.Direction != "inbound" || route.Target != t.TenantTarget {
+				continue
+			}
+			for _, peer := range route.AllowedPeers {
+				if peer == t.PeerID { routeFound = true }
+			}
+		}
+		if !peerFound || !routeFound || len(m.ownershipViolations(t)) > 0 {
+			l.MarkerConfigMatches = false
+			l.MarkerUnitMatches = false
+		}
+	}
+	return l
 }
 
 func (m *Manager) inspectUnlocked(ctx context.Context) Live {

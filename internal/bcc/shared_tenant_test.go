@@ -1,0 +1,375 @@
+package bcc
+
+import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/zarkmakerburg/baft/internal/agentjob"
+	"github.com/zarkmakerburg/baft/internal/tunnelnode"
+)
+
+func TestSharedTenantMutationJobUsesAcceptedDigestsAndReconcilesReceipt(t *testing.T) {
+	s := tunnelStore(t)
+	now := time.Now().UTC()
+	tn := newTunnel(t, s, now)
+	if len(tn.Jobs) == 0 {
+		t.Fatal("expected initial tunnel job in fixture")
+	}
+	if err := s.AckJob("ex-1", "tok-ex-1", tn.Jobs[0], "failed", "fixture job retired"); err != nil {
+		t.Fatal(err)
+	}
+	s.mu.Lock()
+	active, ok := s.st.Tunnels[tn.ID]
+	if !ok {
+		s.mu.Unlock()
+		t.Fatal("tunnel missing")
+	}
+	active.Phase = TunnelActive
+	active.Digests = map[string]NodeDigests{
+		active.EXNode: {Config: strings.Repeat("a", 64), Unit: strings.Repeat("b", 64), Marker: strings.Repeat("c", 64)},
+	}
+	active.ObservedGen = map[string]int{active.EXNode: 2}
+	s.st.Tunnels[tn.ID] = active
+	if err := s.saveLocked(); err != nil {
+		s.mu.Unlock()
+		t.Fatal(err)
+	}
+	s.mu.Unlock()
+
+	req := SharedTenantMutationRequest{
+		TunnelID: tn.ID, Operation: "add", NodeID: "ex-config-id", Listen: "0.0.0.0:443",
+		PeerID: "urn:baft:node:ir-c", PeerPublicKey: strings.Repeat("A", 43),
+		RouteID: "port-443", Target: "127.0.0.1:9003",
+	}
+	job, err := s.CreateSharedTenantMutationJob(req, now)
+	if err != nil {
+		t.Fatalf("create tenant mutation job: %v", err)
+	}
+	if job.Type != agentjob.ActionTunnelTenantAdd ||
+		job.Params["owner_tunnel_id"] != tn.ID || job.Params["config_sha256"] != strings.Repeat("a", 64) ||
+		job.Params["unit_sha256"] != strings.Repeat("b", 64) || job.Params["marker_sha256"] != strings.Repeat("c", 64) ||
+		job.Params["target"] != req.Target {
+		t.Fatalf("job was not bound to accepted evidence: %+v", job)
+	}
+	dispatched := pullAll(t, s, "ex-1")
+	if len(dispatched) != 1 || dispatched[0].ID != job.ID {
+		t.Fatalf("expected tenant mutation to be dispatched: %+v", dispatched)
+	}
+	ev := tunnelnode.TenantMutationEvidence{
+		ID: job.Params["mutation_id"], Operation: "add", NodeID: req.NodeID, OwnerTunnelID: tn.ID, Generation: 3,
+		BeforeConfigSHA: strings.Repeat("a", 64), AfterConfigSHA: strings.Repeat("d", 64),
+		BeforeUnitSHA: strings.Repeat("b", 64), AfterUnitSHA: strings.Repeat("f", 64),
+		BeforeMarkerSHA: strings.Repeat("c", 64), AfterMarkerSHA: strings.Repeat("e", 64),
+	}
+	output, err := json.Marshal(ev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AckJobOutput("ex-1", "tok-ex-1", job.ID, "succeeded", "tenant mutation committed", string(output)); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ReconcileSharedTenantMutationAcks(now.Add(time.Second)); err != nil {
+		t.Fatalf("reconcile tenant mutation receipt: %v", err)
+	}
+	got, ok := s.GetTunnel(tn.ID)
+	if !ok || got.Digests["ex-1"].Config != strings.Repeat("d", 64) ||
+		got.Digests["ex-1"].Marker != strings.Repeat("e", 64) || got.Digests["ex-1"].Unit != strings.Repeat("f", 64) ||
+		got.ObservedGen["ex-1"] != 3 {
+		t.Fatalf("BCC did not advance its accepted tenant baseline: %+v", got)
+	}
+	if err := s.ReconcileSharedTenantMutationAcks(now.Add(2 * time.Second)); err != nil {
+		t.Fatalf("receipt reconciliation must be idempotent: %v", err)
+	}
+}
+
+func TestSharedTenantMutationRejectsMissingAcceptedDigests(t *testing.T) {
+	s := tunnelStore(t)
+	now := time.Now().UTC()
+	tn := newTunnel(t, s, now)
+	s.mu.Lock()
+	active := s.st.Tunnels[tn.ID]
+	active.Phase = TunnelActive
+	s.st.Tunnels[tn.ID] = active
+	if err := s.saveLocked(); err != nil {
+		s.mu.Unlock()
+		t.Fatal(err)
+	}
+	s.mu.Unlock()
+	_, err := s.CreateSharedTenantMutationJob(SharedTenantMutationRequest{
+		TunnelID: tn.ID, Operation: "remove", NodeID: "ex-config-id", Listen: "0.0.0.0:443",
+		PeerID: "urn:baft:node:ir-c", PeerPublicKey: strings.Repeat("A", 43), RouteID: "port-443",
+	}, now)
+	if err == nil {
+		t.Fatal("must refuse tenant mutation without BCC-accepted ownership digests")
+	}
+}
+
+
+func TestSharedTenantMaintenanceHTTPQueuesUntrackedPeerRemoval(t *testing.T) {
+	s := tunnelStore(t)
+	now := time.Now().UTC()
+	tn := newTunnel(t, s, now)
+	if err := s.AckJob("ex-1", "tok-ex-1", tn.Jobs[0], "failed", "fixture job retired"); err != nil {
+		t.Fatal(err)
+	}
+	s.mu.Lock()
+	active := s.st.Tunnels[tn.ID]
+	active.Phase = TunnelActive
+	active.Digests = map[string]NodeDigests{
+		active.EXNode: {Config: strings.Repeat("a", 64), Unit: strings.Repeat("b", 64), Marker: strings.Repeat("c", 64)},
+	}
+	active.ObservedGen = map[string]int{active.EXNode: 4}
+	s.st.Tunnels[tn.ID] = active
+	if err := s.saveLocked(); err != nil {
+		s.mu.Unlock()
+		t.Fatal(err)
+	}
+	s.mu.Unlock()
+
+	srv, err := NewServer(s, "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := authReq(http.MethodPost, "/api/tunnels/tenant", "admin", SharedTenantMutationRequest{
+		TunnelID: tn.ID, Operation: "remove", NodeID: "ex-config-id", Listen: "0.0.0.0:443",
+		PeerID: "urn:baft:node:ir-untracked", PeerPublicKey: strings.Repeat("A", 43),
+		RouteID: "port-443",
+	})
+	rr := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rr, req)
+	if rr.Code != http.StatusAccepted {
+		t.Fatalf("tenant API status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	jobs := pullAll(t, s, "ex-1")
+	if len(jobs) != 1 || jobs[0].Type != agentjob.ActionTunnelTenantRemove ||
+		jobs[0].Params["owner_tunnel_id"] != tn.ID || jobs[0].Params["config_sha256"] != strings.Repeat("a", 64) ||
+		jobs[0].Params["unit_sha256"] != strings.Repeat("b", 64) ||
+		jobs[0].Params["marker_sha256"] != strings.Repeat("c", 64) {
+		t.Fatalf("HTTP endpoint did not queue a digest-bound tenant action: %+v", jobs)
+	}
+}
+
+
+func TestExplicitSharedJoinQueuesPrepareOnExistingOwner(t *testing.T) {
+	s := tunnelStore(t)
+	now := time.Now().UTC()
+	owner := newTunnel(t, s, now)
+	if len(owner.Jobs) == 0 {
+		t.Fatal("owner fixture has no initial job")
+	}
+	if err := s.AckJob("ex-1", "tok-ex-1", owner.Jobs[0], "failed", "fixture retired"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UpsertNode(Node{ID: "ir-2", Address: "203.0.113.8:22", Role: "worker"}, "tok-ir-2"); err != nil {
+		t.Fatal(err)
+	}
+	s.mu.Lock()
+	owner.Phase, owner.JobID = TunnelActive, ""
+	owner.Digests = map[string]NodeDigests{
+		owner.EXNode: {Config: strings.Repeat("a", 64), Unit: strings.Repeat("b", 64), Marker: strings.Repeat("c", 64)},
+		owner.IRNode: {Config: strings.Repeat("d", 64), Unit: strings.Repeat("e", 64), Marker: strings.Repeat("f", 64)},
+	}
+	owner.ObservedGen = map[string]int{owner.EXNode: 1, owner.IRNode: 1}
+	exNode := s.st.Nodes[owner.EXNode]
+	exNode.AppliedGeneration = 1
+	s.st.Nodes[owner.EXNode] = exNode
+	irNode := s.st.Nodes[owner.IRNode]
+	irNode.AppliedGeneration = 1
+	s.st.Nodes[owner.IRNode] = irNode
+	s.st.Tunnels[owner.ID] = owner
+	if err := s.saveLocked(); err != nil {
+		s.mu.Unlock()
+		t.Fatal(err)
+	}
+	s.mu.Unlock()
+
+	joined, err := s.CreateTunnel(TunnelRequest{
+		JoinExistingTunnelID: owner.ID, EXNode: owner.EXNode, IRNode: "ir-2",
+		PublicAddress: owner.PublicAddress, Port: owner.Port, Target: "127.0.0.1:2444",
+		RouteListen: "127.0.0.1:1444",
+	}, now.Add(time.Second))
+	if err != nil {
+		t.Fatalf("explicit join was rejected: %v", err)
+	}
+	jobs := pullAll(t, s, "ex-1")
+	var found *Job
+	for i := range jobs {
+		if jobs[i].ID == joined.JobID {
+			found = &jobs[i]
+			break
+		}
+	}
+	if found == nil || found.Type != agentjob.ActionTunnelPrepareEX ||
+		found.Params["join_owner_id"] != owner.ID || found.Params["port"] != "8443" {
+		t.Fatalf("join did not target the existing physical listener: %+v", jobs)
+	}
+	if joined.JoinOwnerID != owner.ID || joined.ID == owner.ID || joined.Phase != TunnelPreparingEX {
+		t.Fatalf("joined tunnel record lost its owner relationship: %+v", joined)
+	}
+	if joined.RouteID == "" || joined.RouteID == owner.RouteID {
+		t.Fatalf("shared join reused the owner's route ID: owner=%q joined=%q", owner.RouteID, joined.RouteID)
+	}
+}
+
+
+func TestJoinedTenantDecommissionQueuesTenantRemoveNotListenerRetire(t *testing.T) {
+	s := tunnelStore(t)
+	now := time.Now().UTC()
+	if _, err := s.UpsertNode(Node{ID: "ir-2", Address: "203.0.113.8:22", Role: "worker"}, "tok-ir-2"); err != nil {
+		t.Fatal(err)
+	}
+	joined := Tunnel{
+		ID: "tun-tenant-remove", JoinOwnerID: "tun-owner", InstanceID: "",
+		EXNode: "ex-1", IRNode: "ir-2", RouteID: "port-443",
+		EXConfigNodeID: "ex-config", EXListen: "0.0.0.0:8443",
+		PeerID: "urn:baft:node:ir-new", PeerPublicKey: strings.Repeat("A", 43),
+		DecommissionedNodes: map[string]bool{"ir-2": true},
+		Digests: map[string]NodeDigests{
+			"ex-1": {Config: strings.Repeat("a", 64), Unit: strings.Repeat("b", 64), Marker: strings.Repeat("c", 64)},
+		},
+		ObservedGen: map[string]int{"ex-1": 5},
+	}
+	s.mu.Lock()
+	if s.st.Tunnels == nil { s.st.Tunnels = map[string]Tunnel{} }
+	if s.st.Jobs == nil { s.st.Jobs = map[string]Job{} }
+	s.st.Tunnels[joined.ID] = joined
+	s.queueNextDecommissionLocked(&joined, now)
+	s.st.Tunnels[joined.ID] = joined
+	job := s.st.Jobs[joined.JobID]
+	s.mu.Unlock()
+	if job.Type != agentjob.ActionTunnelTenantRemove || job.Params["owner_tunnel_id"] != joined.JoinOwnerID ||
+		job.Params["peer_id"] != joined.PeerID || job.Params["route_id"] != joined.RouteID ||
+		job.Params["target"] != "" || job.Params["unit_sha256"] != strings.Repeat("b", 64) {
+		t.Fatalf("joined tenant would retire the physical listener or lost proof: %+v", job)
+	}
+}
+
+func TestPhysicalOwnerCannotBeDecommissionedWhileTenantIsActive(t *testing.T) {
+	s := tunnelStore(t)
+	now := time.Now().UTC()
+	owner := newTunnel(t, s, now)
+	if _, err := s.UpsertNode(Node{ID: "ir-2", Address: "203.0.113.8:22", Role: "worker"}, "tok-ir-2"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AckJob("ex-1", "tok-ex-1", owner.Jobs[0], "failed", "fixture retired"); err != nil {
+		t.Fatal(err)
+	}
+	s.mu.Lock()
+	owner.Phase, owner.JobID = TunnelActive, ""
+	owner.Digests = map[string]NodeDigests{
+		"ex-1": {Config: strings.Repeat("a", 64), Unit: strings.Repeat("b", 64), Marker: strings.Repeat("c", 64)},
+		"ir-1": {Config: strings.Repeat("d", 64), Unit: strings.Repeat("e", 64), Marker: strings.Repeat("f", 64)},
+	}
+	owner.ObservedGen = map[string]int{"ex-1": 1, "ir-1": 1}
+	tenant := Tunnel{
+		ID: "tun-shared-tenant", JoinOwnerID: owner.ID, InstanceID: owner.InstanceID,
+		EXNode: owner.EXNode, IRNode: "ir-2", Phase: TunnelActive,
+		Digests: map[string]NodeDigests{"ex-1": owner.Digests["ex-1"]},
+		ObservedGen: map[string]int{"ex-1": 1},
+	}
+	s.st.Tunnels[owner.ID] = owner
+	s.st.Tunnels[tenant.ID] = tenant
+	for id, node := range s.st.Nodes {
+		node.AgentSeen = now
+		s.st.Nodes[id] = node
+	}
+	if err := s.saveLocked(); err != nil {
+		s.mu.Unlock()
+		t.Fatal(err)
+	}
+	s.mu.Unlock()
+	plan, err := s.BuildDecommissionPlan(owner.ID, now.Add(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.OK {
+		t.Fatalf("physical owner decommission must be blocked while a tenant remains: %+v", plan.Gates)
+	}
+	found := false
+	for _, gate := range plan.Gates {
+		if strings.Contains(gate.Detail, "shared tenant") && gate.Status == "FAIL" { found = true }
+	}
+	if !found {
+		t.Fatalf("missing explicit shared-tenant decommission gate: %+v", plan.Gates)
+	}
+}
+
+
+func TestSharedTenantRemovalReceiptUpdatesOwnerWithoutRetiringIt(t *testing.T) {
+	s := tunnelStore(t)
+	now := time.Now().UTC()
+	ownerID := "tun-physical-owner"
+	tenantID := "tun-removing-tenant"
+	siblingID := "tun-sibling-tenant"
+	beforeConfig, beforeUnit, beforeMarker := strings.Repeat("a", 64), strings.Repeat("b", 64), strings.Repeat("c", 64)
+	afterConfig, afterUnit, afterMarker := strings.Repeat("d", 64), strings.Repeat("e", 64), strings.Repeat("f", 64)
+	owner := Tunnel{
+		ID: ownerID, EXNode: "ex-1", IRNode: "ir-1", Phase: TunnelActive,
+		Digests: map[string]NodeDigests{"ex-1": {Config: beforeConfig, Unit: beforeUnit, Marker: beforeMarker}},
+		ObservedGen: map[string]int{"ex-1": 4},
+	}
+	tenant := Tunnel{
+		ID: tenantID, JoinOwnerID: ownerID, EXNode: "ex-1", EXConfigNodeID: "ex-config", IRNode: "ir-2",
+		Phase: TunnelDecommissioningEX, DecommissionedNodes: map[string]bool{"ir-2": true},
+		Digests: map[string]NodeDigests{"ex-1": {Config: beforeConfig, Unit: beforeUnit, Marker: beforeMarker}},
+		ObservedGen: map[string]int{"ex-1": 4}, ExpectedGen: map[string]GenExpect{"ex-1": {From: 3, To: 4}},
+	}
+	sibling := Tunnel{
+		ID: siblingID, JoinOwnerID: ownerID, EXNode: "ex-1", IRNode: "ir-3", Phase: TunnelActive,
+		Digests: map[string]NodeDigests{"ex-1": {Config: beforeConfig, Unit: beforeUnit, Marker: beforeMarker}},
+		ObservedGen: map[string]int{"ex-1": 4},
+	}
+	ev := tunnelnode.TenantMutationEvidence{
+		ID: "mut-remove-1", Operation: "remove", NodeID: "ex-config", OwnerTunnelID: ownerID, Generation: 5,
+		BeforeConfigSHA: beforeConfig, AfterConfigSHA: afterConfig,
+		BeforeUnitSHA: beforeUnit, AfterUnitSHA: afterUnit,
+		BeforeMarkerSHA: beforeMarker, AfterMarkerSHA: afterMarker,
+	}
+	output, err := json.Marshal(ev)
+	if err != nil { t.Fatal(err) }
+	job := Job{ID: "job-remove-1", Type: agentjob.ActionTunnelTenantRemove, Status: "succeeded",
+		NodeID: "ex-1", Message: "tenant removed", Output: string(output)}
+	tenant.DecommissionMutationID = ev.ID
+	s.mu.Lock()
+	if s.st.Tunnels == nil { s.st.Tunnels = map[string]Tunnel{} }
+	if s.st.Jobs == nil { s.st.Jobs = map[string]Job{} }
+	s.st.Tunnels[ownerID], s.st.Tunnels[tenantID], s.st.Tunnels[siblingID] = owner, tenant, sibling
+	s.st.Jobs[job.ID] = job
+	event := s.advanceSharedTenantRemovalLocked(&tenant, &job, now)
+	s.st.Tunnels[tenantID] = tenant
+	ownerAfter, siblingAfter := s.st.Tunnels[ownerID], s.st.Tunnels[siblingID]
+	s.mu.Unlock()
+	if tenant.Phase != TunnelDecommissioned || event == nil || event.Action != "tunnel.decommissioned" {
+		t.Fatalf("tenant decommission did not complete: phase=%s event=%+v", tenant.Phase, event)
+	}
+	if ownerAfter.Phase != TunnelActive || siblingAfter.Phase != TunnelActive ||
+		ownerAfter.Digests["ex-1"].Config != afterConfig || siblingAfter.Digests["ex-1"].Unit != afterUnit ||
+		ownerAfter.ObservedGen["ex-1"] != 5 || siblingAfter.ObservedGen["ex-1"] != 5 {
+		t.Fatalf("tenant removal damaged or desynchronized the shared owner: owner=%+v sibling=%+v", ownerAfter, siblingAfter)
+	}
+}
+
+
+func TestSharedTenantMutationSerializesAcrossOwnerAndSiblingRecords(t *testing.T) {
+	s, owner, _, sibling, now := sharedTenantDecommissionFixture(t)
+	first, err := s.CreateSharedTenantMutationJob(SharedTenantMutationRequest{
+		TunnelID: owner.ID, Operation: "add", NodeID: "ex-config", Listen: "0.0.0.0:8443",
+		PeerID: "urn:baft:node:untracked-a", PeerPublicKey: strings.Repeat("A", 43),
+		RouteID: "route-new-a", Target: "127.0.0.1:9001",
+	}, now)
+	if err != nil || first.Type != agentjob.ActionTunnelTenantAdd {
+		t.Fatalf("first shared-listener mutation: job=%+v err=%v", first, err)
+	}
+	_, err = s.CreateSharedTenantMutationJob(SharedTenantMutationRequest{
+		TunnelID: sibling.ID, Operation: "add", NodeID: "ex-config", Listen: "0.0.0.0:8443",
+		PeerID: "urn:baft:node:untracked-b", PeerPublicKey: strings.Repeat("B", 43),
+		RouteID: "route-new-b", Target: "127.0.0.1:9002",
+	}, now.Add(time.Second))
+	if err == nil || !strings.Contains(err.Error(), "physical listener") {
+		t.Fatalf("second mutation on a sibling record must be serialized: %v", err)
+	}
+}

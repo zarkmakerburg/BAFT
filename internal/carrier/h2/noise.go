@@ -134,6 +134,9 @@ func HandlerWithNoise(stream StreamHandler, o NoiseOptions) (http.Handler, error
 			if out.started {
 				phase = "noise_ik_msg2_write"
 			}
+			if errors.Is(err, securityinternal.ErrPeerStaticMismatch) {
+				phase = "noise_peer_static_mismatch"
+			}
 			if errors.Is(err, context.DeadlineExceeded) || strings.Contains(err.Error(), "i/o timeout") {
 				phase = "noise_timeout"
 			}

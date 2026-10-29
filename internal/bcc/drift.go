@@ -77,8 +77,10 @@ func classifyLive(t Tunnel, node, role string, l tunnelnode.Live) DriftNode {
 	if l.InstanceID != t.InstanceID {
 		bad("instance id is %q, want %q", l.InstanceID, t.InstanceID)
 	}
-	if l.MarkerTunnelID != t.ID {
-		bad("marker belongs to tunnel %q, want %q", l.MarkerTunnelID, t.ID)
+	wantMarkerOwner := t.ID
+	if role == tunnelnode.RoleEX && t.JoinOwnerID != "" { wantMarkerOwner = t.JoinOwnerID }
+	if l.MarkerTunnelID != wantMarkerOwner {
+		bad("marker belongs to tunnel %q, want %q", l.MarkerTunnelID, wantMarkerOwner)
 	}
 	if l.MarkerInstanceID != t.InstanceID {
 		bad("marker instance is %q, want %q", l.MarkerInstanceID, t.InstanceID)
@@ -174,7 +176,7 @@ func (s *Store) startDriftLocked(t *Tunnel, now time.Time) error {
 		return fmt.Errorf("a drift check of %s is already running", t.ID)
 	}
 	for _, node := range []string{t.IRNode, t.EXNode} {
-		params := map[string]string{}
+		params := map[string]string{"tunnel_id": t.ID}
 		if t.InstanceID != "" {
 			params["instance_id"] = t.InstanceID
 			if node == t.EXNode {

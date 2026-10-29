@@ -53,7 +53,7 @@ func (r *Runtime) newListenerLive(cfg config.Config, table *routes.Table) (*list
 	l := &listenerLive{
 		cfg: cfg, table: table, allowed: identitySet(cfg.Server.AllowedPeerIdentities),
 		cancels: map[string]map[uint64]context.CancelFunc{}, slots: map[string]*resources.FlowSlots{},
-		nodeCap: r.FlowSlots, perPeer: cfg.Limits.MaxFlowsPerPeer,
+		nodeCap: r.FlowSlots, perPeer: tenantFlowLimit(cfg),
 	}
 	r.liveMu.Lock()
 	r.live = l
@@ -67,6 +67,23 @@ func (r *Runtime) clearListenerLive(l *listenerLive) {
 		r.live = nil
 	}
 	r.liveMu.Unlock()
+}
+
+func tenantFlowLimit(cfg config.Config) int {
+	if cfg.Limits.MaxFlowsPerPeer > 0 {
+		return cfg.Limits.MaxFlowsPerPeer
+	}
+	// Preserve the legacy single-peer default. Once a listener serves multiple
+	// authenticated tenants, cap each tenant at one quarter of the node-wide
+	// flow budget (minimum one) unless an explicit cap is configured.
+	if cfg.Server == nil || len(cfg.Server.AllowedPeerIdentities) < 2 || cfg.Limits.MaxFlows <= 0 {
+		return 0
+	}
+	limit := cfg.Limits.MaxFlows / 4
+	if limit < 1 {
+		return 1
+	}
+	return limit
 }
 
 func identitySet(ids []string) map[string]struct{} {
@@ -101,11 +118,11 @@ func (l *listenerLive) authorized(id string) bool {
 // slotsFor returns the flow slots a tenant's sessions share: the node-wide
 // pool, or a per-tenant child of it when limits.max_flows_per_peer is set.
 func (l *listenerLive) slotsFor(id string) *resources.FlowSlots {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	if l.perPeer <= 0 || l.nodeCap == nil {
 		return l.nodeCap
 	}
-	l.mu.Lock()
-	defer l.mu.Unlock()
 	if s := l.slots[id]; s != nil {
 		return s
 	}
@@ -234,6 +251,7 @@ func (r *Runtime) ReloadListener(newCfg config.Config) (TenantReload, error) {
 		return TenantReload{}, err
 	}
 	l.allowed = newAllowed
+	l.perPeer = tenantFlowLimit(newCfg)
 	l.cur.Store(&handlerBox{h})
 	l.cfg = newCfg
 	for _, id := range res.Removed {

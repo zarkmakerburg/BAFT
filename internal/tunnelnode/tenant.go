@@ -21,6 +21,7 @@ type TenantMutation struct {
 	NodeID               string
 	Listen               string
 	ExpectedConfigSHA256 string
+	ExpectedUnitSHA256   string
 	ExpectedMarkerSHA256 string
 	PeerID               string
 	PeerPublicKey        string
@@ -35,6 +36,8 @@ type TenantMutationEvidence struct {
 	Generation      int    `json:"generation"`
 	BeforeConfigSHA string `json:"before_config_sha256"`
 	AfterConfigSHA  string `json:"after_config_sha256"`
+	BeforeUnitSHA   string `json:"before_unit_sha256"`
+	AfterUnitSHA    string `json:"after_unit_sha256"`
 	BeforeMarkerSHA string `json:"before_marker_sha256"`
 	AfterMarkerSHA  string `json:"after_marker_sha256"`
 }
@@ -77,7 +80,7 @@ func (m *Manager) ApplyTenantMutation(ctx context.Context, p TenantMutation) (Te
 		return TenantMutationEvidence{}, errors.New("tunnelnode: invalid tenant mutation identity or operation")
 	}
 	if p.NodeID == "" || p.Listen == "" || p.PeerID == "" || p.RouteID == "" ||
-		p.ExpectedConfigSHA256 == "" || p.ExpectedMarkerSHA256 == "" || p.PeerPublicKey == "" {
+		p.ExpectedConfigSHA256 == "" || p.ExpectedUnitSHA256 == "" || p.ExpectedMarkerSHA256 == "" || p.PeerPublicKey == "" {
 		return TenantMutationEvidence{}, errors.New("tunnelnode: incomplete tenant mutation proof")
 	}
 	if p.Operation == "add" && strings.TrimSpace(p.Target) == "" {
@@ -133,7 +136,7 @@ func (m *Manager) ApplyTenantMutation(ctx context.Context, p TenantMutation) (Te
 		return TenantMutationEvidence{}, errors.New("tunnelnode: listener ownership marker does not match this managed instance")
 	}
 	unitBytes, err := os.ReadFile(m.unitPath())
-	if err != nil || shaHex(unitBytes) != marker.UnitSHA256 {
+	if err != nil || shaHex(unitBytes) != marker.UnitSHA256 || shaHex(unitBytes) != p.ExpectedUnitSHA256 {
 		return TenantMutationEvidence{}, errors.New("tunnelnode: managed unit ownership proof is missing or stale")
 	}
 	if m.readGeneration() != marker.Generation {
@@ -142,6 +145,13 @@ func (m *Manager) ApplyTenantMutation(ctx context.Context, p TenantMutation) (Te
 	current, err := config.LoadFile(m.liveConfig())
 	if err != nil {
 		return TenantMutationEvidence{}, fmt.Errorf("tunnelnode: current config is invalid: %w", err)
+	}
+	listenPort := 0
+	if current.Server != nil {
+		listenPort = portOf(current.Server.Listen)
+	}
+	if listenPort == 0 || string(unitBytes) != m.ManagedUnit(listenPort, marker.TunnelID, marker.Generation) {
+		return TenantMutationEvidence{}, errors.New("tunnelnode: managed unit template or listener port changed")
 	}
 	var next config.Config
 	if p.Operation == "add" {
@@ -163,6 +173,9 @@ func (m *Manager) ApplyTenantMutation(ctx context.Context, p TenantMutation) (Te
 	}
 	afterConfigSHA := shaHex(nextBytes)
 	marker.Generation++
+	nextUnitBytes := []byte(m.ManagedUnit(listenPort, marker.TunnelID, marker.Generation))
+	beforeUnitSHA, afterUnitSHA := shaHex(unitBytes), shaHex(nextUnitBytes)
+	marker.UnitSHA256 = afterUnitSHA
 	marker.ConfigSHA256 = afterConfigSHA
 	marker.Updated = m.Now().UTC()
 	nextMarkerBytes, err := json.MarshalIndent(marker, "", "  ")
@@ -174,6 +187,7 @@ func (m *Manager) ApplyTenantMutation(ctx context.Context, p TenantMutation) (Te
 	evidence := TenantMutationEvidence{
 		ID: p.ID, Operation: p.Operation, NodeID: p.NodeID, Generation: marker.Generation,
 		BeforeConfigSHA: beforeConfigSHA, AfterConfigSHA: afterConfigSHA,
+		BeforeUnitSHA: beforeUnitSHA, AfterUnitSHA: afterUnitSHA,
 		BeforeMarkerSHA: beforeMarkerSHA, AfterMarkerSHA: afterMarkerSHA,
 	}
 	j := tenantMutationJournal{
@@ -185,6 +199,7 @@ func (m *Manager) ApplyTenantMutation(ctx context.Context, p TenantMutation) (Te
 	}
 	for suffix, data := range map[string][]byte{
 		"old-config": currentBytes, "new-config": nextBytes,
+		"old-unit": unitBytes, "new-unit": nextUnitBytes,
 		"old-marker": markerBytesOriginal(markerBytes), "new-marker": nextMarkerBytes,
 	} {
 		if err := writeFile(m.tenantMutationBlob(p.ID, suffix), data, 0600); err != nil {
@@ -198,6 +213,10 @@ func (m *Manager) ApplyTenantMutation(ctx context.Context, p TenantMutation) (Te
 		_ = m.rollbackTenantMutation(ctx, &j)
 		return TenantMutationEvidence{}, fmt.Errorf("tunnelnode: install tenant config: %w", err)
 	}
+	if err := writeFile(m.unitPath(), nextUnitBytes, 0644); err != nil {
+		_ = m.rollbackTenantMutation(ctx, &j)
+		return TenantMutationEvidence{}, fmt.Errorf("tunnelnode: install tenant unit: %w", err)
+	}
 	if err := writeFile(m.markerPath(), nextMarkerBytes, 0644); err != nil {
 		_ = m.rollbackTenantMutation(ctx, &j)
 		return TenantMutationEvidence{}, err
@@ -210,6 +229,10 @@ func (m *Manager) ApplyTenantMutation(ctx context.Context, p TenantMutation) (Te
 	if err := writeJSON(journalPath, j, 0600); err != nil {
 		_ = m.rollbackTenantMutation(ctx, &j)
 		return TenantMutationEvidence{}, err
+	}
+	if _, err := m.System.Systemctl(ctx, "daemon-reload"); err != nil {
+		rollbackErr := m.rollbackTenantMutation(ctx, &j)
+		return TenantMutationEvidence{}, fmt.Errorf("tunnelnode: daemon-reload after tenant mutation failed: %v (rollback: %v)", err, rollbackErr)
 	}
 	if _, err := m.System.Systemctl(ctx, "restart", m.Service); err != nil {
 		rollbackErr := m.rollbackTenantMutation(ctx, &j)
@@ -273,6 +296,14 @@ func (m *Manager) rollbackTenantMutation(ctx context.Context, j *tenantMutationJ
 	if err != nil {
 		return err
 	}
+	oldUnit, err := os.ReadFile(m.tenantMutationBlob(j.ID, "old-unit"))
+	if err != nil {
+		return err
+	}
+	newUnit, err := os.ReadFile(m.tenantMutationBlob(j.ID, "new-unit"))
+	if err != nil {
+		return err
+	}
 	oldMarker, err := os.ReadFile(m.tenantMutationBlob(j.ID, "old-marker"))
 	if err != nil {
 		return err
@@ -289,17 +320,28 @@ func (m *Manager) rollbackTenantMutation(ctx context.Context, j *tenantMutationJ
 	if err != nil {
 		return err
 	}
+	liveUnit, err := os.ReadFile(m.unitPath())
+	if err != nil {
+		return err
+	}
 	if (shaHex(liveConfig) != shaHex(oldConfig) && shaHex(liveConfig) != shaHex(newConfig)) ||
-		(shaHex(liveMarker) != shaHex(oldMarker) && shaHex(liveMarker) != shaHex(newMarker)) {
+		(shaHex(liveMarker) != shaHex(oldMarker) && shaHex(liveMarker) != shaHex(newMarker)) ||
+		(shaHex(liveUnit) != shaHex(oldUnit) && shaHex(liveUnit) != shaHex(newUnit)) {
 		return errors.New("live config or marker drifted outside the interrupted tenant transaction; refusing overwrite")
 	}
 	if err := m.writeConfig(oldConfig); err != nil {
+		return err
+	}
+	if err := writeFile(m.unitPath(), oldUnit, 0644); err != nil {
 		return err
 	}
 	if err := writeFile(m.markerPath(), oldMarker, 0644); err != nil {
 		return err
 	}
 	if err := m.writeGeneration(j.OldGeneration); err != nil {
+		return err
+	}
+	if _, err := m.System.Systemctl(ctx, "daemon-reload"); err != nil {
 		return err
 	}
 	if _, err := m.System.Systemctl(ctx, "restart", m.Service); err != nil {

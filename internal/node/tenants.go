@@ -118,11 +118,11 @@ func (l *listenerLive) authorized(id string) bool {
 // slotsFor returns the flow slots a tenant's sessions share: the node-wide
 // pool, or a per-tenant child of it when limits.max_flows_per_peer is set.
 func (l *listenerLive) slotsFor(id string) *resources.FlowSlots {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	if l.perPeer <= 0 || l.nodeCap == nil {
 		return l.nodeCap
 	}
-	l.mu.Lock()
-	defer l.mu.Unlock()
 	if s := l.slots[id]; s != nil {
 		return s
 	}

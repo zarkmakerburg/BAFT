@@ -258,13 +258,13 @@ func (m *Manager) ApplyTenantMutation(ctx context.Context, p TenantMutation) (Te
 		rollbackErr := m.rollbackTenantMutation(ctx, &j)
 		return TenantMutationEvidence{}, fmt.Errorf("tunnelnode: daemon-reload after tenant mutation failed: %v (rollback: %v)", err, rollbackErr)
 	}
-	if _, err := m.System.Systemctl(ctx, "restart", m.Service); err != nil {
+	if _, err := m.System.Systemctl(ctx, "reload", m.Service); err != nil {
 		rollbackErr := m.rollbackTenantMutation(ctx, &j)
-		return TenantMutationEvidence{}, fmt.Errorf("tunnelnode: restart after tenant mutation failed: %v (rollback: %v)", err, rollbackErr)
+		return TenantMutationEvidence{}, fmt.Errorf("tunnelnode: live reload after tenant mutation failed: %v (rollback: %v)", err, rollbackErr)
 	}
 	if err := m.waitActive(ctx); err != nil {
 		rollbackErr := m.rollbackTenantMutation(ctx, &j)
-		return TenantMutationEvidence{}, fmt.Errorf("tunnelnode: listener did not remain active: %v (rollback: %v)", err, rollbackErr)
+		return TenantMutationEvidence{}, fmt.Errorf("tunnelnode: listener did not remain active after tenant reload: %v (rollback: %v)", err, rollbackErr)
 	}
 	j.Phase = "committed"
 	if err := writeJSON(journalPath, j, 0600); err != nil {

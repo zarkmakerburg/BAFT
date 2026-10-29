@@ -169,3 +169,50 @@ func TestPathProbeActionsAreStrictlyBounded(t *testing.T) {
 		}
 	}
 }
+
+
+func TestSharedTenantActionsRequireExactDigestFencedShape(t *testing.T) {
+	now := time.Now().UTC()
+	base := Job{
+		SchemaVersion: SchemaVersion, JobID: "job-00000001", NodeID: "ex-1",
+		Action: ActionTunnelTenantAdd,
+		Params: map[string]string{
+			"tunnel_id": "tun-tenant-test", "mutation_id": "mut-tenant-test",
+			"node_id": "ex-config", "listen": "0.0.0.0:443",
+			"config_sha256": strings.Repeat("a", 64), "marker_sha256": strings.Repeat("b", 64),
+			"peer_id": "urn:baft:node:ir-two", "peer_public_key": strings.Repeat("A", 43),
+			"route_id": "port-443", "target": "127.0.0.1:9002",
+		},
+		IssuedAt: now, ExpiresAt: now.Add(time.Minute),
+	}
+	if err := base.Validate(); err != nil {
+		t.Fatalf("valid tenant add job rejected: %v", err)
+	}
+	bad := base
+	bad.Params = make(map[string]string, len(base.Params))
+	for k, v := range base.Params { bad.Params[k] = v }
+	bad.Params["listen"] = "0.0.0.0:0"
+	if err := bad.Validate(); err == nil {
+		t.Fatal("zero listener port accepted")
+	}
+	bad = base
+	bad.Params = make(map[string]string, len(base.Params))
+	for k, v := range base.Params { bad.Params[k] = v }
+	bad.Params["config_sha256"] = "not-a-digest"
+	if err := bad.Validate(); err == nil {
+		t.Fatal("malformed config digest accepted")
+	}
+	remove := base
+	remove.Action = ActionTunnelTenantRemove
+	remove.Params = make(map[string]string, len(base.Params))
+	for k, v := range base.Params {
+		if k != "target" { remove.Params[k] = v }
+	}
+	if err := remove.Validate(); err != nil {
+		t.Fatalf("valid tenant remove job rejected: %v", err)
+	}
+	remove.Params["target"] = "127.0.0.1:9002"
+	if err := remove.Validate(); err == nil {
+		t.Fatal("tenant remove accepted an unexpected target parameter")
+	}
+}

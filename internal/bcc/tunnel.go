@@ -895,6 +895,17 @@ func (s *Store) advanceLocked(t *Tunnel, now time.Time) *TunnelEvent {
 		t.Phase = TunnelCommittingEX
 		s.tunnelJobLocked(t, t.EXNode, JobTunnelCommitEX, map[string]string{"reply": secret}, now)
 	case TunnelCommittingEX:
+		if t.JoinOwnerID != "" {
+			var receipt tunnelnode.TenantJoinReceipt
+			if err := json.Unmarshal([]byte(secret), &receipt); err != nil ||
+				receipt.OwnerTunnelID != t.JoinOwnerID || receipt.PeerID == "" || receipt.PeerPublicKey == "" ||
+				!validSHA256Digest(receipt.ConfigSHA256) || !validSHA256Digest(receipt.UnitSHA256) ||
+				!validSHA256Digest(receipt.MarkerSHA256) || receipt.Generation <= 0 {
+				s.failLocked(t, "EX join returned an invalid shared-tenant receipt", now)
+				return nil
+			}
+			t.PeerID, t.PeerPublicKey = receipt.PeerID, receipt.PeerPublicKey
+		}
 		t.Phase = TunnelCommittingIR
 		s.tunnelJobLocked(t, t.IRNode, JobTunnelCommitIR, nil, now)
 	case TunnelCommittingIR:

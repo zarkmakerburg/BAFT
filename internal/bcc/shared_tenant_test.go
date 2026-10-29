@@ -310,7 +310,7 @@ func TestSharedTenantRemovalReceiptUpdatesOwnerWithoutRetiringIt(t *testing.T) {
 		ObservedGen: map[string]int{"ex-1": 4},
 	}
 	tenant := Tunnel{
-		ID: tenantID, JoinOwnerID: ownerID, EXNode: "ex-1", IRNode: "ir-2",
+		ID: tenantID, JoinOwnerID: ownerID, EXNode: "ex-1", EXConfigNodeID: "ex-config", IRNode: "ir-2",
 		Phase: TunnelDecommissioningEX, DecommissionedNodes: map[string]bool{"ir-2": true},
 		Digests: map[string]NodeDigests{"ex-1": {Config: beforeConfig, Unit: beforeUnit, Marker: beforeMarker}},
 		ObservedGen: map[string]int{"ex-1": 4}, ExpectedGen: map[string]GenExpect{"ex-1": {From: 3, To: 4}},

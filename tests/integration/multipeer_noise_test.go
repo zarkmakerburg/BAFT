@@ -55,21 +55,18 @@ func TestNoiseListenerAcceptsAndSeparatesTwoIRPeers(t *testing.T) {
 	ex.Node.ID="ex-shared"
 	ex.Server.Listen=reserveAddress(t)
 	ex.Server.ServerName="ex.test"
-	ex.Server.AllowedPeerIdentities=[]string{"urn:baft:node:ir-master","urn:baft:node:ir-worker"}
+	ex.Server.AllowedPeerIdentities=[]string{"urn:baft:node:ir-master"}
 	ex.Management.UnixSocket=filepath.Join(dir,"ex.sock")
 	ex.Management.MetricsListen=reserveAddress(t)
 	ex.Transport.Shards=1
 	ex.Routes[0].Target=target.Addr().String()
-	ex.Routes[0].AllowedPeers=[]string{"urn:baft:node:ir-master","urn:baft:node:ir-worker"}
+	ex.Routes[0].AllowedPeers=[]string{"urn:baft:node:ir-master"}
 	ex.TLS=config.TLS{MinVersion:"1.3",CAFile:ca,CertFile:cert,KeyFile:tlsKey,SessionTickets:false}
-	ex.Noise=&config.Noise{
-		KeyFile:exPath,
-		AllowedPeerPublicKeys:map[string]string{
-			"urn:baft:node:ir-master":ir1Pub,
-			"urn:baft:node:ir-worker":ir2Pub,
-		},
-		RecordShaping:recordshape.Config{},
-	}
+	// Start from the legacy single-peer pinned listener and use the same
+	// transformation the BCC tenant lifecycle invokes to add the second peer.
+	ex.Noise=&config.Noise{KeyFile:exPath,PeerPublicKey:ir1Pub,RecordShaping:recordshape.Config{}}
+	ex,err=config.AddListenerTenant(ex,ex.Node.ID,ex.Server.Listen,"urn:baft:node:ir-worker",ir2Pub,ex.Routes[0].ID,target.Addr().String())
+	if err!=nil{t.Fatalf("add second authenticated tenant: %v",err)}
 
 	makeIR:=func(id,keyPath,listen,metrics string) config.Config{
 		ir,e:=config.LoadFile("../../configs/example-ir.yaml");if e!=nil{t.Fatal(e)}

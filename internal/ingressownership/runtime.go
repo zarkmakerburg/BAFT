@@ -143,6 +143,11 @@ func (r *Runtime) Apply(parent context.Context, spec ingressmanifest.Spec, proof
 		}
 		return ErrConflict
 	}
+	// Reject stale or conflicting ownership before touching the OS socket.
+	// Claim still runs after bind, so a bind failure does not consume a generation.
+	if err := r.registry.checkClaim(spec.Config.Listen, proof); err != nil {
+		return err
+	}
 	// Bind before claiming: an unrelated process holding the port must not
 	// consume the owner's generation or leave a false reservation.
 	// Match the manifest family explicitly: a generic wildcard bind can

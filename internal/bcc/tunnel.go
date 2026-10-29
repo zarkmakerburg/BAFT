@@ -969,6 +969,9 @@ func (s *Store) nextAfterFinalizeLocked(t *Tunnel, now time.Time) *TunnelEvent {
 	}
 	t.Phase, t.JobID, t.UpdatedAt = TunnelActive, "", now
 	s.recordActiveTunnelChangesLocked(t, now)
+	if t.JoinOwnerID != "" {
+		s.syncSharedTenantBaselineLocked(t.JoinOwnerID, *t, now)
+	}
 	for node, gen := range t.ObservedGen {
 		if n, ok := s.st.Nodes[node]; ok {
 			setAppliedGeneration(&n, t.InstanceID, gen)

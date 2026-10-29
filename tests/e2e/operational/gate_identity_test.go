@@ -359,11 +359,19 @@ func TestOperationalIngressV1Gate_RefusesWrongEnrollment(t *testing.T) {
 		closed(name)
 		w.kill()
 	}
-	// 2. an enrolled Agent opens the gate; revoking the node closes it again,
-	//    stops job delivery and receipt acceptance.
+	// Wrong credentials never opened the gate or caused any host effect.
+	f.noEffects(t)
+	// 2. An enrolled Agent opens the gate. BCC may queue and deliver the held
+	// Apply in that very authenticated poll, so capture the resulting owned
+	// state before revocation rather than incorrectly expecting revocation to
+	// undo an operation already executed by the legitimate Agent.
 	f.a.openGate()
 	if err := f.b.store.EnqueueOperationalIngress(f.tn.ID); err != nil {
 		t.Fatalf("enrolled capable agent did not open the gate: %v", err)
+	}
+	ownedBeforeRevoke := f.h.chainJSON()
+	if !strings.Contains(ownedBeforeRevoke, tagOf(t, f.site)) || portFree(f.port) {
+		t.Fatalf("authenticated gate opening did not produce the expected owned ingress: chain=%s", ownedBeforeRevoke)
 	}
 	if _, err := f.b.store.RevokeNode(irNode, "gate test", time.Now()); err != nil {
 		t.Fatal(err)
@@ -376,7 +384,9 @@ func TestOperationalIngressV1Gate_RefusesWrongEnrollment(t *testing.T) {
 	if st := f.b.postReceipt(nodeToken(irNode), rec); st != http.StatusUnauthorized {
 		t.Fatalf("revoked node recorded a receipt: %d", st)
 	}
-	f.noEffects(t)
+	if got := f.h.chainJSON(); got != ownedBeforeRevoke || portFree(f.port) {
+		t.Fatalf("revocation changed an already-applied ingress or added effects: before=%s after=%s", ownedBeforeRevoke, got)
+	}
 }
 
 func TestOperationalIngressV1Gate_RefusesWrongEnrollmentPinnedSigner(t *testing.T) {

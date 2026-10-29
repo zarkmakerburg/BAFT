@@ -352,6 +352,16 @@ func (s *Store) resolveTunnelLocked(req TunnelRequest, now time.Time) (Tunnel, N
 		EXMetricsListen: req.EXMetricsListen, IRMetricsListen: req.IRMetricsListen, RecordShaping: req.RecordShaping,
 		CreatedAt: now.UTC(), UpdatedAt: now.UTC(),
 	}
+	if t.JoinOwnerID != "" {
+		owner, ok := s.st.Tunnels[t.JoinOwnerID]
+		if !ok || owner.Phase != TunnelActive || owner.JoinOwnerID != "" {
+			return Tunnel{}, Node{}, Node{}, errors.New("shared join requires an active physical owner tunnel")
+		}
+		if t.PublicAddress == "" { t.PublicAddress = owner.PublicAddress }
+		if t.Port == 0 { t.Port = owner.Port }
+		if t.InstanceID == "" && owner.InstanceID != "" { t.InstanceID = owner.InstanceID }
+		if t.EXMetricsListen == "" { t.EXMetricsListen = owner.EXMetricsListen }
+	}
 	if t.PublicAddress == "" {
 		host, _, err := net.SplitHostPort(ex.Address)
 		if err != nil {
@@ -398,8 +408,24 @@ func (s *Store) resolveTunnelLocked(req TunnelRequest, now time.Time) (Tunnel, N
 	if _, mp, err := net.SplitHostPort(exMetrics); err == nil && mp == strconv.Itoa(t.Port) {
 		return Tunnel{}, Node{}, Node{}, fmt.Errorf("EX listener port %d conflicts with the EX metrics listener", t.Port)
 	}
+	if t.JoinOwnerID != "" {
+		owner := s.st.Tunnels[t.JoinOwnerID]
+		if owner.EXNode != t.EXNode || owner.Port != t.Port || owner.InstanceID != t.InstanceID ||
+			owner.PublicAddress != t.PublicAddress || owner.EXMetricsListen != t.EXMetricsListen ||
+			owner.RecordShaping != t.RecordShaping || owner.IRNode == t.IRNode {
+			return Tunnel{}, Node{}, Node{}, errors.New("shared join does not match the owner's listener, transport or independent IR")
+		}
+	}
 	for _, other := range s.st.Tunnels {
 		if !tunnelsShareNode(t, other) {
+			continue
+		}
+		sharedJoinPair := t.JoinOwnerID != "" && (other.ID == t.JoinOwnerID || other.JoinOwnerID == t.JoinOwnerID)
+		sharedJoinPair = sharedJoinPair && other.EXNode == t.EXNode && other.Phase == TunnelActive
+		if sharedJoinPair {
+			if other.IRNode == t.IRNode {
+				return Tunnel{}, Node{}, Node{}, errors.New("shared listener tenants must use distinct IR nodes")
+			}
 			continue
 		}
 		if mixedLegacyScope(t, other) && (other.Phase == TunnelActive || !terminalTunnel(other.Phase) || other.Phase == TunnelRollbackFailed || other.Phase == TunnelDecommissionFailed) {

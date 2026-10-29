@@ -152,3 +152,56 @@ func TestSharedTenantMutationHTTPQueuesAuditedJob(t *testing.T) {
 		t.Fatalf("HTTP endpoint did not queue a digest-bound tenant action: %+v", jobs)
 	}
 }
+
+
+func TestExplicitSharedJoinQueuesPrepareOnExistingOwner(t *testing.T) {
+	s := tunnelStore(t)
+	now := time.Now().UTC()
+	owner := newTunnel(t, s, now)
+	if len(owner.Jobs) == 0 {
+		t.Fatal("owner fixture has no initial job")
+	}
+	if err := s.AckJob("ex-1", "tok-ex-1", owner.Jobs[0], "failed", "fixture retired"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UpsertNode(Node{ID: "ir-2", Address: "203.0.113.8:22", Role: "worker"}, "tok-ir-2"); err != nil {
+		t.Fatal(err)
+	}
+	s.mu.Lock()
+	owner.Phase, owner.JobID = TunnelActive, ""
+	owner.Digests = map[string]NodeDigests{
+		owner.EXNode: {Config: strings.Repeat("a", 64), Unit: strings.Repeat("b", 64), Marker: strings.Repeat("c", 64)},
+		owner.IRNode: {Config: strings.Repeat("d", 64), Unit: strings.Repeat("e", 64), Marker: strings.Repeat("f", 64)},
+	}
+	owner.ObservedGen = map[string]int{owner.EXNode: 1, owner.IRNode: 1}
+	s.st.Tunnels[owner.ID] = owner
+	if err := s.saveLocked(); err != nil {
+		s.mu.Unlock()
+		t.Fatal(err)
+	}
+	s.mu.Unlock()
+
+	joined, err := s.CreateTunnel(TunnelRequest{
+		JoinExistingTunnelID: owner.ID, EXNode: owner.EXNode, IRNode: "ir-2",
+		PublicAddress: owner.PublicAddress, Port: owner.Port, Target: "127.0.0.1:2444",
+		RouteListen: "127.0.0.1:1444", RouteID: "service-main",
+	}, now.Add(time.Second))
+	if err != nil {
+		t.Fatalf("explicit join was rejected: %v", err)
+	}
+	jobs := pullAll(t, s, "ex-1")
+	var found *Job
+	for i := range jobs {
+		if jobs[i].ID == joined.JobID {
+			found = &jobs[i]
+			break
+		}
+	}
+	if found == nil || found.Type != agentjob.ActionTunnelPrepareEX ||
+		found.Params["join_owner_id"] != owner.ID || found.Params["port"] != "8443" {
+		t.Fatalf("join did not target the existing physical listener: %+v", jobs)
+	}
+	if joined.JoinOwnerID != owner.ID || joined.ID == owner.ID || joined.Phase != TunnelPreparingEX {
+		t.Fatalf("joined tunnel record lost its owner relationship: %+v", joined)
+	}
+}

@@ -61,6 +61,16 @@ func (s *Store) CreateSharedTenantMutationJob(in SharedTenantMutationRequest, no
 	if !ok || t.Phase != TunnelActive {
 		return Job{}, errors.New("shared tenant changes require an active managed tunnel")
 	}
+	if in.Operation == "remove" {
+		if t.JoinOwnerID != "" {
+			return Job{}, errors.New("managed tenants must be removed through their reviewed decommission plan")
+		}
+		for _, sibling := range s.st.Tunnels {
+			if sibling.JoinOwnerID == t.ID && sibling.PeerID == in.PeerID && sibling.Phase == TunnelActive {
+				return Job{}, errors.New("peer belongs to an active managed tenant; use its decommission plan")
+			}
+		}
+	}
 	digests, ok := t.Digests[t.EXNode]
 	if !ok || !validSHA256Digest(digests.Config) || !validSHA256Digest(digests.Marker) || !validSHA256Digest(digests.Unit) {
 		return Job{}, errors.New("BCC has no complete accepted EX ownership digests")

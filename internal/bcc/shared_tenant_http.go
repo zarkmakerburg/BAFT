@@ -28,6 +28,10 @@ func (s *Server) sharedTenantMutationAPI(w http.ResponseWriter, r *http.Request)
 	in.PeerID = strings.TrimSpace(in.PeerID)
 	in.RouteID = strings.TrimSpace(in.RouteID)
 	in.Target = strings.TrimSpace(in.Target)
+	if in.Operation == "add" {
+		http.Error(w, "use POST /api/tunnels with join_existing_tunnel_id to create a managed tenant; this maintenance endpoint only removes untracked peers", http.StatusBadRequest)
+		return
+	}
 	details := map[string]any{
 		"operation": in.Operation, "peer_id": in.PeerID, "route_id": in.RouteID,
 		// Never include the public key in audit metadata.

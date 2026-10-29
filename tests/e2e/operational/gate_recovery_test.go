@@ -148,8 +148,11 @@ func TestOperationalIngressV1Gate_PartialNFTAddRollsBackOwnedHandlesOnly(t *test
 // resumes and completes it.
 func TestOperationalIngressV1Gate_PartialNFTRemoveResumesRetire(t *testing.T) {
 	f := setupFullPath(t, 54765, "127.0.0.1:1443")
-	sib := f.addSite(t, "ex-opv2", "second", 8444, 54766, "127.0.0.1:1444")
 	f.legit(t)
+	// Add the sibling after the first ingress is verified. This exercises a
+	// fresh activation/held dispatch while an existing ingress is serving,
+	// without having the first capability poll race the sibling's activation.
+	sib := f.addSite(t, "ex-opv2", "second", 8444, 54766, "127.0.0.1:1444")
 	sib.apply(t)
 	if v := sib.waitReady(t); !v.Ready {
 		t.Fatalf("sibling not ready: %+v", v)

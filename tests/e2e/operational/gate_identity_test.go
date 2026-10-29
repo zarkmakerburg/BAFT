@@ -369,6 +369,13 @@ func TestOperationalIngressV1Gate_RefusesWrongEnrollment(t *testing.T) {
 	if err := f.b.store.EnqueueOperationalIngress(f.tn.ID); err != nil {
 		t.Fatalf("enrolled capable agent did not open the gate: %v", err)
 	}
+	res := f.a.runOnce()
+	if len(res) != 1 || res[0].Status != "succeeded" {
+		t.Fatalf("enrolled agent did not execute the released Apply: %+v", res)
+	}
+	if v := f.waitReady(t); !v.Ready || v.Card == nil {
+		t.Fatalf("authenticated Apply did not reach verified readiness: %+v", v)
+	}
 	ownedBeforeRevoke := f.h.chainJSON()
 	if !strings.Contains(ownedBeforeRevoke, tagOf(t, f.site)) || portFree(f.port) {
 		t.Fatalf("authenticated gate opening did not produce the expected owned ingress: chain=%s", ownedBeforeRevoke)

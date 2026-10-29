@@ -212,10 +212,15 @@ func (m *Manager) CommitEXJoin(ctx context.Context, id, reply string) (string, s
 	unlock()
 	m.mu.Unlock()
 
+	tenantApplied := false
 	rollbackJoin := func(cause error) error {
+		var tenantRollbackErr error
+		if tenantApplied {
+			tenantRollbackErr = m.RollbackTenantMutation(ctx, id)
+		}
 		_, rollbackErr := m.Rollback(ctx, id)
-		if rollbackErr != nil {
-			return fmt.Errorf("%w; shared tenant rollback also failed: %v", cause, rollbackErr)
+		if tenantRollbackErr != nil || rollbackErr != nil {
+			return fmt.Errorf("%w; tenant rollback: %v; join transaction rollback: %v", cause, tenantRollbackErr, rollbackErr)
 		}
 		return cause
 	}
@@ -229,6 +234,7 @@ func (m *Manager) CommitEXJoin(ctx context.Context, id, reply string) (string, s
 	if err != nil {
 		return "", "", rollbackJoin(err)
 	}
+	tenantApplied = true
 	// Reuse the same durable before-images for normal tunnel rollback, and
 	// update this logical transaction without claiming physical listener ownership.
 	mutationDir := m.tenantMutationDir()

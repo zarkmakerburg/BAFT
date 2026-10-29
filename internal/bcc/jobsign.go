@@ -70,6 +70,7 @@ func agentAction(j Job) (string, map[string]string, error) {
 	case JobDeployBAFT:
 		return agentjob.ActionUpdateBAFT, map[string]string{"version": j.Version}, nil
 	case JobTunnelPrepareEX, JobTunnelPrepareIR, JobTunnelCommitEX, JobTunnelCommitIR, JobTunnelHealth, JobTunnelObserve, JobTunnelInspect, JobTunnelDiscover, JobTunnelFinalize, JobTunnelRollback, agentjob.ActionTunnelRetire,
+		agentjob.ActionTunnelTenantAdd, agentjob.ActionTunnelTenantRemove,
 		agentjob.ActionPathProbeInventory, agentjob.ActionPathProbeListen, agentjob.ActionPathProbeRun, agentjob.ActionPathProbeStop,
 		agentjob.ActionPublicIngressPreflight, agentjob.ActionPublicIngressInspect, agentjob.ActionPublicIngressPrepare, agentjob.ActionPublicIngressCancel,
 		agentjob.ActionPublicIngressApply, agentjob.ActionPublicIngressRetire,

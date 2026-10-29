@@ -618,6 +618,13 @@ func (s *Store) resolveTunnelLocked(req TunnelRequest, now time.Time) (Tunnel, N
 			}
 		}
 		if sameManagedSlot(t, other) {
+			if t.JoinOwnerID == "" && other.JoinOwnerID == "" && other.Phase == TunnelActive {
+				for _, tenant := range s.st.Tunnels {
+					if tenant.JoinOwnerID == other.ID && tunnelKeepsPorts(tenant) {
+						return Tunnel{}, Node{}, Node{}, fmt.Errorf("shared tenant %s still depends on tunnel %s; retire its tenants before replacing the physical owner", tenant.ID, other.ID)
+					}
+				}
+			}
 			if !terminalTunnel(other.Phase) {
 				return Tunnel{}, Node{}, Node{}, fmt.Errorf("tunnel %s is still being built in the same BAFT instance", other.ID)
 			}

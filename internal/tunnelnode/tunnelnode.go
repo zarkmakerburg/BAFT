@@ -1992,6 +1992,36 @@ func (m *Manager) Inspect(ctx context.Context) Live {
 	return m.inspectUnlocked(ctx)
 }
 
+func (m *Manager) InspectForTunnel(ctx context.Context, id string) Live {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	l := m.inspectUnlocked(ctx)
+	t, err := m.readTxn(id)
+	if err != nil || t.JoinOwnerID == "" {
+		return l
+	}
+	if cfg, err := config.LoadFile(m.liveConfig()); err == nil {
+		l.RouteID, l.RouteListen, l.Target = t.TenantRouteID, "", t.TenantTarget
+		routeFound, peerFound := false, false
+		if cfg.Noise != nil && cfg.Noise.AllowedPeerPublicKeys[t.PeerID] == t.PeerPublicKey {
+			peerFound = true
+		}
+		for _, route := range cfg.Routes {
+			if route.ID != t.TenantRouteID || route.Direction != "inbound" || route.Target != t.TenantTarget {
+				continue
+			}
+			for _, peer := range route.AllowedPeers {
+				if peer == t.PeerID { routeFound = true }
+			}
+		}
+		if !peerFound || !routeFound || len(m.ownershipViolations(t)) > 0 {
+			l.MarkerConfigMatches = false
+			l.MarkerUnitMatches = false
+		}
+	}
+	return l
+}
+
 func (m *Manager) inspectUnlocked(ctx context.Context) Live {
 	l := Live{InstanceID: m.Instance, NodeGeneration: m.readGeneration()}
 	raw, err := os.ReadFile(m.liveConfig())

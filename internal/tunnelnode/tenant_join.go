@@ -164,12 +164,30 @@ func (m *Manager) CommitEXJoin(ctx context.Context, id, reply string) (string, s
 		m.mu.Unlock()
 		return "", "", errors.New("tunnelnode: ex-accept did not produce verifiable tenant key evidence")
 	}
+	ownerKeys := make(map[string]string, len(ownerCfg.Noise.AllowedPeerPublicKeys)+1)
+	for id, key := range ownerCfg.Noise.AllowedPeerPublicKeys {
+		ownerKeys[id] = key
+	}
+	// Legacy listeners pin exactly one peer directly rather than using the
+	// allowlist map. Treat that key as part of the before-image so it is never
+	// misidentified as a newly added tenant during the config diff.
+	if len(ownerKeys) == 0 && ownerCfg.Noise.PeerPublicKey != "" &&
+		len(ownerCfg.Server.AllowedPeerIdentities) == 1 {
+		ownerKeys[ownerCfg.Server.AllowedPeerIdentities[0]] = ownerCfg.Noise.PeerPublicKey
+	}
+	for id, key := range ownerKeys {
+		if staged.Noise.AllowedPeerPublicKeys[id] != key {
+			unlock()
+			m.mu.Unlock()
+			return "", "", fmt.Errorf("tunnelnode: ex-accept changed or removed existing authenticated peer %q", id)
+		}
+	}
 	var added []string
 	for id, key := range staged.Noise.AllowedPeerPublicKeys {
-		if key == "" || ownerCfg.Noise.AllowedPeerPublicKeys[id] != "" {
+		if key == "" {
 			continue
 		}
-		if _, ok := ownerCfg.Noise.AllowedPeerPublicKeys[id]; !ok {
+		if _, exists := ownerKeys[id]; !exists {
 			added = append(added, id)
 		}
 	}

@@ -1236,8 +1236,12 @@ func verifyObserved(t Tunnel, node, role string, o tunnelnode.Observed) []string
 	if !o.Managed {
 		bad("the node has no BAFT ownership marker for this configuration")
 	} else {
-		if o.MarkerTunnelID != t.ID || o.MarkerGeneration != o.Generation {
-			bad("ownership marker is for %q generation %d, want %q generation %d", o.MarkerTunnelID, o.MarkerGeneration, t.ID, o.Generation)
+		wantMarkerOwner := t.ID
+		if role == tunnelnode.RoleEX && t.JoinOwnerID != "" {
+			wantMarkerOwner = t.JoinOwnerID
+		}
+		if o.MarkerTunnelID != wantMarkerOwner || o.MarkerGeneration != o.Generation {
+			bad("ownership marker is for %q generation %d, want %q generation %d", o.MarkerTunnelID, o.MarkerGeneration, wantMarkerOwner, o.Generation)
 		}
 		if !o.MarkerConfigMatches {
 			bad("the config differs from the one BAFT installed")

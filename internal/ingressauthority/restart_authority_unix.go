@@ -135,6 +135,32 @@ func (a *RestartAuthority) Check(ctx context.Context) error {
 	g := a.guard
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	return a.checkLocked(ctx)
+}
+
+// WithLockedReconciliation runs one remove-only reconciliation effect while
+// retaining the guard mutex. Authority is re-proved before and after the
+// effect, so Close and lifecycle supersession cannot release or change the
+// held authority between its last check and a destructive host operation.
+// The effect must not call guard or authority methods: the mutex is not
+// reentrant. This does not mint a live Lease or authorize forward Apply.
+func (a *RestartAuthority) WithLockedReconciliation(ctx context.Context, effect func() error) error {
+	if a == nil || !a.minted || a.guard == nil || effect == nil {
+		return ErrUnverified
+	}
+	g := a.guard
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if err := a.checkLocked(ctx); err != nil {
+		return err
+	}
+	err := effect()
+	return errors.Join(err, a.checkLocked(ctx))
+}
+
+// checkLocked requires the caller to hold a.guard.mu.
+func (a *RestartAuthority) checkLocked(ctx context.Context) error {
+	g := a.guard
 	if g.binding != a.binding {
 		return ErrUnverified
 	}

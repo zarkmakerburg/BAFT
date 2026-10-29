@@ -94,6 +94,9 @@ type fakeAuth struct {
 	cmd    ingressauthority.CommandV1
 	lost   bool
 	checks int
+	// Simulates a host change during slow guard validation, after the outer
+	// collector snapshot but before entering the guarded leaf effect.
+	beforeEffect func()
 }
 
 func (a *fakeAuth) Binding() ingressauthority.BindingV1          { return a.b }
@@ -105,6 +108,17 @@ func (a *fakeAuth) Check(context.Context) error {
 		return ingressauthority.ErrUnverified
 	}
 	return nil
+}
+
+func (a *fakeAuth) WithLockedReconciliation(ctx context.Context, effect func() error) error {
+	if err := a.Check(ctx); err != nil {
+		return err
+	}
+	if a.beforeEffect != nil {
+		a.beforeEffect()
+	}
+	err := effect()
+	return errors.Join(err, a.Check(ctx))
 }
 
 type restartRig struct {

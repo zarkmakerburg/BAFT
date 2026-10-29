@@ -205,6 +205,7 @@ type restartAuth interface {
 	Direction() ingressauthority.RestartDirection
 	Command() ingressauthority.CommandV1
 	Check(context.Context) error
+	WithLockedReconciliation(context.Context, func() error) error
 }
 
 // Reconcile decides and, unless DryRun, performs the reconciliation of one
@@ -317,7 +318,24 @@ func (r *RestartReconciler) reconcile(ctx context.Context, a restartAuth) (Resta
 		if err != nil || !still || again.Handle != handle {
 			return fence(rep, "before delete: rule changed (present=%v handle=%d want %d): %v", still, again.Handle, handle, err)
 		}
-		if err := r.Firewall.Remove(ctx, plan, handle); err != nil {
+		// The slow evidence reads above may outlive the last authority check.
+		// Re-prove authority and retain its guard through the actual deletion;
+		// Close or lifecycle supersession cannot interleave with this effect.
+		if err := a.WithLockedReconciliation(ctx, func() error {
+			// Guard validation itself reads protected policy and lifecycle
+			// files. Recollect after those reads: the outer snapshots cannot
+			// prove a foreign socket or changed rule did not arrive meanwhile.
+			latestRows, err := r.socketEvidence(ctx, b)
+			rep.Sockets = latestRows
+			if err != nil {
+				return fmt.Errorf("at delete: %w", err)
+			}
+			latest, exists, err := r.Firewall.ObserveOwner(ctx, plan)
+			if err != nil || !exists || latest.Handle != handle {
+				return fmt.Errorf("at delete: rule changed (present=%v handle=%d want %d): %v", exists, latest.Handle, handle, err)
+			}
+			return r.Firewall.Remove(ctx, plan, handle)
+		}); err != nil {
 			return fence(rep, "exact-handle delete: %v", err)
 		}
 	}

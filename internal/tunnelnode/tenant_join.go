@@ -179,7 +179,7 @@ func (m *Manager) CommitEXJoin(ctx context.Context, id, reply string) (string, s
 		RouteID: p.RouteID, Target: p.Target,
 	})
 	if err != nil {
-		_, _, _ = m.Rollback(ctx, id)
+		_, _ = m.Rollback(ctx, id)
 		return "", "", err
 	}
 	// Reuse the same durable before-images for normal tunnel rollback, and

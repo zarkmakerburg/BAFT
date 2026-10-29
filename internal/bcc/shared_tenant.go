@@ -151,7 +151,7 @@ func (s *Store) ReconcileSharedTenantMutationAcks(now time.Time) error {
 			!validSHA256Digest(ev.AfterConfigSHA) || !validSHA256Digest(ev.AfterUnitSHA) || !validSHA256Digest(ev.AfterMarkerSHA) {
 			return fmt.Errorf("tenant mutation job %s receipt does not match the signed request", job.ID)
 		}
-		if digests.Config != ev.BeforeConfigSHA || digests.Marker != ev.BeforeMarkerSHA {
+		if digests.Config != ev.BeforeConfigSHA || digests.Unit != ev.BeforeUnitSHA || digests.Marker != ev.BeforeMarkerSHA {
 			return fmt.Errorf("tenant mutation job %s pre-change digests no longer match BCC state", job.ID)
 		}
 		if t.ObservedGen[t.EXNode]+1 != ev.Generation {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/zarkmakerburg/baft/internal/config"
@@ -68,6 +69,16 @@ func TestApplyTenantMutationAddsAndRemovesWithDigestFence(t *testing.T) {
 	cfg, cfgSHA, unitSHA, markerSHA = readProof()
 	if cfg.Noise.AllowedPeerPublicKeys[peerID] != publicKey {
 		t.Fatal("tenant key not present in live config")
+	}
+markerBytes, err := os.ReadFile(p.ex.markerPath())
+	if err != nil { t.Fatal(err) }
+	var markerAfterAdd Marker
+	if err := json.Unmarshal(markerBytes, &markerAfterAdd); err != nil { t.Fatal(err) }
+	unitBytes, err := os.ReadFile(p.ex.unitPath())
+	if err != nil { t.Fatal(err) }
+	if markerAfterAdd.Generation != 2 || markerAfterAdd.UnitSHA256 != shaHex(unitBytes) ||
+		!strings.Contains(string(unitBytes), "# baft-generation: 2") {
+		t.Fatalf("unit and ownership marker generation did not advance together: marker=%+v", markerAfterAdd)
 	}
 	remove := TenantMutation{
 		ID: "tenant-remove-1", Operation: "remove", NodeID: cfg.Node.ID, Listen: cfg.Server.Listen,

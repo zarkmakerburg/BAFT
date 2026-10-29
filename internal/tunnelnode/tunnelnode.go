@@ -535,7 +535,7 @@ func (m *Manager) begin(id, role string) (Txn, error) {
 		}
 	}
 	if existing, err := m.readTxn(id); err == nil && existing.JoinOwnerID != "" {
-		return ev, errors.New("shared tenant must be removed without retiring its physical listener")
+		return Txn{}, errors.New("shared tenant must be removed without retiring its physical listener")
 	}
 	if rid := m.rotationInProgress(); rid != "" {
 		return Txn{}, fmt.Errorf("certificate rotation %s is in progress on this node", rid)

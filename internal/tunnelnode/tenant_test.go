@@ -58,9 +58,27 @@ func TestApplyTenantMutationAddsAndRemovesWithDigestFence(t *testing.T) {
 		ExpectedConfigSHA256: cfgSHA, ExpectedUnitSHA256: unitSHA, ExpectedMarkerSHA256: markerSHA,
 		PeerID: peerID, PeerPublicKey: publicKey, RouteID: p.exp.RouteID, Target: "127.0.0.1:2444",
 	}
+	p.ex.host.mu.Lock()
+	callsBeforeMutation := len(p.ex.host.calls)
+	p.ex.host.mu.Unlock()
 	ev, err := p.ex.ApplyTenantMutation(context.Background(), add)
 	if err != nil {
 		t.Fatalf("add tenant: %v", err)
+	}
+	p.ex.host.mu.Lock()
+	mutationCalls := append([]string(nil), p.ex.host.calls[callsBeforeMutation:]...)
+	p.ex.host.mu.Unlock()
+	sawLiveReload := false
+	for _, call := range mutationCalls {
+		if strings.HasPrefix(call, "reload ") {
+			sawLiveReload = true
+		}
+		if strings.HasPrefix(call, "restart ") {
+			t.Fatalf("tenant add restarted the shared listener, interrupting existing tenants: calls=%v", mutationCalls)
+		}
+	}
+	if !sawLiveReload {
+		t.Fatalf("tenant add did not request a live listener reload: calls=%v", mutationCalls)
 	}
 	retry, err := p.ex.ApplyTenantMutation(context.Background(), add)
 	if err != nil || retry != ev {

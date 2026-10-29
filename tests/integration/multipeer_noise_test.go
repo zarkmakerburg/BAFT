@@ -141,6 +141,10 @@ func TestNoiseListenerAcceptsAndSeparatesTwoIRPeers(t *testing.T) {
 	}
 	ir1 := makeIR("ir-master", ir1Path, reserveAddress(t), reserveAddress(t))
 	ir2 := makeIR("ir-worker", ir2Path, reserveAddress(t), reserveAddress(t))
+	// The EX tenant route is named service-worker; bind the worker IR to that
+	// exact route identity rather than the example config default.
+	ir2.Routes[0].ID = "service-worker"
+	ir2.Routes[0].RemoteRoute = "service-worker"
 	if err := config.Validate(ex); err != nil {
 		t.Fatalf("initial EX config: %v", err)
 	}

@@ -198,7 +198,7 @@ func (a *Agent) tunnel(ctx context.Context, j agentjob.Job) (string, string, err
 func exParams(p map[string]string, port int) tunnelnode.ExParams {
 	return tunnelnode.ExParams{
 		PublicAddress: p["public_address"], Port: port, Target: p["target"],
-		RouteID: p["route_id"], RecordShaping: p["record_shaping"] == "true", MetricsListen: p["metrics_listen"],
+		RouteID: p["route_id"], RecordShaping: p["record_shaping"] == "true", MetricsListen: p["metrics_listen"], JoinOwnerID: p["join_owner_id"],
 	}
 }
 

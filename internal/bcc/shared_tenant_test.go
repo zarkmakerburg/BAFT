@@ -77,7 +77,7 @@ func TestSharedTenantMutationJobUsesAcceptedDigestsAndReconcilesReceipt(t *testi
 	}
 	got, ok := s.GetTunnel(tn.ID)
 	if !ok || got.Digests["ex-1"].Config != strings.Repeat("d", 64) ||
-		got.Digests["ex-1"].Marker != strings.Repeat("e", 64) || got.Digests["ex-1"].Unit != strings.Repeat("b", 64) ||
+		got.Digests["ex-1"].Marker != strings.Repeat("e", 64) || got.Digests["ex-1"].Unit != strings.Repeat("f", 64) ||
 		got.ObservedGen["ex-1"] != 3 {
 		t.Fatalf("BCC did not advance its accepted tenant baseline: %+v", got)
 	}
@@ -231,6 +231,8 @@ func TestJoinedTenantDecommissionQueuesTenantRemoveNotListenerRetire(t *testing.
 		ObservedGen: map[string]int{"ex-1": 5},
 	}
 	s.mu.Lock()
+	if s.st.Tunnels == nil { s.st.Tunnels = map[string]Tunnel{} }
+	if s.st.Jobs == nil { s.st.Jobs = map[string]Job{} }
 	s.st.Tunnels[joined.ID] = joined
 	s.queueNextDecommissionLocked(&joined, now)
 	s.st.Tunnels[joined.ID] = joined

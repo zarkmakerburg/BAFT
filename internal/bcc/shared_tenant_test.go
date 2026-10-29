@@ -174,6 +174,12 @@ func TestExplicitSharedJoinQueuesPrepareOnExistingOwner(t *testing.T) {
 		owner.IRNode: {Config: strings.Repeat("d", 64), Unit: strings.Repeat("e", 64), Marker: strings.Repeat("f", 64)},
 	}
 	owner.ObservedGen = map[string]int{owner.EXNode: 1, owner.IRNode: 1}
+	exNode := s.st.Nodes[owner.EXNode]
+	exNode.AppliedGeneration = 1
+	s.st.Nodes[owner.EXNode] = exNode
+	irNode := s.st.Nodes[owner.IRNode]
+	irNode.AppliedGeneration = 1
+	s.st.Nodes[owner.IRNode] = irNode
 	s.st.Tunnels[owner.ID] = owner
 	if err := s.saveLocked(); err != nil {
 		s.mu.Unlock()

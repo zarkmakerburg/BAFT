@@ -179,7 +179,7 @@ func (m *Manager) CommitEXJoin(ctx context.Context, id, reply string) (string, s
 		RouteID: p.RouteID, Target: p.Target,
 	})
 	if err != nil {
-		_, _ = m.Rollback(ctx, id)
+		_, _, _ = m.Rollback(ctx, id)
 		return "", "", err
 	}
 	// Reuse the same durable before-images for normal tunnel rollback, and
@@ -220,7 +220,7 @@ func (m *Manager) CommitEXJoin(ctx context.Context, id, reply string) (string, s
 		current.WasEnabled = true
 	}
 	current.Generation, current.PreviousGeneration = ev.Generation, ev.Generation-1
-	current.InstalledConfigSHA, current.InstalledUnitSHA, current.InstalledMarkerSHA = ev.ConfigSHA256, ev.UnitSHA256, ev.MarkerSHA256
+	current.InstalledConfigSHA, current.InstalledUnitSHA, current.InstalledMarkerSHA = ev.AfterConfigSHA, ev.AfterUnitSHA, ev.AfterMarkerSHA
 	current.ConfigWritten, current.UnitChanged = true, true
 	current.PeerID, current.PeerPublicKey = peerID, peerKey
 	current.TenantRouteID, current.TenantTarget = p.RouteID, p.Target

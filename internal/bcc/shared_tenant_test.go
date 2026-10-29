@@ -49,7 +49,7 @@ func TestSharedTenantMutationJobUsesAcceptedDigestsAndReconcilesReceipt(t *testi
 	}
 	if job.Type != agentjob.ActionTunnelTenantAdd ||
 		job.Params["config_sha256"] != strings.Repeat("a", 64) ||
-		job.Params["marker_sha256"] != strings.Repeat("c", 64) ||
+		job.Params["unit_sha256"] != strings.Repeat("b", 64) || job.Params["marker_sha256"] != strings.Repeat("c", 64) ||
 		job.Params["target"] != req.Target {
 		t.Fatalf("job was not bound to accepted evidence: %+v", job)
 	}
@@ -60,6 +60,7 @@ func TestSharedTenantMutationJobUsesAcceptedDigestsAndReconcilesReceipt(t *testi
 	ev := tunnelnode.TenantMutationEvidence{
 		ID: job.Params["mutation_id"], Operation: "add", NodeID: req.NodeID, Generation: 3,
 		BeforeConfigSHA: strings.Repeat("a", 64), AfterConfigSHA: strings.Repeat("d", 64),
+		BeforeUnitSHA: strings.Repeat("b", 64), AfterUnitSHA: strings.Repeat("f", 64),
 		BeforeMarkerSHA: strings.Repeat("c", 64), AfterMarkerSHA: strings.Repeat("e", 64),
 	}
 	output, err := json.Marshal(ev)

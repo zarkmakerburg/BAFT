@@ -104,6 +104,10 @@ func (s *Store) buildDecommissionPlanLocked(id string, now time.Time) (Decommiss
 			continue
 		}
 		if t.JoinOwnerID != "" && (otherID == t.JoinOwnerID || other.JoinOwnerID == t.JoinOwnerID) {
+			if !terminalTunnel(other.Phase) {
+				conflict = fmt.Sprintf("shared owner/tenant %s is %s; finish that operation before decommissioning another tenant", other.ID, other.Phase)
+				break
+			}
 			continue
 		}
 		if t.JoinOwnerID == "" && other.JoinOwnerID == t.ID && other.Phase == TunnelActive {

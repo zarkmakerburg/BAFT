@@ -553,3 +553,59 @@ func TestSharedJoinAddsNewPeerWithoutChangingLegacyOwner(t *testing.T) {
 		t.Fatalf("finalize new IR: %v", err)
 	}
 }
+
+
+func TestRollbackCommittedTenantMutationRestoresOwnerBeforeImage(t *testing.T) {
+	p := newPair(t)
+	p.build(t, "tenant-rollback")
+	for _, n := range []*node{p.ex, p.ir} {
+		if _, err := n.Finalize(context.Background(), "tenant-rollback"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	key, err := securityinternal.GenerateKeyPair()
+	if err != nil { t.Fatal(err) }
+	publicKey, err := securityinternal.EncodePublicKey(key.Public)
+	if err != nil { t.Fatal(err) }
+	cfg, err := config.LoadFile(p.ex.liveConfig())
+	if err != nil { t.Fatal(err) }
+	cfgBytes, err := os.ReadFile(p.ex.liveConfig())
+	if err != nil { t.Fatal(err) }
+	unitBytes, err := os.ReadFile(p.ex.unitPath())
+	if err != nil { t.Fatal(err) }
+	markerBytes, err := os.ReadFile(p.ex.markerPath())
+	if err != nil { t.Fatal(err) }
+	peerID := "urn:baft:node:tenant-rollback-new"
+	_, err = p.ex.ApplyTenantMutation(context.Background(), TenantMutation{
+		ID: "tenant-rollback-mutation", Operation: "add", ExpectedOwnerTunnelID: "tenant-rollback",
+		NodeID: cfg.Node.ID, Listen: cfg.Server.Listen, ExpectedConfigSHA256: shaHex(cfgBytes),
+		ExpectedUnitSHA256: shaHex(unitBytes), ExpectedMarkerSHA256: shaHex(markerBytes),
+		PeerID: peerID, PeerPublicKey: publicKey, RouteID: p.exp.RouteID, Target: "127.0.0.1:2444",
+	})
+	if err != nil { t.Fatalf("apply tenant mutation: %v", err) }
+	if err := p.ex.RollbackTenantMutation(context.Background(), "tenant-rollback-mutation"); err != nil {
+		t.Fatalf("rollback committed tenant mutation: %v", err)
+	}
+	restored, err := config.LoadFile(p.ex.liveConfig())
+	if err != nil { t.Fatal(err) }
+	if _, exists := restored.Noise.AllowedPeerPublicKeys[peerID]; exists {
+		t.Fatal("tenant peer remains after explicit rollback")
+	}
+	restoredConfig, err := os.ReadFile(p.ex.liveConfig())
+	if err != nil { t.Fatal(err) }
+	restoredUnit, err := os.ReadFile(p.ex.unitPath())
+	if err != nil { t.Fatal(err) }
+	restoredMarker, err := os.ReadFile(p.ex.markerPath())
+	if err != nil { t.Fatal(err) }
+	if shaHex(restoredConfig) != shaHex(cfgBytes) || shaHex(restoredUnit) != shaHex(unitBytes) ||
+		shaHex(restoredMarker) != shaHex(markerBytes) || p.ex.readGeneration() != 1 {
+		t.Fatal("explicit rollback did not restore the exact owner before-image")
+	}
+	journalBytes, err := os.ReadFile(p.ex.tenantMutationPath("tenant-rollback-mutation"))
+	if err != nil { t.Fatal(err) }
+	var journal tenantMutationJournal
+	if err := json.Unmarshal(journalBytes, &journal); err != nil { t.Fatal(err) }
+	if journal.Phase != "rolled_back" {
+		t.Fatalf("mutation journal phase = %q, want rolled_back", journal.Phase)
+	}
+}

@@ -134,15 +134,11 @@ func TestSharedTenantMutationHTTPQueuesAuditedJob(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	body, err := json.Marshal(SharedTenantMutationRequest{
+	req := authReq(http.MethodPost, "/api/tunnels/tenant", "admin", SharedTenantMutationRequest{
 		TunnelID: tn.ID, Operation: "add", NodeID: "ex-config-id", Listen: "0.0.0.0:443",
 		PeerID: "urn:baft:node:ir-new", PeerPublicKey: strings.Repeat("A", 43),
 		RouteID: "port-443", Target: "127.0.0.1:9003",
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	req := authReq(http.MethodPost, "/api/tunnels/tenant", "admin", body)
 	rr := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rr, req)
 	if rr.Code != http.StatusAccepted {

@@ -149,7 +149,7 @@ func (s *Store) ReconcileSharedTenantMutationAcks(now time.Time) error {
 		if !ok {
 			return fmt.Errorf("tenant mutation job %s refers to a missing tunnel", job.ID)
 		}
-		if job.Type == agentjob.ActionTunnelTenantRemove && t.Phase == TunnelDecommissioningEX {
+		if job.Type == agentjob.ActionTunnelTenantRemove && t.JoinOwnerID != "" && t.Phase != TunnelActive {
 			continue // the decommission state machine verifies and adopts this receipt
 		}
 		if t.Phase != TunnelActive {

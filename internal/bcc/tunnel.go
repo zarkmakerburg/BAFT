@@ -72,6 +72,9 @@ const (
 type Tunnel struct {
 	ID              string `json:"id"`
 	InstanceID      string `json:"instance_id,omitempty"`
+	JoinOwnerID     string `json:"join_owner_id,omitempty"`
+	PeerID          string `json:"peer_id,omitempty"`
+	PeerPublicKey   string `json:"peer_public_key,omitempty"`
 	TopologyKey     string `json:"topology_key,omitempty"`
 	EXNode          string `json:"ex_node"`
 	IRNode          string `json:"ir_node"`
@@ -150,6 +153,8 @@ type TunnelRequest struct {
 	// Planned/unknown engines must fail closed in both plan and deploy.
 	Engine     string `json:"engine,omitempty"`
 	InstanceID string `json:"instance_id,omitempty"`
+	// JoinExistingTunnelID opts into joining a specific active EX listener instead of creating a new listener.
+	JoinExistingTunnelID string `json:"join_existing_tunnel_id,omitempty"`
 	// Explicit opt-in to an independent scoped tunnel alongside an active legacy
 	// singleton. The old tunnel stays untouched, with no implicit migration.
 	AllowLegacyCoexistence bool   `json:"allow_legacy_coexistence,omitempty"`
@@ -339,7 +344,7 @@ func (s *Store) resolveTunnelLocked(req TunnelRequest, now time.Time) (Tunnel, N
 		return Tunnel{}, Node{}, Node{}, errors.New("a revoked node cannot be part of a tunnel")
 	}
 	t := Tunnel{
-		ID: newTunnelID(), InstanceID: strings.TrimSpace(req.InstanceID), EXNode: req.EXNode, IRNode: req.IRNode,
+		ID: newTunnelID(), InstanceID: strings.TrimSpace(req.InstanceID), JoinOwnerID: strings.TrimSpace(req.JoinExistingTunnelID), EXNode: req.EXNode, IRNode: req.IRNode,
 		PublicAddress: req.PublicAddress, Port: req.Port, ClientPort: req.ClientPort, Target: req.Target, RouteID: req.RouteID, RouteListen: req.RouteListen,
 		EXMetricsListen: req.EXMetricsListen, IRMetricsListen: req.IRMetricsListen, RecordShaping: req.RecordShaping,
 		CreatedAt: now.UTC(), UpdatedAt: now.UTC(),

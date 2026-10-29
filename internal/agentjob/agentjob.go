@@ -112,7 +112,236 @@ var (
 	pairCodeRe      = regexp.MustCompile(`^BAFTPAIR1:[A-Za-z0-9_-]{16,}$`)
 	replyCodeRe     = regexp.MustCompile(`^BAFTREPLY1:[A-Za-z0-9_-]{16,}$`)
 	epochRe         = regexp.MustCompile(`^[1-9][0-9]{0,8}$`)
-	sha256Re        = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	sha256Re        = regexp.MustCompile(`^[0-9a-f]{64}// Package agentjob defines the jobs BCC hands to node agents and how an
+// agent decides to run one (Launch-1 P1-D).
+//
+// BCC signs every job with its job-signing Ed25519 key; an agent pins that
+// public key at enrollment. An agent runs a job only if the signature
+// verifies against the pinned key, the job names this node, the action is on
+// the fixed allowlist with valid parameters, the job is inside its short
+// validity window, and its ID has not been seen before. There is no shell or
+// free-form command action: a compromised BCC can only ask for allowlisted
+// operations, and nobody else can ask for anything.
+package agentjob
+
+import (
+	"bytes"
+	"crypto/ed25519"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"regexp"
+	"sort"
+	"strconv"
+	"time"
+
+	"github.com/zarkmakerburg/baft/internal/release"
+)
+
+const (
+	PayloadType   = "application/vnd.baft.agent-job+json"
+	SchemaVersion = 1
+	// MaxLifetime bounds how long a signed job stays runnable.
+	MaxLifetime = 24 * time.Hour
+	// ClockSkew tolerates an agent clock slightly behind BCC's.
+	ClockSkew = 5 * time.Minute
+	// maxParamLen bounds any one parameter (pairing codes are the largest).
+	maxParamLen = 8192
+)
+
+// Actions an agent can run. Anything else is refused.
+const (
+	ActionHealth     = "health"
+	ActionRestart    = "restart"
+	ActionReload     = "reload"
+	ActionUpdateBAFT = "update_baft"
+
+	ActionSSHMigrationStage    = "ssh_migrate_stage"
+	ActionSSHMigrationCommit   = "ssh_migrate_commit"
+	ActionSSHMigrationRollback = "ssh_migrate_rollback"
+
+	ActionPathProbeInventory = "path_probe_inventory"
+	ActionPathProbeListen    = "path_probe_listen"
+	ActionPathProbeRun       = "path_probe_run"
+	ActionPathProbeStop      = "path_probe_stop"
+
+	// Tunnel changes (P1-E). prepare stages, commit installs, health checks,
+	// finalize makes permanent, rollback restores the previous state.
+	ActionTunnelPrepareEX = "tunnel_prepare_ex"
+	ActionTunnelPrepareIR = "tunnel_prepare_ir"
+	ActionTunnelCommitEX  = "tunnel_commit_ex"
+	ActionTunnelCommitIR  = "tunnel_commit_ir"
+	ActionTunnelHealth    = "tunnel_health"
+	ActionTunnelObserve   = "tunnel_observe"
+	ActionTunnelInspect   = "tunnel_inspect"
+	// ActionTunnelDiscover is a read-only inventory of the BAFT units on a node.
+	ActionTunnelDiscover = "tunnel_discover"
+	ActionTunnelFinalize = "tunnel_finalize"
+	ActionTunnelRollback = "tunnel_rollback"
+	// ActionTunnelRetire removes one finalized BAFT-owned instance only when
+	// BCC-provided generation and live file digests still match.
+	ActionTunnelRetire = "tunnel_retire"
+	ActionTunnelTenantAdd    = "tunnel_tenant_add"
+	ActionTunnelTenantRemove = "tunnel_tenant_remove"
+
+	// P0 host observation is read-only. Prepare writes only private manifest
+	// bytes; listener/firewall application needs a separate owned-resource path.
+	ActionPublicIngressPreflight = "public_ingress_preflight"
+	// Read-only bounded host snapshot; this does not establish resource ownership.
+	ActionPublicIngressInspect = "public_ingress_inspect"
+	// Writes only a private prepared manifest; it does not bind or open firewall.
+	ActionPublicIngressPrepare = "public_ingress_prepare"
+	// Fences generation 1 in the private manifest store; no host listener or firewall changes.
+	ActionPublicIngressCancel = "public_ingress_cancel"
+	ActionPublicIngressApply  = "public_ingress_apply"
+	ActionPublicIngressRetire = "public_ingress_retire"
+
+	// Certificate rotation of a built tunnel (A4 Stage F). Only public
+	// certificates and digests travel in parameters; new private keys never
+	// leave the EX.
+	ActionCertPrepareEX  = "tunnel_cert_prepare_ex"
+	ActionCertTrustIR    = "tunnel_cert_trust_ir"
+	ActionCertVerifyEX   = "tunnel_cert_verify_ex"
+	ActionCertVerifyIR   = "tunnel_cert_verify_ir"
+	ActionCertActivateEX = "tunnel_cert_activate_ex"
+	ActionCertConfirmIR  = "tunnel_cert_confirm_ir"
+	ActionCertRetireIR   = "tunnel_cert_retire_ir"
+	ActionCertRetireEX   = "tunnel_cert_retire_ex"
+	ActionCertRollback   = "tunnel_cert_rollback"
+)
+
+var (
+	idRe      = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
+	versionRe = regexp.MustCompile(`^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$`)
+
+	tunnelIDRe      = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
+	instanceIDRe    = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$`)
+	addressRe       = regexp.MustCompile(`^[A-Za-z0-9]([A-Za-z0-9.:-]{0,251}[A-Za-z0-9])?$`)
+	portRe          = regexp.MustCompile(`^[0-9]{1,5}$`)
+	fixedTargetR    = regexp.MustCompile(`^(([0-9]{1,3}\.){3}[0-9]{1,3}|\[[0-9A-Fa-f:]+\]):[0-9]{1,5}$`)
+	loopbackListenR = regexp.MustCompile(`^(127\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}|\[::1\]):[0-9]{1,5}$`)
+	boolRe          = regexp.MustCompile(`^(true|false)$`)
+	pairCodeRe      = regexp.MustCompile(`^BAFTPAIR1:[A-Za-z0-9_-]{16,}$`)
+	replyCodeRe     = regexp.MustCompile(`^BAFTREPLY1:[A-Za-z0-9_-]{16,}$`)
+	epochRe         = regexp.MustCompile(`^[1-9][0-9]{0,8}$`)
+)
+	noisePublicKeyRe = regexp.MustCompile(`^[A-Za-z0-9_-]{43}// Package agentjob defines the jobs BCC hands to node agents and how an
+// agent decides to run one (Launch-1 P1-D).
+//
+// BCC signs every job with its job-signing Ed25519 key; an agent pins that
+// public key at enrollment. An agent runs a job only if the signature
+// verifies against the pinned key, the job names this node, the action is on
+// the fixed allowlist with valid parameters, the job is inside its short
+// validity window, and its ID has not been seen before. There is no shell or
+// free-form command action: a compromised BCC can only ask for allowlisted
+// operations, and nobody else can ask for anything.
+package agentjob
+
+import (
+	"bytes"
+	"crypto/ed25519"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"regexp"
+	"sort"
+	"strconv"
+	"time"
+
+	"github.com/zarkmakerburg/baft/internal/release"
+)
+
+const (
+	PayloadType   = "application/vnd.baft.agent-job+json"
+	SchemaVersion = 1
+	// MaxLifetime bounds how long a signed job stays runnable.
+	MaxLifetime = 24 * time.Hour
+	// ClockSkew tolerates an agent clock slightly behind BCC's.
+	ClockSkew = 5 * time.Minute
+	// maxParamLen bounds any one parameter (pairing codes are the largest).
+	maxParamLen = 8192
+)
+
+// Actions an agent can run. Anything else is refused.
+const (
+	ActionHealth     = "health"
+	ActionRestart    = "restart"
+	ActionReload     = "reload"
+	ActionUpdateBAFT = "update_baft"
+
+	ActionSSHMigrationStage    = "ssh_migrate_stage"
+	ActionSSHMigrationCommit   = "ssh_migrate_commit"
+	ActionSSHMigrationRollback = "ssh_migrate_rollback"
+
+	ActionPathProbeInventory = "path_probe_inventory"
+	ActionPathProbeListen    = "path_probe_listen"
+	ActionPathProbeRun       = "path_probe_run"
+	ActionPathProbeStop      = "path_probe_stop"
+
+	// Tunnel changes (P1-E). prepare stages, commit installs, health checks,
+	// finalize makes permanent, rollback restores the previous state.
+	ActionTunnelPrepareEX = "tunnel_prepare_ex"
+	ActionTunnelPrepareIR = "tunnel_prepare_ir"
+	ActionTunnelCommitEX  = "tunnel_commit_ex"
+	ActionTunnelCommitIR  = "tunnel_commit_ir"
+	ActionTunnelHealth    = "tunnel_health"
+	ActionTunnelObserve   = "tunnel_observe"
+	ActionTunnelInspect   = "tunnel_inspect"
+	// ActionTunnelDiscover is a read-only inventory of the BAFT units on a node.
+	ActionTunnelDiscover = "tunnel_discover"
+	ActionTunnelFinalize = "tunnel_finalize"
+	ActionTunnelRollback = "tunnel_rollback"
+	// ActionTunnelRetire removes one finalized BAFT-owned instance only when
+	// BCC-provided generation and live file digests still match.
+	ActionTunnelRetire = "tunnel_retire"
+	ActionTunnelTenantAdd    = "tunnel_tenant_add"
+	ActionTunnelTenantRemove = "tunnel_tenant_remove"
+
+	// P0 host observation is read-only. Prepare writes only private manifest
+	// bytes; listener/firewall application needs a separate owned-resource path.
+	ActionPublicIngressPreflight = "public_ingress_preflight"
+	// Read-only bounded host snapshot; this does not establish resource ownership.
+	ActionPublicIngressInspect = "public_ingress_inspect"
+	// Writes only a private prepared manifest; it does not bind or open firewall.
+	ActionPublicIngressPrepare = "public_ingress_prepare"
+	// Fences generation 1 in the private manifest store; no host listener or firewall changes.
+	ActionPublicIngressCancel = "public_ingress_cancel"
+	ActionPublicIngressApply  = "public_ingress_apply"
+	ActionPublicIngressRetire = "public_ingress_retire"
+
+	// Certificate rotation of a built tunnel (A4 Stage F). Only public
+	// certificates and digests travel in parameters; new private keys never
+	// leave the EX.
+	ActionCertPrepareEX  = "tunnel_cert_prepare_ex"
+	ActionCertTrustIR    = "tunnel_cert_trust_ir"
+	ActionCertVerifyEX   = "tunnel_cert_verify_ex"
+	ActionCertVerifyIR   = "tunnel_cert_verify_ir"
+	ActionCertActivateEX = "tunnel_cert_activate_ex"
+	ActionCertConfirmIR  = "tunnel_cert_confirm_ir"
+	ActionCertRetireIR   = "tunnel_cert_retire_ir"
+	ActionCertRetireEX   = "tunnel_cert_retire_ex"
+	ActionCertRollback   = "tunnel_cert_rollback"
+)
+
+var (
+	idRe      = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
+	versionRe = regexp.MustCompile(`^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$`)
+
+	tunnelIDRe      = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
+	instanceIDRe    = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$`)
+	addressRe       = regexp.MustCompile(`^[A-Za-z0-9]([A-Za-z0-9.:-]{0,251}[A-Za-z0-9])?$`)
+	portRe          = regexp.MustCompile(`^[0-9]{1,5}$`)
+	fixedTargetR    = regexp.MustCompile(`^(([0-9]{1,3}\.){3}[0-9]{1,3}|\[[0-9A-Fa-f:]+\]):[0-9]{1,5}$`)
+	loopbackListenR = regexp.MustCompile(`^(127\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}|\[::1\]):[0-9]{1,5}$`)
+	boolRe          = regexp.MustCompile(`^(true|false)$`)
+	pairCodeRe      = regexp.MustCompile(`^BAFTPAIR1:[A-Za-z0-9_-]{16,}$`)
+	replyCodeRe     = regexp.MustCompile(`^BAFTREPLY1:[A-Za-z0-9_-]{16,}$`)
+	epochRe         = regexp.MustCompile(`^[1-9][0-9]{0,8}$`)
+)
 	derB64Re        = regexp.MustCompile(`^[A-Za-z0-9_-]{64,}$`)
 	familyRe        = regexp.MustCompile(`^[46]$`)
 	probeSecondsRe  = regexp.MustCompile(`^(1[0-9]|[2-9][0-9]|1[01][0-9]|120)$`)

@@ -192,7 +192,7 @@ func (m *Manager) CommitEXJoin(ctx context.Context, id, reply string) (string, s
 				_ = m.rollbackTenantMutation(ctx, &j)
 			}
 		}
-		_ = m.Rollback(ctx, id)
+		_, _, _ = m.Rollback(ctx, id)
 	}
 	mutationDir := m.tenantMutationDir()
 	for source, dest := range map[string]string{

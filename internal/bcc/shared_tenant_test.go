@@ -205,3 +205,84 @@ func TestExplicitSharedJoinQueuesPrepareOnExistingOwner(t *testing.T) {
 		t.Fatalf("joined tunnel record lost its owner relationship: %+v", joined)
 	}
 }
+
+
+func TestJoinedTenantDecommissionQueuesTenantRemoveNotListenerRetire(t *testing.T) {
+	s := tunnelStore(t)
+	now := time.Now().UTC()
+	if _, err := s.UpsertNode(Node{ID: "ir-2", Address: "203.0.113.8:22", Role: "worker"}, "tok-ir-2"); err != nil {
+		t.Fatal(err)
+	}
+	joined := Tunnel{
+		ID: "tun-tenant-remove", JoinOwnerID: "tun-owner", InstanceID: "",
+		EXNode: "ex-1", IRNode: "ir-2", RouteID: "port-443",
+		EXConfigNodeID: "ex-config", EXListen: "0.0.0.0:8443",
+		PeerID: "urn:baft:node:ir-new", PeerPublicKey: strings.Repeat("A", 43),
+		DecommissionedNodes: map[string]bool{"ir-2": true},
+		Digests: map[string]NodeDigests{
+			"ex-1": {Config: strings.Repeat("a", 64), Unit: strings.Repeat("b", 64), Marker: strings.Repeat("c", 64)},
+		},
+		ObservedGen: map[string]int{"ex-1": 5},
+	}
+	s.mu.Lock()
+	s.st.Tunnels[joined.ID] = joined
+	s.queueNextDecommissionLocked(&joined, now)
+	s.st.Tunnels[joined.ID] = joined
+	job := s.st.Jobs[joined.JobID]
+	s.mu.Unlock()
+	if job.Type != agentjob.ActionTunnelTenantRemove || job.Params["owner_tunnel_id"] != joined.JoinOwnerID ||
+		job.Params["peer_id"] != joined.PeerID || job.Params["route_id"] != joined.RouteID ||
+		job.Params["target"] != "" || job.Params["unit_sha256"] != strings.Repeat("b", 64) {
+		t.Fatalf("joined tenant would retire the physical listener or lost proof: %+v", job)
+	}
+}
+
+func TestPhysicalOwnerCannotBeDecommissionedWhileTenantIsActive(t *testing.T) {
+	s := tunnelStore(t)
+	now := time.Now().UTC()
+	owner := newTunnel(t, s, now)
+	if _, err := s.UpsertNode(Node{ID: "ir-2", Address: "203.0.113.8:22", Role: "worker"}, "tok-ir-2"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AckJob("ex-1", "tok-ex-1", owner.Jobs[0], "failed", "fixture retired"); err != nil {
+		t.Fatal(err)
+	}
+	s.mu.Lock()
+	owner.Phase, owner.JobID = TunnelActive, ""
+	owner.Digests = map[string]NodeDigests{
+		"ex-1": {Config: strings.Repeat("a", 64), Unit: strings.Repeat("b", 64), Marker: strings.Repeat("c", 64)},
+		"ir-1": {Config: strings.Repeat("d", 64), Unit: strings.Repeat("e", 64), Marker: strings.Repeat("f", 64)},
+	}
+	owner.ObservedGen = map[string]int{"ex-1": 1, "ir-1": 1}
+	tenant := Tunnel{
+		ID: "tun-shared-tenant", JoinOwnerID: owner.ID, InstanceID: owner.InstanceID,
+		EXNode: owner.EXNode, IRNode: "ir-2", Phase: TunnelActive,
+		Digests: map[string]NodeDigests{"ex-1": owner.Digests["ex-1"]},
+		ObservedGen: map[string]int{"ex-1": 1},
+	}
+	s.st.Tunnels[owner.ID] = owner
+	s.st.Tunnels[tenant.ID] = tenant
+	for id, node := range s.st.Nodes {
+		node.AgentSeen = now
+		s.st.Nodes[id] = node
+	}
+	if err := s.saveLocked(); err != nil {
+		s.mu.Unlock()
+		t.Fatal(err)
+	}
+	s.mu.Unlock()
+	plan, err := s.BuildDecommissionPlan(owner.ID, now.Add(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.OK {
+		t.Fatalf("physical owner decommission must be blocked while a tenant remains: %+v", plan.Gates)
+	}
+	found := false
+	for _, gate := range plan.Gates {
+		if strings.Contains(gate.Detail, "shared tenant") && gate.Status == "FAIL" { found = true }
+	}
+	if !found {
+		t.Fatalf("missing explicit shared-tenant decommission gate: %+v", plan.Gates)
+	}
+}

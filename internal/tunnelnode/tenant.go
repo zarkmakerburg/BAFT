@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/zarkmakerburg/baft/internal/config"
 )
@@ -313,5 +312,3 @@ func (m *Manager) rollbackTenantMutation(ctx context.Context, j *tenantMutationJ
 	return writeJSON(m.tenantMutationPath(j.ID), j, 0600)
 }
 
-// Compile-time keepalive for the transaction timestamps used in audit receipts.
-var _ = time.Time{}

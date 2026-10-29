@@ -2,7 +2,7 @@
 
 # BAFT BCC Auto-Select: port and transport planning
 
-Status: implementation contract for `hq/auto-select`; design only until API/UI integration is reviewed. Base: `claude/v040-integration@28d5cd187542f269953acaa4f633d34b9890c978`. This document does not claim carrier support or censorship resistance beyond verified capability and path evidence.
+Status: implementation contract for `hq/auto-select`; design-only handoff, not proof of release acceptance. Reconciled against canonical `claude/v040-integration@231bbf622f40bbd2dce96b2a54cd18271131fd39` on 2026-10-29. This document does not claim carrier support or censorship resistance beyond verified capability and path evidence.
 
 Implementation status (2026-10-26):
 
@@ -112,6 +112,36 @@ English equivalents:
 - `Evidence or plan changed; review again before deploying`
 
 Maintain existing BCC behavior, accessible focus/keyboard behavior, FA/EN, RTL/LTR, dark/light, and mobile layout. Do not use color alone to communicate PASS/WARN/FAIL. Every block must explain what the user can do next.
+
+## Plan-bound evidence contract (P0 release gate)
+
+The current endpoint response is advisory and the current wizard clears the reviewed plan when the EX port changes. This is not enough to make Auto-select safe at Deploy. Implementation must preserve the following as a server-verified, immutable selection record attached to the reviewed plan; a browser-supplied digest or selected port is never authority.
+
+Required canonical record fields:
+- schema/version and selector implementation version;
+- source IR and destination EX stable node IDs, installed binary/version identities, authenticated capability-report IDs and timestamps;
+- ordered path pair, address family, probe IDs/timestamps/classes, byte ceiling, trickle result and relevant probe digest;
+- selected carrier/topology/initiator, selected EX transport port, public IR port, route listener and EX target mapping;
+- candidate set and deterministic rejected-reason codes (or a digest of the complete candidate decision payload);
+- port-ownership/reservation snapshot identity, owner IDs, and the exact policy/constraint inputs;
+- plan digest and creation time, plus an expiry no later than the shortest freshness bound among the referenced evidence.
+
+Review/Deploy protocol:
+1. The server creates the selection record from authenticated BCC/Agent state. The UI may display it but cannot construct or modify trusted fields.
+2. Review binds the record digest into the same canonical reviewed-plan digest that covers all mutations, resources, owners and rollback actions. Any change to a port, node, carrier, topology, constraint, target, policy, evidence ID or owner invalidates the review.
+3. Deploy reloads the server-side record and independently revalidates node identities/liveness, installed capability versions, path evidence freshness and pair/family, current port occupancy/ownership/reservations, and policy. It recomputes both selection and plan digests and requires exact equality with the reviewed values.
+4. If any input is stale, missing, changed, unknown, or no longer eligible, Deploy must refuse before the first side effect, return a stable typed refusal code, and require a new probe/selection/review. Never silently rerank to a new port/carrier under an old approval.
+5. Selection records are single-use for the associated plan/deploy attempt; retries must be idempotent and must not revive expired or superseded records. The audit trail records accepted/rejected digests and refusal reason without secrets.
+6. Tests must pause between Review and Deploy and mutate each bound dimension independently; every mutation must fail closed with zero host/service/firewall writes. Include parallel Deploy, replay, expiry, changed Agent binary/capabilities, changed probe pair/family, occupied port, ownership drift, policy change, and browser tampering cases.
+
+Minimum acceptance evidence:
+- unit/property tests for canonical serialization and deterministic digests;
+- endpoint tests proving caller-supplied evidence/digests are ignored or rejected;
+- BCC UI tests proving any manual edit invalidates review and stale selection requires re-review;
+- integration test with a barrier at Deploy showing evidence/ownership drift refuses before side effects;
+- exact-SHA CI plus a disposable-LAB run that records the tested SHA and confirms no skipped required case.
+
+This section is a contract only; implementation and exact-SHA test evidence are still required before the Auto-select P0 can be closed.
 
 ## Acceptance tests
 

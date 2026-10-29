@@ -109,9 +109,9 @@ func (s *Store) recordActiveTunnelChangesLocked(t *Tunnel, now time.Time) {
 	for _, node := range []string{t.IRNode, t.EXNode} {
 		d := t.Digests[node]
 		gen := t.ObservedGen[node]
-		before := ConfigSnapshot{Generation: gen - 1, InstanceID: t.InstanceID}
-		after := ConfigSnapshot{Generation: gen, ConfigSHA256: d.Config, UnitSHA256: d.Unit, MarkerSHA256: d.Marker, RouteID: t.RouteID, TunnelID: t.ID, InstanceID: t.InstanceID, Listeners: []string{fmt.Sprintf("%s:%d", t.PublicAddress, t.Port)}}
-		s.appendChangeLocked(ChangeRecord{At: now.UTC(), Actor: "bcc", PlanHash: t.PlanHash, NodeID: node, InstanceID: t.InstanceID, TunnelID: t.ID, RouteID: t.RouteID, JobIDs: append([]string(nil), t.Jobs...), Outcome: "APPLIED", Before: before, After: after})
+		before := ConfigSnapshot{Generation: gen - 1, InstanceID: t.instanceForNode(node)}
+		after := ConfigSnapshot{Generation: gen, ConfigSHA256: d.Config, UnitSHA256: d.Unit, MarkerSHA256: d.Marker, RouteID: t.RouteID, TunnelID: t.ID, InstanceID: t.instanceForNode(node), Listeners: []string{fmt.Sprintf("%s:%d", t.PublicAddress, t.Port)}}
+		s.appendChangeLocked(ChangeRecord{At: now.UTC(), Actor: "bcc", PlanHash: t.PlanHash, NodeID: node, InstanceID: t.instanceForNode(node), TunnelID: t.ID, RouteID: t.RouteID, JobIDs: append([]string(nil), t.Jobs...), Outcome: "APPLIED", Before: before, After: after})
 	}
 }
 func (s *Store) ListChangeRecords(node, tunnel string) []ChangeRecord {

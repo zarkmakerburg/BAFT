@@ -3,6 +3,7 @@ package ingressownership
 import (
 	"context"
 	"errors"
+	"runtime"
 	"testing"
 
 	"github.com/zarkmakerburg/baft/internal/ingressinventory"
@@ -12,6 +13,13 @@ import (
 // Actual socket lifecycle with injected nft/journal failure; this is a
 // classification test, not a positive normal signed operational Retire.
 func TestOperationalStoppedRetireClassificationRequiresPrivateExactEvidence(t *testing.T) {
+	// This recovery classification depends on the protected Linux collector's
+	// kernel TCP inode identity. Other kernels do not expose the same inode in
+	// the TCP inventory, so the positive same-process retry is verified by the
+	// Linux CI/LAB gate instead of being misreported as a code failure here.
+	if runtime.GOOS != "linux" {
+		t.Skip("requires Linux TCP socket inode evidence")
+	}
 	for _, fault := range []string{"delete", "journal"} {
 		t.Run(fault, func(t *testing.T) {
 			ctx := context.Background()

@@ -121,6 +121,80 @@ func TestAutoSelectWebSocketNeedsNoiseAndNeverDowngrades(t *testing.T) {
 	}
 }
 
+func TestAutoSelectEvidenceIsBoundAndRevalidated(t *testing.T) {
+	now := time.Date(2026, 10, 28, 12, 0, 0, 0, time.UTC)
+	s := autoSelectStore(t, now, fullCaps, fullCaps)
+	s.mu.Lock()
+	putTrickleProbe(s, "p443", 443, PathFullData, 30, now)
+	putTrickleProbe(s, "p8443", 8443, PathFullData, 12, now)
+	s.mu.Unlock()
+
+	selection, err := s.AutoSelectTransport(AutoSelectRequest{EXNode: "ex", IRNode: "ir", Family: "4", Carrier: "h2"}, now)
+	if err != nil || selection.Selected == nil {
+		t.Fatalf("auto-select failed: selection=%+v err=%v", selection, err)
+	}
+	evidence := *selection.Selected
+	req := TunnelRequest{EXNode: "ex", IRNode: "ir", Port: evidence.Port, AutoSelectEvidence: &evidence}
+	if err := s.validateAutoSelectEvidence(req, now); err != nil {
+		t.Fatalf("fresh selected evidence rejected: %v", err)
+	}
+
+	// A new heartbeat with unchanged capability values is still valid; the
+	// observation must be fresh, but ordinary polling must not invalidate a
+	// reviewed route by itself.
+	s.mu.Lock()
+	for _, id := range []string{"ir", "ex"} {
+		n := s.st.Nodes[id]
+		n.AgentSeen = now.Add(time.Second)
+		s.st.Nodes[id] = n
+	}
+	s.mu.Unlock()
+	if err := s.validateAutoSelectEvidence(req, now.Add(time.Second)); err != nil {
+		t.Fatalf("fresh unchanged capabilities should preserve the path choice: %v", err)
+	}
+
+	// The managed BCC tunnel transaction currently deploys H2 only; a WS
+	// probe cannot authorize a plan that will create an H2 listener.
+	wrongCarrier := req
+	wsEvidence := evidence
+	wsEvidence.CarrierID = "ws"
+	wrongCarrier.AutoSelectEvidence = &wsEvidence
+	if err := s.validateAutoSelectEvidence(wrongCarrier, now); err == nil {
+		t.Fatal("WebSocket path evidence authorized an H2 deployment")
+	}
+
+	// Evidence cannot be attached to another requested port or node pair.
+	mismatch := req
+	mismatch.Port++
+	if err := s.validateAutoSelectEvidence(mismatch, now); err == nil {
+		t.Fatal("evidence for one port authorized a different requested port")
+	}
+	mismatch = req
+	mismatch.EXNode = "another-ex"
+	if err := s.validateAutoSelectEvidence(mismatch, now); err == nil {
+		t.Fatal("evidence for one ordered node pair authorized another pair")
+	}
+
+	// A re-probe changes the evidence timestamp and RTT; the previous review
+	// binding must fail closed even if the port remains selectable.
+	s.mu.Lock()
+	putTrickleProbe(s, "p8443", 8443, PathFullData, 11, now.Add(time.Second))
+	s.mu.Unlock()
+	if err := s.validateAutoSelectEvidence(req, now.Add(time.Second)); err == nil {
+		t.Fatal("stale selection binding survived a changed path observation")
+	}
+
+	// Auto-select evidence is part of the immutable plan request/hash.
+	p1 := Plan{Request: req}
+	p2Req := req
+	changedEvidence := evidence
+	changedEvidence.ConnectRTTMS++
+	p2Req.AutoSelectEvidence = &changedEvidence
+	if planHash(Plan{Request: p2Req}) == planHash(p1) {
+		t.Fatal("plan hash ignored changed auto-select evidence")
+	}
+}
+
 func TestAutoSelectAPIIsAdminOnlyAndReadOnly(t *testing.T) {
 	f := newTunnelHTTPFixture(t)
 	req := AutoSelectRequest{EXNode: "ex", IRNode: "ir", Family: "4"}

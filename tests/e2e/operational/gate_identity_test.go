@@ -359,11 +359,32 @@ func TestOperationalIngressV1Gate_RefusesWrongEnrollment(t *testing.T) {
 		closed(name)
 		w.kill()
 	}
-	// 2. an enrolled Agent opens the gate; revoking the node closes it again,
-	//    stops job delivery and receipt acceptance.
+	// Wrong credentials never opened the gate or caused any host effect.
+	f.noEffects(t)
+	// 2. An enrolled Agent opens the gate. BCC may queue and deliver the held
+	// Apply in that very authenticated poll, so capture the resulting owned
+	// state before revocation rather than incorrectly expecting revocation to
+	// undo an operation already executed by the legitimate Agent.
 	f.a.openGate()
 	if err := f.b.store.EnqueueOperationalIngress(f.tn.ID); err != nil {
 		t.Fatalf("enrolled capable agent did not open the gate: %v", err)
+	}
+	res := f.a.runOnce()
+	if len(res) != 1 || res[0].Status != "succeeded" {
+		t.Fatalf("enrolled agent did not execute the released Apply: %+v", res)
+	}
+	if v := f.waitReady(t); !v.Ready || v.Card == nil {
+		t.Fatalf("authenticated Apply did not reach verified readiness: %+v", v)
+	}
+	ownedBeforeRevoke := f.h.chainJSON()
+	wantTag := tagOf(t, f.site)
+	hasOwnedRule := strings.Contains(ownedBeforeRevoke, wantTag)
+	listenerFree := portFree(f.port)
+	if !hasOwnedRule || listenerFree {
+		t.Fatalf("authenticated Apply did not establish exact owned ingress: hasOwnedRule=%v wantTag=%q listenerFree=%v port=%d chain=%s", hasOwnedRule, wantTag, listenerFree, f.port, ownedBeforeRevoke)
+	}
+	if err := roundTrip(t, f.addr(), []byte("before-revoke")); err != nil {
+		t.Fatalf("owned ingress not carrying bytes before revocation: %v", err)
 	}
 	if _, err := f.b.store.RevokeNode(irNode, "gate test", time.Now()); err != nil {
 		t.Fatal(err)
@@ -376,7 +397,9 @@ func TestOperationalIngressV1Gate_RefusesWrongEnrollment(t *testing.T) {
 	if st := f.b.postReceipt(nodeToken(irNode), rec); st != http.StatusUnauthorized {
 		t.Fatalf("revoked node recorded a receipt: %d", st)
 	}
-	f.noEffects(t)
+	if got := f.h.chainJSON(); got != ownedBeforeRevoke || portFree(f.port) {
+		t.Fatalf("revocation changed an already-applied ingress or added effects: before=%s after=%s", ownedBeforeRevoke, got)
+	}
 }
 
 func TestOperationalIngressV1Gate_RefusesWrongEnrollmentPinnedSigner(t *testing.T) {

@@ -21,10 +21,10 @@ func validatePersistedIngressOperations(st state) error {
 			return errors.New("persisted ingress operation has no reservation")
 		}
 		tunnel, ok := st.Tunnels[id]
-		if !ok || tunnel.IRNode != op.Spec.IRNode || tunnel.RouteListen != op.Spec.LocalTarget || !tunnelKeepsPorts(tunnel) {
+		if !ok || tunnel.IRNode != op.Spec.IRNode || tunnel.RouteListen != op.Spec.LocalTarget || !terminalTunnel(tunnel.Phase) || (op.ReviewedPlanHash != "" && tunnel.ClientPort != op.Spec.PublicPort) {
 			return errors.New("persisted ingress operation tunnel mismatch")
 		}
-		proof, err := ingressmanifest.Preview(publicIngressManifestSpec(op.Spec, tunnel.InstanceID, op.Proof.Generation))
+		proof, err := ingressmanifest.Preview(publicIngressManifestSpec(op.Spec, tunnel.instanceForNode(tunnel.IRNode), op.Proof.Generation))
 		if err != nil || proof.ManifestSHA256 != op.Proof.ManifestDigest {
 			return errors.New("persisted ingress manifest mismatch")
 		}
@@ -34,7 +34,7 @@ func validatePersistedIngressOperations(st state) error {
 			}
 			continue
 		}
-		if tunnel.Phase != TunnelActive || tunnel.PlanHash != op.ReviewedPlanHash || tunnel.ClientPort != op.Spec.PublicPort {
+		if !terminalTunnel(tunnel.Phase) || tunnel.PlanHash != op.ReviewedPlanHash || tunnel.ClientPort != op.Spec.PublicPort {
 			return errors.New("reviewed operation changed tunnel plan or client port")
 		}
 		if (op.OperationID == "") != (op.LeaseID == "") {
@@ -64,7 +64,7 @@ func validatePersistedIngressOperations(st state) error {
 			continue
 		}
 		cmd := *op.Command
-		if cmd.Action != "public_ingress_apply" || cmd.Validate(cmd.IssuedAt) != nil || cmd.Binding.OperationID != op.OperationID || cmd.Binding.LeaseID != op.LeaseID || cmd.Binding.PlanSHA256 != op.ReviewedPlanHash || cmd.Binding.NodeID != op.Spec.IRNode || int(cmd.Binding.Port) != op.Spec.PublicPort || int(cmd.Binding.ConfigPort) != op.Spec.PublicPort || cmd.Binding.Spec.TunnelID != id || cmd.Binding.Spec.InstanceID != tunnel.InstanceID || cmd.Binding.Spec.Generation != op.Proof.Generation || cmd.Binding.ListenerID != op.Proof.ListenerID || cmd.Binding.FirewallID != op.Proof.FirewallID || cmd.Binding.Proof != proof {
+		if cmd.Action != "public_ingress_apply" || cmd.Validate(cmd.IssuedAt) != nil || cmd.Binding.OperationID != op.OperationID || cmd.Binding.LeaseID != op.LeaseID || cmd.Binding.PlanSHA256 != op.ReviewedPlanHash || cmd.Binding.NodeID != op.Spec.IRNode || int(cmd.Binding.Port) != op.Spec.PublicPort || int(cmd.Binding.ConfigPort) != op.Spec.PublicPort || cmd.Binding.Spec.TunnelID != id || cmd.Binding.Spec.InstanceID != tunnel.instanceForNode(tunnel.IRNode) || cmd.Binding.Spec.Generation != op.Proof.Generation || cmd.Binding.ListenerID != op.Proof.ListenerID || cmd.Binding.FirewallID != op.Proof.FirewallID || cmd.Binding.Proof != proof {
 			return errors.New("staged command differs from persisted reviewed operation")
 		}
 		if previous := jobIDs[cmd.JobID]; previous != "" {

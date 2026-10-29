@@ -33,8 +33,8 @@ func (s *Store) CreatePublicIngressPrepare(tunnelID string, now time.Time, audit
 		"tunnel_id": tunnelID, "public_port": strconv.Itoa(op.Spec.PublicPort), "local_target": op.Spec.LocalTarget,
 		"generation": "1", "manifest_digest": op.Proof.ManifestDigest, "listener_id": op.Proof.ListenerID, "firewall_id": op.Proof.FirewallID,
 	}
-	if tunnel.InstanceID != "" {
-		params["instance_id"] = tunnel.InstanceID
+	if instance := tunnel.instanceForNode(tunnel.IRNode); instance != "" {
+		params["instance_id"] = instance
 	}
 	if err := (agentjob.Job{SchemaVersion: agentjob.SchemaVersion, JobID: "prepare-validation", NodeID: op.Spec.IRNode, Action: agentjob.ActionPublicIngressPrepare, Params: params, IssuedAt: now, ExpiresAt: now.Add(time.Minute)}).Validate(); err != nil {
 		return Job{}, err

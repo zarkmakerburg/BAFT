@@ -27,22 +27,24 @@ const (
 type DecommissionPlanNode struct {
 	NodeID     string      `json:"node_id"`
 	Role       string      `json:"role"`
+	InstanceID string      `json:"instance_id,omitempty"`
 	Generation int         `json:"generation"`
 	Digests    NodeDigests `json:"digests"`
 	Already    bool        `json:"already_decommissioned,omitempty"`
 }
 
 type DecommissionPlan struct {
-	Hash       string                 `json:"hash"`
-	OK         bool                   `json:"ok"`
-	TunnelID   string                 `json:"tunnel_id"`
-	InstanceID string                 `json:"instance_id,omitempty"`
-	Phase      string                 `json:"phase"`
-	Disruptive bool                   `json:"disruptive"`
-	Warning    string                 `json:"warning"`
-	Nodes      []DecommissionPlanNode `json:"nodes"`
-	Gates      []PlanGate             `json:"gates"`
-	Steps      []string               `json:"steps"`
+	Hash         string                 `json:"hash"`
+	OK           bool                   `json:"ok"`
+	TunnelID     string                 `json:"tunnel_id"`
+	InstanceID   string                 `json:"instance_id,omitempty"`
+	IRInstanceID string                 `json:"ir_instance_id,omitempty"`
+	Phase        string                 `json:"phase"`
+	Disruptive   bool                   `json:"disruptive"`
+	Warning      string                 `json:"warning"`
+	Nodes        []DecommissionPlanNode `json:"nodes"`
+	Gates        []PlanGate             `json:"gates"`
+	Steps        []string               `json:"steps"`
 }
 
 type ErrStaleDecommissionPlan struct{ Current DecommissionPlan }
@@ -74,7 +76,7 @@ func (s *Store) buildDecommissionPlanLocked(id string, now time.Time) (Decommiss
 		return DecommissionPlan{}, fmt.Errorf("tunnel is %s; only active or decommission_failed tunnels can be decommissioned", t.Phase)
 	}
 	p := DecommissionPlan{
-		TunnelID: t.ID, InstanceID: t.InstanceID, Phase: t.Phase, Disruptive: true,
+		TunnelID: t.ID, InstanceID: t.InstanceID, IRInstanceID: t.IRInstanceID, Phase: t.Phase, Disruptive: true,
 		Warning: "Decommission stops the selected IR route first. Existing flows on this tenant are not promised to survive.",
 		Steps: []string{
 			"verify the reviewed generation and BCC-held config/unit/marker digests",
@@ -160,7 +162,7 @@ func (s *Store) buildDecommissionPlanLocked(id string, now time.Time) (Decommiss
 		gen, gok := t.ObservedGen[spec.id]
 		d, dok := t.Digests[spec.id]
 		p.Nodes = append(p.Nodes, DecommissionPlanNode{
-			NodeID: spec.id, Role: spec.role, Generation: gen, Digests: d, Already: already,
+			NodeID: spec.id, Role: spec.role, InstanceID: t.instanceForNode(spec.id), Generation: gen, Digests: d, Already: already,
 		})
 		if already {
 			gate("managed proof: "+spec.id, "PASS", "this node already completed decommission in the recorded partial operation")
@@ -202,12 +204,13 @@ func decommissionPlanHash(p DecommissionPlan) string {
 		gates = append(gates, gate{g.Name, g.Status})
 	}
 	b, _ := json.Marshal(struct {
-		TunnelID   string
-		InstanceID string
-		Phase      string
-		Nodes      []DecommissionPlanNode
-		Gates      []gate
-	}{p.TunnelID, p.InstanceID, p.Phase, p.Nodes, gates})
+		TunnelID     string
+		InstanceID   string
+		IRInstanceID string
+		Phase        string
+		Nodes        []DecommissionPlanNode
+		Gates        []gate
+	}{p.TunnelID, p.InstanceID, p.IRInstanceID, p.Phase, p.Nodes, gates})
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:])
 }
@@ -311,8 +314,9 @@ func verifyRetireEvidence(t Tunnel, node string, ev tunnelnode.RetireEvidence) [
 	if ev.TunnelID != t.ID {
 		bad("retire evidence tunnel is %q, want %q", ev.TunnelID, t.ID)
 	}
-	if ev.Instance != t.InstanceID {
-		bad("retire evidence instance is %q, want %q", ev.Instance, t.InstanceID)
+	wantInstance := t.instanceForNode(node)
+	if ev.Instance != wantInstance {
+		bad("retire evidence instance is %q, want %q", ev.Instance, wantInstance)
 	}
 	wantGen, ok := t.ObservedGen[node]
 	if !ok || ev.After.NodeGeneration != wantGen {
@@ -423,14 +427,18 @@ func (s *Store) advanceSharedTenantRemovalLocked(t *Tunnel, j *Job, now time.Tim
 	s.st.Jobs[j.ID] = *j
 	t.Digests[t.EXNode] = NodeDigests{Config: ev.AfterConfigSHA, Unit: ev.AfterUnitSHA, Marker: ev.AfterMarkerSHA}
 	t.ObservedGen[t.EXNode] = ev.Generation
-	if t.ExpectedGen == nil { t.ExpectedGen = map[string]GenExpect{} }
+	if t.ExpectedGen == nil {
+		t.ExpectedGen = map[string]GenExpect{}
+	}
 	t.ExpectedGen[t.EXNode] = GenExpect{From: ev.Generation - 1, To: ev.Generation}
 	s.syncSharedTenantBaselineLocked(t.JoinOwnerID, *t, now)
 	if n, ok := s.st.Nodes[t.EXNode]; ok {
 		if t.InstanceID == "" {
 			n.AppliedGeneration = ev.Generation
 		} else {
-			if n.AppliedGenerations == nil { n.AppliedGenerations = map[string]int{} }
+			if n.AppliedGenerations == nil {
+				n.AppliedGenerations = map[string]int{}
+			}
 			n.AppliedGenerations[t.InstanceID] = ev.Generation
 		}
 		s.st.Nodes[t.EXNode] = n
@@ -439,7 +447,9 @@ func (s *Store) advanceSharedTenantRemovalLocked(t *Tunnel, j *Job, now time.Tim
 		Step: "tenant_remove", Node: j.NodeID, At: now, OK: true,
 		Detail: "selected authenticated tenant removed; shared EX listener preserved",
 	})
-	if t.DecommissionedNodes == nil { t.DecommissionedNodes = map[string]bool{} }
+	if t.DecommissionedNodes == nil {
+		t.DecommissionedNodes = map[string]bool{}
+	}
 	t.DecommissionedNodes[t.EXNode] = true
 	t.JobID = ""
 	s.queueNextDecommissionLocked(t, now)

@@ -128,6 +128,19 @@ func (f *effectLeaseFence) atEffect(ctx context.Context, pre func(context.Contex
 	})
 }
 
+// atRuntimeEffect fences listener creation and retirement with the same held
+// ingress lease used for nft effects. A successful pre-check alone is not
+// sufficient: Close/supersession must not interleave between authority check
+// and the socket mutation. ran distinguishes a refused effect from an effect
+// that ran but whose post-effect lease check failed.
+func (f *effectLeaseFence) atRuntimeEffect(ctx context.Context, effect func() error) (ran bool, err error) {
+	err = f.atEffect(ctx, func(ctx context.Context) error { return ctx.Err() }, func() error {
+		ran = true
+		return effect()
+	})
+	return ran, err
+}
+
 // installEvidence runs immediately before Firewall.Install: the only LISTEN
 // on the numeric port (both families) must be our exact journal+runtime inode.
 func (f *effectLeaseFence) installEvidence(ctx context.Context, t *NFTLabTransaction) error {
@@ -369,7 +382,11 @@ func (t *NFTLabTransaction) apply(ctx context.Context, spec ingressmanifest.Spec
 		if err := fence.check(ctx); err != nil {
 			return err
 		}
-		return t.Runtime.Apply(ctx, spec, proof)
+		ran, effectErr := fence.atRuntimeEffect(ctx, func() error { return t.Runtime.Apply(ctx, spec, proof) })
+		if !ran || effectErr != nil {
+			return effectErr
+		}
+		return nil
 	}
 	if found && (current.Owner != proof || current.Port != plan.Port || current.Phase != PhaseIntent) {
 		return ErrUnverified
@@ -383,8 +400,9 @@ func (t *NFTLabTransaction) apply(ctx context.Context, spec ingressmanifest.Spec
 	if err := fence.check(ctx); err != nil {
 		return err
 	}
-	if err := t.Runtime.Apply(ctx, spec, proof); err != nil {
-		return err
+	ran, effectErr := fence.atRuntimeEffect(ctx, func() error { return t.Runtime.Apply(ctx, spec, proof) })
+	if !ran || effectErr != nil {
+		return effectErr
 	}
 	record.Phase = PhaseListenerBound
 	if err := fence.check(ctx); err != nil {
@@ -400,7 +418,8 @@ func (t *NFTLabTransaction) apply(ctx context.Context, spec ingressmanifest.Spec
 				return errors.Join(err, leaseErr)
 			}
 		}
-		return errors.Join(err, t.Runtime.Retire(endpoint, proof))
+		_, cleanupErr := fence.atRuntimeEffect(ctx, func() error { return t.Runtime.Retire(endpoint, proof) })
+		return errors.Join(err, cleanupErr)
 	}
 	if err := ctx.Err(); err != nil {
 		if fence != nil {
@@ -428,8 +447,8 @@ func (t *NFTLabTransaction) apply(ctx context.Context, spec ingressmanifest.Spec
 			return errors.Join(cause, err)
 		}
 		inode, _ := t.ownedInode(endpoint, proof)
-		stopErr := t.Runtime.Retire(endpoint, proof)
-		if !listenerRetirementVerified(stopErr) {
+		retired, stopErr := fence.atRuntimeEffect(ctx, func() error { return t.Runtime.Retire(endpoint, proof) })
+		if !retired || !listenerRetirementVerified(stopErr) {
 			return errors.Join(cause, stopErr)
 		}
 		if observed.Handle == 0 {
@@ -610,8 +629,9 @@ func (t *NFTLabTransaction) retireLocked(ctx context.Context, spec ingressmanife
 		// Capture the exact kernel identity BEFORE closing so the later
 		// fenced nft Remove can prove that precise inode left the port.
 		inode, _ := t.ownedInode(spec.Config.Listen, proof)
-		retireErr = t.Runtime.Retire(spec.Config.Listen, proof)
-		if !listenerRetirementVerified(retireErr) {
+		retired, effectErr := fence.atRuntimeEffect(ctx, func() error { return t.Runtime.Retire(spec.Config.Listen, proof) })
+		retireErr = effectErr
+		if !retired || !listenerRetirementVerified(retireErr) {
 			return retireErr
 		}
 		if t.stopped == nil {

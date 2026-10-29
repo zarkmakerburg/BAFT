@@ -97,26 +97,44 @@ func (s *Store) operationalIngressContextLocked(tunnelID string) (PublicIngressO
 // retry-safe: an identical queued job is a no-op; anything else that already
 // consumed the immutable job identity (expired, failed, answered) is refused.
 func (s *Store) EnqueueOperationalIngress(tunnelID string) error {
-	return s.enqueueOperationalIngress(tunnelID, time.Now().UTC())
+	// Automatic activation/poll retries may enqueue only the original held
+	// command. They must never silently mint a fresh command after expiry.
+	return s.enqueueOperationalIngressWithRestage(tunnelID, time.Now().UTC(), false)
+}
+
+// EnqueueReviewedOperationalIngress is called only by the explicit admin
+// reviewed-operation endpoint. A fresh attempt is allowed only for an expired
+// command proven never queued and still bound to the same reviewed active plan.
+func (s *Store) EnqueueReviewedOperationalIngress(tunnelID string) error {
+	return s.enqueueOperationalIngressWithRestage(tunnelID, time.Now().UTC(), true)
 }
 
 func (s *Store) enqueueOperationalIngress(tunnelID string, now time.Time) error {
+	return s.enqueueOperationalIngressWithRestage(tunnelID, now, true)
+}
+
+func (s *Store) enqueueOperationalIngressWithRestage(tunnelID string, now time.Time, allowRestage bool) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.ingressEnqueueGateLocked(tunnelID, now); err != nil {
 		return err
+	}
+	if allowRestage {
+		if err := s.restageExpiredUndispatchedIngressLocked(tunnelID, now); err != nil {
+			return err
+		}
 	}
 	op, err := s.operationalIngressContextLocked(tunnelID)
 	if err != nil {
 		return err
 	}
 	cmd := *op.Command
-	want, err := operationalIngressJob(cmd, now)
-	if err != nil {
-		return err
-	}
 	switch op.Dispatch.Phase {
 	case ingressPhaseQueued:
+		want, err := operationalIngressJob(cmd, now)
+		if err != nil {
+			return err
+		}
 		if old, ok := s.st.Jobs[cmd.JobID]; ok && sameIngressJobIdentity(old, want) {
 			return nil
 		}
@@ -147,6 +165,11 @@ func (s *Store) enqueueOperationalIngress(tunnelID string, now time.Time) error 
 			return saveErr
 		}
 		return errors.New("staged ingress command outside its signed window")
+	}
+	want, err := operationalIngressJob(cmd, now)
+	if err != nil {
+		s.st = before
+		return err
 	}
 	d := *op.Dispatch
 	d.Phase = ingressPhaseQueued

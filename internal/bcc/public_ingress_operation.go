@@ -54,7 +54,7 @@ func (s *Store) RecordPublicIngressOperationIntent(spec PublicIngressSpec, proof
 	if !ok || tunnel.IRNode != spec.IRNode || tunnel.RouteListen != spec.LocalTarget || !tunnelKeepsPorts(tunnel) {
 		return PublicIngressOperation{}, errors.New("public ingress operation requires the current active tunnel")
 	}
-	manifestProof, err := ingressmanifest.Preview(publicIngressManifestSpec(spec, tunnel.InstanceID, proof.Generation))
+	manifestProof, err := ingressmanifest.Preview(publicIngressManifestSpec(spec, tunnel.instanceForNode(tunnel.IRNode), proof.Generation))
 	if err != nil || manifestProof.ManifestSHA256 != proof.ManifestDigest {
 		return PublicIngressOperation{}, errors.New("public ingress manifest digest differs from canonical reserved configuration")
 	}
@@ -113,7 +113,7 @@ func mergePublicIngressOperations(restored *state, current state) error {
 		if op.ReviewedPlanHash != "" && (tunnel.PlanHash != op.ReviewedPlanHash || tunnel.ClientPort != op.Spec.PublicPort || tunnel.Phase != TunnelActive) {
 			return errors.New("restored reviewed ingress operation is no longer bound to active tunnel plan and client port")
 		}
-		preview, err := ingressmanifest.Preview(publicIngressManifestSpec(op.Spec, tunnel.InstanceID, op.Proof.Generation))
+		preview, err := ingressmanifest.Preview(publicIngressManifestSpec(op.Spec, tunnel.instanceForNode(tunnel.IRNode), op.Proof.Generation))
 		if err != nil || preview.ManifestSHA256 != op.Proof.ManifestDigest {
 			return errors.New("restored public ingress operation has noncanonical proof")
 		}

@@ -46,7 +46,7 @@ func (s *Store) stageReviewedIngressLocked(tunnelID string, now time.Time) error
 		return err
 	}
 	generation := s.nextIngressGenerationLocked(spec.IRNode, spec.PublicPort)
-	manifest := publicIngressManifestSpec(spec, t.InstanceID, generation)
+	manifest := publicIngressManifestSpec(spec, t.instanceForNode(t.IRNode), generation)
 	preview, err := ingressmanifest.Preview(manifest)
 	if err != nil {
 		return err
@@ -84,6 +84,102 @@ func (s *Store) stageReviewedIngressLocked(tunnelID string, now time.Time) error
 	}
 	if _, err := s.stageHeldIngressDispatchLocked(tunnelID, now, false); err != nil {
 		return fail(err)
+	}
+	return nil
+}
+
+// restageExpiredUndispatchedIngressLocked renews only an expired command whose
+// durable dispatch phase proves it was never queued and whose JobID has never
+// entered the BCC queue. Fresh operation, lease and Job identities prevent a
+// stale signed command from being confused with the new attempt. Any evidence
+// of prior dispatch, receipt, or resource lifecycle fails closed.
+func (s *Store) restageExpiredUndispatchedIngressLocked(tunnelID string, now time.Time) error {
+	op, ok := s.st.PublicIngressOperations[tunnelID]
+	if !ok || op.Dispatch == nil || op.Dispatch.Phase != ingressPhaseExpired {
+		return nil
+	}
+	if op.Command == nil || op.Receipt != nil || op.RetireCommand != nil || op.RetireReceipt != nil || op.Status != PublicIngressPending {
+		return errors.New("expired ingress is not an undispatched held Apply")
+	}
+	old := *op.Command
+	if op.Dispatch.JobID != old.JobID || op.Dispatch.OperationID != op.OperationID || op.Dispatch.LeaseID != op.LeaseID ||
+		now.Before(old.ExpiresAt) || now.Before(old.IssuedAt) {
+		return errors.New("expired ingress dispatch identity or expiry is inconsistent")
+	}
+	if _, exists := s.st.Jobs[old.JobID]; exists {
+		return errors.New("expired ingress JobID exists in queue; safe restage refused")
+	}
+	t, ok := s.st.Tunnels[tunnelID]
+	if !ok || t.Phase != TunnelActive || t.PlanHash != op.ReviewedPlanHash || t.ClientPort != op.Spec.PublicPort ||
+		t.IRNode != op.Spec.IRNode || t.RouteListen != op.Spec.LocalTarget || old.Action != agentjob.ActionPublicIngressApply ||
+		old.Validate(old.IssuedAt) != nil || old.Binding.OperationID != op.OperationID || old.Binding.LeaseID != op.LeaseID ||
+		old.Binding.PlanSHA256 != op.ReviewedPlanHash || old.Binding.NodeID != op.Spec.IRNode ||
+		int(old.Binding.Port) != op.Spec.PublicPort || int(old.Binding.ConfigPort) != op.Spec.PublicPort ||
+		old.Binding.Spec.TunnelID != tunnelID || old.Binding.Spec.InstanceID != t.instanceForNode(t.IRNode) ||
+		old.Binding.Spec.Generation != op.Proof.Generation || old.Binding.ListenerID != op.Proof.ListenerID ||
+		old.Binding.FirewallID != op.Proof.FirewallID || old.Binding.Proof.ManifestSHA256 != op.Proof.ManifestDigest {
+		return errors.New("expired ingress no longer matches the active reviewed plan")
+	}
+	expectedSpec := publicIngressManifestSpec(op.Spec, t.instanceForNode(t.IRNode), op.Proof.Generation)
+	expectedProof, err := ingressmanifest.Preview(expectedSpec)
+	if err != nil || old.Binding.Spec != expectedSpec || old.Binding.Proof != expectedProof ||
+		old.Binding.ListenEndpoint != expectedSpec.Config.Listen || old.Binding.LocalTarget != expectedSpec.Config.Target || old.Binding.Transport != "dedicated" {
+		return errors.New("expired ingress command is not the canonical reviewed manifest")
+	}
+	newOperationID, err := newIngressIdentity("op-")
+	if err != nil {
+		return err
+	}
+	newLeaseID, err := newIngressIdentity("lease-")
+	if err != nil {
+		return err
+	}
+	newJobID, err := newIngressIdentity("apply-")
+	if err != nil {
+		return err
+	}
+	cmd := old
+	cmd.JobID = newJobID
+	cmd.IssuedAt = now.UTC().Truncate(time.Second).Add(-time.Second)
+	cmd.ExpiresAt = cmd.IssuedAt.Add(ingressHeldCommandWindow)
+	cmd.Binding.OperationID = newOperationID
+	cmd.Binding.LeaseID = newLeaseID
+	if err := cmd.Validate(now); err != nil {
+		return err
+	}
+	if _, err := operationalIngressJob(cmd, now); err != nil {
+		return err
+	}
+	for otherID, other := range s.st.PublicIngressOperations {
+		if otherID == tunnelID {
+			continue
+		}
+		if other.OperationID == newOperationID || other.LeaseID == newLeaseID ||
+			(other.Command != nil && other.Command.JobID == newJobID) ||
+			(other.RetireCommand != nil && other.RetireCommand.JobID == newJobID) {
+			return errors.New("restaged ingress identity collision")
+		}
+	}
+	if _, exists := s.st.Jobs[newJobID]; exists {
+		return errors.New("restaged ingress JobID collides with queue")
+	}
+	before, err := cloneState(s.st)
+	if err != nil {
+		return err
+	}
+	op.OperationID, op.LeaseID = newOperationID, newLeaseID
+	op.Command = &cmd
+	op.Dispatch = &IngressDispatchIntent{JobID: newJobID, OperationID: newOperationID, LeaseID: newLeaseID, Phase: ingressPhaseHeld, CreatedAt: now.UTC()}
+	s.st.PublicIngressOperations[tunnelID] = op
+	if _, err := s.enqueueSecurityAuditLocked(AuditEntry{Timestamp: now, Actor: "bcc", Action: "public_ingress.apply.restage", Target: tunnelID, Outcome: "success",
+		Details: map[string]any{"superseded_job_id": old.JobID, "superseded_operation_id": old.Binding.OperationID, "superseded_lease_id": old.Binding.LeaseID,
+			"job_id": newJobID, "operation_id": newOperationID, "lease_id": newLeaseID, "reason": "expired while durably held and never queued"}}); err != nil {
+		s.st = before
+		return err
+	}
+	if err := s.saveLocked(); err != nil {
+		s.st = before
+		return err
 	}
 	return nil
 }

@@ -20,9 +20,21 @@ func sameCommandIntent(a, b CommandV1) bool {
 // operation is still NEEDS_RECONCILIATION (cleanup incomplete). Nothing else
 // may replace an intent.
 func mayResumeRetire(entry lifecycleEntry, old, command CommandV1) bool {
-	return command.Action == commandIntentRetire && old.Action == commandIntentRetire &&
-		entry.State == StateNeedsReconciliation && entry.Leased[commandIntentRetire] == old.JobID &&
-		old.JobID != command.JobID && command.JobID != "" && old.Binding == command.Binding
+	if command.Action != commandIntentRetire || old.Action != commandIntentRetire ||
+		old.JobID == command.JobID || command.JobID == "" || old.Binding != command.Binding {
+		return false
+	}
+	leasedJob, leased := entry.Leased[commandIntentRetire]
+	if leased {
+		// A consumed lease may only be replaced after an uncertain effect has
+		// durably entered reconciliation, and only for that exact spent job.
+		return leasedJob == old.JobID && entry.State == StateNeedsReconciliation
+	}
+	// MintLease durably records the Retire JobID BEFORE returning a lease, and
+	// every effect requires that lease. No leased entry therefore proves this
+	// intent was refused before authority/effects; a fresh signed Retire may
+	// replace it even if the transient refusal left APPLYING_UNVERIFIED.
+	return entry.State == StateApplying || entry.State == StateNeedsReconciliation
 }
 
 func validCommandIntents(entry lifecycleEntry) bool {

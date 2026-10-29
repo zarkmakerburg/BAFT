@@ -51,12 +51,12 @@ func (s *Store) stageReviewedIngressCommandLocked(tunnelID string, command ingre
 	if b.NodeID != op.Spec.IRNode || b.OperationID != op.OperationID || b.LeaseID != op.LeaseID ||
 		b.PlanSHA256 != op.ReviewedPlanHash || int(b.Port) != op.Spec.PublicPort ||
 		int(b.ConfigPort) != op.Spec.PublicPort || b.Spec.TunnelID != tunnelID ||
-		b.Spec.InstanceID != tun.InstanceID || b.Spec.Generation != op.Proof.Generation ||
+		b.Spec.InstanceID != tun.instanceForNode(tun.IRNode) || b.Spec.Generation != op.Proof.Generation ||
 		b.ListenerID != op.Proof.ListenerID || b.FirewallID != op.Proof.FirewallID ||
 		b.Proof.ManifestSHA256 != op.Proof.ManifestDigest {
 		return errors.New("binding differs from persisted review")
 	}
-	expectedSpec := publicIngressManifestSpec(op.Spec, tun.InstanceID, op.Proof.Generation)
+	expectedSpec := publicIngressManifestSpec(op.Spec, tun.instanceForNode(tun.IRNode), op.Proof.Generation)
 	expectedProof, err := ingressmanifest.Preview(expectedSpec)
 	if err != nil || b.Spec != expectedSpec || b.Proof != expectedProof {
 		return errors.New("noncanonical staged manifest")

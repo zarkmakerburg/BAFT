@@ -166,7 +166,7 @@ func (a *Agent) tunnel(ctx context.Context, j agentjob.Job) (string, string, err
 		b, err := json.Marshal(o)
 		return string(b), "", err
 	case agentjob.ActionTunnelInspect:
-		b, err := json.Marshal(t.Inspect(ctx))
+		b, err := json.Marshal(t.InspectForTunnel(ctx, p["tunnel_id"]))
 		return string(b), "", err
 	case agentjob.ActionTunnelDiscover:
 		b, err := json.Marshal(t.Discover(ctx))

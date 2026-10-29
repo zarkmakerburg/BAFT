@@ -349,3 +349,24 @@ func TestSharedTenantRemovalReceiptUpdatesOwnerWithoutRetiringIt(t *testing.T) {
 		t.Fatalf("tenant removal damaged or desynchronized the shared owner: owner=%+v sibling=%+v", ownerAfter, siblingAfter)
 	}
 }
+
+
+func TestSharedTenantMutationSerializesAcrossOwnerAndSiblingRecords(t *testing.T) {
+	s, owner, _, sibling, now := sharedTenantDecommissionFixture(t)
+	first, err := s.CreateSharedTenantMutationJob(SharedTenantMutationRequest{
+		TunnelID: owner.ID, Operation: "add", NodeID: "ex-config", Listen: "0.0.0.0:8443",
+		PeerID: "urn:baft:node:untracked-a", PeerPublicKey: strings.Repeat("A", 43),
+		RouteID: "route-new-a", Target: "127.0.0.1:9001",
+	}, now)
+	if err != nil || first.Type != agentjob.ActionTunnelTenantAdd {
+		t.Fatalf("first shared-listener mutation: job=%+v err=%v", first, err)
+	}
+	_, err = s.CreateSharedTenantMutationJob(SharedTenantMutationRequest{
+		TunnelID: sibling.ID, Operation: "add", NodeID: "ex-config", Listen: "0.0.0.0:8443",
+		PeerID: "urn:baft:node:untracked-b", PeerPublicKey: strings.Repeat("B", 43),
+		RouteID: "route-new-b", Target: "127.0.0.1:9002",
+	}, now.Add(time.Second))
+	if err == nil || !strings.Contains(err.Error(), "physical listener") {
+		t.Fatalf("second mutation on a sibling record must be serialized: %v", err)
+	}
+}

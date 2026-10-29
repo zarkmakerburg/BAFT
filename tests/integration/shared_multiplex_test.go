@@ -2,10 +2,10 @@ package integration_test
 
 import (
 	"context"
-	"errors"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"

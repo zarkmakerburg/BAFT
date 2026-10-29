@@ -1050,17 +1050,25 @@ func (m *Manager) Rollback(ctx context.Context, id string) (string, error) {
 	case PhaseFinalized:
 		return "", fmt.Errorf("tunnel change %s is finalized; make a new change instead", id)
 	}
-	if t.JoinOwnerID != "" && !t.ConfigWritten {
-		if err := m.rollbackUnwrittenJoinTenantMutation(ctx, t); err != nil {
+	if t.JoinOwnerID != "" {
+		if err := m.rollbackSharedJoinTenantMutation(ctx, t); err != nil {
 			return "", fmt.Errorf("rollback shared tenant mutation for %s: %w", id, err)
+		}
+		if t.ConfigWritten {
+			// The tenant journal already restored and verified the shared
+			// listener; do not restore the same before-images a second time.
+			t.ConfigWritten, t.UnitChanged = false, false
 		}
 	}
 	return m.rollbackTxn(ctx, t)
 }
 
-func (m *Manager) rollbackUnwrittenJoinTenantMutation(ctx context.Context, t Txn) error {
+func (m *Manager) rollbackSharedJoinTenantMutation(ctx context.Context, t Txn) error {
 	b, err := os.ReadFile(m.tenantMutationPath(t.ID))
 	if errors.Is(err, os.ErrNotExist) {
+		if t.ConfigWritten {
+			return errors.New("committed shared join has no tenant mutation journal; reconciliation required")
+		}
 		return nil
 	}
 	if err != nil {
@@ -1071,9 +1079,7 @@ func (m *Manager) rollbackUnwrittenJoinTenantMutation(ctx context.Context, t Txn
 		return errors.New("unreadable or mismatched shared tenant mutation journal; reconciliation required")
 	}
 	switch j.Phase {
-	case "rolled_back":
-		return nil
-	case "prepared", "applying", "committed":
+	case "prepared", "applying", "committed", "rolled_back":
 		return m.rollbackTenantMutation(ctx, &j)
 	default:
 		return errors.New("unknown shared tenant mutation journal phase; reconciliation required")

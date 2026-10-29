@@ -284,3 +284,152 @@ func TestSharedJoinRollbackRetainsClaimUntilTenantJournalRecovers(t *testing.T) 
 		t.Fatalf("tenant rollback generation=%d want=%d", got, oldGeneration)
 	}
 }
+
+
+func markSharedJoinCommittedForTest(t *testing.T, p *pair, mutation TenantMutation, evidence TenantMutationEvidence) {
+	t.Helper()
+	for suffix, destination := range map[string]string{
+		"old-config": p.ex.backup(mutation.ID, "baft.yaml"),
+		"old-unit": p.ex.backup(mutation.ID, "unit"),
+		"old-marker": p.ex.backup(mutation.ID, "marker.json"),
+		"old-owner-txn": p.ex.backup(mutation.ID, "owner-txn.json"),
+	} {
+		b, err := os.ReadFile(p.ex.tenantMutationBlob(mutation.ID, suffix))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := writeFile(destination, b, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	txn, err := p.ex.readTxn(mutation.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	txn.HadConfig, txn.HadUnit, txn.HadMarker = true, true, true
+	txn.WasActive, txn.WasEnabled = true, true
+	txn.Generation, txn.PreviousGeneration = evidence.Generation, evidence.Generation-1
+	txn.InstalledConfigSHA, txn.InstalledUnitSHA, txn.InstalledMarkerSHA = evidence.AfterConfigSHA, evidence.AfterUnitSHA, evidence.AfterMarkerSHA
+	txn.ConfigWritten, txn.UnitChanged = true, true
+	txn.PeerID, txn.PeerPublicKey = mutation.PeerID, mutation.PeerPublicKey
+	txn.TenantRouteID, txn.TenantTarget = mutation.RouteID, mutation.Target
+	txn.Phase = PhaseCommitted
+	if err := p.ex.writeTxn(txn); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCommittedSharedJoinRollbackRecoversJournalAndPreservesClaim(t *testing.T) {
+	p, mutation, oldConfig, oldGeneration := newFinalizedTenantMutationFixture(t, "committed-join-owner", "committed-join")
+	ctx := context.Background()
+	if _, err := p.ex.PrepareEXJoin(ctx, mutation.ID, mutation.ExpectedOwnerTunnelID, p.exp); err != nil {
+		t.Fatalf("prepare shared join: %v", err)
+	}
+	oldUnit, err := os.ReadFile(p.ex.unitPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldMarker, err := os.ReadFile(p.ex.markerPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldOwnerTxn, err := os.ReadFile(p.ex.txnPath(mutation.ExpectedOwnerTunnelID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	evidence, err := p.ex.ApplyTenantMutation(ctx, mutation)
+	if err != nil {
+		t.Fatalf("apply shared tenant mutation: %v", err)
+	}
+	markSharedJoinCommittedForTest(t, p, mutation, evidence)
+
+	p.ex.host.failRestart = true
+	if _, err := p.ex.Rollback(ctx, mutation.ID); err == nil {
+		t.Fatal("faulted committed-join rollback unexpectedly succeeded")
+	}
+	if got := p.ex.activeID(); got != mutation.ID {
+		t.Fatalf("failed rollback cleared the logical join claim: active=%q", got)
+	}
+	txn, err := p.ex.readTxn(mutation.ID)
+	if err != nil || txn.Phase != PhaseCommitted || !txn.ConfigWritten {
+		t.Fatalf("failed rollback changed the committed join state: txn=%+v err=%v", txn, err)
+	}
+	var journal tenantMutationJournal
+	if err := readJSON(p.ex.tenantMutationPath(mutation.ID), &journal); err != nil || journal.Phase != "committed" {
+		t.Fatalf("failed rollback should leave journal recoverable: journal=%+v err=%v", journal, err)
+	}
+	partialConfig, err := os.ReadFile(p.ex.liveConfig())
+	if err != nil || string(partialConfig) != string(oldConfig) {
+		t.Fatalf("journal rollback did not restore the tenant config before service failure: err=%v", err)
+	}
+
+	p.ex.host.failRestart = false
+	if _, err := p.ex.Rollback(ctx, mutation.ID); err != nil {
+		t.Fatalf("retry committed shared-join rollback: %v", err)
+	}
+	if got := p.ex.activeID(); got != "" {
+		t.Fatalf("successful retry left active join claim %q", got)
+	}
+	txn, err = p.ex.readTxn(mutation.ID)
+	if err != nil || txn.Phase != PhaseRolledBack {
+		t.Fatalf("logical join did not finish rollback: txn=%+v err=%v", txn, err)
+	}
+	if err := readJSON(p.ex.tenantMutationPath(mutation.ID), &journal); err != nil || journal.Phase != "rolled_back" {
+		t.Fatalf("tenant journal did not record successful rollback: journal=%+v err=%v", journal, err)
+	}
+	configAfter, err := os.ReadFile(p.ex.liveConfig())
+	if err != nil || string(configAfter) != string(oldConfig) {
+		t.Fatalf("rollback changed other owner tenants or config: err=%v", err)
+	}
+	cfgAfter, err := config.LoadFile(p.ex.liveConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := cfgAfter.Noise.AllowedPeerPublicKeys[mutation.PeerID]; exists {
+		t.Fatal("rolled-back peer remained on the owner listener")
+	}
+	if got := p.ex.readGeneration(); got != oldGeneration {
+		t.Fatalf("generation=%d want=%d", got, oldGeneration)
+	}
+	for path, want := range map[string][]byte{
+		p.ex.unitPath(): oldUnit, p.ex.markerPath(): oldMarker,
+		p.ex.txnPath(mutation.ExpectedOwnerTunnelID): oldOwnerTxn,
+	} {
+		got, err := os.ReadFile(path)
+		if err != nil || string(got) != string(want) {
+			t.Fatalf("rollback did not restore %s: err=%v", path, err)
+		}
+	}
+	if !p.ex.host.active {
+		t.Fatal("owner service was not active after successful journal recovery")
+	}
+}
+
+func TestCommittedSharedJoinRollbackFailsClosedWithoutJournal(t *testing.T) {
+	p, mutation, oldConfig, _ := newFinalizedTenantMutationFixture(t, "missing-journal-owner", "missing-join-journal")
+	if _, err := p.ex.PrepareEXJoin(context.Background(), mutation.ID, mutation.ExpectedOwnerTunnelID, p.exp); err != nil {
+		t.Fatalf("prepare shared join: %v", err)
+	}
+	txn, err := p.ex.readTxn(mutation.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	txn.ConfigWritten, txn.Phase = true, PhaseCommitted
+	if err := p.ex.writeTxn(txn); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.ex.Rollback(context.Background(), mutation.ID); err == nil || !strings.Contains(err.Error(), "no tenant mutation journal") {
+		t.Fatalf("committed shared join without a journal must fail closed: %v", err)
+	}
+	if got := p.ex.activeID(); got != mutation.ID {
+		t.Fatalf("fail-closed rollback cleared active claim: %q", got)
+	}
+	configAfter, err := os.ReadFile(p.ex.liveConfig())
+	if err != nil || string(configAfter) != string(oldConfig) {
+		t.Fatalf("fail-closed rollback changed owner config: err=%v", err)
+	}
+	txn, err = p.ex.readTxn(mutation.ID)
+	if err != nil || txn.Phase != PhaseCommitted || !txn.ConfigWritten {
+		t.Fatalf("fail-closed rollback changed logical join state: txn=%+v err=%v", txn, err)
+	}
+}

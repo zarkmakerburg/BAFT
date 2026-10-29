@@ -434,8 +434,12 @@ function tnWizardValidateStep(i){
    if(mode==='replace'&&!tnEditBase){alert(tnWizardText('Choose Edit on an active tunnel in the list below.','برای ویرایش، ابتدا از فهرست پایین روی ویرایش تونل فعال بزنید.'));return false}
   }
   if(i===1){
+   const owner=joining?tnJoinableOwners().find(t=>t.id===q('#tnJoinOwner').value):null;
+   // Re-derive the physical EX identity from the selected owner at validation
+   // time; it must not depend on a possibly stale hidden EX select value.
+   if(joining&&owner){q('#tnEx').value=owner.ex_node;q('#tnPort').value=String(owner.port);q('#tnInstance').value=owner.instance_id||'';q('#tnExMetric').value=owner.ex_metrics_listen||'127.0.0.1:9191'}
    if(!q('#tnEx').value||!q('#tnIr').value||q('#tnEx').value===q('#tnIr').value){alert(tnWizardText('Select different Iran and foreign servers.','سرور ایران و خارج را به‌درستی و جداگانه انتخاب کنید.'));return false}
-   if(joining){const owner=tnJoinableOwners().find(t=>t.id===q('#tnJoinOwner').value);if(!owner||owner.ex_node!==q('#tnEx').value||owner.ir_node===q('#tnIr').value){alert(tnWizardText('Choose an active physical EX owner and a different IR node.','مالک فیزیکی فعال EX و یک سرور IR متفاوت انتخاب کنید.'));return false}}
+   if(joining&&(!owner||owner.ex_node!==q('#tnEx').value||owner.ir_node===q('#tnIr').value)){alert(tnWizardText('Choose an active physical EX owner and a different IR node.','مالک فیزیکی فعال EX و یک سرور IR متفاوت انتخاب کنید.'));return false}
   }
   if(i===2){
    const port=Number(q('#tnPort').value),owner=joining?tnJoinableOwners().find(t=>t.id===q('#tnJoinOwner').value):null;

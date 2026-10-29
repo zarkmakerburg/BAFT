@@ -381,7 +381,7 @@ var paramRules = map[string]map[string]*regexp.Regexp{
 	ActionTunnelRollback:         {"tunnel_id": tunnelIDRe},
 	ActionTunnelRetire:           {"tunnel_id": tunnelIDRe, "generation": epochRe, "config_sha256": sha256Re, "unit_sha256": sha256Re, "marker_sha256": sha256Re},
 	ActionTunnelTenantAdd:         {"tunnel_id": tunnelIDRe, "mutation_id": tunnelIDRe, "node_id": idRe, "listen": endpointRe, "config_sha256": sha256Re, "unit_sha256": sha256Re, "marker_sha256": sha256Re, "peer_id": idRe, "peer_public_key": noisePublicKeyRe, "route_id": tunnelIDRe, "target": fixedTargetR},
-	ActionTunnelTenantRemove:      {"tunnel_id": tunnelIDRe, "mutation_id": tunnelIDRe, "node_id": idRe, "listen": endpointRe, "config_sha256": sha256Re, "marker_sha256": sha256Re, "peer_id": idRe, "peer_public_key": noisePublicKeyRe, "route_id": tunnelIDRe},
+	ActionTunnelTenantRemove:      {"tunnel_id": tunnelIDRe, "mutation_id": tunnelIDRe, "node_id": idRe, "listen": endpointRe, "config_sha256": sha256Re, "unit_sha256": sha256Re, "marker_sha256": sha256Re, "peer_id": idRe, "peer_public_key": noisePublicKeyRe, "route_id": tunnelIDRe},
 	ActionPublicIngressPreflight: {"tunnel_id": tunnelIDRe, "public_port": portRe, "local_target": loopbackListenR},
 	ActionPublicIngressInspect:   {"tunnel_id": tunnelIDRe, "public_port": portRe, "local_target": loopbackListenR, "generation": epochRe, "manifest_digest": sha256Re, "listener_id": idRe, "firewall_id": idRe},
 	ActionPublicIngressPrepare:   {"tunnel_id": tunnelIDRe, "public_port": portRe, "local_target": loopbackListenR, "generation": epochRe, "manifest_digest": sha256Re, "listener_id": idRe, "firewall_id": idRe},

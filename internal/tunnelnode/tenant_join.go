@@ -136,14 +136,14 @@ func (m *Manager) CommitEXJoin(ctx context.Context, id, reply string) (string, s
 		return "", "", errors.New("tunnelnode: shared join parameters are missing or inconsistent")
 	}
 	// Refuse to accept a reply if the physical owner drifted since Prepare.
-	_, _, cfgBytes, unitBytes, markerBytes, err := m.readSharedListenerOwner(t.JoinOwnerID)
+	ownerCfg, _, cfgBytes, unitBytes, markerBytes, err := m.readSharedListenerOwner(t.JoinOwnerID)
 	if err != nil || shaHex(cfgBytes) != t.JoinConfigSHA || shaHex(unitBytes) != t.JoinUnitSHA || shaHex(markerBytes) != t.JoinMarkerSHA {
 		unlock()
 		m.mu.Unlock()
 		return "", "", errors.New("tunnelnode: shared listener changed after pairing was prepared")
 	}
 	stage := m.stage(id)
-	out, err := m.System.Run(ctx, m.PairBin, "ex-accept", "--reply", reply,
+	acceptOut, err := m.System.Run(ctx, m.PairBin, "ex-accept", "--reply", reply,
 		"--pending", filepath.Join(stage, "pending.json"), "--psk-file", filepath.Join(stage, "psk"),
 		"--key", m.noiseKey(), "--target", p.Target, "--route-id", p.RouteID,
 		"--metrics-listen", p.MetricsListen, "--unix-socket", filepath.Join(m.StateDir, "admin.sock"),
@@ -158,14 +158,37 @@ func (m *Manager) CommitEXJoin(ctx context.Context, id, reply string) (string, s
 		m.mu.Unlock()
 		return "", "", fmt.Errorf("staged joined config is invalid: %v: %s", err, tailOf(out))
 	}
-	peerID := strings.TrimSpace(out)
 	staged, err := config.LoadFile(filepath.Join(stage, "baft.new.yaml"))
 	if err != nil || staged.Server == nil || staged.Noise == nil || staged.Node.Role != "listener" || staged.Noise.AllowedPeerPublicKeys[peerID] == "" {
 		unlock()
 		m.mu.Unlock()
 		return "", "", errors.New("tunnelnode: ex-accept did not produce verifiable tenant key evidence")
 	}
+	var added []string
+	for id, key := range staged.Noise.AllowedPeerPublicKeys {
+		if key == "" || ownerCfg.Noise.AllowedPeerPublicKeys[id] != "" {
+			continue
+		}
+		if _, ok := ownerCfg.Noise.AllowedPeerPublicKeys[id]; !ok {
+			added = append(added, id)
+		}
+	}
+	if len(added) != 1 {
+		unlock()
+		m.mu.Unlock()
+		return "", "", fmt.Errorf("tunnelnode: ex-accept must add exactly one new authenticated tenant (added %d); output: %s", len(added), tailOf(acceptOut))
+	}
+	peerID := added[0]
 	peerKey := staged.Noise.AllowedPeerPublicKeys[peerID]
+	foundIdentity := false
+	for _, id := range staged.Server.AllowedPeerIdentities {
+		if id == peerID { foundIdentity = true; break }
+	}
+	if !foundIdentity {
+		unlock()
+		m.mu.Unlock()
+		return "", "", errors.New("tunnelnode: added tenant key has no matching authenticated identity")
+	}
 	// Release the manager lock before entering the common durable tenant
 	// transaction, which reacquires both the process and cross-process locks.
 	unlock()

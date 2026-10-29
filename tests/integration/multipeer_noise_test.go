@@ -207,6 +207,28 @@ func TestNoiseListenerAcceptsAndSeparatesTwoIRPeers(t *testing.T) {
 	ir2Done := make(chan error, 1)
 	go func() { ir2Done <- node.NewRuntime().Run(ctx, ir2) }()
 	waitTCP(t, ir2.Routes[0].Listen, time.Now().Add(8*time.Second))
+	// The local TCP listener is opened before the outbound authenticated Noise
+	// session is necessarily ready. Prove the new tenant can complete a roundtrip
+	// before asserting concurrent isolation; otherwise an immediate first dial can
+	// race the initial handshake and report a misleading connection reset.
+	tenantReadyDeadline := time.Now().Add(5 * time.Second)
+	for {
+		conn, dialErr := net.DialTimeout("tcp", ir2.Routes[0].Listen, 200*time.Millisecond)
+		if dialErr == nil {
+			_ = conn.SetDeadline(time.Now().Add(300 * time.Millisecond))
+			_, writeErr := conn.Write([]byte{'x'})
+			got := []byte{0}
+			_, readErr := io.ReadFull(conn, got)
+			_ = conn.Close()
+			if writeErr == nil && readErr == nil && got[0] == 'B' {
+				break
+			}
+		}
+		if time.Now().After(tenantReadyDeadline) {
+			t.Fatal("new tenant route did not become ready for an authenticated roundtrip")
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
 
 	roundtrip := func(label, addr string, want byte) {
 		t.Helper()

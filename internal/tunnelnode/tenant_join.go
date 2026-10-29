@@ -159,7 +159,7 @@ func (m *Manager) CommitEXJoin(ctx context.Context, id, reply string) (string, s
 		return "", "", fmt.Errorf("staged joined config is invalid: %v: %s", err, tailOf(out))
 	}
 	staged, err := config.LoadFile(filepath.Join(stage, "baft.new.yaml"))
-	if err != nil || staged == nil || staged.Server == nil || staged.Noise == nil || staged.Node.Role != "listener" || ownerCfg.Noise == nil {
+	if err != nil || staged.Server == nil || staged.Noise == nil || staged.Node.Role != "listener" || ownerCfg.Noise == nil {
 		unlock()
 		m.mu.Unlock()
 		return "", "", errors.New("tunnelnode: ex-accept did not produce verifiable tenant key evidence")
@@ -215,7 +215,7 @@ func (m *Manager) CommitEXJoin(ctx context.Context, id, reply string) (string, s
 				_ = m.rollbackTenantMutation(ctx, &j)
 			}
 		}
-		_, _, _ = m.Rollback(ctx, id)
+		_, _ = m.Rollback(ctx, id)
 	}
 	mutationDir := m.tenantMutationDir()
 	for source, dest := range map[string]string{

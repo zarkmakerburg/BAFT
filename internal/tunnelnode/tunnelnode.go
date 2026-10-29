@@ -1643,6 +1643,48 @@ func (m *Manager) ManagedUnit(port int, tunnelID string, generation int) string 
 // byte-for-byte what it wrote (and are not simply the original again).
 func (m *Manager) ownershipViolations(t Txn) []string {
 	var v []string
+	if t.JoinOwnerID != "" {
+		cfgBytes, cfgErr := os.ReadFile(m.liveConfig())
+		unitBytes, unitErr := os.ReadFile(m.unitPath())
+		markerBytes, markerErr := os.ReadFile(m.markerPath())
+		var marker Marker
+		if cfgErr != nil || unitErr != nil || markerErr != nil || json.Unmarshal(markerBytes, &marker) != nil {
+			return []string{"shared listener ownership evidence is unreadable"}
+		}
+		cfg, err := config.LoadFile(m.liveConfig())
+		if err != nil || cfg.Server == nil || cfg.Noise == nil || cfg.Node.Role != "listener" ||
+			marker.TunnelID != t.JoinOwnerID || marker.InstanceID != m.Instance ||
+			marker.ConfigSHA256 != shaHex(cfgBytes) || marker.UnitSHA256 != shaHex(unitBytes) ||
+			marker.Generation != m.readGeneration() {
+			v = append(v, "shared physical listener ownership or generation changed")
+		}
+		if owner, err := m.readTxn(t.JoinOwnerID); err != nil ||
+			owner.Phase != PhaseFinalized || owner.InstalledConfigSHA != shaHex(cfgBytes) ||
+			owner.InstalledUnitSHA != shaHex(unitBytes) || owner.InstalledMarkerSHA != shaHex(markerBytes) {
+			v = append(v, "shared physical owner transaction no longer matches live artifacts")
+		}
+		if cfg.Noise == nil || cfg.Noise.AllowedPeerPublicKeys[t.PeerID] != t.PeerPublicKey {
+			v = append(v, "this tenant's authenticated Noise key is missing or changed")
+		}
+		identityPresent, routePresent := false, false
+		if cfg.Server != nil {
+			for _, id := range cfg.Server.AllowedPeerIdentities {
+				if id == t.PeerID { identityPresent = true }
+			}
+		}
+		for _, route := range cfg.Routes {
+			if route.ID != t.TenantRouteID || route.Direction != "inbound" || route.Target != t.TenantTarget {
+				continue
+			}
+			for _, peer := range route.AllowedPeers {
+				if peer == t.PeerID { routePresent = true }
+			}
+		}
+		if !identityPresent || !routePresent {
+			v = append(v, "this tenant's authenticated identity or inbound route is missing")
+		}
+		return v
+	}
 	check := func(label, live, installed, backup string, had bool) {
 		if installed == "" {
 			return // change recorded before ownership tracking: nothing to compare

@@ -1050,7 +1050,34 @@ func (m *Manager) Rollback(ctx context.Context, id string) (string, error) {
 	case PhaseFinalized:
 		return "", fmt.Errorf("tunnel change %s is finalized; make a new change instead", id)
 	}
+	if t.JoinOwnerID != "" && !t.ConfigWritten {
+		if err := m.rollbackUnwrittenJoinTenantMutation(ctx, t); err != nil {
+			return "", fmt.Errorf("rollback shared tenant mutation for %s: %w", id, err)
+		}
+	}
 	return m.rollbackTxn(ctx, t)
+}
+
+func (m *Manager) rollbackUnwrittenJoinTenantMutation(ctx context.Context, t Txn) error {
+	b, err := os.ReadFile(m.tenantMutationPath(t.ID))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var j tenantMutationJournal
+	if err := json.Unmarshal(b, &j); err != nil || j.ID != t.ID || j.OwnerTunnelID != t.JoinOwnerID {
+		return errors.New("unreadable or mismatched shared tenant mutation journal; reconciliation required")
+	}
+	switch j.Phase {
+	case "rolled_back":
+		return nil
+	case "prepared", "applying", "committed":
+		return m.rollbackTenantMutation(ctx, &j)
+	default:
+		return errors.New("unknown shared tenant mutation journal phase; reconciliation required")
+	}
 }
 
 func (m *Manager) abort(ctx context.Context, t Txn) { _, _ = m.rollbackTxn(ctx, t) }

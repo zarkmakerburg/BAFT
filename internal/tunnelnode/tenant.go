@@ -360,11 +360,13 @@ func (m *Manager) rollbackTenantMutation(ctx context.Context, j *tenantMutationJ
 	if err != nil {
 		return err
 	}
+	liveGeneration := m.readGeneration()
 	if (shaHex(liveOwnerTxn) != shaHex(oldOwnerTxn) && shaHex(liveOwnerTxn) != shaHex(newOwnerTxn)) ||
 		(shaHex(liveConfig) != shaHex(oldConfig) && shaHex(liveConfig) != shaHex(newConfig)) ||
 		(shaHex(liveMarker) != shaHex(oldMarker) && shaHex(liveMarker) != shaHex(newMarker)) ||
-		(shaHex(liveUnit) != shaHex(oldUnit) && shaHex(liveUnit) != shaHex(newUnit)) {
-		return errors.New("live config or marker drifted outside the interrupted tenant transaction; refusing overwrite")
+		(shaHex(liveUnit) != shaHex(oldUnit) && shaHex(liveUnit) != shaHex(newUnit)) ||
+		(liveGeneration != j.OldGeneration && liveGeneration != j.Evidence.Generation) {
+		return errors.New("live config, unit, marker, owner transaction, or generation drifted outside the interrupted tenant transaction; refusing overwrite")
 	}
 	if err := m.writeConfig(oldConfig); err != nil {
 		return err

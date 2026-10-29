@@ -194,6 +194,13 @@ func (m *Manager) CommitEXJoin(ctx context.Context, id, reply string) (string, s
 	unlock()
 	m.mu.Unlock()
 
+	rollbackJoin := func(cause error) error {
+		_, rollbackErr := m.Rollback(ctx, id)
+		if rollbackErr != nil {
+			return fmt.Errorf("%w; shared tenant rollback also failed: %v", cause, rollbackErr)
+		}
+		return cause
+	}
 	ev, err := m.ApplyTenantMutation(ctx, TenantMutation{
 		ID: id, Operation: "add", ExpectedOwnerTunnelID: t.JoinOwnerID,
 		NodeID: staged.Node.ID, Listen: staged.Server.Listen,
@@ -202,21 +209,10 @@ func (m *Manager) CommitEXJoin(ctx context.Context, id, reply string) (string, s
 		RouteID: p.RouteID, Target: p.Target,
 	})
 	if err != nil {
-		_, _ = m.Rollback(ctx, id)
-		return "", "", err
+		return "", "", rollbackJoin(err)
 	}
 	// Reuse the same durable before-images for normal tunnel rollback, and
 	// update this logical transaction without claiming physical listener ownership.
-	rollbackJoin := func() {
-		jBytes, readErr := os.ReadFile(m.tenantMutationPath(id))
-		if readErr == nil {
-			var j tenantMutationJournal
-			if json.Unmarshal(jBytes, &j) == nil {
-				_ = m.rollbackTenantMutation(ctx, &j)
-			}
-		}
-		_, _ = m.Rollback(ctx, id)
-	}
 	mutationDir := m.tenantMutationDir()
 	for source, dest := range map[string]string{
 		"old-config": m.backup(id, "baft.yaml"), "old-unit": m.backup(id, "unit"),
@@ -224,18 +220,15 @@ func (m *Manager) CommitEXJoin(ctx context.Context, id, reply string) (string, s
 	} {
 		b, err := os.ReadFile(filepath.Join(mutationDir, id+"."+source))
 		if err != nil {
-			rollbackJoin()
-			return "", "", err
+			return "", "", rollbackJoin(err)
 		}
 		if err := writeFile(dest, b, 0o600); err != nil {
-			rollbackJoin()
-			return "", "", err
+			return "", "", rollbackJoin(err)
 		}
 	}
 	current, err := m.readTxn(id)
 	if err != nil {
-		rollbackJoin()
-		return "", "", err
+		return "", "", rollbackJoin(err)
 	}
 	current.HadConfig, current.HadUnit, current.HadMarker = true, true, true
 	current.WasActive = true
@@ -249,16 +242,14 @@ func (m *Manager) CommitEXJoin(ctx context.Context, id, reply string) (string, s
 	current.TenantRouteID, current.TenantTarget = p.RouteID, p.Target
 	current.Phase = PhaseCommitted
 	if err := m.writeTxn(current); err != nil {
-		rollbackJoin()
-		return "", "", err
+		return "", "", rollbackJoin(err)
 	}
 	receipt, err := json.Marshal(TenantJoinReceipt{
 		OwnerTunnelID: ev.OwnerTunnelID, NodeID: staged.Node.ID, Listen: staged.Server.Listen, PeerID: peerID, PeerPublicKey: peerKey,
 		Generation: ev.Generation, ConfigSHA256: ev.AfterConfigSHA, UnitSHA256: ev.AfterUnitSHA, MarkerSHA256: ev.AfterMarkerSHA,
 	})
 	if err != nil {
-		rollbackJoin()
-		return "", "", err
+		return "", "", rollbackJoin(err)
 	}
 	return "shared listener tenant committed", string(receipt), nil
 }

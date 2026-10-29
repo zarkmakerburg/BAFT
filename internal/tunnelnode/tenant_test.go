@@ -139,3 +139,148 @@ func mustReadTestFile(t *testing.T, path string) []byte {
 	if err != nil { t.Fatal(err) }
 	return b
 }
+
+
+func newFinalizedTenantMutationFixture(t *testing.T, tunnelID, mutationID string) (*pair, TenantMutation, []byte, int) {
+	t.Helper()
+	p := newPair(t)
+	p.build(t, tunnelID)
+	for _, n := range []*node{p.ex, p.ir} {
+		if _, err := n.Finalize(context.Background(), tunnelID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cfg, err := config.LoadFile(p.ex.liveConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	configBytes, err := os.ReadFile(p.ex.liveConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	unitBytes, err := os.ReadFile(p.ex.unitPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	markerBytes, err := os.ReadFile(p.ex.markerPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, err := securityinternal.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	publicKey, err := securityinternal.EncodePublicKey(key.Public)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mutation := TenantMutation{
+		ID: mutationID, Operation: "add", ExpectedOwnerTunnelID: tunnelID,
+		NodeID: cfg.Node.ID, Listen: cfg.Server.Listen,
+		ExpectedConfigSHA256: shaHex(configBytes), ExpectedUnitSHA256: shaHex(unitBytes),
+		ExpectedMarkerSHA256: shaHex(markerBytes), PeerID: "urn:baft:node:" + mutationID,
+		PeerPublicKey: publicKey, RouteID: p.exp.RouteID, Target: "127.0.0.1:2444",
+	}
+	return p, mutation, configBytes, p.ex.readGeneration()
+}
+
+func TestRecoverTenantMutationRejectsGenerationOnlyDrift(t *testing.T) {
+	p, mutation, _, _ := newFinalizedTenantMutationFixture(t, "generation-fence", "tenant-generation")
+	ev, err := p.ex.ApplyTenantMutation(context.Background(), mutation)
+	if err != nil {
+		t.Fatalf("apply tenant mutation: %v", err)
+	}
+	var journal tenantMutationJournal
+	if err := readJSON(p.ex.tenantMutationPath(mutation.ID), &journal); err != nil {
+		t.Fatal(err)
+	}
+	journal.Phase = "applying"
+	if err := writeJSON(p.ex.tenantMutationPath(mutation.ID), journal, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	configBefore, err := os.ReadFile(p.ex.liveConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	unitBefore, err := os.ReadFile(p.ex.unitPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	markerBefore, err := os.ReadFile(p.ex.markerPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ownerTxnBefore, err := os.ReadFile(p.ex.txnPath(mutation.ExpectedOwnerTunnelID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	driftGeneration := ev.Generation + 9
+	if err := p.ex.writeGeneration(driftGeneration); err != nil {
+		t.Fatal(err)
+	}
+	if err := p.ex.recoverTenantMutations(context.Background()); err == nil || !strings.Contains(err.Error(), "generation drifted") {
+		t.Fatalf("generation-only drift must fail closed: %v", err)
+	}
+	if got := p.ex.readGeneration(); got != driftGeneration {
+		t.Fatalf("rollback overwrote unrelated generation: got=%d want=%d", got, driftGeneration)
+	}
+	for path, want := range map[string][]byte{
+		p.ex.liveConfig(): configBefore, p.ex.unitPath(): unitBefore,
+		p.ex.markerPath(): markerBefore, p.ex.txnPath(mutation.ExpectedOwnerTunnelID): ownerTxnBefore,
+	} {
+		got, err := os.ReadFile(path)
+		if err != nil || string(got) != string(want) {
+			t.Fatalf("rollback changed %s despite generation drift: err=%v", path, err)
+		}
+	}
+	if err := readJSON(p.ex.tenantMutationPath(mutation.ID), &journal); err != nil || journal.Phase != "applying" {
+		t.Fatalf("unresolved journal should remain available for recovery: journal=%+v err=%v", journal, err)
+	}
+}
+
+func TestSharedJoinRollbackRetainsClaimUntilTenantJournalRecovers(t *testing.T) {
+	p, mutation, oldConfig, oldGeneration := newFinalizedTenantMutationFixture(t, "join-owner", "join-recovery")
+	ctx := context.Background()
+	if _, err := p.ex.PrepareEXJoin(ctx, mutation.ID, mutation.ExpectedOwnerTunnelID, p.exp); err != nil {
+		t.Fatalf("prepare shared join: %v", err)
+	}
+	if _, err := p.ex.ApplyTenantMutation(ctx, mutation); err != nil {
+		t.Fatalf("apply shared tenant mutation: %v", err)
+	}
+	p.ex.host.failRestart = true
+	if _, err := p.ex.Rollback(ctx, mutation.ID); err == nil {
+		t.Fatal("faulted tenant rollback unexpectedly succeeded")
+	}
+	if got := p.ex.activeID(); got != mutation.ID {
+		t.Fatalf("failed tenant rollback cleared the logical join claim: active=%q", got)
+	}
+	txn, err := p.ex.readTxn(mutation.ID)
+	if err != nil || txn.Phase != PhasePrepared || txn.ConfigWritten {
+		t.Fatalf("logical join was marked rolled back while tenant journal remained unresolved: txn=%+v err=%v", txn, err)
+	}
+	var journal tenantMutationJournal
+	if err := readJSON(p.ex.tenantMutationPath(mutation.ID), &journal); err != nil || journal.Phase != "committed" {
+		t.Fatalf("failed rollback should leave the tenant journal unresolved: journal=%+v err=%v", journal, err)
+	}
+	p.ex.host.failRestart = false
+	if _, err := p.ex.Rollback(ctx, mutation.ID); err != nil {
+		t.Fatalf("retry shared join rollback: %v", err)
+	}
+	if got := p.ex.activeID(); got != "" {
+		t.Fatalf("successful recovery left active join claim %q", got)
+	}
+	txn, err = p.ex.readTxn(mutation.ID)
+	if err != nil || txn.Phase != PhaseRolledBack {
+		t.Fatalf("logical join did not finish rollback after journal recovery: txn=%+v err=%v", txn, err)
+	}
+	if err := readJSON(p.ex.tenantMutationPath(mutation.ID), &journal); err != nil || journal.Phase != "rolled_back" {
+		t.Fatalf("tenant journal did not record recovered rollback: journal=%+v err=%v", journal, err)
+	}
+	configAfter, err := os.ReadFile(p.ex.liveConfig())
+	if err != nil || string(configAfter) != string(oldConfig) {
+		t.Fatalf("tenant rollback did not restore the owner config: err=%v", err)
+	}
+	if got := p.ex.readGeneration(); got != oldGeneration {
+		t.Fatalf("tenant rollback generation=%d want=%d", got, oldGeneration)
+	}
+}

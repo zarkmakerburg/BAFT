@@ -116,7 +116,7 @@ func (a *Agent) tunnel(ctx context.Context, j agentjob.Job) (string, string, err
 			operation = "remove"
 		}
 		evidence, err := t.ApplyTenantMutation(ctx, tunnelnode.TenantMutation{
-			ID: p["mutation_id"], Operation: operation, NodeID: p["node_id"], Listen: p["listen"],
+			ID: p["mutation_id"], Operation: operation, NodeID: p["node_id"], Listen: p["listen"], ExpectedOwnerTunnelID: p["owner_tunnel_id"],
 			ExpectedConfigSHA256: p["config_sha256"], ExpectedUnitSHA256: p["unit_sha256"], ExpectedMarkerSHA256: p["marker_sha256"],
 			PeerID: p["peer_id"], PeerPublicKey: p["peer_public_key"], RouteID: p["route_id"], Target: p["target"],
 		})

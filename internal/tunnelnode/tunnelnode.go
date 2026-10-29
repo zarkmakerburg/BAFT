@@ -1585,7 +1585,9 @@ func (m *Manager) Observe(ctx context.Context, id string) (Observed, error) {
 	if cfg.Peer != nil {
 		o.PeerAddress = cfg.Peer.Address
 	}
-	if len(cfg.Routes) > 0 {
+	if t.JoinOwnerID != "" {
+		o.RouteID, o.Target = t.TenantRouteID, t.TenantTarget
+	} else if len(cfg.Routes) > 0 {
 		o.RouteID, o.RouteListen, o.Target = cfg.Routes[0].ID, cfg.Routes[0].Listen, cfg.Routes[0].Target
 	}
 	state, _ := m.System.Systemctl(ctx, "is-active", m.Service)
@@ -1593,11 +1595,20 @@ func (m *Manager) Observe(ctx context.Context, id string) (Observed, error) {
 	o.Restarts, _ = m.System.Systemctl(ctx, "show", "-p", "NRestarts", "--value", m.Service)
 	var unitSHA string
 	if unit, err := os.ReadFile(m.unitPath()); err == nil {
-		port := t.Port
+		port, ownerID, generation := t.Port, t.ID, t.Generation
 		if t.Role == RoleIR {
 			port = 0
 		}
-		o.UnitMatches = string(unit) == m.ManagedUnit(port, t.ID, t.Generation)
+		if t.JoinOwnerID != "" {
+			ownerID = t.JoinOwnerID
+			if mb, readErr := os.ReadFile(m.markerPath()); readErr == nil {
+				var mk Marker
+				if json.Unmarshal(mb, &mk) == nil {
+					generation = mk.Generation
+				}
+			}
+		}
+		o.UnitMatches = string(unit) == m.ManagedUnit(port, ownerID, generation)
 		unitSHA = shaHex(unit)
 		o.UnitSHA256 = unitSHA
 	}
@@ -1609,6 +1620,13 @@ func (m *Manager) Observe(ctx context.Context, id string) (Observed, error) {
 			o.MarkerTunnelID, o.MarkerGeneration = mk.TunnelID, mk.Generation
 			o.MarkerConfigMatches = mk.ConfigSHA256 == o.ConfigSHA256
 			o.MarkerUnitMatches = unitSHA != "" && mk.UnitSHA256 == unitSHA
+		}
+	}
+	if t.JoinOwnerID != "" {
+		if problems := m.ownershipViolations(t); len(problems) > 0 {
+			o.UnitMatches = false
+			o.MarkerConfigMatches = false
+			o.MarkerUnitMatches = false
 		}
 	}
 	return o, nil

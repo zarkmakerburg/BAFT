@@ -428,6 +428,9 @@ func (s *Store) resolveTunnelLocked(req TunnelRequest, now time.Time) (Tunnel, N
 			}
 			continue
 		}
+		if t.JoinOwnerID != "" && sameManagedSlot(t, other) {
+			return Tunnel{}, Node{}, Node{}, fmt.Errorf("tunnel %s uses the same managed slot but is not part of the requested shared listener", other.ID)
+		}
 		if mixedLegacyScope(t, other) && (other.Phase == TunnelActive || !terminalTunnel(other.Phase) || other.Phase == TunnelRollbackFailed || other.Phase == TunnelDecommissionFailed) {
 			// A new scoped tunnel can coexist only after explicit consent and
 			// resource isolation. Nothing changes in the existing legacy instance.

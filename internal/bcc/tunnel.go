@@ -587,6 +587,9 @@ func (t Tunnel) prepareEXParams() map[string]string {
 		p["instance_id"] = t.InstanceID
 		p["metrics_listen"] = t.EXMetricsListen
 	}
+	if t.JoinOwnerID != "" {
+		p["join_owner_id"] = t.JoinOwnerID
+	}
 	return p
 }
 

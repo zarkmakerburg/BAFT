@@ -160,7 +160,7 @@ func (m *Manager) CommitEXJoin(ctx context.Context, id, reply string) (string, s
 	}
 	peerID := strings.TrimSpace(out)
 	staged, err := config.LoadFile(filepath.Join(stage, "baft.new.yaml"))
-	if err != nil || staged.Noise == nil || staged.Noise.AllowedPeerPublicKeys[peerID] == "" {
+	if err != nil || staged.Server == nil || staged.Noise == nil || staged.Node.Role != "listener" || staged.Noise.AllowedPeerPublicKeys[peerID] == "" {
 		unlock()
 		m.mu.Unlock()
 		return "", "", errors.New("tunnelnode: ex-accept did not produce verifiable tenant key evidence")

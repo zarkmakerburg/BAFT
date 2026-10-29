@@ -414,6 +414,8 @@ var optionalParamRules = map[string]map[string]*regexp.Regexp{
 	ActionTunnelFinalize:       {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
 	ActionTunnelRollback:       {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
 	ActionTunnelRetire:         {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
+	ActionTunnelTenantAdd:      {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
+	ActionTunnelTenantRemove:   {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
 	ActionPublicIngressPrepare: {"instance_id": instanceIDRe},
 	ActionPublicIngressCancel:  {"instance_id": instanceIDRe},
 	ActionPublicIngressApply:   {"instance_id": instanceIDRe, "ingress_protocol": regexp.MustCompile("^1$"), "operation_id": tunnelIDRe, "lease_id": tunnelIDRe, "plan_sha256": sha256Re, "config_sha256": sha256Re, "listen_endpoint": endpointRe, "transport": regexp.MustCompile("^dedicated$")},

@@ -110,6 +110,21 @@ func (a *Agent) tunnel(ctx context.Context, j agentjob.Job) (string, string, err
 		}
 	}
 	switch j.Action {
+	case agentjob.ActionTunnelTenantAdd, agentjob.ActionTunnelTenantRemove:
+		operation := "add"
+		if j.Action == agentjob.ActionTunnelTenantRemove {
+			operation = "remove"
+		}
+		evidence, err := t.ApplyTenantMutation(ctx, tunnelnode.TenantMutation{
+			ID: p["mutation_id"], Operation: operation, NodeID: p["node_id"], Listen: p["listen"],
+			ExpectedConfigSHA256: p["config_sha256"], ExpectedMarkerSHA256: p["marker_sha256"],
+			PeerID: p["peer_id"], PeerPublicKey: p["peer_public_key"], RouteID: p["route_id"], Target: p["target"],
+		})
+		if err != nil {
+			return "", "", err
+		}
+		b, err := json.Marshal(evidence)
+		return "shared listener tenant mutation committed", string(b), err
 	case agentjob.ActionTunnelPrepareEX:
 		port, _ := strconv.Atoi(p["port"])
 		code, err := t.PrepareEX(ctx, id, exParams(p, port))

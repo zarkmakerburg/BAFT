@@ -451,3 +451,97 @@ func TestCommittedSharedJoinRollbackFailsClosedWithoutJournal(t *testing.T) {
 		t.Fatalf("fail-closed rollback changed logical join state: txn=%+v err=%v", txn, err)
 	}
 }
+
+
+func TestSharedJoinAddsNewPeerWithoutChangingLegacyOwner(t *testing.T) {
+	p := newPair(t)
+	ctx := context.Background()
+	p.build(t, "shared-owner")
+	for _, n := range []*node{p.ex, p.ir} {
+		if _, err := n.Finalize(ctx, "shared-owner"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	before, err := config.LoadFile(p.ex.liveConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before.Noise == nil || before.Noise.PeerPublicKey == "" || len(before.Server.AllowedPeerIdentities) != 1 {
+		t.Fatalf("fixture should begin with a legacy single-peer listener: %+v", before.Noise)
+	}
+
+	ir2 := newNode(t)
+	ir2Params := IRParams{RouteListen: "127.0.0.1:" + strconv.Itoa(freePort(t)), RouteID: "tenant-route"}
+	joinParams := p.exp
+	joinParams.Target = "127.0.0.1:2444"
+	joinParams.RouteID = "tenant-route"
+	code, err := p.ex.PrepareEXJoin(ctx, "shared-tenant", "shared-owner", joinParams)
+	if err != nil {
+		t.Fatalf("prepare shared tenant: %v", err)
+	}
+	reply, err := ir2.PrepareIR(ctx, "shared-tenant", code, ir2Params)
+	if err != nil {
+		t.Fatalf("prepare new IR: %v", err)
+	}
+	p.ex.host.mu.Lock()
+	callsBeforeCommit := len(p.ex.host.calls)
+	p.ex.host.mu.Unlock()
+	detail, receipt, err := p.ex.CommitEXJoin(ctx, "shared-tenant", reply)
+	if err != nil {
+		t.Fatalf("commit shared tenant: %v", err)
+	}
+	if detail == "" || receipt == "" {
+		t.Fatalf("shared tenant commit omitted evidence: detail=%q receipt=%q", detail, receipt)
+	}
+	p.ex.host.mu.Lock()
+	calls := append([]string(nil), p.ex.host.calls[callsBeforeCommit:]...)
+	p.ex.host.mu.Unlock()
+	sawReload := false
+	for _, call := range calls {
+		if strings.HasPrefix(call, "reload ") {
+			sawReload = true
+		}
+		if strings.HasPrefix(call, "restart ") {
+			t.Fatalf("shared join restarted the physical listener: %v", calls)
+		}
+	}
+	if !sawReload {
+		t.Fatalf("shared join did not hot-reload the physical listener: %v", calls)
+	}
+
+	after, err := config.LoadFile(p.ex.liveConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Noise == nil || after.Noise.PeerPublicKey != "" ||
+		after.Noise.AllowedPeerPublicKeys["urn:baft:node:ir-01"] == "" ||
+		after.Noise.AllowedPeerPublicKeys["urn:baft:node:ir-02"] == "" {
+		t.Fatalf("legacy owner peer was not preserved alongside new tenant: %+v", after.Noise)
+	}
+	if len(after.Server.AllowedPeerIdentities) != 2 {
+		t.Fatalf("expected exactly two authenticated peers, got %v", after.Server.AllowedPeerIdentities)
+	}
+	routesByID := map[string]config.Route{}
+	for _, route := range after.Routes {
+		routesByID[route.ID] = route
+	}
+	if routesByID["service-main"].Target != p.exp.Target ||
+		len(routesByID["service-main"].AllowedPeers) != 1 ||
+		routesByID["service-main"].AllowedPeers[0] != "urn:baft:node:ir-01" {
+		t.Fatalf("existing owner's route changed: %+v", routesByID["service-main"])
+	}
+	if routesByID["tenant-route"].Target != joinParams.Target ||
+		len(routesByID["tenant-route"].AllowedPeers) != 1 ||
+		routesByID["tenant-route"].AllowedPeers[0] != "urn:baft:node:ir-02" {
+		t.Fatalf("new tenant route is not isolated: %+v", routesByID["tenant-route"])
+	}
+	if _, err := ir2.CommitIR(ctx, "shared-tenant"); err != nil {
+		t.Fatalf("commit new IR: %v", err)
+	}
+	if _, err := p.ex.Finalize(ctx, "shared-tenant"); err != nil {
+		t.Fatalf("finalize shared tenant: %v", err)
+	}
+	if _, err := ir2.Finalize(ctx, "shared-tenant"); err != nil {
+		t.Fatalf("finalize new IR: %v", err)
+	}
+}

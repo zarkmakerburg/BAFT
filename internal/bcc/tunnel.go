@@ -971,6 +971,10 @@ func (s *Store) advanceRollbackLocked(t *Tunnel, now time.Time) *TunnelEvent {
 
 // AdvanceTunnels steps tunnels and records final outcomes in the audit log.
 func (s *Server) AdvanceTunnels() {
+	if err := s.store.ReconcileSharedTenantMutationAcks(s.now()); err != nil {
+		_, _ = s.audit.Append(AuditEntry{Timestamp: s.now().UTC(), Actor: "bcc", Action: "tunnel.shared_tenant.reconcile", Target: "cluster", Outcome: "failure", Details: map[string]any{"error": err.Error()}})
+		return
+	}
 	if devs, err := s.store.AdvanceDiscovery(s.now()); err == nil {
 		s.auditDiscovery(devs)
 	}

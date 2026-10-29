@@ -127,7 +127,14 @@ func (a *Agent) tunnel(ctx context.Context, j agentjob.Job) (string, string, err
 		return "shared listener tenant mutation committed", string(b), err
 	case agentjob.ActionTunnelPrepareEX:
 		port, _ := strconv.Atoi(p["port"])
-		code, err := t.PrepareEX(ctx, id, exParams(p, port))
+		params := exParams(p, port)
+		var code string
+		var err error
+		if p["join_owner_id"] != "" {
+			code, err = t.PrepareEXJoin(ctx, id, p["join_owner_id"], params)
+		} else {
+			code, err = t.PrepareEX(ctx, id, params)
+		}
 		if err != nil {
 			return "", "", err
 		}
@@ -139,6 +146,10 @@ func (a *Agent) tunnel(ctx context.Context, j agentjob.Job) (string, string, err
 		}
 		return "reply code issued", reply, nil
 	case agentjob.ActionTunnelCommitEX:
+		if p["join_owner_id"] != "" {
+			d, receipt, err := t.CommitEXJoin(ctx, id, p["reply"])
+			return d, receipt, err
+		}
 		d, err := t.CommitEX(ctx, id, p["reply"])
 		return d, "", err
 	case agentjob.ActionTunnelCommitIR:

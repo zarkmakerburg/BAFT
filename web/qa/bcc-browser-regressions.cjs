@@ -27,7 +27,7 @@ async function fixture(){
   assert.equal(new URL(data.base).hostname,'127.0.0.1');
   return {...data,async stop(){lines.close();child.kill('SIGTERM');await Promise.race([exited,sleep(3000).then(()=>child.kill('SIGKILL'))])}};
 }
-async function expiredSession(browser,viewport,lang,theme,trigger,dir){
+async function isolatedSession(browser,viewport,lang,theme,trigger,dir){
   // Repeated full-page logins share the production 120-request/minute budget.
   // Isolate each auth path in a fresh real server; never raise/disable its guard.
   const f=await fixture(),origin=new URL(f.base).origin,basePath=new URL(f.base).pathname;
@@ -42,6 +42,17 @@ async function expiredSession(browser,viewport,lang,theme,trigger,dir){
     await page.locator('#loginUsername').fill(f.username);await page.locator('#loginPassword').fill(f.password);
     await Promise.all([page.waitForURL(f.base),page.locator('#loginForm [type="submit"]').click()]);
     await page.waitForFunction(()=>Boolean(window.BAFT_OPS?.cards&&document.querySelector('#ops_tlCatalog [data-engine="baft"]')));
+    if(trigger==='logout'){
+      await page.locator('#avatar').click();
+      await page.locator('#userPop').waitFor({state:'visible'});
+      await Promise.all([page.waitForURL(f.base),page.locator('#logout').click()]);
+      assert.equal(await page.locator('#app').isHidden(),true);assert.equal(await page.locator('.ops-card').count(),0);
+      const catalogStatus=(await ctx.request.get(f.base+'api/tunnel-engines')).status();
+      assert.equal(catalogStatus,401,'logout must revoke catalog access without hitting the rate limit');
+      assert.deepEqual(limited,[],'logout fixture must stay within the unchanged rate limit');assert.deepEqual(errors,[]);
+      await page.screenshot({path:path.join(dir,'session-logout.png'),fullPage:true,animations:'disabled'});
+      return {trigger,catalogStatus,operationalCards:0,rateLimited:limited.length};
+    }
     const openNav=async()=>{const menu=page.locator('#menuToggle');if(await menu.isVisible()&&await menu.getAttribute('aria-expanded')!=='true')await menu.click()};
     if(trigger==='catalog'){
       await openNav();await page.locator('#nav a[href="#tunnels"]').click();
@@ -296,19 +307,17 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await page.locator('.tlTile').first().evaluate(n=>getComputedStyle(n).transitionDuration),'0s');await shot('reduced-motion');
     });
     await check('real logout and unauthenticated catalog',async()=>{
-      await page.locator('#avatar').click();
-      await page.locator('#userPop').waitFor({state:'visible'});
-      await Promise.all([page.waitForURL(f.base),page.locator('#logout').click()]);
-      assert.equal(await page.locator('#app').isHidden(),true);assert.equal(await page.locator('.ops-card').count(),0);
-      const catalogStatus=(await ctx.request.get(f.base+'api/tunnel-engines')).status();
-      assert.ok([401,429].includes(catalogStatus),`unauthenticated catalog must be denied (401/429), got ${catalogStatus}`);
+      // The full-page welcome after logout loads its real assets again.
+      // Keep that independent auth scenario out of the main profile's
+      // accumulated request window, as with both expiry scenarios below.
+      result.logout=await isolatedSession(browser,viewport,lang,theme,'logout',dir);
     });
     await check('expired session removes operational UI',async()=>{
       // Exercise both application fetch paths through their actual UI controls.
       // An arbitrary absolute-URL fetch bypasses their session handling.
       result.auth=[];
       for(const trigger of ['catalog','servers']){
-        result.auth.push(await expiredSession(browser,viewport,lang,theme,trigger,dir));
+        result.auth.push(await isolatedSession(browser,viewport,lang,theme,trigger,dir));
       }
       assert.deepEqual(result.rateLimited||[],[],'main fixture must stay within the unchanged rate limit');
     });

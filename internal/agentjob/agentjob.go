@@ -500,6 +500,16 @@ func (j Job) Validate() error {
 			return fmt.Errorf("parameter route_listen: %w", err)
 		}
 	}
+	if j.Action == ActionTunnelTenantAdd || j.Action == ActionTunnelTenantRemove {
+		if err := validateTunnelEndpoint(j.Params["listen"], false); err != nil {
+			return fmt.Errorf("parameter listen: %w", err)
+		}
+		if j.Action == ActionTunnelTenantAdd {
+			if err := validateTunnelEndpoint(j.Params["target"], false); err != nil {
+				return fmt.Errorf("parameter target: %w", err)
+			}
+		}
+	}
 	if j.Action == ActionPublicIngressPreflight || j.Action == ActionPublicIngressInspect || j.Action == ActionPublicIngressPrepare || j.Action == ActionPublicIngressCancel || j.Action == ActionPublicIngressApply || j.Action == ActionPublicIngressRetire {
 		if !validTCPPort(j.Params["public_port"]) {
 			return errors.New("parameter public_port must be between 1 and 65535")

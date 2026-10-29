@@ -71,7 +71,7 @@ func TestApplyTenantMutationAddsAndRemovesWithDigestFence(t *testing.T) {
 	}
 	remove := TenantMutation{
 		ID: "tenant-remove-1", Operation: "remove", NodeID: cfg.Node.ID, Listen: cfg.Server.Listen,
-		ExpectedConfigSHA256: cfgSHA, ExpectedMarkerSHA256: markerSHA,
+		ExpectedConfigSHA256: cfgSHA, ExpectedUnitSHA256: unitSHA, ExpectedMarkerSHA256: markerSHA,
 		PeerID: peerID, PeerPublicKey: publicKey, RouteID: p.exp.RouteID,
 	}
 	if _, err := p.ex.ApplyTenantMutation(context.Background(), remove); err != nil {

@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -483,6 +485,12 @@ func TestSharedJoinAddsNewPeerWithoutChangingLegacyOwner(t *testing.T) {
 	if err != nil {
 		t.Fatalf("prepare new IR: %v", err)
 	}
+	ir2Staged, err := config.LoadFile(filepath.Join(ir2.stage("shared-tenant"), "baft.new.yaml"))
+	if err != nil {
+		t.Fatalf("read new IR staged config: %v", err)
+	}
+	ownerPeerID := before.Server.AllowedPeerIdentities[0]
+	newPeerID := "urn:baft:node:" + ir2Staged.Node.ID
 	p.ex.host.mu.Lock()
 	callsBeforeCommit := len(p.ex.host.calls)
 	p.ex.host.mu.Unlock()
@@ -514,8 +522,8 @@ func TestSharedJoinAddsNewPeerWithoutChangingLegacyOwner(t *testing.T) {
 		t.Fatal(err)
 	}
 	if after.Noise == nil || after.Noise.PeerPublicKey != "" ||
-		after.Noise.AllowedPeerPublicKeys["urn:baft:node:ir-01"] == "" ||
-		after.Noise.AllowedPeerPublicKeys["urn:baft:node:ir-02"] == "" {
+		after.Noise.AllowedPeerPublicKeys[ownerPeerID] == "" ||
+		after.Noise.AllowedPeerPublicKeys[newPeerID] == "" {
 		t.Fatalf("legacy owner peer was not preserved alongside new tenant: %+v", after.Noise)
 	}
 	if len(after.Server.AllowedPeerIdentities) != 2 {
@@ -527,12 +535,12 @@ func TestSharedJoinAddsNewPeerWithoutChangingLegacyOwner(t *testing.T) {
 	}
 	if routesByID["service-main"].Target != p.exp.Target ||
 		len(routesByID["service-main"].AllowedPeers) != 1 ||
-		routesByID["service-main"].AllowedPeers[0] != "urn:baft:node:ir-01" {
+		routesByID["service-main"].AllowedPeers[0] != ownerPeerID {
 		t.Fatalf("existing owner's route changed: %+v", routesByID["service-main"])
 	}
 	if routesByID["tenant-route"].Target != joinParams.Target ||
 		len(routesByID["tenant-route"].AllowedPeers) != 1 ||
-		routesByID["tenant-route"].AllowedPeers[0] != "urn:baft:node:ir-02" {
+		routesByID["tenant-route"].AllowedPeers[0] != newPeerID {
 		t.Fatalf("new tenant route is not isolated: %+v", routesByID["tenant-route"])
 	}
 	if _, err := ir2.CommitIR(ctx, "shared-tenant"); err != nil {

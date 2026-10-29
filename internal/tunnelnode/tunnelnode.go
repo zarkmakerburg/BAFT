@@ -127,6 +127,17 @@ type Txn struct {
 	// Generation counts committed configuration changes on this node.
 	Generation         int `json:"generation,omitempty"`
 	PreviousGeneration int `json:"previous_generation,omitempty"`
+
+	// JoinOwnerID marks a logical tenant whose listener is physically owned by
+	// another finalized tunnel transaction. The owner keeps the shared unit.
+	JoinOwnerID   string `json:"join_owner_id,omitempty"`
+	JoinConfigSHA string `json:"join_config_sha256,omitempty"`
+	JoinUnitSHA   string `json:"join_unit_sha256,omitempty"`
+	JoinMarkerSHA string `json:"join_marker_sha256,omitempty"`
+	PeerID        string `json:"peer_id,omitempty"`
+	PeerPublicKey string `json:"peer_public_key,omitempty"`
+	TenantRouteID string `json:"tenant_route_id,omitempty"`
+	TenantTarget  string `json:"tenant_target,omitempty"`
 }
 
 type Manager struct {
@@ -289,6 +300,7 @@ type ExParams struct {
 	RouteID       string
 	RecordShaping bool
 	MetricsListen string // default 127.0.0.1:9191
+	JoinOwnerID   string `json:"join_owner_id,omitempty"`
 }
 
 type IRParams struct {

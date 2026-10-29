@@ -1,8 +1,7 @@
 package integration_test
 
 import (
-	"bytes"
-	"context"
+		"context"
 	"crypto/x509"
 	"encoding/pem"
 	"io"
@@ -10,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"sync"
 	"time"
 
 	"github.com/zarkmakerburg/baft/internal/config"
@@ -31,14 +31,33 @@ func TestNoiseListenerAcceptsAndSeparatesTwoIRPeers(t *testing.T) {
 	der,err:=x509.MarshalPKCS8PrivateKey(certs.server.PrivateKey);if err!=nil{t.Fatal(err)}
 	tlsKey:=write("server.key",pem.EncodeToMemory(&pem.Block{Type:"PRIVATE KEY",Bytes:der}))
 
-	target,err:=net.Listen("tcp","127.0.0.1:0");if err!=nil{t.Fatal(err)}
-	defer target.Close()
-	go func(){
-		for{
-			c,e:=target.Accept();if e!=nil{return}
-			go func(conn net.Conn){defer conn.Close();_,_=io.Copy(conn,conn)}(c)
+	newTarget := func(marker byte) net.Listener {
+		t.Helper()
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
 		}
-	}()
+		go func() {
+			for {
+				conn, err := ln.Accept()
+				if err != nil {
+					return
+				}
+				go func(c net.Conn) {
+					defer c.Close()
+					var request [1]byte
+					if _, err := io.ReadFull(c, request[:]); err == nil {
+						_, _ = c.Write([]byte{marker})
+					}
+				}(conn)
+			}
+		}()
+		return ln
+	}
+	ownerTarget := newTarget('A')
+	defer ownerTarget.Close()
+	tenantTarget := newTarget('B')
+	defer tenantTarget.Close()
 
 	exKey,err:=securityinternal.GenerateKeyPair();if err!=nil{t.Fatal(err)}
 	ir1Key,err:=securityinternal.GenerateKeyPair();if err!=nil{t.Fatal(err)}
@@ -59,13 +78,13 @@ func TestNoiseListenerAcceptsAndSeparatesTwoIRPeers(t *testing.T) {
 	ex.Management.UnixSocket=filepath.Join(dir,"ex.sock")
 	ex.Management.MetricsListen=reserveAddress(t)
 	ex.Transport.Shards=1
-	ex.Routes[0].Target=target.Addr().String()
+	ex.Routes[0].Target=ownerTarget.Addr().String()
 	ex.Routes[0].AllowedPeers=[]string{"urn:baft:node:ir-master"}
 	ex.TLS=config.TLS{MinVersion:"1.3",CAFile:ca,CertFile:cert,KeyFile:tlsKey,SessionTickets:false}
 	// Start from the legacy single-peer pinned listener and use the same
 	// transformation the BCC tenant lifecycle invokes to add the second peer.
 	ex.Noise=&config.Noise{KeyFile:exPath,PeerPublicKey:ir1Pub,RecordShaping:recordshape.Config{}}
-	ex,err=config.AddListenerTenant(ex,ex.Node.ID,ex.Server.Listen,"urn:baft:node:ir-worker",ir2Pub,ex.Routes[0].ID,target.Addr().String())
+	ex,err=config.AddListenerTenant(ex,ex.Node.ID,ex.Server.Listen,"urn:baft:node:ir-worker",ir2Pub,"service-worker",tenantTarget.Addr().String())
 	if err!=nil{t.Fatalf("add second authenticated tenant: %v",err)}
 
 	makeIR:=func(id,keyPath,listen,metrics string) config.Config{
@@ -99,17 +118,40 @@ func TestNoiseListenerAcceptsAndSeparatesTwoIRPeers(t *testing.T) {
 	waitTCP(t,ir1.Routes[0].Listen,time.Now().Add(8*time.Second))
 	waitTCP(t,ir2.Routes[0].Listen,time.Now().Add(8*time.Second))
 
-	roundtrip:=func(label,addr string){
-		c,e:=net.DialTimeout("tcp",addr,time.Second);if e!=nil{t.Fatal(e)}
-		defer c.Close();_ = c.SetDeadline(time.Now().Add(5*time.Second))
-		payload:=bytes.Repeat([]byte(label+"|"),256)
-		if _,e=c.Write(payload);e!=nil{t.Fatal(e)}
-		got:=make([]byte,len(payload));if _,e=io.ReadFull(c,got);e!=nil{t.Fatal(e)}
-		if !bytes.Equal(got,payload){t.Fatalf("%s roundtrip mismatch",label)}
+	roundtrip := func(label, addr string, want byte) {
+		t.Helper()
+		c, err := net.DialTimeout("tcp", addr, time.Second)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer c.Close()
+		_ = c.SetDeadline(time.Now().Add(5 * time.Second))
+		if _, err := c.Write([]byte{'x'}); err != nil {
+			t.Fatalf("%s write: %v", label, err)
+		}
+		got := []byte{0}
+		if _, err := io.ReadFull(c, got); err != nil {
+			t.Fatalf("%s read: %v", label, err)
+		}
+		if got[0] != want {
+			t.Fatalf("%s reached wrong tenant target: got %q want %q", label, got[0], want)
+		}
 	}
-	roundtrip("master",ir1.Routes[0].Listen)
-	roundtrip("worker",ir2.Routes[0].Listen)
-	t.Logf("PASS EX accepted two simultaneous authenticated peers: master=%s worker=%s",ir1.Node.ID,ir2.Node.ID)
+	var wg sync.WaitGroup
+	errs := make(chan error, 2)
+	for _, tc := range []struct{ label, addr string; want byte }{
+		{ir1.Node.ID, ir1.Routes[0].Listen, 'A'},
+		{ir2.Node.ID, ir2.Routes[0].Listen, 'B'},
+	} {
+		wg.Add(1)
+		go func(tc struct{ label, addr string; want byte }) {
+			defer wg.Done()
+			roundtrip(tc.label, tc.addr, tc.want)
+		}(tc)
+	}
+	wg.Wait()
+	close(errs)
+	t.Logf("PASS concurrent authenticated peers were isolated to distinct targets: master=%s→A worker=%s→B", ir1.Node.ID, ir2.Node.ID)
 
 	cancel()
 	for name,ch:=range map[string]<-chan error{"ex":exDone,"ir1":ir1Done,"ir2":ir2Done}{

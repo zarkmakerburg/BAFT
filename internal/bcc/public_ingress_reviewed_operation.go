@@ -31,7 +31,7 @@ func (s *Store) recordReviewedPublicIngressOperationLocked(spec PublicIngressSpe
 	if !ok || node.Revoked || node.AgentTokenHash == "" || (node.Role != "worker" && node.Role != "master") {
 		return PublicIngressOperation{}, errors.New("IR node is not enrolled or authorized")
 	}
-	manifest, err := ingressmanifest.Preview(publicIngressManifestSpec(spec, tunnel.InstanceID, proof.Generation))
+	manifest, err := ingressmanifest.Preview(publicIngressManifestSpec(spec, tunnel.instanceForNode(tunnel.IRNode), proof.Generation))
 	if err != nil || manifest.ManifestSHA256 != proof.ManifestDigest {
 		return PublicIngressOperation{}, errors.New("noncanonical ingress operation manifest proof")
 	}

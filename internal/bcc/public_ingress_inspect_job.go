@@ -35,7 +35,7 @@ func (s *Store) CreatePublicIngressInspect(tunnelID string, now time.Time, audit
 	}
 	// A cursor and reservation may survive unrelated state edits or a restore.
 	// Never sign fresh inspection work for a no-longer-canonical manifest.
-	preview, err := ingressmanifest.Preview(publicIngressManifestSpec(op.Spec, tunnel.InstanceID, op.Proof.Generation))
+	preview, err := ingressmanifest.Preview(publicIngressManifestSpec(op.Spec, tunnel.instanceForNode(tunnel.IRNode), op.Proof.Generation))
 	if err != nil || preview.ManifestSHA256 != op.Proof.ManifestDigest {
 		return Job{}, errors.New("inspect operation proof differs from current tunnel configuration")
 	}
@@ -98,7 +98,7 @@ func validateCurrentPublicIngressInspectIntent(st state, j Job) error {
 	if !ok || tunnel.IRNode != op.Spec.IRNode || tunnel.RouteListen != op.Spec.LocalTarget || !tunnelKeepsPorts(tunnel) {
 		return errors.New("ingress inspection ACK no longer matches tunnel")
 	}
-	preview, err := ingressmanifest.Preview(publicIngressManifestSpec(op.Spec, tunnel.InstanceID, op.Proof.Generation))
+	preview, err := ingressmanifest.Preview(publicIngressManifestSpec(op.Spec, tunnel.instanceForNode(tunnel.IRNode), op.Proof.Generation))
 	if err != nil || preview.ManifestSHA256 != op.Proof.ManifestDigest {
 		return errors.New("ingress inspection ACK uses stale canonical manifest")
 	}

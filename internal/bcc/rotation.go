@@ -148,6 +148,14 @@ func (s *Store) StartCertRotation(req CertRotationRequest, now time.Time, audit 
 	if t.Phase != TunnelActive {
 		return CertRotation{}, fmt.Errorf("tunnel is %s; only an active tunnel rotates its certificate", t.Phase)
 	}
+	if t.JoinOwnerID != "" {
+		return CertRotation{}, errors.New("certificate rotation is not tenant-aware for a shared listener; decommission this tenant before rotating its physical owner")
+	}
+	for _, other := range s.st.Tunnels {
+		if other.JoinOwnerID == t.ID && other.Phase == TunnelActive {
+			return CertRotation{}, errors.New("certificate rotation is blocked while shared-listener tenants are active; decommission tenants first so every IR trust store can be updated safely")
+		}
+	}
 	if len(t.DriftJobs) > 0 {
 		return CertRotation{}, errors.New("a drift check of this tunnel is running")
 	}

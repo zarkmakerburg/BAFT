@@ -46,7 +46,7 @@ func (s *Store) stageReviewedIngressLocked(tunnelID string, now time.Time) error
 		return err
 	}
 	generation := s.nextIngressGenerationLocked(spec.IRNode, spec.PublicPort)
-	manifest := publicIngressManifestSpec(spec, t.InstanceID, generation)
+	manifest := publicIngressManifestSpec(spec, t.instanceForNode(t.IRNode), generation)
 	preview, err := ingressmanifest.Preview(manifest)
 	if err != nil {
 		return err
@@ -115,12 +115,12 @@ func (s *Store) restageExpiredUndispatchedIngressLocked(tunnelID string, now tim
 		old.Validate(old.IssuedAt) != nil || old.Binding.OperationID != op.OperationID || old.Binding.LeaseID != op.LeaseID ||
 		old.Binding.PlanSHA256 != op.ReviewedPlanHash || old.Binding.NodeID != op.Spec.IRNode ||
 		int(old.Binding.Port) != op.Spec.PublicPort || int(old.Binding.ConfigPort) != op.Spec.PublicPort ||
-		old.Binding.Spec.TunnelID != tunnelID || old.Binding.Spec.InstanceID != t.InstanceID ||
+		old.Binding.Spec.TunnelID != tunnelID || old.Binding.Spec.InstanceID != t.instanceForNode(t.IRNode) ||
 		old.Binding.Spec.Generation != op.Proof.Generation || old.Binding.ListenerID != op.Proof.ListenerID ||
 		old.Binding.FirewallID != op.Proof.FirewallID || old.Binding.Proof.ManifestSHA256 != op.Proof.ManifestDigest {
 		return errors.New("expired ingress no longer matches the active reviewed plan")
 	}
-	expectedSpec := publicIngressManifestSpec(op.Spec, t.InstanceID, op.Proof.Generation)
+	expectedSpec := publicIngressManifestSpec(op.Spec, t.instanceForNode(t.IRNode), op.Proof.Generation)
 	expectedProof, err := ingressmanifest.Preview(expectedSpec)
 	if err != nil || old.Binding.Spec != expectedSpec || old.Binding.Proof != expectedProof ||
 		old.Binding.ListenEndpoint != expectedSpec.Config.Listen || old.Binding.LocalTarget != expectedSpec.Config.Target || old.Binding.Transport != "dedicated" {

@@ -28,6 +28,7 @@ type PlanGate struct {
 type PlanNode struct {
 	NodeID         string   `json:"node_id"`
 	Role           string   `json:"role"` // ex or ir
+	InstanceID     string   `json:"instance_id,omitempty"`
 	GenerationFrom int      `json:"generation_from"`
 	GenerationTo   int      `json:"generation_to"`
 	GenerationNote string   `json:"generation_note,omitempty"`
@@ -100,30 +101,30 @@ func (s *Store) buildPlanLocked(req TunnelRequest, now time.Time) (Plan, error) 
 	if err != nil {
 		return Plan{}, err
 	}
-	gen := func(n Node) (from, to int, note string) {
-		g := expectedGeneration(n, t.InstanceID)
+	gen := func(n Node, nodeID string) (from, to int, note string) {
+		g := expectedGeneration(n, t.instanceForNode(nodeID))
 		if g.Bootstrap {
 			return g.From, g.To, "bootstrap: BCC has not verified a generation for this node yet; the node's own counter must be one step ahead and is recorded"
 		}
 		return g.From, g.To, ""
 	}
-	exFrom, exTo, exNote := gen(ex)
-	irFrom, irTo, irNote := gen(ir)
+	exFrom, exTo, exNote := gen(ex, ex.ID)
+	irFrom, irTo, irNote := gen(ir, ir.ID)
 	peer := net.JoinHostPort(t.PublicAddress, strconv.Itoa(t.Port))
 	p := Plan{
 		Request: TunnelRequest{
-			Engine: req.Engine, InstanceID: t.InstanceID, JoinExistingTunnelID: t.JoinOwnerID, AllowLegacyCoexistence: req.AllowLegacyCoexistence, EXNode: t.EXNode, IRNode: t.IRNode, PublicAddress: t.PublicAddress, Port: t.Port, ClientPort: t.ClientPort, Target: t.Target,
+			Engine: req.Engine, InstanceID: t.InstanceID, IRInstanceID: t.IRInstanceID, JoinExistingTunnelID: t.JoinOwnerID, AllowLegacyCoexistence: req.AllowLegacyCoexistence, EXNode: t.EXNode, IRNode: t.IRNode, PublicAddress: t.PublicAddress, Port: t.Port, ClientPort: t.ClientPort, Target: t.Target,
 			RouteListen: t.RouteListen, RouteID: t.RouteID, EXMetricsListen: t.EXMetricsListen, IRMetricsListen: t.IRMetricsListen,
-			RecordShaping: t.RecordShaping,
+			RecordShaping:      t.RecordShaping,
 			AutoSelectEvidence: req.AutoSelectEvidence,
 		},
 		Nodes: []PlanNode{
-			{NodeID: ex.ID, Role: "ex", GenerationFrom: exFrom, GenerationTo: exTo, GenerationNote: exNote, Changes: []string{
+			{NodeID: ex.ID, Role: "ex", InstanceID: t.instanceForNode(ex.ID), GenerationFrom: exFrom, GenerationTo: exTo, GenerationNote: exNote, Changes: []string{
 				fmt.Sprintf("listener config: 0.0.0.0:%d, route %s exits to the fixed target %s", t.Port, t.RouteID, t.Target),
 				"outer-TLS key material and Noise key ensured for " + t.PublicAddress,
 				"service unit written and (re)started; previous config and unit backed up",
 			}},
-			{NodeID: ir.ID, Role: "ir", GenerationFrom: irFrom, GenerationTo: irTo, GenerationNote: irNote, Changes: []string{
+			{NodeID: ir.ID, Role: "ir", InstanceID: t.instanceForNode(ir.ID), GenerationFrom: irFrom, GenerationTo: irTo, GenerationNote: irNote, Changes: []string{
 				fmt.Sprintf("dialer config: local route %s on %s, peer %s", t.RouteID, t.RouteListen, peer),
 				"Noise key ensured; pairing reply produced from the EX's one-time code",
 				"service unit written and (re)started; previous config and unit backed up",

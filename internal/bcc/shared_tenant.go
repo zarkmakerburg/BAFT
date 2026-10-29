@@ -79,11 +79,15 @@ func (s *Store) CreateSharedTenantMutationJob(in SharedTenantMutationRequest, no
 	if !ok || node.Revoked {
 		return Job{}, errors.New("EX node is missing or revoked")
 	}
+	ownerTunnelID := t.ID
+	if t.JoinOwnerID != "" {
+		ownerTunnelID = t.JoinOwnerID
+	}
 	for _, existing := range s.st.Jobs {
-		if existing.Params["tunnel_id"] == in.TunnelID &&
-			(existing.Type == agentjob.ActionTunnelTenantAdd || existing.Type == agentjob.ActionTunnelTenantRemove) &&
-			(existing.Status == "queued" || existing.Status == "dispatched") {
-			return Job{}, errors.New("another shared tenant mutation is still pending for this tunnel")
+		if (existing.Type == agentjob.ActionTunnelTenantAdd || existing.Type == agentjob.ActionTunnelTenantRemove) &&
+			(existing.Status == "queued" || existing.Status == "dispatched") &&
+			(existing.Params["tunnel_id"] == in.TunnelID || existing.Params["owner_tunnel_id"] == ownerTunnelID) {
+			return Job{}, errors.New("another shared tenant mutation is still pending for this physical listener")
 		}
 	}
 
@@ -93,8 +97,6 @@ func (s *Store) CreateSharedTenantMutationJob(in SharedTenantMutationRequest, no
 		return Job{}, err
 	}
 	mutationID := newTunnelID()
-	ownerTunnelID := t.ID
-	if t.JoinOwnerID != "" { ownerTunnelID = t.JoinOwnerID }
 	action := agentjob.ActionTunnelTenantAdd
 	params := map[string]string{
 		"tunnel_id": in.TunnelID, "owner_tunnel_id": ownerTunnelID, "mutation_id": mutationID, "node_id": in.NodeID,

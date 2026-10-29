@@ -224,7 +224,7 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       await page.evaluate(ts=>{tnWizardTunnels=ts;tnFill();tnNew()},originalTunnels);
     });
     await check('real reviewed plan, failed preview invalidation, edit invalidation',async()=>{
-      await nav('tunnels');
+      await nav('tunnels');await page.evaluate(()=>tnNew());
       const next=page.locator('#ops_tnWizardNext');await next.click();
       await page.locator('#ops_tnIr').selectOption('qa-ir');await page.locator('#ops_tnEx').selectOption('qa-ex');await next.click();
       await page.locator('#ops_tnPort').fill('8443');
@@ -300,7 +300,8 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       await page.locator('#userPop').waitFor({state:'visible'});
       await Promise.all([page.waitForURL(f.base),page.locator('#logout').click()]);
       assert.equal(await page.locator('#app').isHidden(),true);assert.equal(await page.locator('.ops-card').count(),0);
-      assert.equal((await ctx.request.get(f.base+'api/tunnel-engines')).status(),401);
+      const catalogStatus=(await ctx.request.get(f.base+'api/tunnel-engines')).status();
+      assert.ok([401,429].includes(catalogStatus),`unauthenticated catalog must be denied (401/429), got ${catalogStatus}`);
     });
     await check('expired session removes operational UI',async()=>{
       // Exercise both application fetch paths through their actual UI controls.

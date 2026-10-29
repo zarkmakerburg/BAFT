@@ -291,6 +291,9 @@ func (s *Store) tunnelJobLocked(t *Tunnel, node, typ string, params map[string]s
 		params = map[string]string{}
 	}
 	params["tunnel_id"] = t.ID
+	if t.JoinOwnerID != "" && node == t.EXNode && (typ == JobTunnelPrepareEX || typ == JobTunnelCommitEX) {
+		params["join_owner_id"] = t.JoinOwnerID
+	}
 	if t.InstanceID != "" {
 		params["instance_id"] = t.InstanceID
 		if node == t.EXNode {

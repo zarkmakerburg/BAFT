@@ -75,6 +75,9 @@ type Tunnel struct {
 	JoinOwnerID     string `json:"join_owner_id,omitempty"`
 	PeerID          string `json:"peer_id,omitempty"`
 	PeerPublicKey   string `json:"peer_public_key,omitempty"`
+	EXConfigNodeID  string `json:"ex_config_node_id,omitempty"`
+	EXListen        string `json:"ex_listen,omitempty"`
+	DecommissionMutationID string `json:"decommission_mutation_id,omitempty"`
 	TopologyKey     string `json:"topology_key,omitempty"`
 	EXNode          string `json:"ex_node"`
 	IRNode          string `json:"ir_node"`

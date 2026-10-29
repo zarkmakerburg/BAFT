@@ -377,8 +377,14 @@ func TestOperationalIngressV1Gate_RefusesWrongEnrollment(t *testing.T) {
 		t.Fatalf("authenticated Apply did not reach verified readiness: %+v", v)
 	}
 	ownedBeforeRevoke := f.h.chainJSON()
-	if !strings.Contains(ownedBeforeRevoke, tagOf(t, f.site)) || portFree(f.port) {
-		t.Fatalf("authenticated gate opening did not produce the expected owned ingress: chain=%s", ownedBeforeRevoke)
+	wantTag := tagOf(t, f.site)
+	hasOwnedRule := strings.Contains(ownedBeforeRevoke, wantTag)
+	listenerFree := portFree(f.port)
+	if !hasOwnedRule || listenerFree {
+		t.Fatalf("authenticated Apply did not establish exact owned ingress: hasOwnedRule=%v wantTag=%q listenerFree=%v port=%d chain=%s", hasOwnedRule, wantTag, listenerFree, f.port, ownedBeforeRevoke)
+	}
+	if err := roundTrip(t, f.addr(), []byte("before-revoke")); err != nil {
+		t.Fatalf("owned ingress not carrying bytes before revocation: %v", err)
 	}
 	if _, err := f.b.store.RevokeNode(irNode, "gate test", time.Now()); err != nil {
 		t.Fatal(err)

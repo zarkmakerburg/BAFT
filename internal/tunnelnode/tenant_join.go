@@ -57,7 +57,7 @@ func (m *Manager) PrepareEXJoin(ctx context.Context, id, ownerID string, p ExPar
 	if err := m.requireOwnedInstanceNamespace(); err != nil {
 		return "", err
 	}
-	cfg, marker, cfgBytes, unitBytes, markerBytes, err := m.readSharedListenerOwner(ownerID)
+	cfg, _, cfgBytes, unitBytes, markerBytes, err := m.readSharedListenerOwner(ownerID)
 	if err != nil {
 		return "", err
 	}

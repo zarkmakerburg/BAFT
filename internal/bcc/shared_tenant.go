@@ -83,9 +83,11 @@ func (s *Store) CreateSharedTenantMutationJob(in SharedTenantMutationRequest, no
 		return Job{}, err
 	}
 	mutationID := newTunnelID()
+	ownerTunnelID := t.ID
+	if t.JoinOwnerID != "" { ownerTunnelID = t.JoinOwnerID }
 	action := agentjob.ActionTunnelTenantAdd
 	params := map[string]string{
-		"tunnel_id": in.TunnelID, "mutation_id": mutationID, "node_id": in.NodeID,
+		"tunnel_id": in.TunnelID, "owner_tunnel_id": ownerTunnelID, "mutation_id": mutationID, "node_id": in.NodeID,
 		"listen": in.Listen, "config_sha256": digests.Config, "unit_sha256": digests.Unit, "marker_sha256": digests.Marker,
 		"peer_id": in.PeerID, "peer_public_key": in.PeerPublicKey, "route_id": in.RouteID,
 	}
@@ -146,7 +148,7 @@ func (s *Store) ReconcileSharedTenantMutationAcks(now time.Time) error {
 		if job.Type == agentjob.ActionTunnelTenantRemove {
 			wantOperation = "remove"
 		}
-		if ev.ID != p["mutation_id"] || ev.Operation != wantOperation || ev.NodeID != p["node_id"] ||
+		if ev.ID != p["mutation_id"] || ev.Operation != wantOperation || ev.NodeID != p["node_id"] || ev.OwnerTunnelID != p["owner_tunnel_id"] ||
 			ev.BeforeConfigSHA != p["config_sha256"] || ev.BeforeUnitSHA != p["unit_sha256"] || ev.BeforeMarkerSHA != p["marker_sha256"] ||
 			!validSHA256Digest(ev.AfterConfigSHA) || !validSHA256Digest(ev.AfterUnitSHA) || !validSHA256Digest(ev.AfterMarkerSHA) {
 			return fmt.Errorf("tenant mutation job %s receipt does not match the signed request", job.ID)
@@ -161,17 +163,32 @@ func (s *Store) ReconcileSharedTenantMutationAcks(now time.Time) error {
 		if err != nil {
 			return err
 		}
-		t.Digests[t.EXNode] = NodeDigests{Config: ev.AfterConfigSHA, Unit: ev.AfterUnitSHA, Marker: ev.AfterMarkerSHA}
-		if t.ObservedGen == nil {
-			t.ObservedGen = map[string]int{}
+		// A shared listener has one physical ownership baseline. Keep the owner
+		// and every active tenant's view synchronized after the generation moves.
+		for id, sibling := range s.st.Tunnels {
+			if sibling.EXNode != t.EXNode || (id != ev.OwnerTunnelID && sibling.JoinOwnerID != ev.OwnerTunnelID) {
+				continue
+			}
+			if sibling.Phase != TunnelActive && id != tunnelID {
+				continue
+			}
+			if sibling.Digests == nil {
+				sibling.Digests = map[string]NodeDigests{}
+			}
+			if sibling.ObservedGen == nil {
+				sibling.ObservedGen = map[string]int{}
+			}
+			sibling.Digests[t.EXNode] = NodeDigests{Config: ev.AfterConfigSHA, Unit: ev.AfterUnitSHA, Marker: ev.AfterMarkerSHA}
+			sibling.ObservedGen[t.EXNode] = ev.Generation
+			sibling.UpdatedAt = now.UTC()
+			if id == tunnelID {
+				sibling.Evidence = append(sibling.Evidence, TunnelEvidence{
+					Step: "shared_tenant_" + wantOperation, Node: t.EXNode, At: now.UTC(), OK: true,
+					Detail: fmt.Sprintf("authenticated tenant mutation committed at generation %d", ev.Generation),
+				})
+			}
+			s.st.Tunnels[id] = sibling
 		}
-		t.ObservedGen[t.EXNode] = ev.Generation
-		t.Evidence = append(t.Evidence, TunnelEvidence{
-			Step: "shared_tenant_" + wantOperation, Node: t.EXNode, At: now.UTC(), OK: true,
-			Detail: fmt.Sprintf("authenticated tenant mutation committed at generation %d", ev.Generation),
-		})
-		t.UpdatedAt = now.UTC()
-		s.st.Tunnels[tunnelID] = t
 		n := s.st.Nodes[t.EXNode]
 		if t.InstanceID == "" {
 			n.AppliedGeneration = ev.Generation

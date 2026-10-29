@@ -75,7 +75,7 @@ func (s *Store) buildDecommissionPlanLocked(id string, now time.Time) (Decommiss
 	}
 	p := DecommissionPlan{
 		TunnelID: t.ID, InstanceID: t.InstanceID, Phase: t.Phase, Disruptive: true,
-		Warning: "Decommission stops the selected IR route first and then the EX listener. Existing flows are not promised to survive.",
+		Warning: "Decommission stops the selected IR route first. Existing flows on this tenant are not promised to survive.",
 		Steps: []string{
 			"verify the reviewed generation and BCC-held config/unit/marker digests",
 			"retire the IR dialer/route and prove its managed artifacts are absent",
@@ -103,11 +103,22 @@ func (s *Store) buildDecommissionPlanLocked(id string, now time.Time) (Decommiss
 		if otherID == t.ID || !sameManagedSlot(t, other) {
 			continue
 		}
+		if t.JoinOwnerID != "" && (otherID == t.JoinOwnerID || other.JoinOwnerID == t.JoinOwnerID) {
+			continue
+		}
+		if t.JoinOwnerID == "" && other.JoinOwnerID == t.ID && other.Phase == TunnelActive {
+			conflict = fmt.Sprintf("shared tenant %s is still active; remove tenants before retiring the physical owner", other.ID)
+			break
+		}
 		if other.Phase == TunnelActive || !terminalTunnel(other.Phase) ||
 			other.Phase == TunnelRollbackFailed || other.Phase == TunnelDecommissionFailed {
 			conflict = fmt.Sprintf("tunnel %s is %s in the same managed slot", other.ID, other.Phase)
 			break
 		}
+	}
+	if t.JoinOwnerID != "" {
+		p.Warning = "Decommission stops this tenant's IR route and removes only this authenticated tenant from the shared EX listener; other tenants remain active."
+		p.Steps[2] = "remove this tenant's authenticated identity/route from the shared EX listener while preserving its owner and sibling tenants"
 	}
 	if conflict != "" {
 		gate("conflicting tunnel change", "FAIL", conflict)
@@ -235,7 +246,12 @@ func (s *Store) queueNextDecommissionLocked(t *Tunnel, now time.Time) {
 	}
 	if !t.DecommissionedNodes[t.EXNode] {
 		t.Phase = TunnelDecommissioningEX
-		s.tunnelJobLocked(t, t.EXNode, JobTunnelRetire, decommissionParams(*t, t.EXNode), now)
+		if t.JoinOwnerID != "" {
+			t.DecommissionMutationID = newTunnelID()
+			s.tunnelJobLocked(t, t.EXNode, agentjob.ActionTunnelTenantRemove, decommissionTenantParams(*t), now)
+		} else {
+			s.tunnelJobLocked(t, t.EXNode, JobTunnelRetire, decommissionParams(*t, t.EXNode), now)
+		}
 		return
 	}
 	t.Phase, t.JobID, t.UpdatedAt = TunnelDecommissioned, "", now
@@ -248,6 +264,16 @@ func decommissionParams(t Tunnel, node string) map[string]string {
 		"config_sha256": d.Config,
 		"unit_sha256":   d.Unit,
 		"marker_sha256": d.Marker,
+	}
+}
+
+func decommissionTenantParams(t Tunnel) map[string]string {
+	d := t.Digests[t.EXNode]
+	return map[string]string{
+		"owner_tunnel_id": t.JoinOwnerID, "mutation_id": t.DecommissionMutationID,
+		"node_id": t.EXConfigNodeID, "listen": t.EXListen,
+		"config_sha256": d.Config, "unit_sha256": d.Unit, "marker_sha256": d.Marker,
+		"peer_id": t.PeerID, "peer_public_key": t.PeerPublicKey, "route_id": t.RouteID,
 	}
 }
 

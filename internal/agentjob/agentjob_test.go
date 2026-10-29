@@ -177,7 +177,7 @@ func TestSharedTenantActionsRequireExactDigestFencedShape(t *testing.T) {
 		SchemaVersion: SchemaVersion, JobID: "job-00000001", NodeID: "ex-1",
 		Action: ActionTunnelTenantAdd,
 		Params: map[string]string{
-			"tunnel_id": "tun-tenant-test", "mutation_id": "mut-tenant-test",
+			"tunnel_id": "tun-tenant-test", "owner_tunnel_id": "tun-owner", "mutation_id": "mut-tenant-test",
 			"node_id": "ex-config", "listen": "0.0.0.0:443",
 			"config_sha256": strings.Repeat("a", 64), "unit_sha256": strings.Repeat("c", 64), "marker_sha256": strings.Repeat("b", 64),
 			"peer_id": "urn:baft:node:ir-two", "peer_public_key": strings.Repeat("A", 43),

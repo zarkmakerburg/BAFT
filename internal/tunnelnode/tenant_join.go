@@ -19,6 +19,8 @@ import (
 // never returned.
 type TenantJoinReceipt struct {
 	OwnerTunnelID string `json:"owner_tunnel_id"`
+	NodeID        string `json:"node_id"`
+	Listen        string `json:"listen"`
 	PeerID        string `json:"peer_id"`
 	PeerPublicKey string `json:"peer_public_key"`
 	Generation    int    `json:"generation"`
@@ -228,7 +230,7 @@ func (m *Manager) CommitEXJoin(ctx context.Context, id, reply string) (string, s
 		return "", "", err
 	}
 	receipt, err := json.Marshal(TenantJoinReceipt{
-		OwnerTunnelID: ev.OwnerTunnelID, PeerID: peerID, PeerPublicKey: peerKey,
+		OwnerTunnelID: ev.OwnerTunnelID, NodeID: staged.Node.ID, Listen: staged.Server.Listen, PeerID: peerID, PeerPublicKey: peerKey,
 		Generation: ev.Generation, ConfigSHA256: ev.AfterConfigSHA, UnitSHA256: ev.AfterUnitSHA, MarkerSHA256: ev.AfterMarkerSHA,
 	})
 	if err != nil {

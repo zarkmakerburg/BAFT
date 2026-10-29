@@ -311,6 +311,38 @@ func (m *Manager) recoverTenantMutations(ctx context.Context) error {
 	return nil
 }
 
+// RollbackTenantMutation reverses a committed tenant mutation only when the live
+// config, unit, marker, owner transaction and generation still match its before/after
+// images. It is used when a higher-level BCC transaction cannot durably record the
+// receipt after the listener mutation has committed.
+func (m *Manager) RollbackTenantMutation(ctx context.Context, id string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	unlock, err := m.lockLifecycle(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	if !idRe.MatchString(id) {
+		return errors.New("tunnelnode: invalid tenant mutation ID")
+	}
+	b, err := os.ReadFile(m.tenantMutationPath(id))
+	if err != nil {
+		return err
+	}
+	var j tenantMutationJournal
+	if err := json.Unmarshal(b, &j); err != nil || j.ID != id {
+		return errors.New("tunnelnode: corrupt tenant mutation journal")
+	}
+	if j.Phase == "rolled_back" {
+		return nil
+	}
+	if j.Phase != "committed" {
+		return fmt.Errorf("tunnelnode: cannot explicitly roll back tenant mutation in phase %q", j.Phase)
+	}
+	return m.rollbackTenantMutation(ctx, &j)
+}
+
 func (m *Manager) rollbackTenantMutation(ctx context.Context, j *tenantMutationJournal) error {
 	oldConfig, err := os.ReadFile(m.tenantMutationBlob(j.ID, "old-config"))
 	if err != nil {

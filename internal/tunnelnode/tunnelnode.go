@@ -1680,8 +1680,10 @@ func (m *Manager) ownershipViolations(t Txn) []string {
 			return []string{"shared listener ownership evidence is unreadable"}
 		}
 		cfg, err := config.LoadFile(m.liveConfig())
-		if err != nil || cfg.Server == nil || cfg.Noise == nil || cfg.Node.Role != "listener" ||
-			marker.TunnelID != t.JoinOwnerID || marker.InstanceID != m.Instance ||
+		if err != nil || cfg == nil || cfg.Server == nil || cfg.Noise == nil || cfg.Node.Role != "listener" {
+			return []string{"shared physical listener config is invalid or no longer a listener"}
+		}
+		if marker.TunnelID != t.JoinOwnerID || marker.InstanceID != m.Instance ||
 			marker.ConfigSHA256 != shaHex(cfgBytes) || marker.UnitSHA256 != shaHex(unitBytes) ||
 			marker.Generation != m.readGeneration() {
 			v = append(v, "shared physical listener ownership or generation changed")

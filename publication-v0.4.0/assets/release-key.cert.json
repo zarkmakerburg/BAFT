@@ -1,0 +1,10 @@
+{
+  "payloadType": "application/vnd.baft.release-key-cert+json",
+  "payload": "eyJzY2hlbWFfdmVyc2lvbiI6MSwicHVycG9zZSI6ImJhZnQtcmVsZWFzZSIsImtleV9pZCI6IjQxZjhhMmRjY2I1N2JlNjJmN2E5MTdmYjJjYzkyOWYyIiwicHVibGljX2tleSI6ImVCbUtDY2JYRHBXY1FUYm5aQ0NZLU5uWEs4Z2NUMUVCcGMzNGx4NGRTN00iLCJub3RfYmVmb3JlIjoiMjAyNi0xMC0wMlQwNjo0OToyMloiLCJub3RfYWZ0ZXIiOiIyMDI3LTAzLTMxVDA2OjQ5OjIyWiJ9",
+  "signatures": [
+    {
+      "keyid": "98741d81da746d2e435302f90569911d",
+      "sig": "T8eciw+X225mUctWPaQpie3IWZNXNseUHGCPwoMUWE9VNEzuY01kNIYGnkWskQDPlzkjaHdn3RtT1czIjS0eDA=="
+    }
+  ]
+}

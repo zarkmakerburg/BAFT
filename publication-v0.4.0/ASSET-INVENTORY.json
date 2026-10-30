@@ -1,0 +1,79 @@
+{
+  "assets": {
+    "COPYRIGHT": {
+      "bytes": 1217,
+      "sha256": "dd7720ff2fd3be73888f03499353b691348d4578ebeb919777d9936ee59ee3d9"
+    },
+    "LICENSE": {
+      "bytes": 34523,
+      "sha256": "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef"
+    },
+    "SHA256SUMS": {
+      "bytes": 876,
+      "sha256": "0a696471a2d13b0caa7f47fc96133d92f6b56baeae7e355dcbf57ce2b4e7de36"
+    },
+    "THIRD_PARTY_LICENSES.md": {
+      "bytes": 134509,
+      "sha256": "b79816f9a219b76f745dec01eb9eafba5a422ba9e58750e9fecac430771fba6f"
+    },
+    "baft-agent-linux-amd64": {
+      "bytes": 9429116,
+      "sha256": "f0bc979df71800413aff1e93b7c058e871fdba8859863c06e416c52d369f6e85"
+    },
+    "baft-agent-linux-arm64": {
+      "bytes": 8585340,
+      "sha256": "c5c6190fa5135e46a0f6adb708a3888ab84889afbada7a22f9dbfd28287d3bea"
+    },
+    "baft-bcc-linux-amd64": {
+      "bytes": 18976892,
+      "sha256": "7ea4b3b30cda5ba6b4d06eb932a8aeed057136b14d4641e33f0e58107e3b59f9"
+    },
+    "baft-bcc-linux-arm64": {
+      "bytes": 17956988,
+      "sha256": "88e572dc77145a3d9a7682beed934964bd72ec5e291a323454e00d37fd6e1d15"
+    },
+    "baft-install-linux-amd64": {
+      "bytes": 188877,
+      "sha256": "9bbef38a0beab425aba0e51c68d3f09e29fa793a85fa399f742821e0f2f8bcf7"
+    },
+    "baft-install-linux-arm64": {
+      "bytes": 188877,
+      "sha256": "9bbef38a0beab425aba0e51c68d3f09e29fa793a85fa399f742821e0f2f8bcf7"
+    },
+    "baft-linux-amd64": {
+      "bytes": 12411004,
+      "sha256": "37268a292fcf45421f7df02b42e686d1625da344919e431cc93b7d84b7a80e6e"
+    },
+    "baft-linux-arm64": {
+      "bytes": 11403388,
+      "sha256": "21b732e062cd2c16912363e388cbf788468f046b5a0df6c0b881195e4814a005"
+    },
+    "baft-offline-v0.4.0.tar.gz": {
+      "bytes": 38749795,
+      "sha256": "2c22268b7d1750dbf0b8a9bf4eea4158e89c14207dbf626ad7d85de23428102d"
+    },
+    "baft-offline-v0.4.0.tar.gz.sha256": {
+      "bytes": 93,
+      "sha256": "076476a9e8b4fb9898cf77b6685219d4b42e3870c68f066646ea113b33fd7e09"
+    },
+    "baft-pair-linux-amd64": {
+      "bytes": 5091452,
+      "sha256": "661ca2ab55e6482671081c9ccaa510ad10bfce7646177c328048217cbc654014"
+    },
+    "baft-pair-linux-arm64": {
+      "bytes": 4653180,
+      "sha256": "76ec887bf00fd6611eb1657e5b09b672c9a1b1c99136800423e0d60cf2f5b098"
+    },
+    "manifest.json": {
+      "bytes": 3509,
+      "sha256": "06debe1d3d9f3291cf31fe637643eeb0ac72410d4f24c14915e226ae4d9b5dd6"
+    },
+    "release-key.cert.json": {
+      "bytes": 565,
+      "sha256": "78f149102ea811d4de609aa8d6a7ba07ae9519cd8822e19c6dc9a55944378647"
+    }
+  },
+  "commit": "9c32ba369fe2be2c549f2878d1de5dbf092c8f64",
+  "draft_release_id": 429023788,
+  "version": "v0.4.0"
+}

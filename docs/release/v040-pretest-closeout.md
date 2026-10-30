@@ -1,13 +1,18 @@
 # v0.4.0 candidate acceptance and remaining gates
 
-Updated: 2026-10-29. This ledger distinguishes implemented behavior from
-acceptance evidence. It authorizes no merge, signing, release or deployment.
+Updated: 2026-10-30. This ledger distinguishes implemented behavior from
+acceptance evidence. The owner's newer HQ instruction authorizes integration,
+merge, tagging and release after the gates pass. Production deployment remains
+a distinct action. This document records technical readiness, not permission.
 
 ## Candidate and history
 
 - PR #289 (`hq/p0-candidate-20261029`, base `hq/p0-continuation-20261029`)
   supersedes this document's old PR #278 checkpoint. Read live PR metadata;
   neither an earlier SHA nor a green parent supplies checks for a new head.
+- PR #290 (`hq/cloud-continuation-20261029`) adds held-authority restart fencing,
+  signed shared-tenant lifecycle corrections and the supplementary combined
+  ingress acceptance. It remains separate from the shared QA branch.
 - The earlier `1824ae460f5e7e9860384ea9055e1f3eaf8b35100fb` checkpoint and
   implementation-only/Mac-wait instructions are historical. The owner's newer
   HQ handoff authorizes independent test execution in the available cloud LAB.
@@ -47,6 +52,12 @@ acceptance evidence. It authorizes no merge, signing, release or deployment.
    listener/nft, authenticated receipts and the verified client card in one
    acceptance path. Separate transport and ingress successes do not prove this.
    Include partial failure, cold start, sibling/foreign preservation and cleanup.
+   The [combined acceptance contract](v040-shared-ingress-acceptance.md) now has
+   positive and real partial-Add failure cases, including tenant Runtime restart,
+   retirement, authenticated receipts/cards and durable component reconstruction.
+   Local WIP runs passed with zero SKIPs and independent review; final committed
+   workflow evidence is still required. Reopening Agent objects/stores is not
+   process death. Automatic BCC port reuse after failed Apply remains unavailable.
 3. Install exact candidate artifacts in the six-node disposable LAB. Synthetic
    labels, application delay and echo probes are not geographic measurements,
    kernel netem or product auto-selection evidence. Record unsupported cases.
@@ -54,10 +65,12 @@ acceptance evidence. It authorizes no merge, signing, release or deployment.
    provenance/checksum evidence. CLI updater proposals and disabled external
    engine roadmap issues must be truthfully scoped rather than marked complete.
 5. Reconcile the P0 ledger and Issue #67, then record a final GO/NO-GO decision.
-   Offline signing and any main merge/tag/release require their own authorization.
+   Trusted offline signing and final signed-asset verification remain necessary;
+   the owner's merge/tag/release authorization is already recorded in HQ.
 
 ## Current disposition
 
-**NO-GO.** Source presence and bounded local tests do not close #269. Combined
-shared-ingress acceptance and final-candidate release evidence remain required.
+**NO-GO pending final-SHA evidence.** Source presence and bounded local tests do
+not close #269. Final committed shared-ingress workflow evidence and the complete
+release gate/provenance set remain required.
 No production host or protected existing service is a substitute for a LAB.

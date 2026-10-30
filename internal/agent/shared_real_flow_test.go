@@ -24,7 +24,25 @@ import (
 	"time"
 
 	"github.com/zarkmakerburg/baft/internal/bcc"
+	"github.com/zarkmakerburg/baft/internal/tunnelnode"
 )
+
+// sharedServices makes supervision explicit. The default controller starts
+// actual baft processes; the operational LAB uses node.Runtime in this process
+// because its installed-policy inventory requires a sole process in the netns.
+type sharedServices interface {
+	tunnelnode.System
+	identity(string) any
+	close()
+}
+
+type sharedRealOptions struct {
+	ctx       context.Context
+	services  func(*flowNode) sharedServices
+	configure func(*flow, *httptest.Server)
+	request   func(*bcc.TunnelRequest, func() int)
+	observe   func(string, *flow, *httptest.Server, bcc.Tunnel, bcc.Tunnel)
+}
 
 // processServices replaces only systemd's process supervision. Pairing,
 // signed jobs, HTTPS ACKs, reloads and all payload bytes use the real product.
@@ -156,6 +174,21 @@ func (s *processServices) pid(name string) int {
 	return 0
 }
 
+func (s *processServices) identity(name string) any {
+	if pid := s.pid(name); pid != 0 {
+		return pid
+	}
+	return nil
+}
+
+func (s *processServices) close() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for name := range s.processes {
+		s.stop(name)
+	}
+}
+
 func markedTarget(t *testing.T, marker string) string {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -245,6 +278,15 @@ func snapshotRegular(t *testing.T, root string) map[string]string {
 }
 
 func TestBCCSignedSharedSameIRRealFlowsPreserveOwner(t *testing.T) {
+	runBCCSignedSharedSameIRRealFlows(t, sharedRealOptions{})
+}
+
+func runBCCSignedSharedSameIRRealFlows(t *testing.T, opts sharedRealOptions) {
+	t.Helper()
+	ctx := opts.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	dir := t.TempDir()
 	store, err := bcc.OpenStore(filepath.Join(dir, "bcc", "state.json"))
 	if err != nil {
@@ -277,9 +319,12 @@ func TestBCCSignedSharedSameIRRealFlowsPreserveOwner(t *testing.T) {
 	f.irRoute = addr()
 	f.ex = f.addNode(t, srv.URL, key.Public().(ed25519.PublicKey), "ex-1", "foreign", "127.0.0.1:1")
 	f.ir = f.addNode(t, srv.URL, key.Public().(ed25519.PublicKey), "ir-1", "worker", "127.0.0.1:2")
-	controllers := map[string]*processServices{}
+	controllers := map[string]sharedServices{}
 	for index, n := range []*flowNode{f.ex, f.ir} {
-		s := &processServices{units: n.tn.UnitDir, processes: map[string]*serviceProcess{}, enabled: map[string]bool{}}
+		var s sharedServices = &processServices{units: n.tn.UnitDir, processes: map[string]*serviceProcess{}, enabled: map[string]bool{}}
+		if opts.services != nil {
+			s = opts.services(n)
+		}
 		controllers[n.id] = s
 		n.tn.System = s
 		n.tn.Settle = 100 * time.Millisecond
@@ -291,13 +336,10 @@ func TestBCCSignedSharedSameIRRealFlowsPreserveOwner(t *testing.T) {
 		transport.DialContext = dialer.DialContext
 		n.agent.cfg.HTTP = &http.Client{Transport: transport}
 		t.Cleanup(transport.CloseIdleConnections)
-		t.Cleanup(func() {
-			s.mu.Lock()
-			defer s.mu.Unlock()
-			for name := range s.processes {
-				s.stop(name)
-			}
-		})
+		t.Cleanup(s.close)
+	}
+	if opts.configure != nil {
+		opts.configure(f, srv)
 	}
 	call := func(method, path string, input, output any) {
 		t.Helper()
@@ -330,8 +372,11 @@ func TestBCCSignedSharedSameIRRealFlowsPreserveOwner(t *testing.T) {
 	}
 	create := func(req bcc.TunnelRequest) bcc.Tunnel {
 		t.Helper()
+		if opts.request != nil {
+			opts.request(&req, port)
+		}
 		for _, n := range []*flowNode{f.ex, f.ir} {
-			if _, err := n.agent.RunOnce(context.Background()); err != nil {
+			if _, err := n.agent.RunOnce(ctx); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -344,7 +389,7 @@ func TestBCCSignedSharedSameIRRealFlowsPreserveOwner(t *testing.T) {
 		req.PlanHash = plan.Hash
 		var tn bcc.Tunnel
 		call("POST", "/api/tunnels", req, &tn)
-		tn = f.run(tn.ID)
+		tn = runSharedFlow(ctx, f, tn.ID)
 		if tn.Phase != bcc.TunnelActive {
 			t.Fatalf("real activation: %s %s", tn.Phase, tn.Error)
 		}
@@ -357,6 +402,12 @@ func TestBCCSignedSharedSameIRRealFlowsPreserveOwner(t *testing.T) {
 	req.EXMetricsListen = addr()
 	req.IRMetricsListen = addr()
 	owner := create(req)
+	observe := func(event string, joined bcc.Tunnel) {
+		if opts.observe != nil {
+			opts.observe(event, f, srv, owner, joined)
+		}
+	}
+	observe("owner", bcc.Tunnel{})
 	ownerIR, err := f.ir.tn.ForInstance(owner.InstanceID, owner.IRMetricsListen)
 	if err != nil {
 		t.Fatal(err)
@@ -368,7 +419,7 @@ func TestBCCSignedSharedSameIRRealFlowsPreserveOwner(t *testing.T) {
 		t.Fatal(err)
 	}
 	exService := "baft-" + owner.InstanceID
-	exPID := controllers[f.ex.id].pid(exService)
+	exIdentity := controllers[f.ex.id].identity(exService)
 	conn := readyFlow(t, owner.RouteListen, "owner")
 	defer conn.Close()
 	joined := create(bcc.TunnelRequest{Engine: "baft", JoinExistingTunnelID: owner.ID, EXNode: owner.EXNode, IRNode: owner.IRNode, Target: markedTarget(t, "tenant"), IRMetricsListen: addr()})
@@ -380,6 +431,7 @@ func TestBCCSignedSharedSameIRRealFlowsPreserveOwner(t *testing.T) {
 	if err := realRoundTrip(conn, "owner"); err != nil {
 		t.Fatalf("join interrupted persistent owner: %v", err)
 	}
+	observe("join", joined)
 	var replacement bcc.Plan
 	replacementBody, err := json.Marshal(req)
 	if err != nil {
@@ -403,14 +455,19 @@ func TestBCCSignedSharedSameIRRealFlowsPreserveOwner(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := controllers[f.ir.id].Systemctl(context.Background(), "restart", tenantIR.Service); err != nil {
+	tenantIdentity := controllers[f.ir.id].identity(tenantIR.Service)
+	if _, err := controllers[f.ir.id].Systemctl(ctx, "restart", tenantIR.Service); err != nil {
 		t.Fatal(err)
 	}
 	tenantConn = readyFlow(t, joined.RouteListen, "tenant")
 	tenantConn.Close()
+	if current := controllers[f.ir.id].identity(tenantIR.Service); tenantIdentity == nil || current == nil || current == tenantIdentity {
+		t.Fatal("tenant IR service identity did not change across its restart")
+	}
 	if err := realRoundTrip(conn, "owner"); err != nil {
 		t.Fatalf("tenant restart interrupted owner: %v", err)
 	}
+	observe("restart", joined)
 	var retirement bcc.DecommissionPlan
 	call("POST", "/api/tunnels/decommission/plan", map[string]string{"id": joined.ID}, &retirement)
 	if !retirement.OK {
@@ -419,7 +476,7 @@ func TestBCCSignedSharedSameIRRealFlowsPreserveOwner(t *testing.T) {
 	call("POST", "/api/tunnels/decommission", map[string]string{"id": joined.ID, "plan_hash": retirement.Hash}, nil)
 	for i := 0; i < 40; i++ {
 		for _, n := range []*flowNode{f.ex, f.ir} {
-			if _, err := n.agent.RunOnce(context.Background()); err != nil {
+			if _, err := n.agent.RunOnce(ctx); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -433,8 +490,9 @@ func TestBCCSignedSharedSameIRRealFlowsPreserveOwner(t *testing.T) {
 	if err := realRoundTrip(conn, "owner"); err != nil {
 		t.Fatalf("tenant retire interrupted owner: %v", err)
 	}
-	if exPID == 0 || controllers[f.ex.id].pid(exService) != exPID {
-		t.Fatal("shared EX process was restarted")
+	observe("retire", joined)
+	if exIdentity == nil || controllers[f.ex.id].identity(exService) != exIdentity {
+		t.Fatal("shared EX service identity changed")
 	}
 	if !reflect.DeepEqual(ownerConfig, snapshotRegular(t, ownerIR.ConfigDir)) || !reflect.DeepEqual(ownerState, snapshotRegular(t, ownerIR.StateDir)) {
 		t.Fatal("tenant lifecycle changed owner config/key/state")
@@ -451,4 +509,23 @@ func TestBCCSignedSharedSameIRRealFlowsPreserveOwner(t *testing.T) {
 		t.Fatal("physical owner remained locked after its tenant was retired")
 	}
 	f.noSecretsInBCC()
+}
+
+// runSharedFlow is the signed-job activation loop with the scenario's lifetime
+// context, so operational listeners created during activation are cleaned up.
+func runSharedFlow(ctx context.Context, f *flow, id string) bcc.Tunnel {
+	f.t.Helper()
+	for i := 0; i < 40; i++ {
+		for _, n := range []*flowNode{f.ex, f.ir} {
+			if _, err := n.agent.RunOnce(ctx); err != nil {
+				f.t.Fatalf("%s RunOnce: %v", n.id, err)
+			}
+		}
+		switch tn := f.tunnel(id); tn.Phase {
+		case bcc.TunnelActive, bcc.TunnelRolledBack, bcc.TunnelRollbackFailed:
+			return tn
+		}
+	}
+	f.t.Fatalf("tunnel %s did not settle: %+v", id, f.tunnel(id))
+	return bcc.Tunnel{}
 }

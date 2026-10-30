@@ -49,8 +49,9 @@ type IngressRestartResult struct {
 // (see ingressownership/restart_reconcile.go). Anything else is reported and
 // stays fenced exactly as before.
 //
-// It never creates a listener or a rule, never mints a lease and never
-// releases a reservation. When an operation is finished, BCC is told through
+// It never creates a listener or a rule and never mints a lease. A completed
+// reconciliation can release its reservation only after verified retirement,
+// absent-rule readback and a fresh, complete socket inventory. BCC is told through
 // the existing authenticated receipt path with one of the already-defined
 // shapes ("retired" for a completed Retire, "failed/reconciliation_required"
 // for a rolled-back Apply). That is best effort: BCC refuses receipts outside

@@ -106,11 +106,23 @@ func (s *ReservationStore) ReservePending(binding BindingV1) error {
 			return err
 		}
 		key := reservationKey(binding)
+		released, err := loadReleased(root)
+		if err != nil {
+			return err
+		}
+		// A committed release must fence old identities even when a crash
+		// left both the lifecycle and pending claim on disk. Do this before
+		// the idempotent-reservation shortcut or any recovery writes.
+		if r, ok := released[key]; ok {
+			if err := admitAfterRelease(r, binding); err != nil {
+				return err
+			}
+		}
 		if old, exists := claims[key]; exists {
 			// The leftover of a release that crashed after its tombstone is
 			// finished first; the new binding is then judged by the
 			// monotonic release rules like any other.
-			stale, err := staleReleasedClaim(root, key, old)
+			stale, err := completeStaleRelease(d, root, key, old, released[key])
 			if err != nil {
 				return err
 			}
@@ -122,15 +134,6 @@ func (s *ReservationStore) ReservePending(binding BindingV1) error {
 			}
 			delete(claims, key)
 			if err := savePending(d, root, claims); err != nil {
-				return err
-			}
-		}
-		released, err := loadReleased(root)
-		if err != nil {
-			return err
-		}
-		if r, ok := released[key]; ok {
-			if err := admitAfterRelease(r, binding); err != nil {
 				return err
 			}
 		}

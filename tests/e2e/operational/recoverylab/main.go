@@ -341,6 +341,60 @@ func main() {
 			return
 		}
 		result(map[string]any{"err": errStr(l.doRetire(ctx, r, retireJob()))})
+	case "apply-retire-retry":
+		// Model a receipt-delivery fault AFTER real signed/leased kernel
+		// retirement, before ReleaseVerified. This harness has no BCC HTTPS
+		// transport: RecordReconciliationNeeded is the same durable boundary
+		// the Agent records when its POST fails. No receipt is fabricated.
+		r := l.open()
+		if err := l.doApply(ctx, r); err != nil {
+			result(map[string]any{"stage": "apply", "err": err.Error()})
+			return
+		}
+		c := l.command(agentjob.ActionPublicIngressRetire, retireJob())
+		g, lease, err := l.admit(ctx, r, c, false, true)
+		if err != nil {
+			result(map[string]any{"stage": "admit-first-retire", "err": err.Error()})
+			return
+		}
+		ev, err := r.exec.Retire(ctx, c, lease)
+		if err == nil && (ev.Phase != ingressownership.PhaseRetired || !ev.RuleAbsent || ev.Owner != c.Binding.Proof) {
+			err = fmt.Errorf("first retirement lacks exact verified evidence")
+		}
+		if err == nil {
+			err = g.RecordReconciliationNeeded(ctx, c)
+		}
+		closeErr := g.Close()
+		if err != nil || closeErr != nil {
+			result(map[string]any{"stage": "first-retire", "err": fmt.Sprint(err, closeErr)})
+			return
+		}
+		var ln net.Listener
+		if *foreign != "" {
+			addr := "0.0.0.0:" + strconv.Itoa(*port)
+			if *foreign == "tcp6" {
+				addr = "[::]:" + strconv.Itoa(*port)
+			}
+			ln, err = net.Listen(*foreign, addr)
+			if err != nil {
+				die("foreign retry listener: %v", err)
+			}
+			defer ln.Close()
+		}
+		retryJob := "retire-retry-2"
+		if os.Getenv("REPLAY_RETIRED_JOB") == "1" {
+			retryJob = retireJob()
+		}
+		err = l.doRetire(ctx, r, retryJob)
+		alive := false
+		if ln != nil {
+			conn, dialErr := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(*port)), time.Second)
+			if dialErr == nil {
+				alive = true
+				_ = conn.Close()
+			}
+		}
+		result(map[string]any{"stage": "retry", "first_retired": true, "job": retryJob, "err": errStr(err), "foreign_alive": alive})
 	case "intent-only":
 		r := l.open()
 		c := l.command(agentjob.ActionPublicIngressApply, applyJob())

@@ -6,12 +6,63 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/zarkmakerburg/baft/internal/agentjob"
 	"github.com/zarkmakerburg/baft/internal/release"
 )
+
+func TestSharedTenantMutationsAreSignedWithInstanceScope(t *testing.T) {
+	store, err := OpenStore(filepath.Join(t.TempDir(), "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	app, err := NewServer(store, "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, _, err := LoadOrCreateJobKey(filepath.Join(t.TempDir(), "job-key"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.ConfigureJobSigning(key)
+	now := time.Now().UTC()
+	app.now = func() time.Time { return now }
+	pub, err := release.DecodePublic(app.JobPublicKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, action := range []string{agentjob.ActionTunnelTenantAdd, agentjob.ActionTunnelTenantRemove} {
+		t.Run(action, func(t *testing.T) {
+			params := map[string]string{
+				"tunnel_id": "tun-tenant", "owner_tunnel_id": "tun-owner", "mutation_id": "mut-tenant",
+				"node_id": "ex-config", "listen": "0.0.0.0:443", "config_sha256": strings.Repeat("a", 64),
+				"unit_sha256": strings.Repeat("b", 64), "marker_sha256": strings.Repeat("c", 64),
+				"peer_id": "urn:baft:node:ir-1", "peer_public_key": strings.Repeat("A", 43), "route_id": "route-tenant",
+				"instance_id": "shared-de", "metrics_listen": "127.0.0.1:9291",
+			}
+			if action == agentjob.ActionTunnelTenantAdd {
+				params["target"] = "127.0.0.1:9002"
+			}
+			jobs, err := app.signAgentJobs([]Job{{ID: "job-tenant", NodeID: "ex-1", Type: action, Params: params}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(jobs) != 1 || jobs[0].Signed == nil {
+				t.Fatal("tenant mutation was not signed")
+			}
+			got, err := (agentjob.Verifier{BCCKey: pub, NodeID: "ex-1"}).Verify(*jobs[0].Signed, now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.Action != action || got.Params["instance_id"] != "shared-de" || got.Params["metrics_listen"] != "127.0.0.1:9291" {
+				t.Fatal("signed tenant mutation lost its reviewed instance")
+			}
+		})
+	}
+}
 
 func TestAgentsReceiveSignedJobs(t *testing.T) {
 	dir := t.TempDir()

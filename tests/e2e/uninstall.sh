@@ -209,6 +209,22 @@ ExecStart=/usr/local/bin/baft run --file /etc/baft-hand/manual.yaml
 UNIT
 systemctl daemon-reload
 systemctl enable --now baft-hand
+# Type=simple reports process start before Python binds the fixture socket.
+python3 - <<'PYREADY'
+import socket, time
+deadline = time.monotonic() + 5
+while True:
+    try:
+        with socket.create_connection(("127.0.0.1", 3443), 0.2) as ready:
+            ready.sendall(b'x')
+            if ready.recv(1) != b'x':
+                raise OSError("operator fixture echo mismatch")
+        break
+    except OSError:
+        if time.monotonic() >= deadline:
+            raise SystemExit("operator fixture readiness timed out")
+        time.sleep(0.05)
+PYREADY
 HAND="$(sha256sum /etc/systemd/system/baft-hand.service /etc/systemd/system/baft-manual.service /etc/baft-hand/hand.conf)"
 hand_ok() {
   systemctl is-active --quiet baft-hand || fail "the operator's running unit was stopped"

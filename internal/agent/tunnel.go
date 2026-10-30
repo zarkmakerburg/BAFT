@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/zarkmakerburg/baft/internal/agentjob"
+	"github.com/zarkmakerburg/baft/internal/release"
 	"github.com/zarkmakerburg/baft/internal/tunnelnode"
 )
 
@@ -45,6 +46,32 @@ func (a *Agent) sshMigration(ctx context.Context, j agentjob.Job) error {
 }
 
 func (a *Agent) executeFull(ctx context.Context, j agentjob.Job) (detail, output string, err error) {
+	return a.executeFullSigned(ctx, j, nil)
+}
+
+// executeFullSigned also receives the exact signed envelope that carried j, which
+// operational ingress v1 needs to mint a lease. Nil means no lease can be minted.
+func (a *Agent) executeFullSigned(ctx context.Context, j agentjob.Job, env *release.Envelope) (detail, output string, err error) {
+	if j.Action == agentjob.ActionPublicIngressPreflight || j.Action == agentjob.ActionPublicIngressInspect {
+		output, err = a.publicIngressPreflight(ctx, j)
+		return "read-only public ingress preflight recorded; application remains blocked", output, err
+	}
+	if j.Action == agentjob.ActionPublicIngressPrepare {
+		output, err = a.publicIngressPrepare(ctx, j)
+		return "private ingress manifest prepared; listener and firewall unchanged", output, err
+	}
+	if j.Action == agentjob.ActionPublicIngressCancel {
+		output, err = a.publicIngressCancel(ctx, j)
+		return "private ingress generation fenced; listener and firewall unchanged", output, err
+	}
+	if j.Action == agentjob.ActionPublicIngressApply || j.Action == agentjob.ActionPublicIngressRetire {
+		if j.Params["ingress_protocol"] != "" {
+			detail, err = a.publicIngressOperational(ctx, j, env)
+			return detail, "", err
+		}
+		output, err = a.publicIngressLAB(ctx, j)
+		return "isolated LAB ingress transaction completed", output, err
+	}
 	if strings.HasPrefix(j.Action, "ssh_migrate_") {
 		if e := a.sshMigration(ctx, j); e != nil {
 			return "", "", e
@@ -83,9 +110,31 @@ func (a *Agent) tunnel(ctx context.Context, j agentjob.Job) (string, string, err
 		}
 	}
 	switch j.Action {
+	case agentjob.ActionTunnelTenantAdd, agentjob.ActionTunnelTenantRemove:
+		operation := "add"
+		if j.Action == agentjob.ActionTunnelTenantRemove {
+			operation = "remove"
+		}
+		evidence, err := t.ApplyTenantMutation(ctx, tunnelnode.TenantMutation{
+			ID: p["mutation_id"], Operation: operation, NodeID: p["node_id"], Listen: p["listen"], ExpectedOwnerTunnelID: p["owner_tunnel_id"],
+			ExpectedConfigSHA256: p["config_sha256"], ExpectedUnitSHA256: p["unit_sha256"], ExpectedMarkerSHA256: p["marker_sha256"],
+			PeerID: p["peer_id"], PeerPublicKey: p["peer_public_key"], RouteID: p["route_id"], Target: p["target"],
+		})
+		if err != nil {
+			return "", "", err
+		}
+		b, err := json.Marshal(evidence)
+		return "shared listener tenant mutation committed", string(b), err
 	case agentjob.ActionTunnelPrepareEX:
 		port, _ := strconv.Atoi(p["port"])
-		code, err := t.PrepareEX(ctx, id, exParams(p, port))
+		params := exParams(p, port)
+		var code string
+		var err error
+		if p["join_owner_id"] != "" {
+			code, err = t.PrepareEXJoin(ctx, id, p["join_owner_id"], params)
+		} else {
+			code, err = t.PrepareEX(ctx, id, params)
+		}
 		if err != nil {
 			return "", "", err
 		}
@@ -97,6 +146,10 @@ func (a *Agent) tunnel(ctx context.Context, j agentjob.Job) (string, string, err
 		}
 		return "reply code issued", reply, nil
 	case agentjob.ActionTunnelCommitEX:
+		if p["join_owner_id"] != "" {
+			d, receipt, err := t.CommitEXJoin(ctx, id, p["reply"])
+			return d, receipt, err
+		}
 		d, err := t.CommitEX(ctx, id, p["reply"])
 		return d, "", err
 	case agentjob.ActionTunnelCommitIR:
@@ -113,7 +166,7 @@ func (a *Agent) tunnel(ctx context.Context, j agentjob.Job) (string, string, err
 		b, err := json.Marshal(o)
 		return string(b), "", err
 	case agentjob.ActionTunnelInspect:
-		b, err := json.Marshal(t.Inspect(ctx))
+		b, err := json.Marshal(t.InspectForTunnel(ctx, p["tunnel_id"]))
 		return string(b), "", err
 	case agentjob.ActionTunnelDiscover:
 		b, err := json.Marshal(t.Discover(ctx))
@@ -145,7 +198,7 @@ func (a *Agent) tunnel(ctx context.Context, j agentjob.Job) (string, string, err
 func exParams(p map[string]string, port int) tunnelnode.ExParams {
 	return tunnelnode.ExParams{
 		PublicAddress: p["public_address"], Port: port, Target: p["target"],
-		RouteID: p["route_id"], RecordShaping: p["record_shaping"] == "true", MetricsListen: p["metrics_listen"],
+		RouteID: p["route_id"], RecordShaping: p["record_shaping"] == "true", MetricsListen: p["metrics_listen"], JoinOwnerID: p["join_owner_id"],
 	}
 }
 

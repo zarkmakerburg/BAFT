@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/zarkmakerburg/baft/internal/agentjob"
+	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
 	"github.com/zarkmakerburg/baft/internal/release"
 	"github.com/zarkmakerburg/baft/internal/sshmigrate"
 	"github.com/zarkmakerburg/baft/internal/tunnelnode"
@@ -39,12 +40,16 @@ type System interface {
 }
 
 type Config struct {
-	BCCURL    string // e.g. https://bcc.example.com
-	NodeID    string
-	Token     string            // agent bearer token
-	BCCJobKey ed25519.PublicKey // pinned at enrollment
-	StateDir  string            // seen-job log
-	Service   string            // systemd unit, e.g. "baft"
+	BCCURL               string // e.g. https://bcc.example.com
+	NodeID               string
+	Token                string                                      // agent bearer token
+	BCCJobKey            ed25519.PublicKey                           // pinned at enrollment
+	StateDir             string                                      // seen-job log
+	IngressManifestDir   string                                      // trusted, private prepared-manifest directory; optional
+	IngressExpectedProof func(string) (ingressmanifest.Proof, error) // independent persisted proof resolver; optional
+	IngressLABExecutor   IngressLABExecutor                          // explicitly injected isolated LAB executor; nil disables live ingress jobs
+	IngressOperational   *IngressOperational                         // real signed v1 ingress path; nil keeps v1 jobs release-closed (never falls back to LAB)
+	Service              string                                      // systemd unit, e.g. "baft"
 
 	// Updates.
 	ReleaseRoot    ed25519.PublicKey // pinned release root
@@ -77,9 +82,17 @@ type Agent struct {
 	// BCC restarting). They are sent again on the next poll so a finished
 	// step does not wait for BCC's step timeout. Memory only: an output may
 	// be a one-time secret.
-	unacked []pendingAck
+	unacked                    []pendingAck
 	lastComponentReportAttempt time.Time
-	lastComponentReportError string
+	lastComponentReportError   string
+	// policyProvisioned reports whether this host has a loadable trusted
+	// managed-node policy; nil uses the real installed-policy loader.
+	policyProvisioned func(ctx context.Context, nodeID string) error
+	// capsMu guards the cached transport capabilities of the installed baft
+	// binary, keyed by its size and modification time.
+	capsMu           sync.Mutex
+	transportCapsKey string
+	transportCaps    []string
 }
 
 type pendingAck struct {
@@ -95,6 +108,10 @@ const maxAckTries = 30
 var errAckRefused = errors.New("BCC refused the result")
 
 const seenRetention = 7 * 24 * time.Hour
+
+// Bound replay-ledger I/O and refuse admission instead of accepting an
+// unreadable on-disk state file. This comfortably covers normal 7-day job IDs.
+const maxSeenJournalBytes = 16 << 20
 
 func New(cfg Config) (*Agent, error) {
 	if cfg.BCCURL == "" || cfg.NodeID == "" || cfg.Token == "" || len(cfg.BCCJobKey) != ed25519.PublicKeySize || cfg.StateDir == "" {
@@ -127,33 +144,138 @@ func New(cfg Config) (*Agent, error) {
 func (a *Agent) seenPath() string { return filepath.Join(a.cfg.StateDir, "seen-jobs.json") }
 
 func (a *Agent) loadSeen() error {
-	b, err := os.ReadFile(a.seenPath())
+	if err := validateSeenStateDir(a.cfg.StateDir); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	b, err := readSeenJournal(a.seenPath())
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal(b, &a.seen)
+	if err := rejectDuplicateSeenKeys(b); err != nil {
+		return err
+	}
+	if err := json.Unmarshal(b, &a.seen); err != nil {
+		return err
+	}
+	if a.seen == nil {
+		return errors.New("invalid null seen-job journal")
+	}
+	return validateSeenTimestamps(a.seen)
+}
+
+// rejectDuplicateSeenKeys ensures JSON map decoding cannot silently discard
+// an earlier signed-job claim under the same ID. Such shadowing could turn a
+// recently claimed job into an expired entry eligible for re-admission.
+func rejectDuplicateSeenKeys(raw []byte) error {
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	start, err := decoder.Token()
+	if err != nil || start != json.Delim('{') {
+		return errors.New("seen-job journal must be a JSON object")
+	}
+	observed := make(map[string]struct{})
+	for decoder.More() {
+		token, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		key, ok := token.(string)
+		if !ok {
+			return errors.New("seen-job journal contains a non-string key")
+		}
+		if _, found := observed[key]; found {
+			return errors.New("seen-job journal contains duplicate job IDs")
+		}
+		observed[key] = struct{}{}
+		var timestamp json.RawMessage
+		if err := decoder.Decode(&timestamp); err != nil {
+			return err
+		}
+	}
+	end, err := decoder.Token()
+	if err != nil || end != json.Delim('}') {
+		return errors.New("invalid seen-job journal closing delimiter")
+	}
+	if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
+		return errors.New("trailing data in seen-job journal")
+	}
+	return nil
+}
+
+// validateSeenTimestamps prevents malformed zero-valued entries from being
+// pruned as expired, which could otherwise re-admit a previously claimed job.
+func validateSeenTimestamps(seen map[string]time.Time) error {
+	for _, recordedAt := range seen {
+		if recordedAt.IsZero() {
+			return errors.New("invalid zero timestamp in seen-job journal")
+		}
+	}
+	return nil
 }
 
 // markSeen records a job before it runs, so a crash mid-run cannot replay it.
+var errJobAlreadySeen = errors.New("job already recorded")
+
 func (a *Agent) markSeen(id string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if err := os.MkdirAll(a.cfg.StateDir, 0o700); err != nil {
+		return err
+	}
+	if err := validateSeenStateDir(a.cfg.StateDir); err != nil {
+		return err
+	}
+	unlock, err := lockSeenJournal(a.seenPath() + ".lock")
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	// Verification's in-memory cache is only an early refusal. Another Agent
+	// may have claimed a job since this object started; the locked durable
+	// ledger is the admission authority and must also preserve its other IDs.
+	latest := make(map[string]time.Time)
+	if raw, err := readSeenJournal(a.seenPath()); err == nil {
+		if err := rejectDuplicateSeenKeys(raw); err != nil {
+			return err
+		}
+		if err := json.Unmarshal(raw, &latest); err != nil {
+			return err
+		}
+		if latest == nil {
+			return errors.New("invalid null seen-job journal")
+		}
+		if err := validateSeenTimestamps(latest); err != nil {
+			return err
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	a.seen = latest
 	now := a.cfg.Now()
 	for k, t := range a.seen {
 		if now.Sub(t) > seenRetention {
 			delete(a.seen, k)
 		}
 	}
-	a.seen[id] = now
-	b, err := json.Marshal(a.seen)
+	if _, exists := a.seen[id]; exists {
+		return errJobAlreadySeen
+	}
+	// Stage the new claim separately; a failed write must never mark an
+	// unexecuted job as seen in this process.
+	next := make(map[string]time.Time, len(a.seen)+1)
+	for k, seenAt := range a.seen {
+		next[k] = seenAt
+	}
+	next[id] = now
+	b, err := json.Marshal(next)
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(a.cfg.StateDir, 0o700); err != nil {
-		return err
+	// Refuse admission rather than persist a ledger that startup cannot read.
+	if len(b) > maxSeenJournalBytes {
+		return errors.New("seen-job replay journal exceeds size limit")
 	}
 	f, err := os.CreateTemp(a.cfg.StateDir, ".seen-jobs-*")
 	if err != nil {
@@ -184,7 +306,11 @@ func (a *Agent) markSeen(id string) error {
 		return err
 	}
 	defer dir.Close()
-	return dir.Sync()
+	if err := dir.Sync(); err != nil {
+		return err
+	}
+	a.seen = next
+	return nil
 }
 
 func (a *Agent) isSeen(id string) bool {
@@ -202,6 +328,10 @@ type pulledJob struct {
 }
 
 func (a *Agent) request(ctx context.Context, method, path string, body any) (*http.Response, error) {
+	return a.requestWithHeaders(ctx, method, path, body, nil)
+}
+
+func (a *Agent) requestWithHeaders(ctx context.Context, method, path string, body any, headers map[string]string) (*http.Response, error) {
 	var rd io.Reader
 	if body != nil {
 		b, err := json.Marshal(body)
@@ -216,11 +346,14 @@ func (a *Agent) request(ctx context.Context, method, path string, body any) (*ht
 	}
 	req.Header.Set("Authorization", "Bearer "+a.cfg.Token)
 	req.Header.Set("Content-Type", "application/json")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
 	return a.cfg.HTTP.Do(req)
 }
 
 func (a *Agent) pull(ctx context.Context) ([]pulledJob, error) {
-	resp, err := a.request(ctx, http.MethodGet, "/api/agent/jobs?node_id="+url.QueryEscape(a.cfg.NodeID), nil)
+	resp, err := a.requestWithHeaders(ctx, http.MethodGet, "/api/agent/jobs?node_id="+url.QueryEscape(a.cfg.NodeID), nil, a.capabilityHeaders(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -233,9 +366,22 @@ func (a *Agent) pull(ctx context.Context) ([]pulledJob, error) {
 	return jobs, err
 }
 
+const (
+	maxFailureMessage = 2000
+	maxSuccessMessage = 64 << 10
+)
+
 func (a *Agent) ack(ctx context.Context, jobID, status, message, output string) error {
-	if len(message) > 2000 {
-		message = message[:2000]
+	// Failure text can embed arbitrary command output, so it stays short. A
+	// succeeded job's message is a machine-readable report the agent built
+	// itself (tunnel_discover's is bounded to 48 KiB); cutting it would leave
+	// invalid JSON that BCC rejects as "unreadable".
+	limit := maxFailureMessage
+	if status == "succeeded" {
+		limit = maxSuccessMessage
+	}
+	if len(message) > limit {
+		message = message[:limit]
 	}
 	if len(output) > maxOutput {
 		output = ""
@@ -311,13 +457,21 @@ func (a *Agent) RunOnce(ctx context.Context) ([]Result, error) {
 			}
 			continue
 		}
+		// The list entry is only a transport wrapper. It must identify the
+		// same job as the verified payload before either ID can be recorded,
+		// executed or acknowledged.
+		if pj.ID != job.JobID {
+			r.Status, r.Detail = "refused", "job wrapper ID differs from signed payload"
+			out = append(out, r)
+			continue
+		}
 		r.Action = job.Action
 		if err := a.markSeen(job.JobID); err != nil {
 			r.Status, r.Detail = "refused", "cannot record job: "+err.Error()
 			out = append(out, r)
 			continue
 		}
-		detail, output, err := a.executeFull(ctx, job)
+		detail, output, err := a.executeFullSigned(ctx, job, pj.Signed)
 		r.Status, r.Detail = "succeeded", detail
 		if err != nil {
 			r.Status, r.Detail, output = "failed", err.Error(), ""

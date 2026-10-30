@@ -147,8 +147,11 @@ func (f *tunnelHTTPFixture) create(p Plan) Tunnel {
 func (f *tunnelHTTPFixture) step(tn Tunnel, node, action, message, output string) {
 	f.t.Helper()
 	jobs := f.pull(node)
-	if len(jobs) != 1 || jobs[0].Type != action || jobs[0].Params["tunnel_id"] != tn.ID || jobs[0].Params["instance_id"] != tn.InstanceID {
-		f.t.Fatalf("%s: expected one %s for %s/%s: %+v", node, action, tn.ID, tn.InstanceID, jobs)
+	if len(jobs) != 1 || jobs[0].Type != action || jobs[0].Params["tunnel_id"] != tn.ID || jobs[0].Params["instance_id"] != tn.instanceForNode(node) {
+		f.t.Fatalf("%s: expected one %s for %s/%s: %+v", node, action, tn.ID, tn.instanceForNode(node), jobs)
+	}
+	if tn.JoinOwnerID != "" && node == tn.EXNode && (action == JobTunnelPrepareEX || action == JobTunnelCommitEX) && jobs[0].Params["join_owner_id"] != tn.JoinOwnerID {
+		f.t.Fatalf("shared join EX job lost owner scope: %+v", jobs[0])
 	}
 	f.call(http.MethodPost, "/api/agent/ack", "tok-"+node, map[string]string{
 		"NodeID": node, "JobID": jobs[0].ID, "Status": "succeeded", "Message": message, "Output": output,
@@ -158,7 +161,11 @@ func (f *tunnelHTTPFixture) step(tn Tunnel, node, action, message, output string
 func (f *tunnelHTTPFixture) observe(tn Tunnel, node, role string, wrongTarget bool) {
 	f.t.Helper()
 	o := goodObserved(tn, role)
-	o.InstanceID = tn.InstanceID
+	o.InstanceID = tn.instanceForNode(node)
+	if role == tunnelnode.RoleEX && tn.JoinOwnerID != "" {
+		o.MarkerTunnelID = tn.JoinOwnerID
+		o.ConfigSHA256, o.UnitSHA256, o.MarkerSHA256 = strings.Repeat("1", 64), strings.Repeat("2", 64), strings.Repeat("3", 64)
+	}
 	gen := tn.ExpectedGen[node].To
 	if tn.ExpectedGen[node].Bootstrap {
 		gen = 4
@@ -187,7 +194,20 @@ func (f *tunnelHTTPFixture) runToObservation(tn Tunnel) {
 		{tn.IRNode, JobTunnelHealth, ""},
 		{tn.EXNode, JobTunnelHealth, ""},
 	} {
-		f.step(tn, step.node, step.action, "ok", step.output)
+		output := step.output
+		if tn.JoinOwnerID != "" && step.node == tn.EXNode && step.action == JobTunnelCommitEX {
+			receipt, err := json.Marshal(tunnelnode.TenantJoinReceipt{
+				OwnerTunnelID: tn.JoinOwnerID, NodeID: tn.EXNode, Listen: "0.0.0.0:" + strconv.Itoa(tn.Port),
+				PeerID: "urn:baft:node:" + tn.IRNode, PeerPublicKey: "shared-join-public-key",
+				Generation:   tn.ExpectedGen[tn.EXNode].To,
+				ConfigSHA256: strings.Repeat("1", 64), UnitSHA256: strings.Repeat("2", 64), MarkerSHA256: strings.Repeat("3", 64),
+			})
+			if err != nil {
+				f.t.Fatal(err)
+			}
+			output = string(receipt)
+		}
+		f.step(tn, step.node, step.action, "ok", output)
 	}
 }
 
@@ -246,6 +266,133 @@ func (f *tunnelHTTPFixture) siblingUnchanged(before Tunnel) {
 		if j.Params["tunnel_id"] == before.ID && (j.Status == "queued" || j.Status == "dispatched") {
 			f.t.Fatalf("operation queued work on active sibling: %+v", j)
 		}
+	}
+}
+
+func TestTunnelHTTPSharedJoinPlanAndActivationPreserveOwner(t *testing.T) {
+	f := newTunnelHTTPFixture(t)
+	ownerReq := scopedReq("shared-de", "ex-1", "ir-1", 8443, "127.0.0.1:1443", "127.0.0.1:9201", "127.0.0.1:9301")
+	ownerReq.Target = "192.0.2.10:2443"
+	owner := f.activate(f.create(f.plan(ownerReq)))
+	ownerBefore := f.get(owner.ID)
+
+	joinReq := TunnelRequest{
+		Engine: "baft", JoinExistingTunnelID: owner.ID, EXNode: owner.EXNode, IRNode: "ir-2",
+		Target: "192.0.2.20:2444", RouteListen: "127.0.0.1:1444", ClientPort: 2444,
+		IRMetricsListen: "127.0.0.1:9302",
+	}
+	plan := f.plan(joinReq)
+	if plan.Request.JoinExistingTunnelID != owner.ID || plan.Request.EXNode != owner.EXNode ||
+		plan.Request.InstanceID != owner.InstanceID || plan.Request.Port != owner.Port ||
+		plan.Request.EXMetricsListen != owner.EXMetricsListen {
+		t.Fatalf("reviewed plan did not preserve the selected shared listener scope: %+v", plan.Request)
+	}
+	if plan.Replaces != "" {
+		t.Fatalf("shared join was presented as replacing its physical owner: %s", plan.Replaces)
+	}
+	if plan.Request.RouteID == "" || plan.Request.RouteID == owner.RouteID {
+		t.Fatalf("join route id is not unique: owner=%q joined=%q", owner.RouteID, plan.Request.RouteID)
+	}
+	if len(plan.Nodes) < 1 || !strings.Contains(strings.Join(plan.Nodes[0].Changes, " "), owner.ID) {
+		t.Fatalf("join plan does not identify the physical owner: %+v", plan.Nodes)
+	}
+
+	// Removing the owner from the reviewed request must invalidate the hash.
+	before := f.domainState(f.store)
+	tampered := plan.Request
+	tampered.JoinExistingTunnelID = ""
+	tampered.PlanHash = plan.Hash
+	f.call(http.MethodPost, "/api/tunnels", tunnelHTTPAdmin, tampered, http.StatusConflict, nil)
+	f.unchanged(before)
+
+	joined := f.activate(f.create(plan))
+	if joined.JoinOwnerID != owner.ID || joined.PeerID != "urn:baft:node:ir-2" ||
+		joined.PeerPublicKey == "" || joined.EXConfigNodeID != owner.EXNode {
+		t.Fatalf("joined tenant identity/owner was not retained: %+v", joined)
+	}
+	ownerAfter := f.get(owner.ID)
+	if ownerAfter.Phase != TunnelActive || ownerAfter.RouteID != ownerBefore.RouteID || ownerAfter.Target != ownerBefore.Target {
+		t.Fatalf("joining changed or retired the physical owner: before=%+v after=%+v", ownerBefore, ownerAfter)
+	}
+	if ownerAfter.Digests[owner.EXNode].Config != strings.Repeat("1", 64) ||
+		ownerAfter.Digests[owner.EXNode].Unit != strings.Repeat("2", 64) ||
+		ownerAfter.Digests[owner.EXNode].Marker != strings.Repeat("3", 64) ||
+		ownerAfter.ObservedGen[owner.EXNode] != joined.ObservedGen[owner.EXNode] {
+		t.Fatalf("accepted shared EX baseline was not synchronized to its owner: %+v", ownerAfter)
+	}
+	if ownerAfter.ObservedGen[owner.IRNode] != ownerBefore.ObservedGen[owner.IRNode] {
+		t.Fatalf("joining changed the original IR generation: before=%+v after=%+v", ownerBefore.ObservedGen, ownerAfter.ObservedGen)
+	}
+	if got := f.get(joined.ID); got.Phase != TunnelActive || got.JoinOwnerID != owner.ID {
+		t.Fatalf("joined tenant did not remain an active logical record: %+v", got)
+	}
+	reopened, err := OpenStore(f.store.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := reopened.GetTunnel(owner.ID); !ok || got.Phase != TunnelActive {
+		t.Fatalf("physical owner not durable after join: %+v", got)
+	}
+	if got, ok := reopened.GetTunnel(joined.ID); !ok || got.Phase != TunnelActive || got.JoinOwnerID != owner.ID {
+		t.Fatalf("joined tenant relationship not durable: %+v", got)
+	}
+}
+
+func TestTunnelHTTPSharedJoinSupportsSameIRWithIsolatedDialer(t *testing.T) {
+	f := newTunnelHTTPFixture(t)
+	ownerReq := scopedReq("shared-de", "ex-1", "ir-1", 8443, "127.0.0.1:1443", "127.0.0.1:9201", "127.0.0.1:9301")
+	ownerReq.Target = "192.0.2.10:2443"
+	owner := f.activate(f.create(f.plan(ownerReq)))
+	ownerBefore := f.get(owner.ID)
+
+	// Same registered IR node, same physical EX listener, but a distinct
+	// logical route. The planner must allocate independent service/config/
+	// state and metrics for the dialer rather than reject it or replace owner.
+	joinReq := TunnelRequest{
+		Engine: "baft", JoinExistingTunnelID: owner.ID, EXNode: owner.EXNode, IRNode: owner.IRNode,
+		Target: "192.0.2.20:2444", RouteListen: owner.RouteListen, ClientPort: 2444,
+		EXMetricsListen: owner.EXMetricsListen, IRMetricsListen: owner.IRMetricsListen,
+	}
+	plan := f.plan(joinReq)
+	if plan.Request.JoinExistingTunnelID != owner.ID || plan.Request.InstanceID != owner.InstanceID ||
+		plan.Request.IRInstanceID == "" || plan.Request.IRInstanceID == owner.InstanceID {
+		t.Fatalf("same-IR join did not bind EX owner and distinct IR instance: %+v", plan.Request)
+	}
+	if plan.Request.RouteListen == owner.RouteListen || plan.Request.IRMetricsListen == owner.IRMetricsListen ||
+		tunnelEndpointPort(plan.Request.RouteListen) == tunnelEndpointPort(plan.Request.IRMetricsListen) {
+		t.Fatalf("same-IR join did not allocate independent route/metrics ports: owner=%+v join=%+v", owner, plan.Request)
+	}
+	if plan.Request.RouteID == owner.RouteID || plan.Replaces != "" {
+		t.Fatalf("same-IR join route or replacement scope is wrong: %+v", plan)
+	}
+	if len(plan.Nodes) != 2 || plan.Nodes[0].InstanceID != owner.InstanceID || plan.Nodes[1].InstanceID != plan.Request.IRInstanceID {
+		t.Fatalf("plan does not display per-node instance scope: %+v", plan.Nodes)
+	}
+
+	joined := f.activate(f.create(plan))
+	if joined.Phase != TunnelActive || joined.JoinOwnerID != owner.ID || joined.InstanceID != owner.InstanceID || joined.IRInstanceID != plan.Request.IRInstanceID {
+		t.Fatalf("joined same-IR tunnel did not activate with side-specific identities: %+v", joined)
+	}
+	if got := f.get(owner.ID); got.Phase != TunnelActive || got.RouteID != ownerBefore.RouteID || got.RouteListen != ownerBefore.RouteListen || got.Target != ownerBefore.Target {
+		t.Fatalf("same-IR tenant changed its physical owner: before=%+v after=%+v", ownerBefore, got)
+	}
+	if got := f.get(joined.ID); got.IRInstanceID == "" || got.RouteListen == ownerBefore.RouteListen || got.IRMetricsListen == ownerBefore.IRMetricsListen {
+		t.Fatalf("stored tenant lost its isolated IR resources: %+v", got)
+	}
+	ir, ok := f.store.GetNode(owner.IRNode)
+	if !ok {
+		t.Fatal("IR node disappeared after shared join")
+	}
+	if ir.AppliedGenerations[joined.IRInstanceID] == 0 || ir.AppliedGenerations[owner.InstanceID] == 0 {
+		t.Fatalf("IR host does not track both instance generations independently: %+v", ir.AppliedGenerations)
+	}
+	reopened, err := OpenStore(f.store.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	persisted, ok := reopened.GetTunnel(joined.ID)
+	if !ok || persisted.Phase != TunnelActive || persisted.IRInstanceID != joined.IRInstanceID {
+		t.Fatalf("same-IR tenant scope did not survive BCC restart: %+v", persisted)
 	}
 }
 
@@ -335,6 +482,9 @@ func TestTunnelHTTPRejectsUnauthorizedAndUnavailableEngine(t *testing.T) {
 			before := f.domainState(f.store)
 			req := TunnelRequest{Engine: engine, EXNode: "ex-1", IRNode: "ir-1", Target: "192.0.2.40:2443"}
 			for _, path := range []string{"/api/tunnels/plan", "/api/tunnels"} {
+				if path == "/api/tunnels" {
+					req.PlanHash = "invalid-reviewed-hash"
+				}
 				b := f.call(http.MethodPost, path, tunnelHTTPAdmin, req, http.StatusBadRequest, nil)
 				if !strings.Contains(string(b), "engine") {
 					t.Fatalf("unexpected rejection: %s", b)
@@ -442,4 +592,90 @@ func TestTunnelHTTPWrongObservedTargetRollsBackReplacement(t *testing.T) {
 	}
 	f.siblingUnchanged(original)
 	f.siblingUnchanged(sibling)
+}
+
+func TestTunnelHTTPCreateRequiresReviewedPlanHash(t *testing.T) {
+	f := newTunnelHTTPFixture(t)
+	req := TunnelRequest{EXNode: "ex-1", IRNode: "ir-1", Port: 8443, Target: "127.0.0.1:443"}
+	before := f.domainState(f.store)
+	f.call(http.MethodPost, "/api/tunnels", tunnelHTTPAdmin, req, http.StatusBadRequest, nil)
+	f.unchanged(before)
+}
+
+func TestTunnelHTTPReviewedPlanReplayDoesNotDuplicatePrepare(t *testing.T) {
+	f := newTunnelHTTPFixture(t)
+	req := scopedReq("replay-guard", "ex-1", "ir-1", 9443,
+		"127.0.0.1:1444", "127.0.0.1:9202", "127.0.0.1:9302")
+	plan := f.plan(req)
+	created := f.create(plan)
+	before := f.domainState(f.store)
+	reviewed := plan.Request
+	reviewed.PlanHash = plan.Hash
+	f.call(http.MethodPost, "/api/tunnels", tunnelHTTPAdmin, reviewed, http.StatusBadRequest, nil)
+	f.unchanged(before)
+	got := f.store.ListTunnels()
+	if len(got) != 1 || got[0].ID != created.ID || got[0].PlanHash != plan.Hash {
+		t.Fatalf("replayed plan created a duplicate tunnel: %+v", got)
+	}
+	jobs := f.pull("ex-1")
+	if len(jobs) != 1 || jobs[0].Type != JobTunnelPrepareEX {
+		t.Fatalf("replayed plan queued duplicate prepare: %+v", jobs)
+	}
+}
+
+func TestTunnelHTTPConcurrentReviewedPlanStartsOnlyOnce(t *testing.T) {
+	f := newTunnelHTTPFixture(t)
+	p := f.plan(scopedReq("concurrent-review", "ex-1", "ir-1", 9443,
+		"127.0.0.1:1444", "127.0.0.1:9202", "127.0.0.1:9302"))
+	req := p.Request
+	req.PlanHash = p.Hash
+	payload, err := json.Marshal(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const attempts = 4
+	statuses := make(chan int, attempts)
+	start := make(chan struct{})
+	for i := 0; i < attempts; i++ {
+		go func() {
+			<-start
+			request, err := http.NewRequest(http.MethodPost, f.url+"/api/tunnels", bytes.NewReader(payload))
+			if err != nil {
+				statuses <- 0
+				return
+			}
+			request.Header.Set("Authorization", "Bearer "+tunnelHTTPAdmin)
+			request.Header.Set("Content-Type", "application/json")
+			resp, err := f.client.Do(request)
+			if err != nil {
+				statuses <- 0
+				return
+			}
+			defer resp.Body.Close()
+			_, _ = io.Copy(io.Discard, resp.Body)
+			statuses <- resp.StatusCode
+		}()
+	}
+	close(start)
+	accepted := 0
+	for i := 0; i < attempts; i++ {
+		status := <-statuses
+		if status == http.StatusAccepted {
+			accepted++
+			continue
+		}
+		if status != http.StatusBadRequest && status != http.StatusConflict {
+			t.Errorf("concurrent request %d returned unexpected status %d", i, status)
+		}
+	}
+	if accepted != 1 {
+		t.Fatalf("accepted %d of %d concurrent creates, want one", accepted, attempts)
+	}
+	tunnels := f.store.ListTunnels()
+	if len(tunnels) != 1 || tunnels[0].PlanHash != p.Hash || tunnels[0].Phase != TunnelPreparingEX {
+		t.Fatalf("concurrent retry corrupted tunnel state: %+v", tunnels)
+	}
+	if jobs := f.pull("ex-1"); len(jobs) != 1 || jobs[0].Type != JobTunnelPrepareEX {
+		t.Fatalf("concurrent retry dispatched unexpected jobs: %+v", jobs)
+	}
 }

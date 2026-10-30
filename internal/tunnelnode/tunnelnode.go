@@ -112,6 +112,11 @@ type Txn struct {
 	PKIReplaced   bool `json:"pki_replaced"`
 	ConfigWritten bool `json:"config_written"`
 
+	// MetricsClaimed is true only when this change created the instance's
+	// metrics claim. A re-pair of a live instance reuses the claim its running
+	// service still depends on and must never release it.
+	MetricsClaimed bool `json:"metrics_claimed,omitempty"`
+
 	// Ownership: what this change installed, so rollback only ever restores or
 	// deletes files that are still exactly the ones BAFT wrote.
 	HadMarker          bool   `json:"had_marker"`
@@ -122,6 +127,17 @@ type Txn struct {
 	// Generation counts committed configuration changes on this node.
 	Generation         int `json:"generation,omitempty"`
 	PreviousGeneration int `json:"previous_generation,omitempty"`
+
+	// JoinOwnerID marks a logical tenant whose listener is physically owned by
+	// another finalized tunnel transaction. The owner keeps the shared unit.
+	JoinOwnerID   string `json:"join_owner_id,omitempty"`
+	JoinConfigSHA string `json:"join_config_sha256,omitempty"`
+	JoinUnitSHA   string `json:"join_unit_sha256,omitempty"`
+	JoinMarkerSHA string `json:"join_marker_sha256,omitempty"`
+	PeerID        string `json:"peer_id,omitempty"`
+	PeerPublicKey string `json:"peer_public_key,omitempty"`
+	TenantRouteID string `json:"tenant_route_id,omitempty"`
+	TenantTarget  string `json:"tenant_target,omitempty"`
 }
 
 type Manager struct {
@@ -173,12 +189,106 @@ func (m *Manager) ForInstance(instance, metricsListen string) (*Manager, error) 
 		}
 		return nil, errors.New("tunnelnode: cannot rescope an instance manager")
 	}
+	// A sibling must never silently inherit the primary metrics socket:
+	// doing so makes an otherwise isolated service fail to bind at startup.
+	if metricsListen == "" || metricsListen == m.MetricsListen {
+		return nil, errors.New("tunnelnode: independent instance requires an explicit distinct metrics listener")
+	}
+	host, port, err := net.SplitHostPort(metricsListen)
+	ip := net.ParseIP(host)
+	if err != nil || ip == nil || !ip.IsLoopback() {
+		return nil, errors.New("tunnelnode: instance metrics listener must use a literal loopback IP")
+	}
+	portNum, err := strconv.Atoi(port)
+	if err != nil || !validPort(portNum) {
+		return nil, errors.New("tunnelnode: invalid instance metrics port")
+	}
+	_, primaryPort, primaryErr := net.SplitHostPort(m.MetricsListen)
+	primaryNum, primaryParseErr := strconv.Atoi(primaryPort)
+	if primaryErr == nil && primaryParseErr == nil && primaryNum == portNum {
+		return nil, errors.New("tunnelnode: instance metrics port conflicts with primary metrics port")
+	}
+	// Check previously configured sibling instances before allocating an
+	// independent metrics socket. Unknown or unreadable sibling state fails closed.
+	siblings := filepath.Join(m.ConfigDir, "instances")
+	entries, readErr := os.ReadDir(siblings)
+	if readErr != nil && !os.IsNotExist(readErr) {
+		return nil, fmt.Errorf("tunnelnode: cannot inspect sibling instances: %w", readErr)
+	}
+	for _, entry := range entries {
+		if entry.Name() == instance {
+			continue
+		}
+		if !entry.IsDir() {
+			return nil, errors.New("tunnelnode: unexpected sibling instance entry")
+		}
+		path := filepath.Join(siblings, entry.Name(), "baft.yaml")
+		cfg, loadErr := config.LoadFile(path)
+		if os.IsNotExist(loadErr) {
+			// A sibling that never committed a config is not a port owner when
+			// its durable state proves it only ever prepared or cancelled a
+			// pairing (its metrics port is held by an exclusive claim, so a
+			// pairing in progress is still fenced). Anything else, including a
+			// bare directory with no state, stays unverifiable and fails closed.
+			if m.uncommittedSibling(entry.Name()) {
+				continue
+			}
+			return nil, errors.New("tunnelnode: sibling instance has no verifiable config")
+		}
+		if loadErr != nil {
+			return nil, fmt.Errorf("tunnelnode: cannot verify sibling metrics ownership: %w", loadErr)
+		}
+		_, usedPort, splitErr := net.SplitHostPort(cfg.Management.MetricsListen)
+		usedNum, parseErr := strconv.Atoi(usedPort)
+		if splitErr != nil || parseErr != nil || !validPort(usedNum) || usedNum == portNum {
+			return nil, errors.New("tunnelnode: sibling instance metrics port conflict or invalid configuration")
+		}
+	}
 	env := m.Env
 	env.Instance = instance
-	if metricsListen != "" {
-		env.MetricsListen = metricsListen
-	}
+	env.MetricsListen = metricsListen
 	return New(env)
+}
+
+// uncommittedSibling reports whether the named sibling instance has durable
+// transaction state and every transaction in it is readable and either
+// prepared or rolled back. Committed, finalized, unreadable or missing state
+// is not "uncommitted": the caller must then fail closed.
+func (m *Manager) uncommittedSibling(name string) bool {
+	env := m.Env
+	env.Instance = name
+	sib, err := New(env)
+	if err != nil {
+		return false
+	}
+	entries, err := os.ReadDir(filepath.Join(sib.StateDir, "tunnels"))
+	if err != nil {
+		return false
+	}
+	seen := 0
+	for _, e := range entries {
+		if !e.IsDir() {
+			if e.Name() == "active" || e.Name() == "generation" {
+				continue
+			}
+			return false
+		}
+		t, err := sib.readTxn(e.Name())
+		if err != nil || (t.Phase != PhasePrepared && t.Phase != PhaseRolledBack) {
+			return false
+		}
+		seen++
+	}
+	if seen == 0 {
+		return false
+	}
+	if _, err := os.Lstat(sib.unitPath()); err == nil {
+		return false
+	}
+	if _, err := os.Lstat(sib.markerPath()); err == nil {
+		return false
+	}
+	return true
 }
 
 // ---- parameters ----
@@ -190,6 +300,7 @@ type ExParams struct {
 	RouteID       string
 	RecordShaping bool
 	MetricsListen string // default 127.0.0.1:9191
+	JoinOwnerID   string `json:"join_owner_id,omitempty"`
 }
 
 type IRParams struct {
@@ -199,6 +310,37 @@ type IRParams struct {
 }
 
 func validPort(p int) bool { return p >= 1 && p <= 65535 }
+
+// sshManagementPort is never a transport listener, route listener or metrics
+// endpoint of a managed instance.
+const sshManagementPort = 22
+
+func portOf(hostport string) int {
+	_, port, err := net.SplitHostPort(hostport)
+	if err != nil {
+		return 0
+	}
+	n, err := strconv.Atoi(port)
+	if err != nil {
+		return 0
+	}
+	return n
+}
+
+// refuseProtectedPorts rejects, before any state or host change, a listener
+// port that is SSH management or that aliases the metrics endpoint.
+func refuseProtectedPorts(metricsListen string, listenPort int) error {
+	metricsPort := portOf(metricsListen)
+	switch {
+	case listenPort == sshManagementPort:
+		return errors.New("tunnelnode: port 22 is reserved for SSH management")
+	case metricsPort == sshManagementPort:
+		return errors.New("tunnelnode: metrics port 22 is reserved for SSH management")
+	case metricsPort != 0 && listenPort == metricsPort:
+		return fmt.Errorf("tunnelnode: listener port %d conflicts with the metrics port", listenPort)
+	}
+	return nil
+}
 
 func (p ExParams) validate() error {
 	switch {
@@ -257,7 +399,13 @@ func (m *Manager) readTxn(id string) (Txn, error) {
 		return t, err
 	}
 	if err := json.Unmarshal(b, &t); err != nil {
-		return t, fmt.Errorf("corrupt state for %s: %w", id, err)
+		return Txn{}, fmt.Errorf("corrupt state for %s: %w", id, err)
+	}
+	// The on-disk path is not evidence of ownership: never let stale, swapped
+	// or partially restored transaction contents name a different change.
+	if !idRe.MatchString(id) || t.Version != 1 || t.ID != id || (t.Role != RoleEX && t.Role != RoleIR) ||
+		(t.Phase != PhasePrepared && t.Phase != PhaseCommitted && t.Phase != PhaseFinalized && t.Phase != PhaseRolledBack) {
+		return Txn{}, fmt.Errorf("corrupt transaction identity or phase for %s", id)
 	}
 	return t, nil
 }
@@ -298,8 +446,48 @@ func (m *Manager) activeID() string {
 	return strings.TrimSpace(string(b))
 }
 
+// checkedActiveID distinguishes no active transaction from an unreadable or
+// malformed marker. Mutation preflights must use it instead of activeID.
+func (m *Manager) checkedActiveID() (string, error) {
+	b, err := os.ReadFile(m.activePath())
+	if errors.Is(err, os.ErrNotExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("read active transaction: %w", err)
+	}
+	id := strings.TrimSpace(string(b))
+	if !idRe.MatchString(id) || string(b) != id+"\n" {
+		return "", errors.New("invalid active transaction marker; reconciliation required")
+	}
+	return id, nil
+}
+
 func (m *Manager) setActive(id string) error {
-	return writeFile(m.activePath(), []byte(id+"\n"), 0o600)
+	// The manager mutex only serializes callers of this object. Independent
+	// CLI/Agent managers must atomically claim the same instance on disk.
+	// Never replace an existing marker, including a partial/crashed claim.
+	if err := os.MkdirAll(filepath.Dir(m.activePath()), 0o700); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(m.activePath(), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return fmt.Errorf("claim active transaction; reconciliation may be required: %w", err)
+	}
+	_, writeErr := f.WriteString(id + "\n")
+	if writeErr == nil {
+		writeErr = f.Sync()
+	}
+	closeErr := f.Close()
+	if writeErr != nil {
+		return writeErr
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	// A failure leaves the marker in place and refuses admission. Removing it
+	// on error would erase the evidence needed after an interrupted claim.
+	return syncParentDirs(m.activePath())
 }
 
 func (m *Manager) clearActive() { _ = os.Remove(m.activePath()) }
@@ -309,22 +497,61 @@ func (m *Manager) begin(id, role string) (Txn, error) {
 	if !idRe.MatchString(id) {
 		return Txn{}, errors.New("invalid tunnel id")
 	}
-	if cur := m.activeID(); cur != "" && cur != id {
-		if t, err := m.readTxn(cur); err == nil && (t.Phase == PhasePrepared || t.Phase == PhaseCommitted) {
+	cur, activeErr := m.checkedActiveID()
+	if activeErr != nil {
+		return Txn{}, activeErr
+	}
+	if cur != "" {
+		if cur == id {
+			return Txn{}, fmt.Errorf("tunnel change %s already holds the active marker; reconcile before retrying", id)
+		}
+		t, err := m.readTxn(cur)
+		if err != nil {
+			return Txn{}, fmt.Errorf("unreadable active tunnel change %s; manual reconciliation required: %w", cur, err)
+		}
+		if t.Phase == PhasePrepared || t.Phase == PhaseCommitted {
 			return Txn{}, fmt.Errorf("tunnel change %s is still in progress on this node", cur)
 		}
+	}
+	// After a crash the active marker can be lost while a prepared or
+	// committed transaction survives. Refuse a second change until the old
+	// transaction is reconciled, even when its ID differs from the new ID.
+	if cur == "" {
+		entries, err := os.ReadDir(filepath.Join(m.StateDir, "tunnels"))
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return Txn{}, fmt.Errorf("inspect stored tunnel transactions: %w", err)
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() || !idRe.MatchString(entry.Name()) {
+				continue
+			}
+			old, err := m.readTxn(entry.Name())
+			if err != nil {
+				return Txn{}, fmt.Errorf("stale or unreadable transaction %s needs reconciliation: %w", entry.Name(), err)
+			}
+			if old.Phase == PhasePrepared || old.Phase == PhaseCommitted {
+				return Txn{}, fmt.Errorf("unfinished tunnel change %s needs reconciliation", old.ID)
+			}
+		}
+	}
+	if existing, err := m.readTxn(id); err == nil && existing.JoinOwnerID != "" {
+		return Txn{}, errors.New("shared tenant must be removed without retiring its physical listener")
 	}
 	if rid := m.rotationInProgress(); rid != "" {
 		return Txn{}, fmt.Errorf("certificate rotation %s is in progress on this node", rid)
 	}
 	if _, err := m.readTxn(id); err == nil {
 		return Txn{}, fmt.Errorf("tunnel change %s already exists on this node", id)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		// A corrupt or unreadable transaction must not be overwritten by a new
+		// one with the same ID, even if its active marker disappeared in a crash.
+		return Txn{}, fmt.Errorf("tunnel change %s has unreadable state; reconciliation required: %w", id, err)
 	}
 	t := Txn{Version: 1, ID: id, Role: role, Phase: PhasePrepared, Created: m.Now().UTC()}
 	if err := m.ensureScopedDirs(); err != nil {
 		return t, err
 	}
-	if err := os.MkdirAll(m.stage(id), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(m.stage(id)), 0o700); err != nil {
 		return t, err
 	}
 	// The service reads the IR's staged CA from here, so it must be able to
@@ -333,6 +560,9 @@ func (m *Manager) begin(id, role string) (Txn, error) {
 		return t, err
 	}
 	if err := m.setActive(id); err != nil {
+		return t, err
+	}
+	if err := os.MkdirAll(m.stage(id), 0o700); err != nil {
 		return t, err
 	}
 	return t, m.writeTxn(t)
@@ -345,17 +575,67 @@ func (m *Manager) begin(id, role string) (Txn, error) {
 func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
 	if err := p.validate(); err != nil {
+		return "", err
+	}
+	if err := m.requireOwnedInstanceNamespace(); err != nil {
+		return "", err
+	}
+	if err := m.requireFreeListeners("0.0.0.0:" + strconv.Itoa(p.Port)); err != nil {
 		return "", err
 	}
 	if p.MetricsListen == "" {
 		p.MetricsListen = m.MetricsListen
 	}
+	// A scoped instance must never override its validated metrics allocation
+	// through Prepare parameters after the initial instance preflight.
+	if m.Instance != "" && p.MetricsListen != m.MetricsListen {
+		return "", errors.New("tunnelnode: instance metrics address differs from scoped allocation")
+	}
+	claimCreated := false
+	if err := refuseProtectedPorts(p.MetricsListen, p.Port); err != nil {
+		return "", err
+	}
+	if m.Instance != "" {
+		_, metricsPort, err := net.SplitHostPort(p.MetricsListen)
+		if err != nil {
+			return "", err
+		}
+		n, err := strconv.Atoi(metricsPort)
+		if err != nil {
+			return "", err
+		}
+		created, err := m.acquireMetricsClaim(n)
+		if err != nil {
+			return "", fmt.Errorf("tunnelnode: metrics reservation before prepare: %w", err)
+		}
+		claimCreated = created
+	}
 	t, err := m.begin(id, RoleEX)
 	if err != nil {
+		if claimCreated {
+			_, portText, splitErr := net.SplitHostPort(m.MetricsListen)
+			if splitErr == nil {
+				if port, parseErr := strconv.Atoi(portText); parseErr == nil {
+					if releaseErr := m.ReleaseMetricsPort(port); releaseErr != nil {
+						return "", fmt.Errorf("prepare begin failed: %w; metrics claim release failed: %v", err, releaseErr)
+					}
+				}
+			}
+		}
 		return "", err
 	}
 	t.Port = p.Port
+	t.MetricsClaimed = claimCreated
+	if err := m.writeTxn(t); err != nil {
+		m.abort(ctx, t)
+		return "", err
+	}
 	code, err := func() (string, error) {
 		if err := m.ensureNoiseKey(ctx); err != nil {
 			return "", err
@@ -396,17 +676,67 @@ func (m *Manager) PrepareEX(ctx context.Context, id string, p ExParams) (string,
 func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
 	if err := p.validate(); err != nil {
+		return "", err
+	}
+	if err := m.requireOwnedInstanceNamespace(); err != nil {
+		return "", err
+	}
+	if err := m.requireFreeListeners(p.RouteListen); err != nil {
 		return "", err
 	}
 	if p.MetricsListen == "" {
 		p.MetricsListen = m.MetricsListen
 	}
+	// A scoped instance must never override its validated metrics allocation
+	// through Prepare parameters after the initial instance preflight.
+	if m.Instance != "" && p.MetricsListen != m.MetricsListen {
+		return "", errors.New("tunnelnode: instance metrics address differs from scoped allocation")
+	}
+	claimCreated := false
+	if err := refuseProtectedPorts(p.MetricsListen, portOf(p.RouteListen)); err != nil {
+		return "", err
+	}
+	if m.Instance != "" {
+		_, metricsPort, err := net.SplitHostPort(p.MetricsListen)
+		if err != nil {
+			return "", err
+		}
+		n, err := strconv.Atoi(metricsPort)
+		if err != nil {
+			return "", err
+		}
+		created, err := m.acquireMetricsClaim(n)
+		if err != nil {
+			return "", fmt.Errorf("tunnelnode: metrics reservation before prepare: %w", err)
+		}
+		claimCreated = created
+	}
 	t, err := m.begin(id, RoleIR)
 	if err != nil {
+		if claimCreated {
+			_, portText, splitErr := net.SplitHostPort(m.MetricsListen)
+			if splitErr == nil {
+				if port, parseErr := strconv.Atoi(portText); parseErr == nil {
+					if releaseErr := m.ReleaseMetricsPort(port); releaseErr != nil {
+						return "", fmt.Errorf("prepare begin failed: %w; metrics claim release failed: %v", err, releaseErr)
+					}
+				}
+			}
+		}
 		return "", err
 	}
 	t.RouteListen = p.RouteListen
+	t.MetricsClaimed = claimCreated
+	if err := m.writeTxn(t); err != nil {
+		m.abort(ctx, t)
+		return "", err
+	}
 	reply, err := func() (string, error) {
 		if err := m.ensureNoiseKey(ctx); err != nil {
 			return "", err
@@ -440,6 +770,11 @@ func (m *Manager) PrepareIR(ctx context.Context, id, code string, p IRParams) (s
 func (m *Manager) CommitEX(ctx context.Context, id, reply string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
 	t, err := m.requirePhase(id, RoleEX, PhasePrepared)
 	if err != nil {
 		return "", err
@@ -469,6 +804,11 @@ func (m *Manager) CommitEX(ctx context.Context, id, reply string) (string, error
 func (m *Manager) CommitIR(ctx context.Context, id string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
 	t, err := m.requirePhase(id, RoleIR, PhasePrepared)
 	if err != nil {
 		return "", err
@@ -483,6 +823,10 @@ func (m *Manager) install(ctx context.Context, t Txn, port int) (string, error) 
 	staged := filepath.Join(stage, "baft.new.yaml")
 	if _, err := os.Stat(staged); err != nil {
 		return "", errors.New("no staged config")
+	}
+	// State may have changed since prepare; nothing live is touched yet.
+	if err := m.requireOwnedInstanceNamespace(); err != nil {
+		return "", err
 	}
 	if b, err := os.ReadFile(m.liveConfig()); err == nil {
 		t.HadConfig = true
@@ -619,6 +963,11 @@ func (m *Manager) stableSample(ctx context.Context) (restarts string, err error)
 func (m *Manager) Finalize(ctx context.Context, id string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
 	t, err := m.readTxn(id)
 	if err != nil {
 		return "", fmt.Errorf("unknown tunnel change %s", id)
@@ -628,6 +977,15 @@ func (m *Manager) Finalize(ctx context.Context, id string) (string, error) {
 	}
 	if t.Phase != PhaseCommitted {
 		return "", fmt.Errorf("tunnel change %s is %s, not committed", id, t.Phase)
+	}
+	// Finalization destroys rollback evidence. Only the current transaction
+	// owner may finalize; a lost, corrupt or foreign marker must fail closed.
+	cur, err := m.checkedActiveID()
+	if err != nil {
+		return "", fmt.Errorf("finalize active owner: %w", err)
+	}
+	if cur != id {
+		return "", fmt.Errorf("finalize %s refused: active transaction is %q", id, cur)
 	}
 	t.Phase = PhaseFinalized
 	if err := m.writeTxn(t); err != nil {
@@ -641,11 +999,16 @@ func (m *Manager) Finalize(ctx context.Context, id string) (string, error) {
 		_ = os.RemoveAll(m.pkiDir() + ".before-" + id)
 	}
 	m.clearActive()
-	// Older changes are superseded: nothing references their stage any more.
+	// A finalized shared tenant still depends on its physical owner's
+	// transaction and its sibling tenants' observation records. Only older
+	// changes outside that shared group are superseded.
 	if ents, err := os.ReadDir(filepath.Join(m.StateDir, "tunnels")); err == nil {
 		for _, e := range ents {
-			if e.IsDir() && e.Name() != id {
+			if e.IsDir() && e.Name() != id && e.Name() != t.JoinOwnerID {
 				if old, err := m.readTxn(e.Name()); err == nil && (old.Phase == PhaseFinalized || old.Phase == PhaseRolledBack) {
+					if t.JoinOwnerID != "" && old.JoinOwnerID == t.JoinOwnerID && old.Phase == PhaseFinalized {
+						continue
+					}
 					_ = os.RemoveAll(m.stage(e.Name()))
 				}
 			}
@@ -659,9 +1022,32 @@ func (m *Manager) Finalize(ctx context.Context, id string) (string, error) {
 func (m *Manager) Rollback(ctx context.Context, id string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
+	// A rollback must never act while another transaction owns the node.
+	// This also catches corrupt markers rather than treating them as absent.
+	cur, activeErr := m.checkedActiveID()
+	if activeErr != nil {
+		return "", activeErr
+	}
 	t, err := m.readTxn(id)
 	if err != nil {
-		return "nothing to roll back", nil
+		// A crash between writing the active marker and transaction state
+		// leaves an ambiguous change. Never report a successful rollback:
+		// doing so could invite reuse of an allocated port or live service.
+		if m.activeID() == id {
+			return "", fmt.Errorf("tunnel change %s has an active marker but no readable transaction; manual reconciliation required: %w", id, err)
+		}
+		if errors.Is(err, os.ErrNotExist) {
+			return "nothing to roll back", nil
+		}
+		return "", fmt.Errorf("tunnel change %s has unreadable transaction state; reconciliation required: %w", id, err)
+	}
+	if cur != "" && cur != id {
+		return "", fmt.Errorf("rollback %s refused: active transaction %s owns this node", id, cur)
 	}
 	switch t.Phase {
 	case PhaseRolledBack:
@@ -669,7 +1055,40 @@ func (m *Manager) Rollback(ctx context.Context, id string) (string, error) {
 	case PhaseFinalized:
 		return "", fmt.Errorf("tunnel change %s is finalized; make a new change instead", id)
 	}
+	if t.JoinOwnerID != "" {
+		if err := m.rollbackSharedJoinTenantMutation(ctx, t); err != nil {
+			return "", fmt.Errorf("rollback shared tenant mutation for %s: %w", id, err)
+		}
+		if t.ConfigWritten {
+			// The tenant journal already restored and verified the shared
+			// listener; do not restore the same before-images a second time.
+			t.ConfigWritten, t.UnitChanged = false, false
+		}
+	}
 	return m.rollbackTxn(ctx, t)
+}
+
+func (m *Manager) rollbackSharedJoinTenantMutation(ctx context.Context, t Txn) error {
+	b, err := os.ReadFile(m.tenantMutationPath(t.ID))
+	if errors.Is(err, os.ErrNotExist) {
+		if t.ConfigWritten {
+			return errors.New("committed shared join has no tenant mutation journal; reconciliation required")
+		}
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var j tenantMutationJournal
+	if err := json.Unmarshal(b, &j); err != nil || j.ID != t.ID || j.OwnerTunnelID != t.JoinOwnerID {
+		return errors.New("unreadable or mismatched shared tenant mutation journal; reconciliation required")
+	}
+	switch j.Phase {
+	case "prepared", "applying", "committed", "rolled_back":
+		return m.rollbackTenantMutation(ctx, &j)
+	default:
+		return errors.New("unknown shared tenant mutation journal phase; reconciliation required")
+	}
 }
 
 func (m *Manager) abort(ctx context.Context, t Txn) { _, _ = m.rollbackTxn(ctx, t) }
@@ -721,6 +1140,13 @@ func (m *Manager) rollbackTxn(ctx context.Context, t Txn) (string, error) {
 		} else {
 			note(removeIfExists(m.markerPath()))
 		}
+		if t.JoinOwnerID != "" {
+			if b, err := os.ReadFile(m.backup(t.ID, "owner-txn.json")); err == nil {
+				note(writeFile(m.txnPath(t.JoinOwnerID), b, 0o600))
+			} else {
+				note(err)
+			}
+		}
 		_, _ = m.System.Systemctl(ctx, "daemon-reload")
 		if t.HadConfig && t.WasActive {
 			if _, err := m.System.Systemctl(ctx, "restart", m.Service); err != nil {
@@ -747,9 +1173,31 @@ func (m *Manager) rollbackTxn(ctx context.Context, t Txn) (string, error) {
 		_ = os.Remove(filepath.Join(m.stage(t.ID), f))
 	}
 	t.Phase = PhaseRolledBack
-	_ = m.writeTxn(t)
-	if m.activeID() == t.ID {
+	if err := m.writeTxn(t); err != nil {
+		return "rollback restored live files but could not persist recovery state", err
+	}
+	cur, err := m.checkedActiveID()
+	if err != nil {
+		return "rollback persisted but active marker needs reconciliation", err
+	}
+	if cur != "" && cur != t.ID {
+		return "rollback persisted but another active owner needs reconciliation", fmt.Errorf("active transaction %s does not match %s", cur, t.ID)
+	}
+	if cur == t.ID {
 		m.clearActive()
+	}
+	if m.Instance != "" && t.MetricsClaimed {
+		_, port, err := net.SplitHostPort(m.MetricsListen)
+		if err != nil {
+			return "rollback completed but metrics claim requires reconciliation", err
+		}
+		n, err := strconv.Atoi(port)
+		if err != nil {
+			return "rollback completed but metrics claim requires reconciliation", err
+		}
+		if err := m.ReleaseMetricsPort(n); err != nil {
+			return "rollback completed but metrics claim requires reconciliation", err
+		}
 	}
 	return "rolled back", nil
 }
@@ -1182,7 +1630,9 @@ func (m *Manager) Observe(ctx context.Context, id string) (Observed, error) {
 	if cfg.Peer != nil {
 		o.PeerAddress = cfg.Peer.Address
 	}
-	if len(cfg.Routes) > 0 {
+	if t.JoinOwnerID != "" {
+		o.RouteID, o.Target = t.TenantRouteID, t.TenantTarget
+	} else if len(cfg.Routes) > 0 {
 		o.RouteID, o.RouteListen, o.Target = cfg.Routes[0].ID, cfg.Routes[0].Listen, cfg.Routes[0].Target
 	}
 	state, _ := m.System.Systemctl(ctx, "is-active", m.Service)
@@ -1190,11 +1640,20 @@ func (m *Manager) Observe(ctx context.Context, id string) (Observed, error) {
 	o.Restarts, _ = m.System.Systemctl(ctx, "show", "-p", "NRestarts", "--value", m.Service)
 	var unitSHA string
 	if unit, err := os.ReadFile(m.unitPath()); err == nil {
-		port := t.Port
+		port, ownerID, generation := t.Port, t.ID, t.Generation
 		if t.Role == RoleIR {
 			port = 0
 		}
-		o.UnitMatches = string(unit) == m.ManagedUnit(port, t.ID, t.Generation)
+		if t.JoinOwnerID != "" {
+			ownerID = t.JoinOwnerID
+			if mb, readErr := os.ReadFile(m.markerPath()); readErr == nil {
+				var mk Marker
+				if json.Unmarshal(mb, &mk) == nil {
+					generation = mk.Generation
+				}
+			}
+		}
+		o.UnitMatches = string(unit) == m.ManagedUnit(port, ownerID, generation)
 		unitSHA = shaHex(unit)
 		o.UnitSHA256 = unitSHA
 	}
@@ -1206,6 +1665,13 @@ func (m *Manager) Observe(ctx context.Context, id string) (Observed, error) {
 			o.MarkerTunnelID, o.MarkerGeneration = mk.TunnelID, mk.Generation
 			o.MarkerConfigMatches = mk.ConfigSHA256 == o.ConfigSHA256
 			o.MarkerUnitMatches = unitSHA != "" && mk.UnitSHA256 == unitSHA
+		}
+	}
+	if t.JoinOwnerID != "" {
+		if problems := m.ownershipViolations(t); len(problems) > 0 {
+			o.UnitMatches = false
+			o.MarkerConfigMatches = false
+			o.MarkerUnitMatches = false
 		}
 	}
 	return o, nil
@@ -1243,6 +1709,50 @@ func (m *Manager) ManagedUnit(port int, tunnelID string, generation int) string 
 // byte-for-byte what it wrote (and are not simply the original again).
 func (m *Manager) ownershipViolations(t Txn) []string {
 	var v []string
+	if t.JoinOwnerID != "" {
+		cfgBytes, cfgErr := os.ReadFile(m.liveConfig())
+		unitBytes, unitErr := os.ReadFile(m.unitPath())
+		markerBytes, markerErr := os.ReadFile(m.markerPath())
+		var marker Marker
+		if cfgErr != nil || unitErr != nil || markerErr != nil || json.Unmarshal(markerBytes, &marker) != nil {
+			return []string{"shared listener ownership evidence is unreadable"}
+		}
+		cfg, err := config.LoadFile(m.liveConfig())
+		if err != nil || cfg.Server == nil || cfg.Noise == nil || cfg.Node.Role != "listener" {
+			return []string{"shared physical listener config is invalid or no longer a listener"}
+		}
+		if marker.TunnelID != t.JoinOwnerID || marker.InstanceID != m.Instance ||
+			marker.ConfigSHA256 != shaHex(cfgBytes) || marker.UnitSHA256 != shaHex(unitBytes) ||
+			marker.Generation != m.readGeneration() {
+			v = append(v, "shared physical listener ownership or generation changed")
+		}
+		if owner, err := m.readTxn(t.JoinOwnerID); err != nil ||
+			owner.Phase != PhaseFinalized || owner.InstalledConfigSHA != shaHex(cfgBytes) ||
+			owner.InstalledUnitSHA != shaHex(unitBytes) || owner.InstalledMarkerSHA != shaHex(markerBytes) {
+			v = append(v, "shared physical owner transaction no longer matches live artifacts")
+		}
+		if cfg.Noise == nil || cfg.Noise.AllowedPeerPublicKeys[t.PeerID] != t.PeerPublicKey {
+			v = append(v, "this tenant's authenticated Noise key is missing or changed")
+		}
+		identityPresent, routePresent := false, false
+		if cfg.Server != nil {
+			for _, id := range cfg.Server.AllowedPeerIdentities {
+				if id == t.PeerID { identityPresent = true }
+			}
+		}
+		for _, route := range cfg.Routes {
+			if route.ID != t.TenantRouteID || route.Direction != "inbound" || route.Target != t.TenantTarget {
+				continue
+			}
+			for _, peer := range route.AllowedPeers {
+				if peer == t.PeerID { routePresent = true }
+			}
+		}
+		if !identityPresent || !routePresent {
+			v = append(v, "this tenant's authenticated identity or inbound route is missing")
+		}
+		return v
+	}
 	check := func(label, live, installed, backup string, had bool) {
 		if installed == "" {
 			return // change recorded before ownership tracking: nothing to compare
@@ -1372,6 +1882,11 @@ func (m *Manager) verifyRetireLive(l Live, id string, want RetireExpectation, al
 func (m *Manager) Retire(ctx context.Context, id string, want RetireExpectation) (RetireEvidence, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	unlock, lockErr := m.lockLifecycle(ctx)
+	if lockErr != nil {
+		return RetireEvidence{}, lockErr
+	}
+	defer unlock()
 	var ev RetireEvidence
 	ev.TunnelID, ev.Instance = id, m.Instance
 	if !idRe.MatchString(id) || want.Generation <= 0 ||
@@ -1438,9 +1953,28 @@ func (m *Manager) Retire(ctx context.Context, id string, want RetireExpectation)
 	if err := m.verifyRetireLive(m.inspectUnlocked(ctx), id, want, true); err != nil {
 		return ev, err
 	}
+	metricsPort := ""
+	if m.Instance != "" {
+		_, metricsPort, _ = net.SplitHostPort(m.MetricsListen)
+		if cfg, err := config.LoadFile(m.liveConfig()); err == nil {
+			if _, p, err := net.SplitHostPort(cfg.Management.MetricsListen); err == nil {
+				metricsPort = p
+			}
+		}
+	}
 	for _, path := range []string{m.liveConfig(), m.unitPath(), m.markerPath()} {
 		if err := removeDurable(path); err != nil {
 			return ev, err
+		}
+	}
+	// The instance no longer exists: free its metrics reservation so the name
+	// and port can be paired again. Only a claim this instance owns is removed;
+	// an altered or foreign claim is kept and the retire reports incomplete.
+	if m.Instance != "" {
+		if n, err := strconv.Atoi(metricsPort); err == nil && validPort(n) {
+			if err := m.ReleaseMetricsPort(n); err != nil {
+				return ev, fmt.Errorf("retire incomplete: metrics claim: %w", err)
+			}
 		}
 	}
 	_, _ = m.System.Systemctl(ctx, "daemon-reload")
@@ -1496,6 +2030,36 @@ func (m *Manager) Inspect(ctx context.Context) Live {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.inspectUnlocked(ctx)
+}
+
+func (m *Manager) InspectForTunnel(ctx context.Context, id string) Live {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	l := m.inspectUnlocked(ctx)
+	t, err := m.readTxn(id)
+	if err != nil || t.JoinOwnerID == "" {
+		return l
+	}
+	if cfg, err := config.LoadFile(m.liveConfig()); err == nil {
+		l.RouteID, l.RouteListen, l.Target = t.TenantRouteID, "", t.TenantTarget
+		routeFound, peerFound := false, false
+		if cfg.Noise != nil && cfg.Noise.AllowedPeerPublicKeys[t.PeerID] == t.PeerPublicKey {
+			peerFound = true
+		}
+		for _, route := range cfg.Routes {
+			if route.ID != t.TenantRouteID || route.Direction != "inbound" || route.Target != t.TenantTarget {
+				continue
+			}
+			for _, peer := range route.AllowedPeers {
+				if peer == t.PeerID { routeFound = true }
+			}
+		}
+		if !peerFound || !routeFound || len(m.ownershipViolations(t)) > 0 {
+			l.MarkerConfigMatches = false
+			l.MarkerUnitMatches = false
+		}
+	}
+	return l
 }
 
 func (m *Manager) inspectUnlocked(ctx context.Context) Live {

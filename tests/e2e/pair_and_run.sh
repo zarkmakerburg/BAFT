@@ -34,8 +34,13 @@ umask 077
 SHAPING=""
 [[ "${E2E_RECORD_SHAPING:-0}" == "1" ]] && SHAPING="--record-shaping"
 
-free_port() { python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1])'; }
-EX_PORT=$(free_port); IR_PORT=$(free_port); TARGET_PORT=$(free_port); EX_M=$(free_port); IR_M=$(free_port)
+# Bind every port at once so one run never hands the same port out twice
+# (sequential bind/close lets the kernel reuse a port it just freed).
+free_ports() { python3 -c 'import socket,sys
+ss=[socket.socket() for _ in range(int(sys.argv[1]))]
+for s in ss: s.bind(("127.0.0.1",0))
+print(" ".join(str(s.getsockname()[1]) for s in ss))' "$1"; }
+read -r EX_PORT IR_PORT TARGET_PORT EX_M IR_M <<<"$(free_ports 5)"
 EX="$WORK/ex"; IR="$WORK/ir"; mkdir -p "$EX" "$IR/state"
 
 log "EX: keys, outer PKI, pairing code"

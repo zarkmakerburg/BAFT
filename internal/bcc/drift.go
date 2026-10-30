@@ -74,14 +74,19 @@ func classifyLive(t Tunnel, node, role string, l tunnelnode.Live) DriftNode {
 		return DriftNode{State: DriftUnmanaged, Problems: []string{"files carry no BAFT ownership marker"}}
 	}
 	bad := func(format string, a ...any) { p = append(p, fmt.Sprintf(format, a...)) }
-	if l.InstanceID != t.InstanceID {
-		bad("instance id is %q, want %q", l.InstanceID, t.InstanceID)
+	wantInstance := t.instanceForNode(node)
+	if l.InstanceID != wantInstance {
+		bad("instance id is %q, want %q", l.InstanceID, wantInstance)
 	}
-	if l.MarkerTunnelID != t.ID {
-		bad("marker belongs to tunnel %q, want %q", l.MarkerTunnelID, t.ID)
+	wantMarkerOwner := t.ID
+	if role == tunnelnode.RoleEX && t.JoinOwnerID != "" {
+		wantMarkerOwner = t.JoinOwnerID
 	}
-	if l.MarkerInstanceID != t.InstanceID {
-		bad("marker instance is %q, want %q", l.MarkerInstanceID, t.InstanceID)
+	if l.MarkerTunnelID != wantMarkerOwner {
+		bad("marker belongs to tunnel %q, want %q", l.MarkerTunnelID, wantMarkerOwner)
+	}
+	if l.MarkerInstanceID != wantInstance {
+		bad("marker instance is %q, want %q", l.MarkerInstanceID, wantInstance)
 	}
 	if want, ok := t.ObservedGen[node]; ok && l.MarkerGeneration != want {
 		bad("marker generation %d, BCC verified %d", l.MarkerGeneration, want)
@@ -174,9 +179,14 @@ func (s *Store) startDriftLocked(t *Tunnel, now time.Time) error {
 		return fmt.Errorf("a drift check of %s is already running", t.ID)
 	}
 	for _, node := range []string{t.IRNode, t.EXNode} {
-		params := map[string]string{}
-		if t.InstanceID != "" {
-			params["instance_id"] = t.InstanceID
+		params := map[string]string{"tunnel_id": t.ID}
+		if instance := t.instanceForNode(node); instance != "" {
+			params["instance_id"] = instance
+			if node == t.EXNode {
+				params["metrics_listen"] = t.EXMetricsListen
+			} else {
+				params["metrics_listen"] = t.IRMetricsListen
+			}
 		}
 		j := s.newJobLocked(Job{Type: JobTunnelInspect, NodeID: node, Params: params})
 		t.DriftJobs = append(t.DriftJobs, j.ID)

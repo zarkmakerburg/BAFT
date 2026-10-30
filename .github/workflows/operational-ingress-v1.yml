@@ -1,0 +1,75 @@
+name: operational ingress v1
+# Dedicated, REQUIRED exact-SHA release gate (v0.4.0 P0 #269). It is red on code
+# where the operational path is inert and green ONLY when every test named in
+# the pinned manifest reports a real top-level PASS with zero SKIP:
+#   reviewed BCC Wizard API -> normal signed Agent -> held lease -> real
+#   listener/nft -> client TCP bytes -> authenticated HTTPS receipt (Agent->BCC)
+#   -> BCC verified config/card.
+# No path filter: a required check that is skipped by a filter never reports.
+# Legacy LAB workflows and the other green workflows are NOT evidence for this gate.
+on:
+  pull_request:
+  push:
+    branches: ['main', 'qa/**', 'claude/**', 'agent-*/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: operational-ingress-v1-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+env:
+  # Pin of tests/release/opgate/manifest.v1.json. Changing the required test set
+  # needs a reviewed change to BOTH the manifest and this value.
+  MANIFEST_SHA256: 5e227477873122b4d5f2d6f820573419629992569ee08e4b90aa60ec1e97ee9c
+  EXPECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+jobs:
+  operational-ingress-v1:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          check-latest: false
+          cache: false
+      - name: Verify checked-out commit and pinned manifest
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECT_SHA"
+          echo "$MANIFEST_SHA256  tests/release/opgate/manifest.v1.json" | sha256sum -c -
+      - name: Policy checker self-tests (fixtures, oversized input, RUN/PASS suffixes)
+        run: |
+          set -euo pipefail
+          go test ./tests/release/opgate -count=1 -timeout=5m
+          bash tests/e2e/gamma_policy_log_assert_fixture_test.sh
+      - name: Prepare private-netns LAB
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq iproute2 nftables jq
+      - name: Run pinned operational tests in a private network namespace
+        run: |
+          # Failures here are not the verdict; the checker below is. Nothing
+          # is created on the host (no LAB sentinel; UID0 is not isolation).
+          bash tests/release/opgate/run_lab.sh tests/release/opgate/manifest.v1.json "$RUNNER_TEMP/opv1.json" || echo "lab runner reported failures; checker decides"
+      - name: Gate verdict (PASS required for every named test, zero SKIP)
+        if: always()
+        run: |
+          set -euo pipefail
+          go run ./tests/release/opgate -manifest tests/release/opgate/manifest.v1.json \
+            -log "$RUNNER_TEMP/opv1.json" -format json \
+            -head-sha "$(git rev-parse HEAD)" -expect-sha "$EXPECT_SHA" \
+            -out "$RUNNER_TEMP/opv1-report.json"
+      - name: Upload gate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: operational-ingress-v1-${{ env.EXPECT_SHA }}
+          path: |
+            ${{ runner.temp }}/opv1.json
+            ${{ runner.temp }}/opv1-report.json
+          if-no-files-found: warn

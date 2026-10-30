@@ -146,12 +146,27 @@ func TestRotationWithRealServices(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("linux only")
 	}
+	// freePort closes its probe listener, so repeated calls may return the same
+	// port. Keep ports distinct across the two metrics endpoints, EX listener,
+	// and IR route within this test.
+	usedPorts := make(map[int]bool)
+	uniquePort := func() int {
+		for attempt := 0; attempt < 100; attempt++ {
+			p := freePort(t)
+			if !usedPorts[p] {
+				usedPorts[p] = true
+				return p
+			}
+		}
+		t.Fatal("unable to allocate distinct ports for rotation test")
+		return 0
+	}
 	mk := func(name string) (*Manager, *procHost) {
 		dir := t.TempDir()
 		h := &procHost{config: filepath.Join(dir, "etc", "baft.yaml"), log: filepath.Join(dir, name+".log")}
 		m, err := New(Env{ConfigDir: filepath.Join(dir, "etc"), StateDir: filepath.Join(dir, "state"), UnitDir: filepath.Join(dir, "units"),
 			Service: "baft", BaftBin: baftBin, PairBin: pairBin, Settle: time.Second, System: h,
-			MetricsListen: "127.0.0.1:" + strconv.Itoa(freePort(t))})
+			MetricsListen: "127.0.0.1:" + strconv.Itoa(uniquePort())})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -169,8 +184,8 @@ func TestRotationWithRealServices(t *testing.T) {
 	ex, _ := mk("ex")
 	ir, _ := mk("ir")
 	ctx := context.Background()
-	port := freePort(t)
-	route := "127.0.0.1:" + strconv.Itoa(freePort(t))
+	port := uniquePort()
+	route := "127.0.0.1:" + strconv.Itoa(uniquePort())
 	target := "127.0.0.1:" + strconv.Itoa(echo(t))
 	code, err := ex.PrepareEX(ctx, "t1", ExParams{PublicAddress: "127.0.0.1", Port: port, Target: target, RouteID: "service-main"})
 	if err != nil {

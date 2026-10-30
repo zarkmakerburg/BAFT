@@ -18,11 +18,24 @@ import (
 
 	"github.com/zarkmakerburg/baft/internal/bcc"
 	"github.com/zarkmakerburg/baft/internal/tunnelnode"
+	"github.com/zarkmakerburg/baft/tests/e2e/operational/oplab"
 )
 
 var flowBaft, flowPair string
 
-func TestMain(m *testing.M) {
+func TestMain(m *testing.M) { os.Exit(oplab.Main(agentTestRunner{m})) }
+
+// agentTestRunner is the original TestMain body; oplab.Main wraps it so the
+// operational-ingress-v1 gate test runs in its private mount namespace (a
+// no-op unless the gate runner sets BAFT_OPERATIONAL_INGRESS_V1).
+type agentTestRunner struct{ m *testing.M }
+
+func (r agentTestRunner) Run() int {
+	// Disposable scratch-rootfs LABs have no Go toolchain; they run only filtered
+	// tests that never use the flow binaries.
+	if os.Getenv("BAFT_AGENT_TEST_SKIP_FLOW_BINARIES") == "1" {
+		return r.m.Run()
+	}
 	dir, err := os.MkdirTemp("", "agent-flow-bin")
 	if err != nil {
 		panic(err)
@@ -33,9 +46,9 @@ func TestMain(m *testing.M) {
 			panic(string(out))
 		}
 	}
-	code := m.Run()
+	code := r.m.Run()
 	os.RemoveAll(dir)
-	os.Exit(code)
+	return code
 }
 
 // hostSys runs the real baft/baft-pair binaries and a pretend systemd.
@@ -228,6 +241,18 @@ func (f *flow) api(method, path string, body any) (int, []byte) {
 
 func (f *flow) create(req bcc.TunnelRequest) bcc.Tunnel {
 	f.t.Helper()
+	// Production requires an agent-contacted, reviewed plan before deployment.
+	// Model that contract in this two-agent acceptance fixture.
+	for _, node := range []*flowNode{f.ex, f.ir} {
+		if _, err := node.agent.RunOnce(context.Background()); err != nil {
+			f.t.Fatalf("%s initial contact: %v", node.id, err)
+		}
+	}
+	status, plan, body := f.planOf(req)
+	if status != http.StatusOK || !plan.OK || plan.Hash == "" {
+		f.t.Fatalf("review tunnel plan = %d ok=%t %s", status, plan.OK, body)
+	}
+	req.PlanHash = plan.Hash
 	code, body := f.api("POST", "/api/tunnels", req)
 	if code != http.StatusAccepted {
 		f.t.Fatalf("create tunnel = %d %s", code, body)

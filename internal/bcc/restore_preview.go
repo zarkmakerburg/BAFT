@@ -98,6 +98,15 @@ func buildRestorePreview(payload backupPayload, header BackupHeader, current sta
 		return p, err
 	}
 	mergeAntiRollback(&restored, current, header.CreatedAt)
+	if err := mergePublicIngressReservations(&restored, current); err != nil {
+		p.WouldRefuse = "public ingress reservation conflict: " + err.Error()
+		return p, nil
+	}
+	if err := mergePublicIngressOperations(&restored, current); err != nil {
+		p.WouldRefuse = "public ingress operation conflict: " + err.Error()
+		return p, nil
+	}
+	mergeUpdateCenter(&restored, current)
 
 	p.Nodes = diffIDs(current.Nodes, restored.Nodes, func(a, b Node) bool { return sameJSON(a, b) })
 	p.Tunnels = diffIDs(current.Tunnels, restored.Tunnels, func(a, b Tunnel) bool { return a.Phase == b.Phase && a.PlanHash == b.PlanHash && a.Error == b.Error })

@@ -66,6 +66,8 @@ var (
 	uninstallSystem  uninstall.System = hostSystem{}
 	uninstallMainPkg map[string]string
 	uninstallRoot    = true
+	// uninstallIngressHelper is the baft-ingress-chain helper install.sh wrote.
+	uninstallIngressHelper = "/usr/local/lib/baft/ingress-chain.sh"
 	// uninstallEnvHook lets tests point every path at a fake tree.
 	uninstallEnvHook func(*uninstall.Env)
 )
@@ -238,7 +240,33 @@ func runUninstallFlow(ctx context.Context, env *uninstall.Env, o uninstall.Optio
 		return 1
 	}
 	printUninstallResult(ui.out, res)
+	removeIngressChain(ctx, env, o, ui)
 	return 0
+}
+
+// removeIngressChain runs the installer's helper in `remove` mode when the
+// agent was in scope. The helper deletes only the `inet baft ingress` chain
+// the installer recorded as its own (ownership marker, matching handle and
+// pinned layout) and only while it holds no rules; otherwise it leaves
+// everything in place. A refusal is reported, never fatal: the uninstall
+// itself already succeeded.
+func removeIngressChain(ctx context.Context, env *uninstall.Env, o uninstall.Options, ui uninstallIO) {
+	s := o.Scope
+	if !(s.Full || s.Agent || (!s.Binaries && !s.Services && !s.BCC)) {
+		return
+	}
+	if fi, err := os.Lstat(uninstallIngressHelper); err != nil || !fi.Mode().IsRegular() {
+		return
+	}
+	cmd := exec.CommandContext(ctx, uninstallIngressHelper, "remove")
+	cmd.Env = append(os.Environ(),
+		"BAFT_INGRESS_CHAIN_MARKER="+env.AgentStateDir+"/ingress-chain.owner",
+		"BAFT_SYSTEMD_DIR="+env.UnitDir)
+	out, err := cmd.CombinedOutput()
+	fmt.Fprint(ui.out, string(out))
+	if err != nil {
+		fmt.Fprintln(ui.out, "note: the managed ingress chain was left in place ("+err.Error()+")")
+	}
 }
 
 // confirmUninstall asks, separately and defaulting to NO, for each data class

@@ -71,11 +71,19 @@ var stateMigrations = []string{
 	`CREATE TABLE change_ledger (seq INTEGER PRIMARY KEY, doc TEXT NOT NULL);`,
 	// 13: authenticated component digest receipt cursors (P0-UUM-03).
 	`CREATE TABLE component_digest_receipts (node_id TEXT PRIMARY KEY, doc TEXT NOT NULL);`,
+	// 14: desired-only public ingress reservations; never host ownership.
+	`CREATE TABLE public_ingress_reservations (tunnel_id TEXT PRIMARY KEY, doc TEXT NOT NULL);`,
+	// 15: durable expected ingress operation proofs; no host apply authority.
+	`CREATE TABLE public_ingress_operations (tunnel_id TEXT PRIMARY KEY, doc TEXT NOT NULL);`,
+	// 16: Update Center imported signed releases and newest revocation list (v0.4.0).
+	`CREATE TABLE update_center (kind TEXT NOT NULL, id TEXT NOT NULL, doc TEXT NOT NULL, PRIMARY KEY (kind, id));`,
 }
 
 var stateTables = []string{
+	"public_ingress_reservations",
+	"public_ingress_operations",
 	"nodes", "jobs", "finance", "finance_policies", "finance_rate_history", "finance_ledger",
-	"finance_remainders", "telemetry", "history", "active_alerts", "retired_boot_ids", "counters", "tunnels", "node_health", "node_discovery", "cert_rotations", "security_audit_intents", "topology", "ingress_selections", "ingress_distributions", "smart_ingress_plans", "path_probes", "path_discoveries", "change_ledger", "component_digest_receipts",
+	"finance_remainders", "telemetry", "history", "active_alerts", "retired_boot_ids", "counters", "tunnels", "node_health", "node_discovery", "cert_rotations", "security_audit_intents", "topology", "ingress_selections", "ingress_distributions", "smart_ingress_plans", "path_probes", "path_discoveries", "change_ledger", "component_digest_receipts", "update_center",
 }
 
 func isSQLiteFile(b []byte) bool { return bytes.HasPrefix(b, []byte(sqliteMagic)) }
@@ -271,6 +279,10 @@ func writeStateTx(tx *sql.Tx, st state) error {
 	for id, v := range st.IngressSelections { if err := put(`INSERT INTO ingress_selections VALUES (?, ?)`, id, v); err != nil { return err } }
 	for id, v := range st.IngressDistributions { if err := put(`INSERT INTO ingress_distributions VALUES (?, ?)`, id, v); err != nil { return err } }
 	for id, v := range st.SmartIngressPlans { if err := put(`INSERT INTO smart_ingress_plans VALUES (?, ?)`, id, v); err != nil { return err } }
+	for id, v := range st.PublicIngressReservations { if err := put(`INSERT INTO public_ingress_reservations VALUES (?, ?)`, id, v); err != nil { return err } }
+	for id, v := range st.PublicIngressOperations { if err := put(`INSERT INTO public_ingress_operations VALUES (?, ?)`, id, v); err != nil { return err } }
+	for id, v := range st.UpdateReleases { if err := put(`INSERT INTO update_center VALUES (?, ?, ?)`, "release", id, v); err != nil { return err } }
+	if st.UpdateRevocation != nil { if err := put(`INSERT INTO update_center VALUES (?, ?, ?)`, "revocation", "current", *st.UpdateRevocation); err != nil { return err } }
 	for _, v := range st.ChangeLedger { if err := put(`INSERT INTO change_ledger VALUES (?, ?)`, v.Sequence, v); err != nil { return err } }
 	for id, v := range st.PathProbes { if err := put(`INSERT INTO path_probes VALUES (?, ?)`, id, v); err != nil { return err } }
 	for id, v := range st.PathDiscoveries { if err := put(`INSERT INTO path_discoveries VALUES (?, ?)`, id, v); err != nil { return err } }
@@ -450,6 +462,24 @@ func readStateDB(path string) (state, error) {
 			st.ComponentDigestReceipts[k] = v
 			return nil
 		}},
+		{`SELECT kind || ':' || id, 0, doc FROM update_center`, func(k string, _ int64, d []byte) error {
+			kind, id, ok := strings.Cut(k, ":")
+			if !ok { return fmt.Errorf("BCC state update_center key %q is invalid", k) }
+			switch kind {
+			case "release":
+				var v UpdateRelease
+				if err := decode("update_center", d, &v); err != nil { return err }
+				if st.UpdateReleases == nil { st.UpdateReleases = map[string]UpdateRelease{} }
+				st.UpdateReleases[id] = v
+			case "revocation":
+				var v UpdateRevocationState
+				if err := decode("update_center", d, &v); err != nil { return err }
+				st.UpdateRevocation = &v
+			default:
+				return fmt.Errorf("BCC state update_center kind %q is invalid", kind)
+			}
+			return nil
+		}},
 		{`SELECT id, 0, doc FROM cert_rotations`, func(k string, _ int64, d []byte) error {
 			var v CertRotation
 			err := decode("cert_rotations", d, &v)
@@ -488,6 +518,18 @@ func readStateDB(path string) (state, error) {
 			var v SmartIngressPlan
 			err := decode("smart_ingress_plans", d, &v)
 			st.SmartIngressPlans[k] = v
+			return err
+		}},
+		{`SELECT tunnel_id, 0, doc FROM public_ingress_reservations`, func(k string, _ int64, d []byte) error {
+			var v PublicIngressReservation
+			err := decode("public_ingress_reservations", d, &v)
+			st.PublicIngressReservations[k] = v
+			return err
+		}},
+		{`SELECT tunnel_id, 0, doc FROM public_ingress_operations`, func(k string, _ int64, d []byte) error {
+			var v PublicIngressOperation
+			err := decode("public_ingress_operations", d, &v)
+			st.PublicIngressOperations[k] = v
 			return err
 		}},
 		{`SELECT '', seq, doc FROM change_ledger ORDER BY seq`, func(_ string, seq int64, d []byte) error { var v ChangeRecord; if err:=decode("change_ledger",d,&v);err!=nil{return err}; if v.Sequence==0{v.Sequence=uint64(seq)}; st.ChangeLedger=append(st.ChangeLedger,v); return nil }},

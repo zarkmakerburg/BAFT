@@ -27,7 +27,7 @@ async function fixture(){
   assert.equal(new URL(data.base).hostname,'127.0.0.1');
   return {...data,async stop(){lines.close();child.kill('SIGTERM');await Promise.race([exited,sleep(3000).then(()=>child.kill('SIGKILL'))])}};
 }
-async function expiredSession(browser,viewport,lang,theme,trigger,dir){
+async function isolatedSession(browser,viewport,lang,theme,trigger,dir){
   // Repeated full-page logins share the production 120-request/minute budget.
   // Isolate each auth path in a fresh real server; never raise/disable its guard.
   const f=await fixture(),origin=new URL(f.base).origin,basePath=new URL(f.base).pathname;
@@ -42,6 +42,17 @@ async function expiredSession(browser,viewport,lang,theme,trigger,dir){
     await page.locator('#loginUsername').fill(f.username);await page.locator('#loginPassword').fill(f.password);
     await Promise.all([page.waitForURL(f.base),page.locator('#loginForm [type="submit"]').click()]);
     await page.waitForFunction(()=>Boolean(window.BAFT_OPS?.cards&&document.querySelector('#ops_tlCatalog [data-engine="baft"]')));
+    if(trigger==='logout'){
+      await page.locator('#avatar').click();
+      await page.locator('#userPop').waitFor({state:'visible'});
+      await Promise.all([page.waitForURL(f.base),page.locator('#logout').click()]);
+      assert.equal(await page.locator('#app').isHidden(),true);assert.equal(await page.locator('.ops-card').count(),0);
+      const catalogStatus=(await ctx.request.get(f.base+'api/tunnel-engines')).status();
+      assert.equal(catalogStatus,401,'logout must revoke catalog access without hitting the rate limit');
+      assert.deepEqual(limited,[],'logout fixture must stay within the unchanged rate limit');assert.deepEqual(errors,[]);
+      await page.screenshot({path:path.join(dir,'session-logout.png'),fullPage:true,animations:'disabled'});
+      return {trigger,catalogStatus,operationalCards:0,rateLimited:limited.length};
+    }
     const openNav=async()=>{const menu=page.locator('#menuToggle');if(await menu.isVisible()&&await menu.getAttribute('aria-expanded')!=='true')await menu.click()};
     if(trigger==='catalog'){
       await openNav();await page.locator('#nav a[href="#tunnels"]').click();
@@ -94,7 +105,7 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1);
       await page.screenshot({path:path.join(dir,label+'.png'),fullPage:true,animations:'disabled'});
       if(overflow){
-        result.layout??={};result.layout[label]=await page.evaluate(()=>({viewport:innerWidth,width:document.documentElement.scrollWidth,offenders:[...document.querySelectorAll('#main *')].map(n=>({tag:n.tagName,id:n.id,classes:n.className,rect:n.getBoundingClientRect().toJSON()})).filter(n=>n.rect.width>0&&(n.rect.right>innerWidth+1||n.rect.left< -1)).slice(0,25)}));
+        result.layout??={};result.layout[label]=await page.evaluate(()=>({viewport:innerWidth,width:document.documentElement.scrollWidth,offenders:[...document.querySelectorAll('#public *,#main *')].map(n=>({tag:n.tagName,id:n.id,classes:n.className,rect:n.getBoundingClientRect().toJSON()})).filter(n=>n.rect.width>0&&(n.rect.right>innerWidth+1||n.rect.left< -1)).slice(0,25)}));
       }
       assert.equal(overflow,false,'document has horizontal overflow');
     };
@@ -113,7 +124,12 @@ async function runProfile(browser,[name,viewport,lang,theme]){
     await page.goto(f.base,{waitUntil:'networkidle'});
     await check('public access boundary',async()=>{
       assert.equal(await page.evaluate(()=>Boolean(window.BAFT_UI.operationsHTML||window.BAFT_UI.csrf)),false);
-      assert.equal(await page.locator('.ops-card').count(),0);await shot('welcome');
+      assert.equal(await page.locator('.ops-card').count(),0);
+      for(const control of ['#baw-open','[data-lang=fa]','[data-lang=en]','[data-go=signin]']){
+        const item=page.locator('#public '+control).first();assert.equal(await item.isVisible(),true,'public control '+control+' must remain visible');
+        const box=await item.boundingBox();assert.ok(box&&box.x>=-1&&box.x+box.width<=viewport.width+1,'public control '+control+' must fit viewport');
+      }
+      await shot('welcome');
     });
     await page.goto(f.base+'login',{waitUntil:'networkidle'});await shot('signin');
     await page.locator('#loginUsername').fill(f.username);await page.locator('#loginPassword').fill(f.password);
@@ -165,16 +181,69 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       assert.equal(await page.locator('#ops_tnEngine').getAttribute('type'),'hidden');
       assert.equal(await page.locator('#ops_tnDirection option[value="ex-to-ir"]').isDisabled(),true);
     });
-    await check('real reviewed plan, failed preview retention, edit invalidation',async()=>{
-      await nav('tunnels');
+    await check('shared listener Join is explicit and plans only the new tenant',async()=>{
+      const tunnels=f.base+'api/tunnels',planEndpoint=f.base+'api/tunnels/plan';
+      const owner={id:'qa-owner',phase:'active',ex_node:'qa-ex',ir_node:'qa-ir-owner',instance_id:'qa-shared',public_address:'203.0.113.20',port:8443,target:'127.0.0.1:2443',route_listen:'127.0.0.1:1443',route_id:'service-main',ex_metrics_listen:'127.0.0.1:9202',ir_metrics_listen:'127.0.0.1:9302',record_shaping:false};
+      const child={...owner,id:'qa-child',ir_node:'qa-ir-child',join_owner_id:'qa-owner'};
+      await page.route(tunnels,r=>r.fulfill({json:[owner,child]}));
+      await nav('tunnels');await page.evaluate(()=>tnNew());
+      const originalTunnels=await page.evaluate(()=>tnWizardTunnels);
+      await page.evaluate(()=>loadTunnels());
+      assert.equal(await page.locator('#ops_tnJoinOwner option[value="qa-owner"]').count(),1);
+      assert.equal(await page.locator('#ops_tnJoinOwner option[value="qa-child"]').count(),0);
+      await page.locator('#ops_tnMode').selectOption('join');
+      await page.evaluate(()=>tnModeChanged());
+      assert.equal(await page.locator('#ops_tnJoinOwnerField').getAttribute('hidden'),null);
+      await page.locator('#ops_tnWizardNext').click();
+      await page.locator('#ops_tnJoinOwner').waitFor({state:'visible'});
+      await page.locator('#ops_tnJoinOwner').selectOption('qa-owner');
+      await page.locator('#ops_tnIr').selectOption('qa-ir');
+      assert.equal(await page.locator('#ops_tnExField').isHidden(),true);
+      assert.equal(await page.locator('#ops_tnPort').inputValue(),'8443');
+      assert.equal(await page.locator('#ops_tnPort').getAttribute('readonly'),'');
+      await page.locator('#ops_tnWizardNext').click();
+      await page.locator('#ops_tnTarget').fill('127.0.0.1:2444');
+      await page.locator('#ops_tnClientPort').fill('2444');
+      await page.locator('#ops_tnIngressConfirm').check();
+      await page.locator('#ops_tnWizardNext').click();
+      await page.locator('#ops_tnJoinConfirm').check();
+      await page.locator('#ops_tnWizardNext').click();
+      let captured;
+      await page.route(planEndpoint,async r=>{
+        captured=r.request().postDataJSON();
+        await r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({
+          request:captured,ok:true,hash:'qa-shared-join-plan',replaces:'',
+          gates:[{name:'fixture',status:'PASS',detail:'reviewed'}],
+          nodes:[{node_id:'qa-ex',role:'ex',generation_from:1,generation_to:2,changes:['preserve shared listener']},{node_id:'qa-ir',role:'ir',generation_from:0,generation_to:1,changes:['add new IR tenant']}],
+          steps:['prepare','commit'],verify:['owner remains active'],rollback:['remove only new tenant']
+        })});
+      });
+      const review=page.locator('[onclick="tnPlan()"]');
+      const [response]=await Promise.all([page.waitForResponse(r=>r.url()===planEndpoint&&r.request().method()==='POST'),review.click()]);
+      assert.equal(response.status(),200);
+      assert.equal(captured.join_existing_tunnel_id,'qa-owner');
+      assert.equal(captured.ex_node,'qa-ex');assert.equal(captured.ir_node,'qa-ir');
+      assert.equal(captured.port,8443);assert.equal(captured.instance_id,'qa-shared');
+      assert.equal(captured.ex_metrics_listen,'127.0.0.1:9202');
+      assert.equal(captured.target,'127.0.0.1:2444');
+      assert.equal(captured.client_port,2444);
+      assert.ok(captured.route_listen.startsWith('127.0.0.1:'));
+      await page.waitForFunction(()=>document.querySelector('#ops_tnPlan')?.textContent.includes('qa-shared-join-plan'));
+      assert.equal(await page.locator('#ops_tnPlan [onclick="tnDeploy()"]').isEnabled(),true);
+      assert.equal(await page.locator('#ops_tnPlan').textContent().then(t=>t.includes('Replaces')),false);
+      await page.unroute(planEndpoint);await page.unroute(tunnels);
+      await page.evaluate(ts=>{tnWizardTunnels=ts;tnFill();tnNew()},originalTunnels);
+    });
+    await check('real reviewed plan, failed preview invalidation, edit invalidation',async()=>{
+      await nav('tunnels');await page.evaluate(()=>tnNew());
       const next=page.locator('#ops_tnWizardNext');await next.click();
       await page.locator('#ops_tnIr').selectOption('qa-ir');await page.locator('#ops_tnEx').selectOption('qa-ex');await next.click();
-      await page.locator('#ops_tnPort').fill('8443');await page.locator('#ops_tnClientPort').fill('443');await page.locator('#ops_tnIngressConfirm').check();
-      await next.click();
+      await page.locator('#ops_tnPort').fill('8443');
       await page.locator('#ops_tnTarget').fill('[::1]:2443');
       await page.locator('[onclick="tnWizardGenerateServicePort()"]').click();
       assert.match(await page.locator('#ops_tnTarget').inputValue(),/^\[::1\]:[1-9][0-9]*$/);
-      await next.click();
+      await page.locator('#ops_tnClientPort').fill('443');await page.locator('#ops_tnIngressConfirm').check();
+      await next.click();await page.locator('#ops_tnLegacyCoexist').evaluate(el=>{el.checked=true;el.dispatchEvent(new Event('change',{bubbles:true}))});await next.click();
       const review=page.locator('[onclick="tnPlan()"]');
       const [response]=await Promise.all([page.waitForResponse(r=>r.url()===f.base+'api/tunnels/plan'&&r.request().method()==='POST'),review.click()]);
       assert.equal(response.status(),200);const plan=await response.json();assert.ok(plan.hash);assert.equal(plan.request.target.startsWith('[::1]:'),true);
@@ -186,8 +255,12 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       const endpoint=f.base+'api/tunnels/plan';
       await page.route(endpoint,r=>r.fulfill({status:503,contentType:'text/plain',body:'QA failure fixture'}));
       await Promise.all([page.waitForResponse(r=>r.url()===endpoint&&r.status()===503),review.click()]);
-      assert.ok((await page.locator('#ops_tnPlan').textContent()).includes(plan.hash));await page.unroute(endpoint);
-      await page.locator('#ops_tnWizardBack').click();await page.locator('#ops_tnTarget').fill('[::1]:5432');
+      // Failed re-planning must invalidate the old hash and its deploy action.
+      await page.waitForFunction(hash=>!(document.querySelector('#ops_tnPlan')?.textContent||'').includes(hash),plan.hash);
+      assert.equal((await page.locator('#ops_tnPlan').textContent()).includes(plan.hash),false);
+      assert.equal(await page.locator('#ops_tnPlan [onclick="tnDeploy()"]').count(),0);
+      await page.unroute(endpoint);
+      await page.locator('#ops_tnWizardBack').click();await page.locator('#ops_tnWizardBack').click();await page.locator('#ops_tnTarget').fill('[::1]:5432');
       assert.equal(await page.locator('#ops_tnPlan [onclick="tnDeploy()"]').count(),0);
       assert.equal(apiRequests.filter(r=>r.path==='api/tunnels'&&r.method==='POST').length,0);
     });
@@ -234,18 +307,17 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await page.locator('.tlTile').first().evaluate(n=>getComputedStyle(n).transitionDuration),'0s');await shot('reduced-motion');
     });
     await check('real logout and unauthenticated catalog',async()=>{
-      await page.locator('#avatar').click();
-      await page.locator('#userPop').waitFor({state:'visible'});
-      await Promise.all([page.waitForURL(f.base),page.locator('#logout').click()]);
-      assert.equal(await page.locator('#app').isHidden(),true);assert.equal(await page.locator('.ops-card').count(),0);
-      assert.equal((await ctx.request.get(f.base+'api/tunnel-engines')).status(),401);
+      // The full-page welcome after logout loads its real assets again.
+      // Keep that independent auth scenario out of the main profile's
+      // accumulated request window, as with both expiry scenarios below.
+      result.logout=await isolatedSession(browser,viewport,lang,theme,'logout',dir);
     });
     await check('expired session removes operational UI',async()=>{
       // Exercise both application fetch paths through their actual UI controls.
       // An arbitrary absolute-URL fetch bypasses their session handling.
       result.auth=[];
       for(const trigger of ['catalog','servers']){
-        result.auth.push(await expiredSession(browser,viewport,lang,theme,trigger,dir));
+        result.auth.push(await isolatedSession(browser,viewport,lang,theme,trigger,dir));
       }
       assert.deepEqual(result.rateLimited||[],[],'main fixture must stay within the unchanged rate limit');
     });

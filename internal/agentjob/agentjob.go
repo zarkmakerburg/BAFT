@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"regexp"
 	"sort"
@@ -68,6 +69,20 @@ const (
 	// ActionTunnelRetire removes one finalized BAFT-owned instance only when
 	// BCC-provided generation and live file digests still match.
 	ActionTunnelRetire = "tunnel_retire"
+	ActionTunnelTenantAdd    = "tunnel_tenant_add"
+	ActionTunnelTenantRemove = "tunnel_tenant_remove"
+
+	// P0 host observation is read-only. Prepare writes only private manifest
+	// bytes; listener/firewall application needs a separate owned-resource path.
+	ActionPublicIngressPreflight = "public_ingress_preflight"
+	// Read-only bounded host snapshot; this does not establish resource ownership.
+	ActionPublicIngressInspect = "public_ingress_inspect"
+	// Writes only a private prepared manifest; it does not bind or open firewall.
+	ActionPublicIngressPrepare = "public_ingress_prepare"
+	// Fences generation 1 in the private manifest store; no host listener or firewall changes.
+	ActionPublicIngressCancel = "public_ingress_cancel"
+	ActionPublicIngressApply  = "public_ingress_apply"
+	ActionPublicIngressRetire = "public_ingress_retire"
 
 	// Certificate rotation of a built tunnel (A4 Stage F). Only public
 	// certificates and digests travel in parameters; new private keys never
@@ -98,6 +113,7 @@ var (
 	replyCodeRe     = regexp.MustCompile(`^BAFTREPLY1:[A-Za-z0-9_-]{16,}$`)
 	epochRe         = regexp.MustCompile(`^[1-9][0-9]{0,8}$`)
 	sha256Re        = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	noisePublicKeyRe = regexp.MustCompile(`^[A-Za-z0-9_-]{43}$`)
 	derB64Re        = regexp.MustCompile(`^[A-Za-z0-9_-]{64,}$`)
 	familyRe        = regexp.MustCompile(`^[46]$`)
 	probeSecondsRe  = regexp.MustCompile(`^(1[0-9]|[2-9][0-9]|1[01][0-9]|120)$`)
@@ -105,6 +121,7 @@ var (
 	probeBytesRe    = regexp.MustCompile(`^[1-9][0-9]{3,6}$`)
 	probeDelayRe    = regexp.MustCompile(`^[1-9][0-9]{1,3}$`)
 	endpointRe      = regexp.MustCompile(`^[0-9A-Fa-f:.\[\]]{3,255}$`)
+	listenEndpointRe = regexp.MustCompile(`^(([0-9]{1,3}\.){3}[0-9]{1,3}|\[[0-9A-Fa-f:]+\]):[1-9][0-9]{0,4}$`)
 )
 
 // paramRules lists, per action, the parameters it takes and how each is
@@ -122,17 +139,25 @@ var paramRules = map[string]map[string]*regexp.Regexp{
 	ActionPathProbeRun:         {"probe_id": tunnelIDRe, "family": familyRe, "target": endpointRe, "payload_bytes": probeBytesRe, "attempts": probeAttemptsRe, "trickle_bytes": probeBytesRe, "trickle_ms": probeDelayRe},
 	ActionPathProbeStop:        {"probe_id": tunnelIDRe},
 
-	ActionTunnelPrepareEX: {"tunnel_id": tunnelIDRe, "public_address": addressRe, "port": portRe, "target": fixedTargetR, "route_id": tunnelIDRe, "record_shaping": boolRe},
-	ActionTunnelPrepareIR: {"tunnel_id": tunnelIDRe, "code": pairCodeRe, "route_listen": loopbackListenR, "route_id": tunnelIDRe},
-	ActionTunnelCommitEX:  {"tunnel_id": tunnelIDRe, "reply": replyCodeRe},
-	ActionTunnelCommitIR:  {"tunnel_id": tunnelIDRe},
-	ActionTunnelHealth:    {"tunnel_id": tunnelIDRe},
-	ActionTunnelObserve:   {"tunnel_id": tunnelIDRe},
-	ActionTunnelInspect:   {},
-	ActionTunnelDiscover:  {},
-	ActionTunnelFinalize:  {"tunnel_id": tunnelIDRe},
-	ActionTunnelRollback:  {"tunnel_id": tunnelIDRe},
-	ActionTunnelRetire:    {"tunnel_id": tunnelIDRe, "generation": epochRe, "config_sha256": sha256Re, "unit_sha256": sha256Re, "marker_sha256": sha256Re},
+	ActionTunnelPrepareEX:        {"tunnel_id": tunnelIDRe, "public_address": addressRe, "port": portRe, "target": fixedTargetR, "route_id": tunnelIDRe, "record_shaping": boolRe},
+	ActionTunnelPrepareIR:        {"tunnel_id": tunnelIDRe, "code": pairCodeRe, "route_listen": loopbackListenR, "route_id": tunnelIDRe},
+	ActionTunnelCommitEX:         {"tunnel_id": tunnelIDRe, "reply": replyCodeRe},
+	ActionTunnelCommitIR:         {"tunnel_id": tunnelIDRe},
+	ActionTunnelHealth:           {"tunnel_id": tunnelIDRe},
+	ActionTunnelObserve:          {"tunnel_id": tunnelIDRe},
+	ActionTunnelInspect:          {},
+	ActionTunnelDiscover:         {},
+	ActionTunnelFinalize:         {"tunnel_id": tunnelIDRe},
+	ActionTunnelRollback:         {"tunnel_id": tunnelIDRe},
+	ActionTunnelRetire:           {"tunnel_id": tunnelIDRe, "generation": epochRe, "config_sha256": sha256Re, "unit_sha256": sha256Re, "marker_sha256": sha256Re},
+	ActionTunnelTenantAdd:        {"tunnel_id": tunnelIDRe, "owner_tunnel_id": tunnelIDRe, "mutation_id": tunnelIDRe, "node_id": idRe, "listen": listenEndpointRe, "config_sha256": sha256Re, "unit_sha256": sha256Re, "marker_sha256": sha256Re, "peer_id": idRe, "peer_public_key": noisePublicKeyRe, "route_id": tunnelIDRe, "target": fixedTargetR},
+	ActionTunnelTenantRemove:     {"tunnel_id": tunnelIDRe, "owner_tunnel_id": tunnelIDRe, "mutation_id": tunnelIDRe, "node_id": idRe, "listen": listenEndpointRe, "config_sha256": sha256Re, "unit_sha256": sha256Re, "marker_sha256": sha256Re, "peer_id": idRe, "peer_public_key": noisePublicKeyRe, "route_id": tunnelIDRe},
+	ActionPublicIngressPreflight: {"tunnel_id": tunnelIDRe, "public_port": portRe, "local_target": loopbackListenR},
+	ActionPublicIngressInspect:   {"tunnel_id": tunnelIDRe, "public_port": portRe, "local_target": loopbackListenR, "generation": epochRe, "manifest_digest": sha256Re, "listener_id": idRe, "firewall_id": idRe},
+	ActionPublicIngressPrepare:   {"tunnel_id": tunnelIDRe, "public_port": portRe, "local_target": loopbackListenR, "generation": epochRe, "manifest_digest": sha256Re, "listener_id": idRe, "firewall_id": idRe},
+	ActionPublicIngressCancel:    {"tunnel_id": tunnelIDRe, "public_port": portRe, "local_target": loopbackListenR, "generation": epochRe, "manifest_digest": sha256Re, "listener_id": idRe, "firewall_id": idRe},
+	ActionPublicIngressApply:     {"tunnel_id": tunnelIDRe, "public_port": portRe, "local_target": loopbackListenR, "generation": epochRe, "manifest_digest": sha256Re, "listener_id": idRe, "firewall_id": idRe},
+	ActionPublicIngressRetire:    {"tunnel_id": tunnelIDRe, "public_port": portRe, "local_target": loopbackListenR, "generation": epochRe, "manifest_digest": sha256Re, "listener_id": idRe, "firewall_id": idRe},
 
 	ActionCertPrepareEX:  {"tunnel_id": tunnelIDRe, "rotation_id": tunnelIDRe, "epoch": epochRe},
 	ActionCertTrustIR:    {"tunnel_id": tunnelIDRe, "rotation_id": tunnelIDRe, "epoch": epochRe, "ca_der": derB64Re, "ca_sha256": sha256Re},
@@ -149,25 +174,31 @@ var paramRules = map[string]map[string]*regexp.Regexp{
 // Legacy BCCs may omit these fields; new BCCs use them for multi-instance
 // tunnel isolation.
 var optionalParamRules = map[string]map[string]*regexp.Regexp{
-	ActionTunnelPrepareEX: {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
-	ActionTunnelPrepareIR: {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
-	ActionTunnelCommitEX:  {"instance_id": instanceIDRe},
-	ActionTunnelCommitIR:  {"instance_id": instanceIDRe},
-	ActionTunnelHealth:    {"instance_id": instanceIDRe},
-	ActionTunnelObserve:   {"instance_id": instanceIDRe},
-	ActionTunnelInspect:   {"instance_id": instanceIDRe},
-	ActionTunnelFinalize:  {"instance_id": instanceIDRe},
-	ActionTunnelRollback:  {"instance_id": instanceIDRe},
-	ActionTunnelRetire:    {"instance_id": instanceIDRe},
-	ActionCertPrepareEX:   {"instance_id": instanceIDRe},
-	ActionCertTrustIR:     {"instance_id": instanceIDRe},
-	ActionCertVerifyEX:    {"instance_id": instanceIDRe},
-	ActionCertVerifyIR:    {"instance_id": instanceIDRe},
-	ActionCertActivateEX:  {"instance_id": instanceIDRe},
-	ActionCertConfirmIR:   {"instance_id": instanceIDRe},
-	ActionCertRetireIR:    {"instance_id": instanceIDRe},
-	ActionCertRetireEX:    {"instance_id": instanceIDRe},
-	ActionCertRollback:    {"instance_id": instanceIDRe},
+	ActionTunnelPrepareEX:      {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR, "join_owner_id": tunnelIDRe},
+	ActionTunnelPrepareIR:      {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
+	ActionTunnelCommitEX:       {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR, "join_owner_id": tunnelIDRe},
+	ActionTunnelCommitIR:       {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
+	ActionTunnelHealth:         {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
+	ActionTunnelObserve:        {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
+	ActionTunnelInspect:        {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR, "tunnel_id": tunnelIDRe},
+	ActionTunnelFinalize:       {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
+	ActionTunnelRollback:       {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
+	ActionTunnelRetire:         {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
+	ActionTunnelTenantAdd:      {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
+	ActionTunnelTenantRemove:   {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
+	ActionPublicIngressPrepare: {"instance_id": instanceIDRe},
+	ActionPublicIngressCancel:  {"instance_id": instanceIDRe},
+	ActionPublicIngressApply:   {"instance_id": instanceIDRe, "ingress_protocol": regexp.MustCompile("^1$"), "operation_id": tunnelIDRe, "lease_id": tunnelIDRe, "plan_sha256": sha256Re, "config_sha256": sha256Re, "listen_endpoint": endpointRe, "transport": regexp.MustCompile("^dedicated$")},
+	ActionPublicIngressRetire:  {"instance_id": instanceIDRe, "ingress_protocol": regexp.MustCompile("^1$"), "operation_id": tunnelIDRe, "lease_id": tunnelIDRe, "plan_sha256": sha256Re, "config_sha256": sha256Re, "listen_endpoint": endpointRe, "transport": regexp.MustCompile("^dedicated$")},
+	ActionCertPrepareEX:        {"instance_id": instanceIDRe},
+	ActionCertTrustIR:          {"instance_id": instanceIDRe},
+	ActionCertVerifyEX:         {"instance_id": instanceIDRe},
+	ActionCertVerifyIR:         {"instance_id": instanceIDRe},
+	ActionCertActivateEX:       {"instance_id": instanceIDRe},
+	ActionCertConfirmIR:        {"instance_id": instanceIDRe},
+	ActionCertRetireIR:         {"instance_id": instanceIDRe},
+	ActionCertRetireEX:         {"instance_id": instanceIDRe},
+	ActionCertRollback:         {"instance_id": instanceIDRe},
 }
 
 // Actions returns the allowlist, sorted.
@@ -220,6 +251,9 @@ func (j Job) Validate() error {
 			return fmt.Errorf("action %s needs parameter %q", j.Action, k)
 		}
 	}
+	if err := validateIngressV1(j); err != nil {
+		return err
+	}
 	// Regular expressions constrain syntax, but can still match invalid IPs
 	// and ports such as 0 or 65536. Apply the same semantic checks before
 	// planning, signing and accepting native tunnel preparation jobs.
@@ -234,6 +268,28 @@ func (j Job) Validate() error {
 	if j.Action == ActionTunnelPrepareIR {
 		if err := validateTunnelEndpoint(j.Params["route_listen"], true); err != nil {
 			return fmt.Errorf("parameter route_listen: %w", err)
+		}
+	}
+	if j.Action == ActionPublicIngressPreflight || j.Action == ActionPublicIngressInspect || j.Action == ActionPublicIngressPrepare || j.Action == ActionPublicIngressCancel || j.Action == ActionPublicIngressApply || j.Action == ActionPublicIngressRetire {
+		if !validTCPPort(j.Params["public_port"]) {
+			return errors.New("parameter public_port must be between 1 and 65535")
+		}
+		if err := validateTunnelEndpoint(j.Params["local_target"], true); err != nil {
+			return fmt.Errorf("parameter local_target: %w", err)
+		}
+		// A wildcard public listener would also capture loopback traffic on
+		// the same port. Refuse self-forwarding before signing a job.
+		_, targetPort, _ := net.SplitHostPort(j.Params["local_target"])
+		publicPort, _ := strconv.Atoi(j.Params["public_port"])
+		targetNumber, _ := strconv.Atoi(targetPort)
+		if publicPort < 1024 && !(j.Params["ingress_protocol"] == "1" && publicPort != 22) {
+			return errors.New("public ingress listen port must be at least 1024 for legacy jobs, and never SSH 22")
+		}
+		if targetNumber == 22 {
+			return errors.New("public ingress target port 22 is reserved for SSH management")
+		}
+		if publicPort == targetNumber {
+			return errors.New("public ingress target port must differ from public port")
 		}
 	}
 	if j.Action == ActionTunnelPrepareEX || j.Action == ActionTunnelPrepareIR {
@@ -302,7 +358,8 @@ func (v Verifier) Verify(env release.Envelope, now time.Time) (Job, error) {
 	if err := dec.Decode(&j); err != nil {
 		return j, fmt.Errorf("job payload: %w", err)
 	}
-	if dec.More() {
+	var trailing any
+	if err := dec.Decode(&trailing); err != io.EOF {
 		return j, errors.New("job payload: trailing data")
 	}
 	if err := j.Validate(); err != nil {
@@ -321,4 +378,38 @@ func (v Verifier) Verify(env release.Envelope, now time.Time) (Job, error) {
 		return j, fmt.Errorf("job %s was already run", j.JobID)
 	}
 	return j, nil
+}
+
+// VerifiedJob is evidence that a job passed signature, node, window and
+// replay checks in Verifier.VerifyAdmitted. Its fields are unexported, so no
+// other package can construct a non-zero value or mutate one; the zero value
+// is never valid. It carries no authority to mutate a host by itself.
+type VerifiedJob struct {
+	job      Job
+	verified bool
+}
+
+// Valid reports whether v was produced by VerifyAdmitted.
+func (v VerifiedJob) Valid() bool { return v.verified }
+
+// Job returns a detached copy of the verified job (zero Job if not Valid).
+func (v VerifiedJob) Job() Job {
+	if !v.verified {
+		return Job{}
+	}
+	j := v.job
+	j.Params = make(map[string]string, len(v.job.Params))
+	for k, val := range v.job.Params {
+		j.Params[k] = val
+	}
+	return j
+}
+
+// VerifyAdmitted is Verify returning sealed evidence for lease minting.
+func (v Verifier) VerifyAdmitted(env release.Envelope, now time.Time) (VerifiedJob, error) {
+	j, err := v.Verify(env, now)
+	if err != nil {
+		return VerifiedJob{}, err
+	}
+	return VerifiedJob{job: j, verified: true}, nil
 }

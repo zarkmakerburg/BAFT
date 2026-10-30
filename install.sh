@@ -47,6 +47,13 @@ PUBLIC_ADDR="${BAFT_PUBLIC_ADDR:-}"
 # EX: service ports the IR serves publicly, each carried to the same port here
 # (e.g. x-ui inbounds). Empty keeps the single loopback route.
 BAFT_PORTS="${BAFT_PORTS:-}"
+# EX only, optional: Cloudflare DNS failover. With a domain and an API token
+# (BAFT_CLOUDFLARE_TOKEN, or asked hidden) a baft-xxxxxx.<domain> name is made
+# and kept on the reachable IR servers. Without them nothing changes: clients
+# use the IR addresses directly.
+CF_DOMAIN="${BAFT_CLOUDFLARE_DOMAIN:-}"
+CF_TARGETS="${BAFT_DNS_TARGETS:-}"
+CF_NAME="${BAFT_DNS_NAME:-}"   # subdomain label; empty generates baft-xxxxxx
 # EX only: set up the IR server from here over SSH (user@host[:port]).
 IR_SSH="${BAFT_IR_SSH:-}"
 IR_SSH_KEY="${BAFT_IR_SSH_KEY:-}"
@@ -56,6 +63,12 @@ RECORD_SHAPING=0
 STEALTH_PRO=0
 VERIFY_ONLY_DIR=""
 AGENT_ONLY=0
+# Managed ingress chain (inet baft ingress). On for the agent install; the
+# policy bootstrap is OFF unless --provision-ingress-policy is given.
+INGRESS_CHAIN=1
+PROVISION_INGRESS_POLICY=0
+BAFT_INGRESS_HELPER="${BAFT_INGRESS_HELPER:-/usr/local/lib/baft/ingress-chain.sh}"
+BAFT_INGRESS_UNIT="${BAFT_INGRESS_UNIT:-baft-ingress-chain.service}"
 BAFT_BCC_URL="${BAFT_BCC_URL:-}"
 BAFT_NODE_ID="${BAFT_NODE_ID:-}"
 BAFT_AGENT_BIN="${BAFT_AGENT_BIN:-/usr/local/bin/baft-agent}"
@@ -69,6 +82,11 @@ NOISE_KEY="$BAFT_CONFIG_DIR/noise-key.json"
 BAFT_SYSTEMD_DIR="${BAFT_SYSTEMD_DIR:-/etc/systemd/system}"
 UNIT_FILE="$BAFT_SYSTEMD_DIR/$BAFT_SERVICE.service"
 AGENT_UNIT_FILE="$BAFT_SYSTEMD_DIR/$BAFT_AGENT_UNIT.service"
+BAFT_INGRESS_UNIT_FILE="$BAFT_SYSTEMD_DIR/$BAFT_INGRESS_UNIT"
+# Boot-time reconciliation of interrupted tunnel changes (baft recover boot).
+BAFT_RECOVER_UNIT="${BAFT_RECOVER_UNIT:-baft-recover.service}"
+BAFT_RECOVER_UNIT_FILE="$BAFT_SYSTEMD_DIR/$BAFT_RECOVER_UNIT"
+BAFT_INGRESS_MARKER="${BAFT_INGRESS_MARKER:-$BAFT_AGENT_STATE_DIR/ingress-chain.owner}"
 
 # BCC-only install. This is intentionally separate from the IR/EX transport
 # role: installing the control plane must never create or mutate a tunnel.
@@ -81,6 +99,10 @@ BAFT_BCC_ADMIN_TOKEN_FILE="${BAFT_BCC_ADMIN_TOKEN_FILE:-$BAFT_BCC_CONFIG_DIR/adm
 BAFT_BCC_ACCESS_FILE="${BAFT_BCC_ACCESS_FILE:-$BAFT_BCC_CONFIG_DIR/access.json}"
 BAFT_BCC_JOB_KEY_FILE="${BAFT_BCC_JOB_KEY_FILE:-$BAFT_BCC_CONFIG_DIR/job-key}"
 BAFT_BCC_BACKUP_DIR="${BAFT_BCC_BACKUP_DIR:-$BAFT_BCC_STATE_DIR/backups}"
+# Base64 32-byte key for the scheduled encrypted backups; created once, never rotated.
+BAFT_BCC_BACKUP_KEY_FILE="${BAFT_BCC_BACKUP_KEY_FILE:-$BAFT_BCC_CONFIG_DIR/backup-key}"
+# Release root public key that Update Center imports are verified against.
+BAFT_BCC_UPDATE_ROOT_FILE="${BAFT_BCC_UPDATE_ROOT_FILE:-$BAFT_BCC_CONFIG_DIR/release-root.pub}"
 BAFT_BCC_SERVICE="${BAFT_BCC_SERVICE:-baft-bcc}"
 BAFT_BCC_UNIT_FILE="$BAFT_SYSTEMD_DIR/$BAFT_BCC_SERVICE.service"
 BCC_LISTEN_EXPLICIT=0
@@ -92,6 +114,10 @@ BAFT_BCC_LISTEN="${BAFT_BCC_LISTEN:-127.0.0.1:8080}"
 BAFT_BCC_DOMAIN="${BAFT_BCC_DOMAIN:-}"
 BAFT_BCC_PORT="${BAFT_BCC_PORT:-}"
 BAFT_ACME_VERSION="${BAFT_ACME_VERSION:-3.1.1}"
+# Official 3.1.1 tag -> commit, checked against GitHub's git/ref API. Hash is
+# the archive downloaded by immutable commit, not a mutable tag URL.
+BAFT_ACME_COMMIT="676d76696b616c0e013ad8a9be1aedd01e4e0204"
+BAFT_ACME_SHA256="2d5d635c4bd0e90b73999fa42ba33fcb4b61fb29df3a2daa10e7533e0ccf9510"
 BAFT_ACME_HOME="${BAFT_ACME_HOME:-/root/.acme.sh}"
 BAFT_BCC_TLS_DIR="${BAFT_BCC_TLS_DIR:-$BAFT_BCC_CONFIG_DIR/tls}"
 BAFT_PANEL_CMD="${BAFT_PANEL_CMD:-$(dirname "$BAFT_BCC_BIN")/baft-panel}"
@@ -190,7 +216,7 @@ ui_cols() {
   [[ "$c" =~ ^[0-9]+$ ]] || c="$(stty size 2>/dev/null <&2 | awk '{print $2}' || true)"
   [[ "$c" =~ ^[0-9]+$ && "$c" -gt 0 ]] || c=100
   ((c > 132)) && c=132
-  ((c < 64)) && c=64
+  ((c < 20)) && c=20
   printf '%s' "$c"
 }
 
@@ -225,7 +251,25 @@ ui_table() {
   done
   local used=0
   for ((i = 0; i < n - 1; i++)); do used=$((used + widths[i] + 3)); done
-  max=$(($(ui_cols) - used - 6))
+  local available
+  available="$(ui_cols)"
+  # Box cells use display width that Bash cannot reliably measure for mixed
+  # Unicode. On a narrow terminal, emit wrapped facts instead of a box that
+  # can spill past the right edge.
+  if ((available < 64 || used + 26 > available)); then
+    local plain_width=$((available - 4))
+    for row in "$@"; do
+      IFS='|' read -r -a cells <<<"$row"
+      printf '%s\n' "${cells[0]:-}" | fold -s -w "$plain_width" | sed 's/^/    /' >&2
+      for ((i = 1; i < n; i++)); do
+        text="${cells[i]:-}"; text="${text#@*:}"
+        printf '%s: %s\n' "${heads[i]}" "$text" | fold -s -w "$plain_width" | sed 's/^/    /' >&2
+      done
+      printf '\n' >&2
+    done
+    return 0
+  fi
+  max=$((available - used - 6))
   ((max < 20)) && max=20
   widths[n - 1]=$max
   local longest=${#heads[n - 1]}
@@ -236,7 +280,7 @@ ui_table() {
   done
   ((longest < max)) && widths[n - 1]=$longest
   ui_rule '┌' '┬' '┐' "${widths[@]}"
-  local line="" v="$S_MUTE│$S_R"
+  local line="" v="${S_MUTE}│${S_R}"
   for ((i = 0; i < n; i++)); do line+="$v $S_B$(printf '%-*s' "${widths[i]}" "${heads[i]}")$S_R "; done
   printf '  %s%s\n' "$line" "$v" >&2
   ui_rule '├' '┼' '┤' "${widths[@]}"
@@ -386,6 +430,10 @@ Usage:
       # server enrollment: binaries + baft-agent only, no tunnel yet; the agent
       # token comes from BAFT_AGENT_TOKEN_FILE (or BAFT_AGENT_TOKEN) and the
       # pinned BCC job key from BAFT_BCC_JOB_KEY
+      # also creates the empty 'inet baft ingress' chain with the pinned layout
+      # (foreign nft objects are never touched; a different existing layout is
+      # refused) unless --no-ingress-chain; --provision-ingress-policy also runs
+      # 'baft-agent --provision-ingress-policy' (default off)
   sudo bash install.sh --bcc-only [--bcc-domain panel.example.com|IP] [--bcc-port N]
       # installs the BAFT panel (Command Center) only; no IR/EX tunnel is created.
       # On a terminal it asks for a domain (or uses this server's IP) and a port,
@@ -456,12 +504,16 @@ Environment:
   BAFT_PORTS (EX: comma-separated ports the IR serves publicly, e.g. 443,2053;
              each is carried to the same port on 127.0.0.1 here)
   BAFT_ROUTE_LISTEN (IR: loopback address local clients use, default 127.0.0.1:1443)
+  BAFT_CLOUDFLARE_DOMAIN BAFT_CLOUDFLARE_TOKEN BAFT_DNS_TARGETS BAFT_DNS_NAME
+             (EX, optional: DNS failover; the subdomain is BAFT_DNS_NAME or a
+             generated baft-xxxxxx; targets are IR public IPs)
   BAFT_METRICS_LISTEN BAFT_RUN_TESTS BAFT_PAIRING_CODE BAFT_REPLY_CODE
   BAFT_WITH_PANEL (EX: 1 installs the web panel too, 0 never offers it)
   BAFT_TUNE_NETWORK (1 turns on BBR and network tuning, 0 never asks)
   BAFT_BCC_BIN BAFT_BCC_CONFIG_DIR BAFT_BCC_STATE_DIR BAFT_BCC_STATE_FILE
   BAFT_BCC_ADMIN_TOKEN_FILE BAFT_BCC_ACCESS_FILE BAFT_BCC_JOB_KEY_FILE
-  BAFT_BCC_BACKUP_DIR BAFT_BCC_SERVICE BAFT_BCC_LISTEN BAFT_BCC_PUBLIC_URL
+  BAFT_BCC_BACKUP_DIR BAFT_BCC_BACKUP_KEY_FILE BAFT_BCC_UPDATE_ROOT_FILE
+  BAFT_BCC_SERVICE BAFT_BCC_LISTEN BAFT_BCC_PUBLIC_URL
   BAFT_BCC_BOOTSTRAP_SCRIPT
   BAFT_BCC_TLS_CERT BAFT_BCC_TLS_KEY BAFT_BCC_ALLOW_INSECURE_HTTP
   BAFT_SHAPE_DISTRIBUTION BAFT_SHAPE_MEAN BAFT_SHAPE_STDDEV
@@ -484,6 +536,9 @@ while [[ $# -gt 0 ]]; do
     --pairing-code) PAIRING_CODE="${2:-}"; shift 2 ;;
     --public-address) PUBLIC_ADDR="${2:-}"; shift 2 ;;
     --ports) BAFT_PORTS="${2:-}"; shift 2 ;;
+    --cloudflare-domain) CF_DOMAIN="${2:-}"; shift 2 ;;
+    --dns-targets) CF_TARGETS="${2:-}"; shift 2 ;;
+    --dns-name) CF_NAME="${2:-}"; shift 2 ;;
     --port) BAFT_PORT="${2:-}"; BAFT_PORT_EXPLICIT=1; shift 2 ;;
     --reply-code) REPLY_CODE="${2:-}"; shift 2 ;;
     --ir-ssh) IR_SSH="${2:-}"; shift 2 ;;
@@ -501,6 +556,8 @@ while [[ $# -gt 0 ]]; do
     --yes|-y) ASSUME_YES=1; shift ;;
     --re-pair) RE_PAIR=1; shift ;;
     --agent-only) AGENT_ONLY=1; shift ;;
+    --no-ingress-chain) INGRESS_CHAIN=0; shift ;;
+    --provision-ingress-policy) PROVISION_INGRESS_POLICY=1; shift ;;
     --bcc-only) BCC_ONLY=1; shift ;;
     --with-panel) BAFT_WITH_PANEL=1; shift ;;
     --no-panel) BAFT_WITH_PANEL=0; shift ;;
@@ -517,6 +574,8 @@ while [[ $# -gt 0 ]]; do
     *) die "unknown argument: $1" ;;
   esac
 done
+
+[[ "$PROVISION_INGRESS_POLICY" == 0 || "$AGENT_ONLY" == 1 ]] || die "--provision-ingress-policy only applies to --agent-only"
 
 # A healthy BCC rerun without --bcc-public-url keeps an already-managed
 # bootstrap configuration. An explicitly supplied environment value or CLI
@@ -614,6 +673,7 @@ F_KEY=0; F_KEY_OK=0; F_PKI=0; F_PENDING=0; F_USER=0; F_ACTIVE=0; F_ENABLED=0; F_
 F_AGENT_UNIT=0; F_AGENT_ACTIVE=0; F_AGENT_ENABLED=0; F_TOKEN=0; F_JOBKEY=0
 F_BCC_BIN=0; F_BCC_UNIT=0; F_BCC_UNIT_MANAGED=0; F_BCC_ACTIVE=0; F_BCC_ENABLED=0
 F_BCC_ADMIN=0; F_BCC_ACCESS=0; F_BCC_JOBKEY=0; F_BCC_STATE=0; F_BCC_DIRS=0
+F_BCC_BACKUPKEY=0; F_BCC_ROOTPIN=0
 F_BCC_BOOTSTRAP=0; F_BCC_BOOTSTRAP_OK=0; F_BCC_BOOTSTRAP_ENABLED=0
 
 INSPECTED=0; CFG_INVALID_WHY=""
@@ -654,6 +714,8 @@ inspect_install() {
   [[ -s "$BAFT_BCC_ADMIN_TOKEN_FILE" ]] && F_BCC_ADMIN=1
   [[ -s "$BAFT_BCC_ACCESS_FILE" ]] && F_BCC_ACCESS=1
   [[ -s "$BAFT_BCC_JOB_KEY_FILE" ]] && F_BCC_JOBKEY=1
+  [[ -s "$BAFT_BCC_BACKUP_KEY_FILE" ]] && F_BCC_BACKUPKEY=1
+  [[ -n "$BAFT_ROOT_PUB" && "$(cat "$BAFT_BCC_UPDATE_ROOT_FILE" 2>/dev/null)" == "$BAFT_ROOT_PUB" ]] && F_BCC_ROOTPIN=1
   [[ -f "$BAFT_BCC_STATE_FILE" ]] && F_BCC_STATE=1
   [[ -f "$BAFT_BCC_BOOTSTRAP_SCRIPT" ]] && F_BCC_BOOTSTRAP=1
   if [[ "$F_BCC_BOOTSTRAP" == 1 && "$(stat -c '%a %U' "$BAFT_BCC_BOOTSTRAP_SCRIPT" 2>/dev/null)" == "700 root" ]]; then
@@ -709,6 +771,16 @@ classify_state() {
   if [[ "$F_CFG" == 1 && "$F_KEY" == 0 ]]; then
     STATE="BROKEN_INSTALL"; STATE_WHY="$CONFIG exists but the Noise key $NOISE_KEY is missing (a new key would need a new pairing)"; return
   fi
+  # A config written for the other role is not damage: say so instead of
+  # calling it broken. A role change is never done in place.
+  local _cfg_role=""
+  if [[ "$F_CFG" == 1 ]]; then
+    if grep -q '"server"[[:space:]]*:' "$CONFIG" 2>/dev/null; then _cfg_role=ex
+    elif grep -q '"remote_route"[[:space:]]*:' "$CONFIG" 2>/dev/null; then _cfg_role=ir; fi
+  fi
+  if [[ -n "$_cfg_role" && -n "$ROLE" && "$_cfg_role" != "$ROLE" ]]; then
+    STATE="BROKEN_INSTALL"; STATE_WHY="this host is installed as ${_cfg_role^^} and --role $ROLE would change its role: run 'baft uninstall --full --delete-tunnel-configs --stop-active-tunnels --yes' first, then install as ${ROLE^^}"; return
+  fi
   if [[ "$F_CFG" == 1 && "$ROLE" == "ex" && "$F_PKI" == 0 ]]; then
     STATE="BROKEN_INSTALL"; STATE_WHY="$CONFIG exists but the certificate files in $BAFT_CONFIG_DIR/pki are missing"; return
   fi
@@ -721,6 +793,57 @@ classify_state() {
     return
   fi
   STATE="PARTIAL_INSTALL"; STATE_WHY="some of the install is missing (an interrupted install, or a node still waiting for pairing)"
+}
+
+# dns_failover_setup is optional and EX-only. The tunnel is already installed
+# and working, so a failure here warns instead of rolling the install back.
+dns_failover_setup() {
+  [[ "$ROLE" == "ex" ]] || return 0
+  [[ -f "$BAFT_CONFIG_DIR/dns-failover.json" ]] && return 0
+  local _args=() _i=0 _ip _t="" _ips=() _tok="${BAFT_CLOUDFLARE_TOKEN:-}" _port _out
+  if [[ -z "$CF_DOMAIN" && "$ASK_TTY" == 1 ]]; then
+    ask CF_DOMAIN "$(ui_ask_prompt "Optional: Cloudflare domain for automatic DNS failover (Enter to skip):")" || CF_DOMAIN=""
+  fi
+  if [[ -z "$CF_DOMAIN" ]]; then
+    ok "DNS failover not used; clients connect to the IR addresses directly"
+    return 0
+  fi
+  if [[ -z "$CF_NAME" && "$ASK_TTY" == 1 ]]; then
+    ask CF_NAME "$(ui_ask_prompt "Subdomain of $CF_DOMAIN for clients (Enter for a random baft-xxxxxx):")" || CF_NAME=""
+  fi
+  CF_NAME="$(printf '%s' "$CF_NAME" | tr '[:upper:]' '[:lower:]')"; CF_NAME="${CF_NAME%.$CF_DOMAIN}"
+  if [[ -n "$CF_NAME" && ! "$CF_NAME" =~ ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$ ]]; then
+    warn "DNS failover skipped: '$CF_NAME' is not a valid subdomain label (letters, digits and '-')"
+    return 0
+  fi
+  local _which=(--domain "$CF_DOMAIN")
+  [[ -z "$CF_NAME" ]] || _which=(--record "$CF_NAME.$CF_DOMAIN")
+  if [[ -z "$CF_TARGETS" ]]; then
+    CF_TARGETS="${IR_SSH_HOST:-}"
+    if [[ "$ASK_TTY" == 1 ]]; then
+      ask _t "$(ui_ask_prompt "Public IPs of the IR servers, comma-separated${CF_TARGETS:+ [$CF_TARGETS]}:")" || _t=""
+      CF_TARGETS="${_t:-$CF_TARGETS}"
+    fi
+  fi
+  if [[ -z "$_tok" && "$ASK_TTY" == 1 ]]; then
+    ask _tok "$(ui_ask_prompt "Cloudflare API token (Zone:Read + DNS:Edit for $CF_DOMAIN):")" -s || _tok=""
+    printf '\n' >&2
+  fi
+  IFS=, read -r -a _ips <<<"$CF_TARGETS"
+  for _ip in "${_ips[@]}"; do
+    _ip="${_ip// /}"; [[ -n "$_ip" ]] || continue
+    _i=$((_i + 1)); _args+=(--target "ir$_i=$_ip")
+  done
+  _port="${BAFT_PORTS%%,*}"; _port="${_port:-443}"
+  if [[ -z "$_tok" || "$_i" -lt 2 ]]; then
+    warn "DNS failover skipped: it needs a Cloudflare API token and at least two IR IPs (--dns-targets); the tunnel works without it"
+    return 0
+  fi
+  if _out="$(printf '%s\n' "$_tok" | "$BAFT_BIN" dns-failover setup "${_which[@]}" --probe-port "$_port" "${_args[@]}" 2>&1)"; then
+    ok "${_out}"
+  else
+    warn "DNS failover was not set up (${_out##*: }); the tunnel works without it. Retry: echo TOKEN | sudo baft dns-failover setup ${_which[*]} ${_args[*]}"
+  fi
 }
 
 # plan_binaries compares the staged (verified) binaries with the installed ones.
@@ -754,7 +877,7 @@ plan_relstate() {
 }
 DO_UNIT=0; DO_PKI=0; DO_KEYGEN=0; DO_PAIRING=0; DO_RESTART=0; DO_START=0; DO_ENABLE=0; DO_FIXPERM=0
 DO_AGENT_UNIT=0; DO_AGENT_ENABLE=0; DO_TOKEN=0; DO_JOBKEY=0; DO_ROOTPIN=0
-DO_BCC_UNIT=0; DO_BCC_ENABLE=0; DO_BCC_ADMIN=0; DO_BCC_ACCESS=0; DO_BCC_JOBKEY=0; DO_BCC_BOOTSTRAP=0
+DO_BCC_UNIT=0; DO_BCC_ENABLE=0; DO_BCC_ADMIN=0; DO_BCC_ACCESS=0; DO_BCC_JOBKEY=0; DO_BCC_BOOTSTRAP=0; DO_BCC_BACKUPKEY=0; DO_BCC_ROOTPIN=0
 REFUSED=""
 
 build_role_plan() {
@@ -783,6 +906,10 @@ build_role_plan() {
   if [[ "$F_CFG_VALID" == 1 ]]; then cfg_kept=1
   elif [[ "$F_CFG" == 1 && "$STAGED" == 0 ]]; then cfg_kept=1; fi
   if [[ "$cfg_kept" == 1 && "$RE_PAIR" == 0 ]]; then
+    # A pairing code given to an already-paired IR would be silently ignored.
+    if [[ "$ROLE" == "ir" && -n "$PAIRING_CODE" ]]; then
+      die "this host is already paired and the given pairing code would be ignored: add --re-pair to pair again with it"
+    fi
     if [[ "$F_CFG_VALID" == 1 ]]; then plan_add "config" keep "valid; it is not overwritten"
     else plan_add "config" keep "exists; validated with the verified release binary once it is downloaded, never overwritten"; fi
     plan_add "pairing" skip "already paired; --re-pair starts a new pairing"
@@ -795,6 +922,11 @@ build_role_plan() {
     if [[ "$ROLE" == "ex" ]]; then plan_add "pairing" create "issue a one-time pairing code${REPLY_CODE:+ and finish with the given reply code}"
     else plan_add "pairing" create "pair with the EX using the pairing code"; fi
     DO_PAIRING=1
+  fi
+  if [[ "$ROLE" == "ex" ]]; then
+    if [[ -f "$BAFT_CONFIG_DIR/dns-failover.json" ]]; then plan_add "dns failover" keep "configured; a rerun never changes it"
+    elif [[ -n "$CF_DOMAIN" ]]; then plan_add "dns failover" create "publish ${CF_NAME:-a generated baft-xxxxxx}.$CF_DOMAIN on Cloudflare for the IR servers"
+    else plan_add "dns failover" skip "not requested (--cloudflare-domain); clients use the IR addresses directly"; fi
   fi
   # systemd unit: created when missing; an existing one is never overwritten.
   if [[ "$F_UNIT" == 0 ]]; then plan_add "systemd unit" create "$UNIT_FILE"; DO_UNIT=1
@@ -837,6 +969,9 @@ build_agent_plan() {
     plan_add "agent service" restart "to pick up the change"; DO_RESTART=1
   elif [[ "$F_AGENT_ACTIVE" == 0 ]]; then plan_add "agent service" start "installed but not running"; DO_START=1
   else plan_add "agent service" keep "left running; no restart needed"; fi
+  if [[ "$INGRESS_CHAIN" == 1 ]]; then plan_add "ingress chain" keep "ensure the empty 'inet baft ingress' chain on apply (idempotent; foreign nft objects untouched; a differing layout is refused)"
+  else plan_add "ingress chain" keep "skipped (--no-ingress-chain)"; fi
+  if [[ "$PROVISION_INGRESS_POLICY" == 1 ]]; then plan_add "ingress policy" create "baft-agent --provision-ingress-policy --node-id $BAFT_NODE_ID"; fi
 }
 
 build_bcc_plan() {
@@ -856,6 +991,14 @@ build_bcc_plan() {
 
   if [[ "$F_BCC_JOBKEY" == 0 ]]; then plan_add "BCC job key" create "$BAFT_BCC_JOB_KEY_FILE (owner-only)"; DO_BCC_JOBKEY=1
   else plan_add "BCC job key" keep "exists; rerun never rotates it"; fi
+
+  if [[ "$F_BCC_BACKUPKEY" == 0 ]]; then plan_add "BCC backup key" create "$BAFT_BCC_BACKUP_KEY_FILE (root-only; enables scheduled encrypted backups)"; DO_BCC_BACKUPKEY=1
+  else plan_add "BCC backup key" keep "exists; rerun never rotates it"; fi
+
+  if [[ -z "$BAFT_ROOT_PUB" ]]; then plan_add "BCC update root pin" skip "no release root key: Update Center imports stay disabled"
+  elif [[ "$F_BCC_ROOTPIN" == 1 ]]; then plan_add "BCC update root pin" keep "same as installed"
+  elif [[ -f "$BAFT_BCC_UPDATE_ROOT_FILE" ]]; then plan_add "BCC update root pin" replace "a DIFFERENT release root key was given"; DO_BCC_ROOTPIN=1
+  else plan_add "BCC update root pin" create "$BAFT_BCC_UPDATE_ROOT_FILE (enables Update Center imports)"; DO_BCC_ROOTPIN=1; fi
 
   if [[ "$STAGED" == 1 ]]; then
     if same_file "$STAGE_BCC_BOOTSTRAP" "$BAFT_BCC_BOOTSTRAP_SCRIPT" && [[ "$F_BCC_BOOTSTRAP_OK" == 1 ]]; then
@@ -1500,9 +1643,18 @@ bcc_ask_access() {
 # A certificate already in place for this address and valid for another day
 # is kept; a rerun never asks Let's Encrypt again.
 bcc_cert_ok() {
+  local cert_pub key_pub
   [[ -s "$BAFT_BCC_TLS_CERT" && -s "$BAFT_BCC_TLS_KEY" ]] || return 1
   openssl x509 -in "$BAFT_BCC_TLS_CERT" -noout -checkend 86400 >/dev/null 2>&1 || return 1
+  # Compare public keys for both RSA and EC certificates. Do not prompt for an
+  # encrypted key: BCC must be able to load this key unattended after restart.
+  cert_pub="$(openssl x509 -in "$BAFT_BCC_TLS_CERT" -pubkey -noout 2>/dev/null)" || return 1
+  key_pub="$(openssl pkey -in "$BAFT_BCC_TLS_KEY" -passin pass: -pubout 2>/dev/null)" || return 1
+  [[ -n "$cert_pub" && "$cert_pub" == "$key_pub" ]] || return 1
   if [[ "$(bcc_host_kind "$BAFT_BCC_DOMAIN")" == domain ]]; then
+    # OpenSSL's checkhost permits legacy CN fallback when DNS SANs are absent;
+    # BCC requires a DNS SAN. These are identity/key checks, not CA trust proof.
+    openssl x509 -in "$BAFT_BCC_TLS_CERT" -noout -ext subjectAltName 2>/dev/null | grep -q 'DNS:' || return 1
     openssl x509 -in "$BAFT_BCC_TLS_CERT" -noout -checkhost "$BAFT_BCC_DOMAIN" 2>/dev/null | grep -q 'does match'
   else
     openssl x509 -in "$BAFT_BCC_TLS_CERT" -noout -checkip "$BAFT_BCC_DOMAIN" 2>/dev/null | grep -q 'does match'
@@ -1511,18 +1663,23 @@ bcc_cert_ok() {
 
 bcc_install_acme() {
   [[ -x "$BAFT_ACME_HOME/acme.sh" ]] && return 0
+  [[ "$BAFT_ACME_VERSION" == 3.1.1 ]] || { warn "unsupported acme.sh version; use the verified 3.1.1 pin or install a reviewed client manually"; return 1; }
   local tmp
   tmp="$(mktemp -d)"; CLEANUP+=("$tmp")
   log "downloading acme.sh $BAFT_ACME_VERSION"
-  curl -fsSL --max-time 120 "https://github.com/acmesh-official/acme.sh/archive/refs/tags/${BAFT_ACME_VERSION}.tar.gz" |
-    tar -xz -C "$tmp" || return 1
-  ( cd "$tmp/acme.sh-$BAFT_ACME_VERSION" && ./acme.sh --install --home "$BAFT_ACME_HOME" --nocron --noprofile ) >/dev/null 2>&1 || return 1
+  curl -fsSL --max-time 120 "https://github.com/acmesh-official/acme.sh/archive/${BAFT_ACME_COMMIT}.tar.gz" -o "$tmp/acme.tar.gz" || return 1
+  if ! printf '%s  %s\n' "$BAFT_ACME_SHA256" "$tmp/acme.tar.gz" | sha256sum -c - >/dev/null 2>&1; then
+    warn "acme.sh archive checksum mismatch; no downloaded code was extracted or executed"
+    return 1
+  fi
+  tar -xzf "$tmp/acme.tar.gz" -C "$tmp" || return 1
+  ( cd "$tmp/acme.sh-$BAFT_ACME_COMMIT" && ./acme.sh --install --home "$BAFT_ACME_HOME" --nocron --noprofile --auto-upgrade 0 ) >/dev/null 2>&1 || return 1
   [[ -x "$BAFT_ACME_HOME/acme.sh" ]]
 }
 
 # Daily renewal, as a systemd timer so it does not depend on cron.
 bcc_install_renew_timer() {
-  cat >"$BAFT_SYSTEMD_DIR/baft-bcc-cert.service" <<UNIT
+  cat >"$BAFT_SYSTEMD_DIR/baft-bcc-cert.service" <<UNIT || return 1
 # baft-managed: true
 # baft-component: bcc-cert
 [Unit]
@@ -1531,7 +1688,7 @@ Description=Renew the BAFT panel certificate
 Type=oneshot
 ExecStart=$BAFT_ACME_HOME/acme.sh --cron --home $BAFT_ACME_HOME
 UNIT
-  cat >"$BAFT_SYSTEMD_DIR/baft-bcc-cert.timer" <<UNIT
+  cat >"$BAFT_SYSTEMD_DIR/baft-bcc-cert.timer" <<UNIT || return 1
 # baft-managed: true
 # baft-component: bcc-cert
 [Unit]
@@ -1543,8 +1700,8 @@ Persistent=true
 [Install]
 WantedBy=timers.target
 UNIT
-  systemctl daemon-reload
-  systemctl enable --now baft-bcc-cert.timer >/dev/null 2>&1 || warn "could not enable the certificate renewal timer"
+  systemctl daemon-reload || return 1
+  systemctl enable --now baft-bcc-cert.timer >/dev/null 2>&1 || return 1
 }
 
 bcc_self_signed() {
@@ -1589,11 +1746,23 @@ bcc_obtain_cert() {
   [[ -n "$why" ]] || bcc_install_acme || why="could not download acme.sh"
   # IP certificates need ACME profile support (shortlived).
   if [[ -z "$why" && "$kind" != domain ]] && ! "$BAFT_ACME_HOME/acme.sh" --help 2>/dev/null | grep -q -- '--certificate-profile'; then
-    "$BAFT_ACME_HOME/acme.sh" --upgrade --home "$BAFT_ACME_HOME" >/dev/null 2>&1 || true
-    "$BAFT_ACME_HOME/acme.sh" --help 2>/dev/null | grep -q -- '--certificate-profile' ||
-      why="this acme.sh cannot request an IP certificate; use a domain instead"
+    why="this verified acme.sh cannot request an IP certificate; use a domain, or install a separately reviewed client with --certificate-profile support (automatic unverified upgrade is disabled)"
   fi
   if [[ -z "$why" ]]; then
+    # Preserve the active pair before ACME can replace either file. Keep a
+    # failed rollback snapshot private and available for operator recovery.
+    # This restores serving files, not ACME's account/domain renewal metadata;
+    # an interrupted process leaves the snapshot for manual recovery.
+    local previous had_cert=0 had_key=0
+    previous="$(mktemp -d "$BAFT_BCC_TLS_DIR/.previous.XXXXXX")" || die "could not stage certificate rollback"
+    if [[ -e "$BAFT_BCC_TLS_CERT" || -L "$BAFT_BCC_TLS_CERT" ]]; then
+      cp -p -- "$BAFT_BCC_TLS_CERT" "$previous/cert" || { rm -rf -- "$previous"; die "could not back up certificate"; }
+      had_cert=1
+    fi
+    if [[ -e "$BAFT_BCC_TLS_KEY" || -L "$BAFT_BCC_TLS_KEY" ]]; then
+      cp -p -- "$BAFT_BCC_TLS_KEY" "$previous/key" || { rm -rf -- "$previous"; die "could not back up certificate key"; }
+      had_key=1
+    fi
     local -a args=(--issue -d "$BAFT_BCC_DOMAIN" --standalone --httpport 80 --server letsencrypt --keylength ec-256)
     [[ "$kind" == domain ]] || args+=(--certificate-profile shortlived --days 3)
     [[ "$kind" != ip6 ]] || args+=(--listen-v6)
@@ -1605,17 +1774,36 @@ bcc_obtain_cert() {
        "$BAFT_ACME_HOME/acme.sh" --home "$BAFT_ACME_HOME" --install-cert -d "$BAFT_BCC_DOMAIN" --ecc \
          --key-file "$BAFT_BCC_TLS_KEY" --fullchain-file "$BAFT_BCC_TLS_CERT" \
          --reloadcmd "chmod 0600 $BAFT_BCC_TLS_KEY" >>"$BAFT_BCC_TLS_DIR/issue.log" 2>&1; then
-      bcc_install_renew_timer
-      BCC_SSL_KIND=letsencrypt
-      ok "certificate issued for $BAFT_BCC_DOMAIN; it renews automatically"
-      return 0
+      if bcc_cert_ok && chmod 0600 "$BAFT_BCC_TLS_KEY"; then
+        rm -rf -- "$previous"
+        BCC_SSL_KIND=letsencrypt
+        if bcc_install_renew_timer; then
+          ok "certificate issued for $BAFT_BCC_DOMAIN; it renews automatically"
+        else
+          warn "certificate installed, but the renewal timer could not be enabled; configure renewal before expiry"
+          ok "certificate issued for $BAFT_BCC_DOMAIN; automatic renewal is not confirmed"
+        fi
+        return 0
+      fi
+      why="installed certificate failed hostname, expiry or private-key validation (log: $BAFT_BCC_TLS_DIR/issue.log)"
     fi
-    why="Let's Encrypt did not issue it (is port 80 open to the internet? log: $BAFT_BCC_TLS_DIR/issue.log)"
+    [[ -n "$why" ]] || why="Let's Encrypt did not issue it (is port 80 open to the internet? log: $BAFT_BCC_TLS_DIR/issue.log)"
+    if [[ "$had_cert" == 1 ]]; then
+      cp -p -- "$previous/cert" "$BAFT_BCC_TLS_CERT" || die "certificate rollback failed; recovery snapshot: $previous"
+    else
+      rm -f -- "$BAFT_BCC_TLS_CERT" || die "certificate rollback failed; recovery snapshot: $previous"
+    fi
+    if [[ "$had_key" == 1 ]]; then
+      cp -p -- "$previous/key" "$BAFT_BCC_TLS_KEY" || die "certificate key rollback failed; recovery snapshot: $previous"
+    else
+      rm -f -- "$BAFT_BCC_TLS_KEY" || die "certificate key rollback failed; recovery snapshot: $previous"
+    fi
+    rm -rf -- "$previous"
   fi
   warn "no SSL certificate: $why"
   if [[ "$ASK_TTY" == 1 ]]; then
-    ask a "$(ui_ask_prompt "Continue with a self-signed certificate? The browser will warn once." "[Y/n]")" || true
-    [[ "$a" == n || "$a" == N || "$a" == no ]] && die "stopped before installing; nothing else was changed"
+    ask a "$(ui_ask_prompt "Continue with a self-signed certificate? The browser will warn once." "[y/N]")" || die "certificate issuance stopped; previous serving files preserved"
+    [[ "$a" == y || "$a" == Y || "$a" == yes ]] || die "certificate issuance stopped; previous serving files preserved"
   else
     die "no SSL certificate for $BAFT_BCC_DOMAIN: $why"
   fi
@@ -1656,7 +1844,7 @@ PY
       die "--bcc-public-url must be https://host[:port] (http only with --bcc-allow-insecure-http)"
   fi
   local v
-  for v in "$BAFT_BCC_BIN" "$BAFT_BCC_CONFIG_DIR" "$BAFT_BCC_STATE_DIR" "$BAFT_BCC_STATE_FILE"     "$BAFT_BCC_ADMIN_TOKEN_FILE" "$BAFT_BCC_ACCESS_FILE" "$BAFT_BCC_JOB_KEY_FILE" "$BAFT_BCC_BACKUP_DIR" "$BAFT_BCC_UNIT_FILE" "$BAFT_BCC_BOOTSTRAP_SCRIPT"; do
+  for v in "$BAFT_BCC_BIN" "$BAFT_BCC_CONFIG_DIR" "$BAFT_BCC_STATE_DIR" "$BAFT_BCC_STATE_FILE"     "$BAFT_BCC_ADMIN_TOKEN_FILE" "$BAFT_BCC_ACCESS_FILE" "$BAFT_BCC_JOB_KEY_FILE" "$BAFT_BCC_BACKUP_DIR" "$BAFT_BCC_BACKUP_KEY_FILE" "$BAFT_BCC_UPDATE_ROOT_FILE" "$BAFT_BCC_UNIT_FILE" "$BAFT_BCC_BOOTSTRAP_SCRIPT"; do
     [[ "$v" != *[[:space:]]* ]] || die "BCC install paths must not contain whitespace"
   done
 }
@@ -1928,8 +2116,7 @@ setup_ir_over_ssh() { # PAIRING_CODE -> prints the BAFTREPLY1 code on stdout
     cat "$dir/install.sh"
     printf 'BAFT_IR_INSTALL_SH_END\n'
     printf 'export BAFT_NONINTERACTIVE=1 BAFT_PAIRING_CODE=%q\n' "$code"
-    # The IR gets BBR and network tuning unless the operator said otherwise.
-    [[ -n "${BAFT_TUNE_NETWORK:-}" ]] || printf 'export BAFT_TUNE_NETWORK=1\n'
+    # Forward explicit tuning consent only; noninteractive IR installs default to no tuning.
     local v
     local -a pass_vars=() ir_env=()
     IFS=' ' read -r -a pass_vars <<<"$IR_SSH_ENV_PASS"
@@ -2043,6 +2230,9 @@ render_bcc_unit() {
   local tls_args="" insecure="" caps="" allow_line="" bootstrap_args="" bootstrap_hash="absent" bootstrap_src="" port host
   local bootstrap_path="${BAFT_BCC_BOOTSTRAP_SCRIPT:-}" public_url="${BAFT_BCC_PUBLIC_URL:-}"
   port="${BAFT_BCC_LISTEN##*:}"
+  local backup_key="" update_root=""
+  if [[ -n "${BAFT_BCC_BACKUP_KEY_FILE:-}" ]]; then backup_key=" --backup-key-file $BAFT_BCC_BACKUP_KEY_FILE"; fi
+  if [[ -n "${BAFT_ROOT_PUB:-}" && -n "${BAFT_BCC_UPDATE_ROOT_FILE:-}" ]]; then update_root=" --update-root-pub $BAFT_BCC_UPDATE_ROOT_FILE"; fi
   if [[ "$BAFT_BCC_LISTEN" == \[*\]:* ]]; then
     host="${BAFT_BCC_LISTEN#\[}"
     host="${host%%\]:*}"
@@ -2082,7 +2272,7 @@ StartLimitIntervalSec=0
 [Service]
 Type=simple
 $allow_line
-ExecStart=$BAFT_BCC_BIN --listen $BAFT_BCC_LISTEN --state-file $BAFT_BCC_STATE_FILE --admin-token-file $BAFT_BCC_ADMIN_TOKEN_FILE --access-file $BAFT_BCC_ACCESS_FILE --job-key-file $BAFT_BCC_JOB_KEY_FILE --backup-dir $BAFT_BCC_BACKUP_DIR$tls_args$bootstrap_args$insecure
+ExecStart=$BAFT_BCC_BIN --listen $BAFT_BCC_LISTEN --state-file $BAFT_BCC_STATE_FILE --admin-token-file $BAFT_BCC_ADMIN_TOKEN_FILE --access-file $BAFT_BCC_ACCESS_FILE --job-key-file $BAFT_BCC_JOB_KEY_FILE --backup-dir $BAFT_BCC_BACKUP_DIR$backup_key$update_root$tls_args$bootstrap_args$insecure
 Restart=on-failure
 RestartSec=5s
 $caps
@@ -2124,7 +2314,7 @@ StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-ExecStart=$BAFT_AGENT_BIN --bcc-url $BAFT_BCC_URL --node-id $BAFT_NODE_ID --token-file $BAFT_AGENT_DIR/token --bcc-job-key $BAFT_AGENT_DIR/bcc-job.pub $root_flag --state-dir $BAFT_AGENT_STATE_DIR --release-state $BAFT_RELEASE_STATE --bin-dir $bindir --service $BAFT_SERVICE --config-dir $BAFT_CONFIG_DIR --baft-state-dir $BAFT_STATE_DIR --service-user $BAFT_USER --metrics-listen $BAFT_METRICS_LISTEN --interval $BAFT_AGENT_INTERVAL $http_flag
+ExecStart=$BAFT_AGENT_BIN --bcc-url $BAFT_BCC_URL --node-id $BAFT_NODE_ID --token-file $BAFT_AGENT_DIR/token --bcc-job-key $BAFT_AGENT_DIR/bcc-job.pub $root_flag --state-dir $BAFT_AGENT_STATE_DIR --ingress-manifest-dir $BAFT_AGENT_STATE_DIR --release-state $BAFT_RELEASE_STATE --bin-dir $bindir --service $BAFT_SERVICE --config-dir $BAFT_CONFIG_DIR --baft-state-dir $BAFT_STATE_DIR --service-user $BAFT_USER --metrics-listen $BAFT_METRICS_LISTEN --interval $BAFT_AGENT_INTERVAL $http_flag
 Restart=always
 RestartSec=10s
 NoNewPrivileges=true
@@ -2220,7 +2410,7 @@ reset_plan() {
   PLAN_ITEM=(); PLAN_ACT=(); PLAN_DETAIL=(); PLAN_CHANGES=0; REFUSED=""
   DO_BIN=0; DO_UNIT=0; DO_PKI=0; DO_KEYGEN=0; DO_PAIRING=0; DO_RESTART=0; DO_START=0; DO_ENABLE=0
   DO_FIXPERM=0; DO_AGENT_UNIT=0; DO_AGENT_ENABLE=0; DO_TOKEN=0; DO_JOBKEY=0; DO_ROOTPIN=0; DO_RELSTATE=0
-  DO_BCC_UNIT=0; DO_BCC_ENABLE=0; DO_BCC_ADMIN=0; DO_BCC_ACCESS=0; DO_BCC_JOBKEY=0; DO_BCC_BOOTSTRAP=0
+  DO_BCC_UNIT=0; DO_BCC_ENABLE=0; DO_BCC_ADMIN=0; DO_BCC_ACCESS=0; DO_BCC_JOBKEY=0; DO_BCC_BOOTSTRAP=0; DO_BCC_BACKUPKEY=0; DO_BCC_ROOTPIN=0
 }
 
 # Prerequisites (apt packages, the Go toolchain for --from-source) are the only
@@ -2348,7 +2538,13 @@ build_from_source() {
     log "trying configured mirror"
     git clone --filter=blob:none --no-checkout "$BAFT_MIRROR_URL" "$SRC.tmp"
   fi
-  git -C "$SRC.tmp" checkout --detach "$BAFT_REF"
+  # A fresh clone has only the default branch locally, so a branch name like
+  # feature/x resolves through origin/; tags and commit IDs resolve directly.
+  local rev
+  rev="$(git -C "$SRC.tmp" rev-parse --verify --quiet "$BAFT_REF^{commit}" ||
+    git -C "$SRC.tmp" rev-parse --verify --quiet "origin/$BAFT_REF^{commit}")" ||
+    die "BAFT_REF $BAFT_REF is not a branch, tag or commit of the repository"
+  git -C "$SRC.tmp" checkout --detach "$rev"
   mv "$SRC.tmp" "$SRC"
 
   (
@@ -2551,9 +2747,230 @@ finalize_apply() {
 # Server enrollment: the agent runs as root (it restarts services and swaps
 # binaries) with the rest of the system read-only. It holds the agent token,
 # the pinned BCC job key and the pinned release root; no tunnel config yet.
+# ---- managed ingress chain (inet baft ingress) ----
+# baft-agent builds its operational ingress executor only when the ruleset has
+# exactly one `inet baft ingress` chain with the pinned layout (filter, input
+# hook, priority -100, policy accept; see internal/ingressownership
+# ReadNFTLabChainHandle). The agent's nft runner can only add/delete rules, so
+# the installer creates the empty chain. The helper below is written to
+# $BAFT_INGRESS_HELPER and is also run at boot by baft-ingress-chain.service
+# (ordered Before the agent). It never touches foreign tables, chains or
+# rules, refuses a differently-laid-out `inet baft ingress`, never edits
+# /etc/nftables.conf, and `remove` deletes only a chain it created and only
+# while that chain holds no rules.
+render_ingress_helper() {
+  cat <<'BAFT_INGRESS_HELPER'
+#!/usr/bin/env bash
+# baft-ingress-chain: ensure [--boot] | remove | check   (generated by install.sh)
+# Exit: 0 ok, 2 error, 3 refused (layout differs / ambiguous / has rules).
+set -Eeuo pipefail
+NFT="${BAFT_NFT_BIN:-nft}"
+MARKER="${BAFT_INGRESS_CHAIN_MARKER:-/var/lib/baft-agent/ingress-chain.owner}"
+UNIT_NAME="${BAFT_INGRESS_CHAIN_UNIT:-baft-ingress-chain.service}"
+UNIT_DIR="${BAFT_SYSTEMD_DIR:-/etc/systemd/system}"
+say() { printf 'baft-ingress-chain: %s\n' "$*" >&2; }
+RULESET=""
+snapshot() { RULESET="$("$NFT" -j list ruleset 2>/dev/null)" || { say "cannot read the nft ruleset"; exit 2; }; [[ -n "$RULESET" ]] || { say "empty nft ruleset snapshot"; exit 2; }; }
+chain_objs() { grep -oE '"chain": *\{[^}]*\}' <<<"$RULESET" | grep -E '"family": *"inet"' | grep -E '"table": *"baft"' | grep -E '"name": *"ingress"' || true; }
+table_exists() { grep -qE '"table": *\{"family": *"inet", *"name": *"baft"' <<<"$RULESET"; }
+rule_count() { { grep -oE '"rule": *\{"family": *"inet", *"table": *"baft", *"chain": *"ingress"' <<<"$RULESET" || true; } | wc -l; }
+layout_ok() { # exactly the pinned layout
+  local o="$1"
+  grep -qE '"type": *"filter"' <<<"$o" && grep -qE '"hook": *"input"' <<<"$o" &&
+    grep -qE '"prio": *-100([,} ]|$)' <<<"$o" && grep -qE '"policy": *"accept"' <<<"$o"
+}
+handle_of() { sed -nE 's/.*"handle": *([0-9]+).*/\1/p' <<<"$1" | head -n1; }
+count_lines() { if [[ -z "$1" ]]; then echo 0; else grep -c . <<<"$1"; fi; }
+# Only numeric fields are trusted from the marker.
+marker_get() { if [[ -f "$MARKER" && ! -L "$MARKER" ]]; then sed -nE "s/^$1=([0-9]+)\$/\\1/p" "$MARKER" | head -n1; fi; }
+write_marker() { # handle table_created
+  local t; t="$(mktemp "$MARKER.XXXXXX")"
+  printf 'handle=%s\ntable_created=%s\n' "$1" "$2" >"$t"; chmod 0600 "$t"; mv -f -- "$t" "$MARKER"
+}
+verify_pinned() { # after creation: exactly one pinned chain; sets CHAIN_HANDLE
+  snapshot
+  local objs n; objs="$(chain_objs)"; n="$(count_lines "$objs")"
+  if [[ "$n" != 1 ]] || ! layout_ok "$objs"; then say "REFUSED: post-create check failed; ruleset not as pinned"; exit 3; fi
+  CHAIN_HANDLE="$(handle_of "$objs")"; [[ -n "$CHAIN_HANDLE" && "$CHAIN_HANDLE" != 0 ]] || { say "no chain handle"; exit 2; }
+}
+cmd_ensure() {
+  local boot="${1:-}"
+  if [[ "$boot" == "--boot" && ! -f "$MARKER" ]]; then say "no installer-owned chain recorded; boot ensure is a no-op"; return 0; fi
+  snapshot
+  local objs n; objs="$(chain_objs)"; n="$(count_lines "$objs")"
+  if (( n > 1 )); then say "REFUSED: more than one 'inet baft ingress' chain; not touching anything"; exit 3; fi
+  if (( n == 1 )); then
+    if ! layout_ok "$objs"; then
+      say "REFUSED: existing 'inet baft ingress' chain does not have the pinned layout (filter, hook input, priority -100, policy accept); it was NOT modified: $objs"; exit 3
+    fi
+    local h; h="$(handle_of "$objs")"
+    if [[ -f "$MARKER" && "$(marker_get handle)" == "$h" ]]; then say "chain present (handle $h), installer-owned; nothing to do"
+    elif [[ -f "$MARKER" ]]; then say "WARNING: chain handle $h differs from the recorded one ($(marker_get handle)); it is not treated as installer-owned and will not be removed"
+    else say "chain present with the pinned layout (handle $h), not created by this installer; left as is"; fi
+    return 0
+  fi
+  local table_created=0 prior
+  if ! table_exists; then table_created=1; else prior="$(marker_get table_created)"; [[ "$prior" == 1 ]] && table_created=1; fi
+  # 'add table' is a no-op for an existing table; the chain is absent, so this
+  # only adds the empty pinned chain.
+  printf 'add table inet baft\nadd chain inet baft ingress { type filter hook input priority -100; policy accept; }\n' | "$NFT" -f - || { say "nft refused to create the chain"; exit 2; }
+  verify_pinned
+  write_marker "$CHAIN_HANDLE" "$table_created"
+  say "created 'inet baft ingress' (handle $CHAIN_HANDLE)"
+}
+cmd_check() {
+  snapshot
+  local objs n; objs="$(chain_objs)"; n="$(count_lines "$objs")"
+  if [[ "$n" != 1 ]] || ! layout_ok "$objs"; then say "no single pinned 'inet baft ingress' chain"; exit 3; fi
+  handle_of "$objs"
+}
+remove_unit() {
+  if command -v systemctl >/dev/null 2>&1; then systemctl disable "$UNIT_NAME" >/dev/null 2>&1 || true; fi
+  if [[ -f "${UNIT_DIR:?}/${UNIT_NAME:?}" ]]; then
+    rm -f -- "${UNIT_DIR:?}/${UNIT_NAME:?}"
+    if command -v systemctl >/dev/null 2>&1; then systemctl daemon-reload || true; fi
+  fi
+}
+cmd_remove() {
+  if [[ ! -f "$MARKER" ]]; then say "no installer-owned chain recorded; nothing removed"; remove_unit; return 0; fi
+  local mh tc; mh="$(marker_get handle)"; tc="$(marker_get table_created)"
+  [[ -n "$mh" ]] || { say "REFUSED: unreadable ownership marker $MARKER"; exit 3; }
+  snapshot
+  local objs n; objs="$(chain_objs)"; n="$(count_lines "$objs")"
+  if (( n == 0 )); then say "chain already absent; clearing the marker"; rm -f -- "${MARKER:?}"; remove_unit; return 0; fi
+  if (( n != 1 )) || [[ "$(handle_of "$objs")" != "$mh" ]] || ! layout_ok "$objs"; then
+    say "REFUSED: the chain is not the one this installer created (handle/layout differ); left as is"; exit 3
+  fi
+  local r; r="$(rule_count)"
+  if (( r > 0 )); then say "REFUSED: chain holds $r rule(s); not removed (the unit and marker are kept)"; exit 3; fi
+  "$NFT" delete chain inet baft ingress || { say "nft could not delete the chain"; exit 2; }
+  if [[ "$tc" == 1 ]]; then
+    local t; t="$("$NFT" -j list table inet baft 2>/dev/null || true)"
+    if [[ -n "$t" ]] && ! grep -qE '\{"(chain|rule|set|map|flowtable|counter|quota|limit|synproxy|secmark|ct helper|ct expectation|ct timeout)": *\{' <<<"$t"; then
+      "$NFT" delete table inet baft || say "could not delete the empty table inet baft"
+    fi
+  fi
+  rm -f -- "${MARKER:?}"; remove_unit
+  say "removed the installer-created 'inet baft ingress' chain"
+}
+case "${1:-}" in
+  ensure) shift; cmd_ensure "${1:-}" ;;
+  remove) cmd_remove ;;
+  check) cmd_check ;;
+  *) echo "usage: baft-ingress-chain ensure [--boot] | remove | check" >&2; exit 2 ;;
+esac
+BAFT_INGRESS_HELPER
+}
+
+render_ingress_unit() {
+  cat <<UNIT
+[Unit]
+Description=BAFT managed ingress chain (inet baft ingress)
+Before=$BAFT_AGENT_UNIT.service
+After=network-pre.target
+Wants=network-pre.target
+ConditionPathExists=$BAFT_INGRESS_MARKER
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment=BAFT_INGRESS_CHAIN_MARKER=$BAFT_INGRESS_MARKER
+ExecStart=$BAFT_INGRESS_HELPER ensure --boot
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+}
+
+# ---- boot recovery (baft-recover.service) ----
+# A power loss or kill -9 in the middle of a tunnel change leaves a prepared or
+# committed transaction behind. `baft recover boot` reconciles it from on-disk
+# evidence (transaction journal, ownership marker, config/unit digests) and
+# never starts, stops or restarts a service. The unit is ordered Before=
+# sysinit.target, i.e. before EVERY default-dependency service including
+# baft.service, baft-agent.service and each scoped baft-<instance>.service, and
+# explicitly Before= the two units this installer owns. It is only ordered, not
+# required: a failed or fenced recovery is visible in `systemctl --failed` but
+# never blocks the boot, and nothing here Requires/Wants the services.
+render_recover_unit() {
+  local bindir; bindir="$(dirname "$BAFT_BIN")"
+  cat <<UNIT
+# baft-managed: true
+# baft-component: recover
+[Unit]
+Description=BAFT boot recovery (interrupted tunnel changes)
+DefaultDependencies=no
+After=local-fs.target
+Before=sysinit.target $BAFT_SERVICE.service $BAFT_AGENT_UNIT.service
+Conflicts=shutdown.target
+Before=shutdown.target
+ConditionPathExists=$BAFT_BIN
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+TimeoutStartSec=120
+NoNewPrivileges=true
+PrivateTmp=true
+ExecStart=$BAFT_BIN recover boot --config-dir $BAFT_CONFIG_DIR --state-dir $BAFT_STATE_DIR --unit-dir $BAFT_SYSTEMD_DIR --bin-dir $bindir --service $BAFT_SERVICE --service-user $BAFT_USER
+
+[Install]
+WantedBy=sysinit.target
+UNIT
+}
+
+# Writes the unit only when it is absent or already BAFT's own (never replaces a
+# foreign file of that name), then enables it. Failure is a warning: recovery is
+# an extra safety net, not a prerequisite of the install.
+install_recover_unit() {
+  if [[ -e "$BAFT_RECOVER_UNIT_FILE" ]] && ! grep -q '^# baft-component: recover' "$BAFT_RECOVER_UNIT_FILE" 2>/dev/null; then
+    warn "$BAFT_RECOVER_UNIT_FILE exists and is not BAFT's; boot recovery was not installed"
+    return 0
+  fi
+  local tmp; tmp="$(mktemp "$BAFT_RECOVER_UNIT_FILE.XXXXXX")" || { warn "cannot stage $BAFT_RECOVER_UNIT_FILE"; return 0; }
+  render_recover_unit >"$tmp"; chmod 0644 "$tmp"
+  if [[ -f "$BAFT_RECOVER_UNIT_FILE" ]] && cmp -s "$tmp" "$BAFT_RECOVER_UNIT_FILE"; then rm -f -- "$tmp"; else mv -f -- "$tmp" "$BAFT_RECOVER_UNIT_FILE"; fi
+  systemctl daemon-reload || warn "could not reload systemd for $BAFT_RECOVER_UNIT"
+  systemctl enable "$BAFT_RECOVER_UNIT" >/dev/null 2>&1 || warn "could not enable $BAFT_RECOVER_UNIT"
+}
+
+# Writes the helper, ensures the chain, and (only once the marker proves we
+# created it) installs the boot unit. A refusal is reported and the enrollment
+# continues: the agent then stays without the operational executor.
+install_ingress_chain() {
+  [[ "$INGRESS_CHAIN" == 1 ]] || return 0
+  if ! command -v "${BAFT_NFT_BIN:-nft}" >/dev/null 2>&1; then warn "nft is not installed; the managed ingress chain was not provisioned"; return 0; fi
+  install -d -m 0755 -o root -g root "$(dirname "$BAFT_INGRESS_HELPER")"
+  render_ingress_helper >"$BAFT_INGRESS_HELPER.tmp"
+  chown root:root "$BAFT_INGRESS_HELPER.tmp"; chmod 0755 "$BAFT_INGRESS_HELPER.tmp"
+  mv -f -- "$BAFT_INGRESS_HELPER.tmp" "$BAFT_INGRESS_HELPER"
+  local rc=0
+  BAFT_INGRESS_CHAIN_MARKER="$BAFT_INGRESS_MARKER" "$BAFT_INGRESS_HELPER" ensure || rc=$?
+  if [[ "$rc" != 0 ]]; then
+    warn "managed ingress chain NOT provisioned (helper exit $rc); the agent keeps operational ingress disabled"
+    return 0
+  fi
+  if [[ -f "$BAFT_INGRESS_MARKER" ]]; then
+    render_ingress_unit >"$BAFT_INGRESS_UNIT_FILE"; chmod 0644 "$BAFT_INGRESS_UNIT_FILE"
+    systemctl daemon-reload
+    systemctl enable "$BAFT_INGRESS_UNIT" >/dev/null 2>&1 || warn "could not enable $BAFT_INGRESS_UNIT"
+  fi
+}
+
+# Local root-only policy bootstrap; runs only when explicitly requested.
+provision_ingress_policy() {
+  [[ "$PROVISION_INGRESS_POLICY" == 1 ]] || return 0
+  "$BAFT_AGENT_BIN" --provision-ingress-policy --node-id "$BAFT_NODE_ID" || die "ingress policy bootstrap failed"
+  ok "managed ingress policy provisioned for $BAFT_NODE_ID"
+}
+
 install_agent() {
   [[ -d "$BAFT_AGENT_DIR" ]] || install -d -m 0700 -o root -g root "$BAFT_AGENT_DIR"
   [[ -d "$BAFT_AGENT_STATE_DIR" ]] || install -d -m 0700 -o root -g root "$BAFT_AGENT_STATE_DIR"
+  # The prepared-manifest store shares this root-owned private state directory.
+  # Refuse an old permissive or redirected directory instead of weakening the
+  # manifest store's ownership checks or silently changing existing ownership.
+  [[ ! -L "$BAFT_AGENT_STATE_DIR" && "$(stat -c '%u:%a' -- "$BAFT_AGENT_STATE_DIR")" == '0:700' ]] || die "agent state directory must be root-owned, private (0700), and not a symlink: $BAFT_AGENT_STATE_DIR"
   if [[ "$DO_TOKEN" == 1 ]]; then
     backup_file "$BAFT_AGENT_DIR/token"
     install -m 0600 -o root -g root "$AGENT_TOKEN_TMP" "$BAFT_AGENT_DIR/token"
@@ -2577,6 +2994,9 @@ install_agent() {
   if [[ "$DO_RESTART" == 1 || "$DO_START" == 1 ]]; then
     wait_active "$BAFT_AGENT_UNIT.service" 20 || die "verify: $BAFT_AGENT_UNIT.service is not running"
   fi
+  install_recover_unit
+  install_ingress_chain
+  provision_ingress_policy
   finalize_apply
   if [[ "$PLAN_CHANGES" == 0 ]]; then ok "baft-agent is already enrolled as $BAFT_NODE_ID; nothing was changed"
   else ok "baft-agent enrolled as $BAFT_NODE_ID with $BAFT_BCC_URL; add tunnels from BCC"; fi
@@ -2588,16 +3008,70 @@ install_agent() {
 # route tests. The installer offers to turn the tuning on once.
 BAFT_NET_SYSCTL="${BAFT_NET_SYSCTL:-/etc/sysctl.d/99-baft-net.conf}"
 
+# Shared numbered selector embedded in both installed management tools.
+# read -n handles terminal modes itself; no persistent stty changes or eval.
+write_menu_reader() {
+  cat <<'BAFT_MENU_READER'
+baft_menu_read() {
+  local result="$1"; shift
+  local selected=0 typed="" key="" seq="" cursor="" option number label match
+  local -a choices=("$@")
+  if [[ ! -t 0 || ! -t 2 || "${TERM:-dumb}" == dumb ]]; then
+    IFS= read -r -p "  Choose: " typed || return 1
+    printf -v "$result" '%s' "$typed"
+    return 0
+  fi
+  printf '  Up/Down or Tab/Shift+Tab: select; number + Enter; 0: exit\n' >&2
+  while :; do
+    option="${choices[$selected]}"
+    number="${option%%:*}"; label="${option#*:}"
+    printf '\r\033[2K  Choose [%s %s]: %s' "$number" "$label" "$typed" >&2
+    IFS= read -r -s -n 1 key || { printf '\n' >&2; return 1; }
+    case "$key" in
+      $'\t') typed=""; selected=$(( (selected + 1) % ${#choices[@]} )) ;;
+      $'\e')
+        seq=""
+        if IFS= read -r -s -n 1 -t 0.15 cursor && [[ "$cursor" == '[' || "$cursor" == O ]]; then
+          if IFS= read -r -s -n 1 -t 0.15 seq; then
+            case "$cursor$seq" in
+              '[A'|'OA'|'[Z') typed=""; selected=$(( (selected + ${#choices[@]} - 1) % ${#choices[@]} )) ;;
+              '[B'|'OB') typed=""; selected=$(( (selected + 1) % ${#choices[@]} )) ;;
+            esac
+          fi
+        fi
+        ;;
+      $'\177'|$'\b') typed="${typed%?}" ;;
+      "")
+        match="${typed:-$number}"
+        for option in "${choices[@]}"; do
+          if [[ "${option%%:*}" == "$match" ]]; then
+            printf -v "$result" '%s' "$match"
+            printf '\n' >&2
+            return 0
+          fi
+        done
+        printf '\n  Invalid choice; enter a listed number.\n' >&2
+        typed=""
+        ;;
+      [0-9]) [[ ${#typed} -ge 6 ]] || typed+="$key" ;;
+      *) printf '\n  Enter a listed number, or use Up/Down or Tab.\n' >&2 ;;
+    esac
+  done
+}
+BAFT_MENU_READER
+}
+
 write_net_tool() {
   local tmp dest="$1"
   tmp="$(mktemp)"; CLEANUP+=("$tmp")
   {
     printf '#!/usr/bin/env bash\n# baft-net: BBR, network tuning and quick tests. Written by the BAFT installer; a rerun replaces it.\n'
     printf 'SYSCTL_FILE=%q\n' "$BAFT_NET_SYSCTL"
+    write_menu_reader
     cat <<'NET'
 set -u
 [[ "${EUID}" -eq 0 ]] || { echo "run as root: sudo baft-net"; exit 1; }
-if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then G=$'\e[38;5;179m' B=$'\e[1m' M=$'\e[38;5;245m' OK=$'\e[38;5;78m' ER=$'\e[38;5;203m' R=$'\e[0m'
+if [[ -t 1 && "${TERM:-dumb}" != dumb && -z "${NO_COLOR:-}" ]]; then G=$'\e[38;5;179m' B=$'\e[1m' M=$'\e[38;5;245m' OK=$'\e[38;5;78m' ER=$'\e[38;5;203m' R=$'\e[0m'
 else G="" B="" M="" OK="" ER="" R=""; fi
 
 cc() { sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null; }
@@ -2612,13 +3086,70 @@ do_status() {
   printf '  kernel    %s\n' "$(uname -r)"
 }
 
-do_on() {
-  local bbr=1
+# Keep the original values beside the profile, never reload unrelated sysctls.
+# A legacy profile has no trustworthy before-image: refuse to guess its values.
+net_lock() {
+  local parent mode
+  NET_STATE="${SYSCTL_FILE}.state"
+  parent="$(dirname -- "$SYSCTL_FILE")"
+  if [[ -L "$SYSCTL_FILE" || -L "$NET_STATE" || ! -d "$parent" ]]; then
+    echo "  unsafe network profile/state path" >&2; return 1
+  fi
+  mode="$(stat -c %a -- "$parent")" || return 1
+  if [[ "$(stat -c %u -- "$parent")" != 0 ]] || (( (8#$mode & 0022) != 0 )); then
+    echo "  network profile parent must be root-owned and not writable by others" >&2; return 1
+  fi
+  if [[ ! -e "$NET_STATE" ]]; then (umask 077; mkdir -- "$NET_STATE") || return 1; fi
+  if [[ ! -d "$NET_STATE" || "$(stat -c %u:%a -- "$NET_STATE")" != 0:700 || -L "$NET_STATE/lock" ]]; then
+    echo "  unsafe network state directory" >&2; return 1
+  fi
+  exec {NET_LOCK_FD}>"$NET_STATE/lock" || return 1
+  flock -n "$NET_LOCK_FD" || { echo "  another network tuning operation is running" >&2; return 1; }
+}
+
+net_unlock() { flock -u "$NET_LOCK_FD"; exec {NET_LOCK_FD}>&-; }
+
+net_snapshot_valid() {
+  local snapshot="${1:-$NET_STATE/before.conf}" expected="${2:-}"
+  [[ -f "$snapshot" && ! -L "$snapshot" &&
+     "$(stat -c %u:%a -- "$snapshot")" == 0:600 ]] || return 1
+  # Never source saved data, and reject keys outside BAFT's small tuning set.
+  awk -F ' = ' -v expected="$expected" '
+    BEGIN { n=0 }
+    !/^(net[.]core[.](default_qdisc|rmem_max|wmem_max|somaxconn)|net[.]ipv4[.](tcp_congestion_control|tcp_rmem|tcp_wmem|tcp_mtu_probing|tcp_slow_start_after_idle|tcp_notsent_lowat|tcp_max_syn_backlog)) = [a-zA-Z0-9_[:blank:]-]+$/ { exit 1 }
+    { if (seen[$1]++) exit 1; n++ }
+    END {
+      split("net.core.rmem_max net.core.wmem_max net.ipv4.tcp_rmem net.ipv4.tcp_wmem net.ipv4.tcp_mtu_probing net.ipv4.tcp_slow_start_after_idle net.ipv4.tcp_notsent_lowat net.core.somaxconn net.ipv4.tcp_max_syn_backlog", required, " ")
+      for (i in required) if (!seen[required[i]]) exit 1
+      if (n != 9 && n != 11) exit 1
+      if (expected != "" && n != expected) exit 1
+    }
+  ' "$snapshot"
+}
+
+net_on_locked() {
+  local bbr=1 key value profile before
+  if [[ -e "$SYSCTL_FILE" ]]; then
+    if ! net_snapshot_valid; then
+      echo "  existing profile has no valid rollback snapshot; refusing to overwrite it" >&2; return 1
+    fi
+    echo "  BAFT tuning already has a rollback snapshot; use off before changing it"
+    return 0
+  fi
+  if [[ -e "$NET_STATE/before.conf" || -L "$NET_STATE/before.conf" ]]; then
+    echo "  pending rollback snapshot exists; run baft-net off first" >&2; return 1
+  fi
   bbr_available || bbr=0
-  {
-    echo "# Written by baft-net. Remove with: sudo baft-net off"
-    if [[ "$bbr" == 1 ]]; then echo "net.core.default_qdisc = fq"; echo "net.ipv4.tcp_congestion_control = bbr"; fi
-    cat <<'CONF'
+  profile="$(mktemp "$NET_STATE/profile.XXXXXX")" || return 1
+  before="$(mktemp "$NET_STATE/before.XXXXXX")" || { rm -f -- "$profile"; return 1; }
+  chmod 600 "$profile" "$before" || { rm -f -- "$profile" "$before"; return 1; }
+  if ! printf '%s\n' "# Written by baft-net. Remove with: sudo baft-net off" >"$profile"; then
+    rm -f -- "$profile" "$before"; return 1
+  fi
+  if [[ "$bbr" == 1 ]] && ! printf '%s\n' 'net.core.default_qdisc = fq' 'net.ipv4.tcp_congestion_control = bbr' >>"$profile"; then
+    rm -f -- "$profile" "$before"; return 1
+  fi
+  if ! cat >>"$profile" <<'CONF'
 net.core.rmem_max = 33554432
 net.core.wmem_max = 33554432
 net.ipv4.tcp_rmem = 4096 131072 33554432
@@ -2629,18 +3160,68 @@ net.ipv4.tcp_notsent_lowat = 16384
 net.core.somaxconn = 4096
 net.ipv4.tcp_max_syn_backlog = 8192
 CONF
-  } >"$SYSCTL_FILE"
-  sysctl -q -p "$SYSCTL_FILE" >/dev/null 2>&1 || true
+  then
+    rm -f -- "$profile" "$before"; return 1
+  fi
+  while IFS= read -r key; do
+    [[ "$key" == net.* ]] || continue
+    key="${key%% =*}"
+    if ! value="$(sysctl -n "$key")" || [[ ! "$value" =~ ^[a-zA-Z0-9_[:blank:]-]+$ ]]; then
+      echo "  cannot snapshot $key; no tuning was applied" >&2
+      rm -f -- "$profile" "$before"; return 1
+    fi
+    if ! printf '%s = %s\n' "$key" "$value" >>"$before"; then
+      echo "  cannot save network rollback snapshot; no tuning was applied" >&2
+      rm -f -- "$profile" "$before"; return 1
+    fi
+  done <"$profile"
+  if ! net_snapshot_valid "$before" "$((9 + 2*bbr))"; then
+    echo "  incomplete network rollback snapshot; no tuning was applied" >&2
+    rm -f -- "$profile" "$before"; return 1
+  fi
+  mv -- "$before" "$NET_STATE/before.conf" || { rm -f -- "$profile" "$before"; return 1; }
+  mv -- "$profile" "$SYSCTL_FILE" || { rm -f -- "$profile" "$NET_STATE/before.conf"; return 1; }
+  if ! sysctl -q -p "$SYSCTL_FILE"; then
+    echo "  network tuning failed; restoring the exact previous values" >&2
+    if sysctl -q -p "$NET_STATE/before.conf"; then
+      rm -f -- "$SYSCTL_FILE" && rm -f -- "$NET_STATE/before.conf"
+    else
+      echo "  rollback failed; snapshot retained; retry baft-net off" >&2
+    fi
+    return 1
+  fi
   [[ "$bbr" == 1 ]] || echo "  ${ER}this kernel has no BBR${R}; buffer tuning is on without it"
   do_status
 }
 
-do_off() {
-  rm -f "$SYSCTL_FILE"
-  sysctl -q -w net.ipv4.tcp_congestion_control=cubic >/dev/null 2>&1 || true
-  sysctl -q -w net.core.default_qdisc=fq_codel >/dev/null 2>&1 || true
-  sysctl -q --system >/dev/null 2>&1 || true
+do_on() {
+  local rc
+  net_lock || return 1
+  net_on_locked; rc=$?
+  net_unlock
+  return "$rc"
+}
+
+net_off_locked() {
+  if [[ ! -e "$SYSCTL_FILE" && ! -e "$NET_STATE/before.conf" ]]; then
+    echo "  no BAFT-owned network tuning file to remove"; return 0
+  fi
+  if ! net_snapshot_valid; then
+    echo "  no valid rollback snapshot; leaving the legacy profile and current values unchanged" >&2; return 1
+  fi
+  if ! sysctl -q -p "$NET_STATE/before.conf"; then
+    echo "  restore failed; profile and snapshot retained for retry" >&2; return 1
+  fi
+  rm -f -- "$SYSCTL_FILE" && rm -f -- "$NET_STATE/before.conf" || return 1
   do_status
+}
+
+do_off() {
+  local rc
+  net_lock || return 1
+  net_off_locked; rc=$?
+  net_unlock
+  return "$rc"
 }
 
 mbps() { awk -v b="$1" 'BEGIN{printf "%.1f Mbit/s", b*8/1000000}'; }
@@ -2650,27 +3231,28 @@ do_speed() {
   printf '  download  '
   out="$(curl -o /dev/null -sS --max-time 20 -w '%{size_download} %{speed_download}' 'https://speed.cloudflare.com/__down?bytes=25000000' 2>/dev/null)"; rc=$?
   read -r size speed <<<"$out"
-  if [[ "${size:-0}" =~ ^[0-9]+$ && "${size:-0}" -gt 0 ]]; then printf '%s%s%s  (%s bytes)\n' "$B" "$(mbps "${speed:-0}")" "$R" "$size"
+  if [[ "$rc" == 0 && "${size:-0}" =~ ^[0-9]+$ && "${size:-0}" -eq 25000000 && "${speed:-}" =~ ^[0-9]+([.][0-9]+)?$ ]]; then printf '%s%s%s  (%s bytes)\n' "$B" "$(mbps "${speed:-0}")" "$R" "$size"
   else printf '%sfailed%s\n' "$ER" "$R"; fi
   if [[ "$rc" != 0 && "${size:-0}" =~ ^[0-9]+$ && "${size:-0}" -gt 0 && "${size:-0}" -lt 65536 ]]; then
-    printf '  %sthe transfer stopped after %s bytes: foreign TCP looks cut on this server%s\n' "$ER" "${size:-0}" "$R"
+    printf '  %stransfer interrupted after %s bytes; cause unknown (check route, TLS, proxy and remote service)%s\n' "$ER" "${size:-0}" "$R"
   fi
   printf '  upload    '
-  out="$(head -c 10000000 /dev/zero | curl -o /dev/null -sS --max-time 20 -w '%{speed_upload}' --data-binary @- 'https://speed.cloudflare.com/__up' 2>/dev/null)" || true
-  if [[ "${out%%.*}" =~ ^[0-9]+$ && "${out%%.*}" -gt 0 ]]; then printf '%s%s%s\n' "$B" "$(mbps "$out")" "$R"; else printf '%sfailed%s\n' "$ER" "$R"; fi
+  out="$(head -c 10000000 /dev/zero | curl -o /dev/null -sS --max-time 20 -w '%{speed_upload}' --data-binary @- 'https://speed.cloudflare.com/__up' 2>/dev/null)" && rc=0 || rc=$?
+  if [[ "$rc" == 0 && "$out" =~ ^[0-9]+([.][0-9]+)?$ ]] && awk -v speed="$out" 'BEGIN { exit !(speed > 0) }'; then printf '%s%s%s\n' "$B" "$(mbps "$out")" "$R"; else printf '%sfailed%s\n' "$ER" "$R"; fi
 }
 
 do_latency() {
   local h t
   for h in 1.1.1.1 8.8.8.8 www.google.com github.com; do
-    if t="$(curl -o /dev/null -s --max-time 6 -w '%{time_connect}' "https://$h" 2>/dev/null)" && [[ -n "$t" ]]; then printf '  %-16s %s ms\n' "$h" "$(awk -v t="$t" 'BEGIN{printf "%.0f", t*1000}')"
+    if t="$(curl -o /dev/null -s --max-time 6 -w '%{time_connect}' "https://$h" 2>/dev/null)" && [[ "$t" =~ ^[0-9]+([.][0-9]+)?$ ]]; then printf '  %-16s %s ms\n' "$h" "$(awk -v t="$t" 'BEGIN{printf "%.0f", t*1000}')"
     else printf '  %-16s %sno answer%s\n' "$h" "$ER" "$R"; fi
   done
 }
 
 do_route() {
   local h
-  read -r -p "  Host or IP to trace [1.1.1.1]: " h; h="${h:-1.1.1.1}"
+  read -r -p "  Host or IP to trace [1.1.1.1]: " h || return 1
+  h="${h:-1.1.1.1}"
   if command -v mtr >/dev/null 2>&1; then mtr -rwc 10 "$h"
   elif command -v tracepath >/dev/null 2>&1; then tracepath -n "$h"
   else echo "  installing mtr"; apt-get -qq install -y mtr-tiny >/dev/null 2>&1 && mtr -rwc 10 "$h"; fi
@@ -2678,19 +3260,27 @@ do_route() {
 
 do_port() {
   local h p t
-  read -r -p "  Host or IP: " h; read -r -p "  Port [443]: " p; p="${p:-443}"
+  read -r -p "  Host or IP: " h || return 1
+  read -r -p "  Port [443]: " p || return 1
+  p="${p:-443}"
   [[ -n "$h" ]] || return 0
-  t="$(curl -o /dev/null -s --max-time 6 -w '%{time_connect}' "telnet://$h:$p" 2>/dev/null </dev/null)"
-  if [[ -n "$t" && "$t" != "0.000000" && "$t" != "0" ]]; then printf '  %s:%s %sopen%s  %s ms\n' "$h" "$p" "$OK" "$R" "$(awk -v t="$t" 'BEGIN{printf "%.0f", t*1000}')"
+  if [[ ! "$p" =~ ^[0-9]{1,5}$ ]] || ((10#$p < 1 || 10#$p > 65535)); then
+    echo "  invalid TCP port: enter a number from 1 to 65535" >&2
+    return 2
+  fi
+  t="$(curl -o /dev/null -s --max-time 6 -w '%{time_connect}' "telnet://$h:$p" 2>/dev/null </dev/null)" || t=""
+  if [[ "$t" =~ ^[0-9]+([.][0-9]+)?$ ]] && awk -v t="$t" 'BEGIN { exit !(t > 0) }'; then printf '  %s:%s %sopen%s  %s ms\n' "$h" "$p" "$OK" "$R" "$(awk -v t="$t" 'BEGIN{printf "%.0f", t*1000}')"
   else printf '  %s:%s %sno answer%s\n' "$h" "$p" "$ER" "$R"; fi
 }
 
 menu() {
   printf '\n  %s◆%s %sBAFT network%s  %sBBR %s%s\n\n' "$G$B" "$R" "$B" "$R" "$M" "$( [[ "$(cc)" == bbr ]] && echo on || echo off )" "$R"
   printf '   %s1%s  status\n   %s2%s  turn on BBR and tuning\n   %s3%s  turn off BBR and tuning\n' "$G" "$R" "$G" "$R" "$G" "$R"
-  printf '   %s4%s  speed test (also shows foreign TCP cut-off)\n   %s5%s  latency to well-known hosts\n' "$G" "$R" "$G" "$R"
+  printf '   %s4%s  speed test (download and upload)\n   %s5%s  latency to well-known hosts\n' "$G" "$R" "$G" "$R"
   printf '   %s6%s  route to a host (mtr)\n   %s7%s  is a port open on a host\n   %s0%s  exit\n\n' "$G" "$R" "$G" "$R" "$G" "$R"
-  local c; read -r -p "  Choose: " c; echo
+  local c
+  baft_menu_read c "1:status" "2:turn on tuning" "3:turn off tuning" "4:speed test" "5:latency" "6:route" "7:port" "0:exit" || return 0
+  echo
   case "$c" in
     1) do_status ;; 2) do_on ;; 3) do_off ;; 4) do_speed ;; 5) do_latency ;; 6) do_route ;; 7) do_port ;;
     0|"") exit 0 ;; *) echo "  type a number from the menu" ;;
@@ -2715,8 +3305,8 @@ net_setup() {
   [[ -f "$BAFT_NET_SYSCTL" || "${BAFT_TUNE_NETWORK:-}" == 0 ]] && return 0
   if [[ "${BAFT_TUNE_NETWORK:-}" != 1 ]]; then
     [[ "$ASK_TTY" == 1 ]] || return 0
-    ask a "$(printf '\n'; ui_ask_prompt "Turn on BBR and network tuning? (recommended; undo with: sudo baft-net off)" "[Y/n]")" || true
-    [[ "$a" == n || "$a" == N || "$a" == no ]] && return 0
+    ask a "$(printf '\n'; ui_ask_prompt "Turn on BBR and network tuning? (host-wide changes; undo with: sudo baft-net off)" "[y/N]")" || return 0
+    [[ "$a" == y || "$a" == Y || "$a" == yes ]] || return 0
   fi
   if "$dest" on >/dev/null 2>&1; then ok "BBR and network tuning are on ($( [[ "$(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null)" == bbr ]] && echo "BBR active" || echo "no BBR in this kernel" ))"
   else warn "network tuning could not be applied"; fi
@@ -2768,10 +3358,11 @@ write_panel_menu() {
     printf '#!/usr/bin/env bash\n# baft-panel: manage the BAFT panel. Written by the BAFT installer; a rerun replaces it.\n'
     printf 'BCC_BIN=%q\nACCESS_FILE=%q\nSERVICE=%q\nUNIT_FILE=%q\nINSTALLER=%q\nACME_HOME=%q\nRELEASE_STATE=%q\nNET_CMD=%q\n' \
       "$BAFT_BCC_BIN" "$BAFT_BCC_ACCESS_FILE" "$BAFT_BCC_SERVICE" "$BAFT_BCC_UNIT_FILE" "$BAFT_BCC_BOOTSTRAP_SCRIPT" "$BAFT_ACME_HOME" "$BAFT_RELEASE_STATE" "$(dirname "$BAFT_PANEL_CMD")/baft-net"
+    write_menu_reader
     cat <<'MENU'
 set -u
 [[ "${EUID}" -eq 0 ]] || { echo "run as root: sudo baft-panel"; exit 1; }
-if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then G=$'\e[38;5;179m' B=$'\e[1m' M=$'\e[38;5;245m' OK=$'\e[38;5;78m' ER=$'\e[38;5;203m' R=$'\e[0m'
+if [[ -t 1 && "${TERM:-dumb}" != dumb && -z "${NO_COLOR:-}" ]]; then G=$'\e[38;5;179m' B=$'\e[1m' M=$'\e[38;5;245m' OK=$'\e[38;5;78m' ER=$'\e[38;5;203m' R=$'\e[0m'
 else G="" B="" M="" OK="" ER="" R=""; fi
 
 arg() { sed -n 's/^ExecStart=//p' "$UNIT_FILE" 2>/dev/null | head -n1 | awk -v f="--$1" '{for(i=1;i<NF;i++) if($i==f){print $(i+1); exit}}'; }
@@ -2802,7 +3393,7 @@ do_link() {
 }
 do_reset() {
   local a
-  read -r -p "  Make a new link, username and password? Everyone is signed out. [y/N] " a
+  read -r -p "  Make a new link, username and password? Everyone is signed out. [y/N] " a || return 1
   [[ "$a" == y || "$a" == Y ]] || return 0
   local out p u pw
   out="$("$BCC_BIN" access regenerate --access-file "$ACCESS_FILE")" || { echo "  failed"; return 1; }
@@ -2815,7 +3406,7 @@ do_restart() { systemctl restart "$SERVICE" && sleep 1; do_status; }
 do_logs() { journalctl -u "$SERVICE" -n 60 --no-pager; }
 do_ssl() {
   local d port
-  read -r -p "  Domain for the panel, or Enter for this server's IP [$(public_ip)]: " d
+  read -r -p "  Domain for the panel, or Enter for this server's IP [$(public_ip)]: " d || return 1
   d="${d:-$(public_ip)}"
   port="$(arg listen)"; port="${port##*:}"
   [[ "$port" =~ ^[0-9]+$ && "$port" != 8080 ]] || port=""
@@ -2832,7 +3423,9 @@ menu() {
   printf '   %s1%s  status\n   %s2%s  show panel link and username\n   %s3%s  new login (link, username, password)\n' "$G" "$R" "$G" "$R" "$G" "$R"
   printf '   %s4%s  restart panel\n   %s5%s  panel logs\n   %s6%s  set domain / get SSL\n   %s7%s  renew SSL now\n' "$G" "$R" "$G" "$R" "$G" "$R" "$G" "$R"
   printf '   %s8%s  update panel to the latest release\n   %s9%s  network: BBR, speed and route tests\n   %s0%s  exit\n\n' "$G" "$R" "$G" "$R" "$G" "$R"
-  local c; read -r -p "  Choose: " c; echo
+  local c
+  baft_menu_read c "1:status" "2:panel link" "3:new login" "4:restart" "5:logs" "6:SSL" "7:renew SSL" "8:update" "9:network" "0:exit" || return 0
+  echo
   case "$c" in
     1) do_status ;; 2) do_link ;; 3) do_reset ;; 4) do_restart ;; 5) do_logs ;;
     6) do_ssl ;; 7) do_renew ;; 8) do_update ;; 9) "$NET_CMD" ;; 0|"") exit 0 ;; *) echo "  type a number from the menu" ;;
@@ -2904,7 +3497,23 @@ install_bcc() {
       die "verify: BCC job-signing key is invalid"
   fi
 
-  for f in "$BAFT_BCC_ADMIN_TOKEN_FILE" "$BAFT_BCC_ACCESS_FILE" "$BAFT_BCC_JOB_KEY_FILE"; do
+  if [[ "$DO_BCC_BACKUPKEY" == "1" ]]; then
+    backup_file "$BAFT_BCC_BACKUP_KEY_FILE"
+    tmp="$(mktemp)"; CLEANUP+=("$tmp")
+    openssl rand -base64 32 >"$tmp"
+    install -m 0600 -o root -g root "$tmp" "$BAFT_BCC_BACKUP_KEY_FILE"
+  fi
+  [[ "$(base64 -d "$BAFT_BCC_BACKUP_KEY_FILE" 2>/dev/null | wc -c)" == 32 ]] ||
+    die "verify: $BAFT_BCC_BACKUP_KEY_FILE must hold a base64-encoded 32-byte key"
+
+  if [[ "$DO_BCC_ROOTPIN" == "1" ]]; then
+    backup_file "$BAFT_BCC_UPDATE_ROOT_FILE"
+    tmp="$(mktemp)"; CLEANUP+=("$tmp")
+    printf '%s\n' "$BAFT_ROOT_PUB" >"$tmp"
+    install -m 0644 -o root -g root "$tmp" "$BAFT_BCC_UPDATE_ROOT_FILE"
+  fi
+
+  for f in "$BAFT_BCC_ADMIN_TOKEN_FILE" "$BAFT_BCC_ACCESS_FILE" "$BAFT_BCC_JOB_KEY_FILE" "$BAFT_BCC_BACKUP_KEY_FILE"; do
     [[ "$(stat -c '%a %U' "$f" 2>/dev/null)" == "600 root" ]] ||
       die "verify: $f must be root-owned mode 0600"
   done
@@ -3205,8 +3814,10 @@ else
   if [[ "$PLAN_CHANGES" == 0 ]]; then ok "already installed and current; nothing was changed"
   else ok "$BAFT_SERVICE.service is running"; fi
 fi
+install_recover_unit
 ok "baft is installed: $BAFT_BIN and $BAFT_PAIR_BIN"
 net_setup "$(dirname "$BAFT_BIN")"
+dns_failover_setup
 if [[ "$UI" == 1 ]]; then
   phase "Done" "what is running and where to look"
   _st="$(systemctl is-active "$BAFT_SERVICE.service" 2>/dev/null || true)"

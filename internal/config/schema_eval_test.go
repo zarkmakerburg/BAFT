@@ -156,6 +156,14 @@ func TestSchemaAndValidateAgree(t *testing.T) {
 		{"noise listener with both key forms", "ex", func(d doc) {
 			d["noise"] = doc{"key_file": "/etc/baft/noise-key.json", "peer_public_key": key(1), "allowed_peer_public_keys": doc{"urn:baft:node:ir-01": key(1)}}
 		}, false},
+		{"require_capabilities carrier", "ex", func(d doc) { d["transport"].(doc)["require_capabilities"] = []any{"carrier.h2"} }, true},
+		{"require_capabilities noise", "ir", func(d doc) {
+			d["noise"] = doc{"key_file": "/etc/baft/noise-key.json", "peer_public_key": key(1)}
+			d["transport"].(doc)["require_capabilities"] = []any{"noise.v1"}
+		}, true},
+		{"require_capabilities unknown token", "ex", func(d doc) { d["transport"].(doc)["require_capabilities"] = []any{"noise"} }, false},
+		{"require_capabilities case alias", "ex", func(d doc) { d["transport"].(doc)["require_capabilities"] = []any{"Carrier.H2"} }, false},
+		{"require_capabilities duplicate", "ex", func(d doc) { d["transport"].(doc)["require_capabilities"] = []any{"carrier.h2", "carrier.h2"} }, false},
 		{"noise dialer", "ir", func(d doc) { d["noise"] = doc{"key_file": "/etc/baft/noise-key.json", "peer_public_key": key(1)} }, true},
 		{"noise dialer without client certificate", "ir", func(d doc) {
 			d["noise"] = doc{"key_file": "/etc/baft/noise-key.json", "peer_public_key": key(1)}

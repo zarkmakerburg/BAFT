@@ -1,0 +1,458 @@
+// Package publicingress provides an isolated TCP forwarding runtime. It does
+// not reserve ports in BCC, authorize jobs, manage ownership or change firewall
+// policy. A bound listener is not proof of public reachability or tunnel health.
+package publicingress
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"net/netip"
+	"strconv"
+	"sync"
+	"sync/atomic"
+	"time"
+)
+
+// Probe frame shared with BCC's IngressObserver: ProbePrefix + 32 lowercase hex
+// characters + "\n". The responder echoes exactly the frame it received.
+const (
+	ProbePrefix   = "BAFT-INGRESS-PROBE/1 "
+	ProbeNonceLen = 32
+	ProbeFrameLen = len(ProbePrefix) + ProbeNonceLen + 1
+
+	// probePeekWindow is the TOTAL time a new client may take to reveal its
+	// first bytes before the connection is treated as ordinary traffic.
+	probePeekWindow = 50 * time.Millisecond
+	probePeekBuffer = 64
+	probeWriteLimit = 250 * time.Millisecond
+
+	probeBurst      = 5
+	probeRefill     = time.Second
+	probeMaxSources = 4096
+	// A bucket idle for probeBurst*probeRefill has fully refilled, so dropping
+	// it loses no limiting state. This keeps the bounded table reclaimable.
+	probeSourceStale = probeBurst * probeRefill
+)
+
+// probeBytePossible reports whether b may sit at offset i of a probe frame.
+func probeBytePossible(i int, b byte) bool {
+	switch {
+	case i < len(ProbePrefix):
+		return b == ProbePrefix[i]
+	case i < ProbeFrameLen-1:
+		return (b >= '0' && b <= '9') || (b >= 'a' && b <= 'f')
+	default:
+		return b == '\n'
+	}
+}
+
+// IsProbeFrame is the strict validator: exactly the frame, nothing after it.
+func IsProbeFrame(b []byte) bool {
+	if len(b) != ProbeFrameLen {
+		return false
+	}
+	for i, c := range b {
+		if !probeBytePossible(i, c) {
+			return false
+		}
+	}
+	return true
+}
+
+type probeBucket struct {
+	tokens float64
+	last   time.Time
+}
+
+// probeLimiter is a bounded per-source token bucket.
+type probeLimiter struct {
+	mu      sync.Mutex
+	sources map[netip.Addr]*probeBucket
+}
+
+// probeKey collapses IPv6 sources to their /64 so one subscriber prefix, which
+// can mint 2^64 addresses, counts as a single source and cannot exhaust the
+// bounded table (a full table fails closed and would deny BCC's own probe).
+func probeKey(src netip.Addr) netip.Addr {
+	src = src.Unmap()
+	if src.Is6() {
+		if p, err := src.Prefix(64); err == nil {
+			return p.Addr()
+		}
+	}
+	return src
+}
+
+func (l *probeLimiter) allow(src netip.Addr, now time.Time) bool {
+	src = probeKey(src)
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.sources == nil {
+		l.sources = make(map[netip.Addr]*probeBucket)
+	}
+	b := l.sources[src]
+	if b == nil {
+		if len(l.sources) >= probeMaxSources {
+			for k, v := range l.sources {
+				if now.Sub(v.last) > probeSourceStale {
+					delete(l.sources, k)
+				}
+			}
+			if len(l.sources) >= probeMaxSources {
+				return false // fail closed rather than grow without bound
+			}
+		}
+		b = &probeBucket{tokens: probeBurst, last: now}
+		l.sources[src] = b
+	} else {
+		b.tokens += float64(now.Sub(b.last)) / float64(probeRefill)
+		if b.tokens > probeBurst {
+			b.tokens = probeBurst
+		}
+		b.last = now
+	}
+	if b.tokens < 1 {
+		return false
+	}
+	b.tokens--
+	return true
+}
+
+type Config struct {
+	Listen      string
+	Target      string
+	MaxClients  int
+	DialTimeout time.Duration
+	IdleTimeout time.Duration // Maximum silence across both directions; zero uses 5 minutes
+}
+
+// Forwarder owns one listener while running. The configuration is immutable;
+// each admitted client forwards to exactly one literal loopback endpoint.
+type Forwarder struct {
+	cfg           Config
+	listenIP      net.IP
+	listenPort    int
+	listenNetwork string
+	targetNetwork string
+	mu            sync.Mutex
+	running       bool
+	active        atomic.Int64
+	rejected      atomic.Uint64
+	probes        probeLimiter
+}
+
+func literalEndpoint(raw string) (net.IP, int, error) {
+	host, portText, err := net.SplitHostPort(raw)
+	if err != nil {
+		return nil, 0, errors.New("endpoint requires a literal IP and explicit port")
+	}
+	ip := net.ParseIP(host)
+	port, portErr := strconv.Atoi(portText)
+	if ip == nil || portErr != nil || port < 1 || port > 65535 {
+		return nil, 0, errors.New("endpoint requires a literal IP and port between 1 and 65535")
+	}
+	return ip, port, nil
+}
+
+func New(cfg Config) (*Forwarder, error) {
+	ip, port, err := literalEndpoint(cfg.Listen)
+	if err != nil {
+		return nil, fmt.Errorf("listen: %w", err)
+	}
+	// Port 443 is an explicitly approved LAB ingress exception. Other
+	// privileged ports remain fenced (including SSH management port 22).
+	// The OS independently enforces permission to bind port 443.
+	if port < 1024 && port != 443 {
+		return nil, errors.New("privileged listen port is not allowed (except 443)")
+	}
+	// An ordinary service's public port is not a permanent magic number.
+	// The kernel refuses conflicts with live listeners. Persisted claims and
+	// stopped-service ownership must be verified by the admission layer.
+	if !ip.IsUnspecified() && !ip.IsGlobalUnicast() && !ip.IsLoopback() {
+		return nil, errors.New("listen IP must be unicast, loopback or wildcard")
+	}
+	target, targetPort, err := literalEndpoint(cfg.Target)
+	if err != nil {
+		return nil, fmt.Errorf("target: %w", err)
+	}
+	if !target.IsLoopback() {
+		return nil, errors.New("target must be a literal loopback IP")
+	}
+	if targetPort == 22 {
+		return nil, errors.New("target port 22 is reserved for SSH management")
+	}
+	if port == targetPort {
+		return nil, errors.New("listen and target ports must differ to prevent forwarding loops")
+	}
+	if cfg.MaxClients == 0 {
+		cfg.MaxClients = 128
+	}
+	if cfg.MaxClients < 1 || cfg.MaxClients > 1024 {
+		return nil, errors.New("max clients must be between 1 and 1024")
+	}
+	if cfg.DialTimeout == 0 {
+		cfg.DialTimeout = 3 * time.Second
+	}
+	if cfg.DialTimeout < 10*time.Millisecond || cfg.DialTimeout > 10*time.Second {
+		return nil, errors.New("dial timeout must be between 10ms and 10s")
+	}
+	if cfg.IdleTimeout == 0 {
+		cfg.IdleTimeout = 5 * time.Minute
+	}
+	if cfg.IdleTimeout < 50*time.Millisecond || cfg.IdleTimeout > 30*time.Minute {
+		return nil, errors.New("idle timeout must be between 50ms and 30m")
+	}
+	cfg.Listen = net.JoinHostPort(ip.String(), strconv.Itoa(port))
+	cfg.Target = net.JoinHostPort(target.String(), strconv.Itoa(targetPort))
+	network := func(ip net.IP) string {
+		if ip.To4() != nil {
+			return "tcp4"
+		}
+		return "tcp6"
+	}
+	return &Forwarder{cfg: cfg, listenIP: ip, listenPort: port, listenNetwork: network(ip), targetNetwork: network(target)}, nil
+}
+
+func (f *Forwarder) ActiveConnections() int64    { return f.active.Load() }
+func (f *Forwarder) RejectedConnections() uint64 { return f.rejected.Load() }
+
+// Run binds only the configured endpoint. A bind conflict leaves the existing
+// listener untouched. Context cancellation is a clean shutdown, not an error.
+func (f *Forwarder) Run(ctx context.Context) error {
+	if ctx == nil {
+		return errors.New("ingress context is required")
+	}
+	if ctx.Err() != nil {
+		return nil
+	}
+	var lc net.ListenConfig
+	ln, err := lc.Listen(ctx, f.listenNetwork, f.cfg.Listen)
+	if err != nil {
+		if ctx.Err() != nil {
+			return nil
+		}
+		return fmt.Errorf("ingress listen: %w", err)
+	}
+	defer ln.Close()
+	return f.Serve(ctx, ln)
+}
+
+// ValidateListener is read-only admission for a caller-owned bound socket.
+// A failed preflight never changes or closes the listener. This lets the
+// ingress runtime reject a foreign numeric-port owner BEFORE it persists a
+// generation-fenced ownership claim or acknowledges the operation.
+// A successful snapshot is NOT a durable reservation against later binds.
+func (f *Forwarder) ValidateListener(ln net.Listener) error {
+	if f == nil {
+		return errors.New("ingress forwarder is required")
+	}
+	if ln == nil {
+		return errors.New("ingress listener is required")
+	}
+	addr, ok := ln.Addr().(*net.TCPAddr)
+	if !ok || addr.Port != f.listenPort || !addr.IP.Equal(f.listenIP) {
+		return errors.New("listener does not match configured ingress endpoint")
+	}
+	// Inspect both Linux TCP socket tables; unlike net.Listen success this
+	// detects another live owner on a different IP or address family.
+	return verifyNoOtherLiveTCPListeners(ln, f.listenPort)
+}
+
+// Serve takes ownership of an already-bound matching TCP listener after
+// validation. A rejected or mismatched listener remains the caller's resource.
+// This also allows tests to retain socket ownership without bind/close races.
+func (f *Forwarder) Serve(parent context.Context, ln net.Listener) error {
+	if parent == nil {
+		return errors.New("ingress context is required")
+	}
+	if parent.Err() != nil {
+		// Like Run on an already-canceled context, this is a clean
+		// shutdown. No listener was accepted or owned, so it remains
+		// the caller's responsibility to close it.
+		return nil
+	}
+	if err := f.ValidateListener(ln); err != nil {
+		return err
+	}
+	f.mu.Lock()
+	if f.running {
+		f.mu.Unlock()
+		return errors.New("ingress forwarder is already running")
+	}
+	f.running = true
+	f.mu.Unlock()
+	defer func() { f.mu.Lock(); f.running = false; f.mu.Unlock() }()
+	ctx, cancel := context.WithCancel(parent)
+	var clients sync.WaitGroup
+	stopListener := context.AfterFunc(ctx, func() { _ = ln.Close() })
+	// Periodically recheck for foreign listeners on the same numeric port.
+	// A successful bind or initial inventory snapshot alone is insufficient:
+	// another process may later bind a different IP/family.
+	liveFailures := make(chan error, 1)
+	watchDone := watchLiveTCPListener(ctx, f, ln, liveFailures)
+	defer func() { cancel(); _ = ln.Close(); clients.Wait(); stopListener(); <-watchDone }()
+	slots := make(chan struct{}, f.cfg.MaxClients)
+	for {
+		client, err := ln.Accept()
+		if err != nil {
+			// On conflict, the watchdog sends its evidence before closing
+			// our listener. Report a hard ownership error instead of
+			// treating it as an ordinary graceful shutdown.
+			select {
+			case liveErr := <-liveFailures:
+				return liveErr
+			default:
+			}
+			if ctx.Err() != nil {
+				return nil
+			}
+			return fmt.Errorf("ingress accept: %w", err)
+		}
+		if ctx.Err() != nil {
+			_ = client.Close()
+			return nil
+		}
+		select {
+		case slots <- struct{}{}:
+			f.active.Add(1)
+			clients.Go(func() {
+				release := sync.OnceFunc(func() { <-slots; f.active.Add(-1) })
+				defer release()
+				f.forwardSlot(ctx, client, release)
+			})
+		default:
+			f.rejected.Add(1)
+			_ = client.Close()
+		}
+	}
+}
+
+// activityReader records successful stream reads, regardless of direction.
+// An idle peer cannot indefinitely exhaust the bounded connection budget.
+// The window is refreshed by real bytes, not by a connection merely staying
+// open; a write stalled by backpressure eventually expires too.
+type activityReader struct {
+	io.Reader
+	touch func()
+}
+
+func (r activityReader) Read(p []byte) (int, error) {
+	n, err := r.Reader.Read(p)
+	if n > 0 {
+		r.touch()
+	}
+	return n, err
+}
+
+func (f *Forwarder) forward(ctx context.Context, client net.Conn) {
+	f.forwardSlot(ctx, client, func() {})
+}
+
+// forwardSlot serves one client. release returns the admission slot and runs
+// BEFORE the client connection is closed, so a peer that observes the close
+// (EOF) and immediately reconnects can never be refused because this
+// connection's slot was still held. Serve also defers release (idempotent).
+func (f *Forwarder) forwardSlot(ctx context.Context, client net.Conn, release func()) {
+	defer client.Close()
+	defer release()
+	stopClient := context.AfterFunc(ctx, func() { _ = client.Close() })
+	defer stopClient()
+	peeked, isProbe := f.peekFirstBytes(client)
+	if isProbe {
+		f.answerProbe(client, peeked)
+		return
+	}
+	dialer := net.Dialer{Timeout: f.cfg.DialTimeout}
+	upstream, err := dialer.DialContext(ctx, f.targetNetwork, f.cfg.Target)
+	if err != nil {
+		return
+	}
+	defer upstream.Close()
+	stopUpstream := context.AfterFunc(ctx, func() { _ = upstream.Close() })
+	defer stopUpstream()
+	// One idle budget covers traffic in either direction. Timeout closes both
+	// peers to release io.Copy goroutines and the admission slot. Successful
+	// reads reset the timer; inactivity cannot keep a slot indefinitely.
+	idle := time.AfterFunc(f.cfg.IdleTimeout, func() {
+		_ = client.Close()
+		_ = upstream.Close()
+	})
+	defer idle.Stop()
+	touch := func() { idle.Reset(f.cfg.IdleTimeout) }
+	if len(peeked) > 0 {
+		// Peeked bytes go first, unmodified, before any further client data.
+		_ = upstream.SetWriteDeadline(time.Now().Add(f.cfg.IdleTimeout))
+		if _, err := upstream.Write(peeked); err != nil {
+			return
+		}
+		_ = upstream.SetWriteDeadline(time.Time{})
+		touch()
+	}
+	// EOF half-closes only the destination write side. The opposite direction
+	// stays alive until its own EOF; request EOF may trigger a delayed response.
+	copyDirection := func(dst, src net.Conn) {
+		if _, err := io.Copy(dst, activityReader{Reader: src, touch: touch}); err != nil {
+			_ = client.Close()
+			_ = upstream.Close()
+			return
+		}
+		if tcp, ok := dst.(interface{ CloseWrite() error }); ok {
+			if err := tcp.CloseWrite(); err == nil {
+				return
+			}
+		}
+		_ = client.Close()
+		_ = upstream.Close()
+	}
+	done := make(chan struct{})
+	go func() { defer close(done); copyDirection(client, upstream) }()
+	copyDirection(upstream, client)
+	<-done
+}
+
+// peekFirstBytes reads the client's first bytes for at most probePeekWindow in
+// total. It stops early once the bytes cannot be a probe frame, so ordinary
+// clients that speak first are not delayed; only silent clients or clients
+// whose bytes so far are a valid probe prefix wait (at most the window). The
+// deadline is always cleared, and a timeout is not an error. It reports true
+// only for an exact probe frame with nothing after it.
+func (f *Forwarder) peekFirstBytes(client net.Conn) ([]byte, bool) {
+	var buf [probePeekBuffer]byte
+	n := 0
+	_ = client.SetReadDeadline(time.Now().Add(probePeekWindow))
+	defer func() { _ = client.SetReadDeadline(time.Time{}) }()
+	for n < len(buf) {
+		m, err := client.Read(buf[n:])
+		for i := n; i < n+m; i++ {
+			if i >= ProbeFrameLen || !probeBytePossible(i, buf[i]) {
+				return append([]byte(nil), buf[:n+m]...), false
+			}
+		}
+		n += m
+		if n == ProbeFrameLen {
+			return append([]byte(nil), buf[:n]...), true
+		}
+		if err != nil {
+			break
+		}
+	}
+	return append([]byte(nil), buf[:n]...), false
+}
+
+// answerProbe echoes the identical frame, rate limited per source IP. A
+// limited probe is dropped (closed) and never forwarded to the target.
+func (f *Forwarder) answerProbe(client net.Conn, frame []byte) {
+	ta, ok := client.RemoteAddr().(*net.TCPAddr)
+	if !ok {
+		return
+	}
+	src, ok := netip.AddrFromSlice(ta.IP)
+	if !ok || !f.probes.allow(src.Unmap(), time.Now()) {
+		return
+	}
+	_ = client.SetWriteDeadline(time.Now().Add(probeWriteLimit))
+	_, _ = client.Write(frame)
+}

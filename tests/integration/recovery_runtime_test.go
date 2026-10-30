@@ -42,6 +42,11 @@ type cutProxy struct {
 func newCutProxy(t *testing.T,target string)*cutProxy{
 	t.Helper()
 	ln,err:=net.Listen("tcp","127.0.0.1:0");if err!=nil{t.Fatal(err)}
+	return newCutProxyWithListener(t,target,ln)
+}
+
+func newCutProxyWithListener(t *testing.T,target string,ln net.Listener)*cutProxy{
+	t.Helper()
 	p:=&cutProxy{ln:ln,target:target,conns:map[net.Conn]uint64{},logf:t.Logf}
 	go p.serve()
 	return p

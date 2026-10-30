@@ -28,6 +28,7 @@ type PlanGate struct {
 type PlanNode struct {
 	NodeID         string   `json:"node_id"`
 	Role           string   `json:"role"` // ex or ir
+	InstanceID     string   `json:"instance_id,omitempty"`
 	GenerationFrom int      `json:"generation_from"`
 	GenerationTo   int      `json:"generation_to"`
 	GenerationNote string   `json:"generation_note,omitempty"`
@@ -87,6 +88,11 @@ func setAppliedGeneration(n *Node, instance string, generation int) {
 func (s *Store) BuildPlan(req TunnelRequest, now time.Time) (Plan, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	// Keep evidence validation and plan construction under the same Store
+	// lock so the request is reviewed against one coherent state snapshot.
+	if err := s.validateAutoSelectEvidenceLocked(req, now); err != nil {
+		return Plan{}, err
+	}
 	return s.buildPlanLocked(req, now)
 }
 
@@ -95,29 +101,30 @@ func (s *Store) buildPlanLocked(req TunnelRequest, now time.Time) (Plan, error) 
 	if err != nil {
 		return Plan{}, err
 	}
-	gen := func(n Node) (from, to int, note string) {
-		g := expectedGeneration(n, t.InstanceID)
+	gen := func(n Node, nodeID string) (from, to int, note string) {
+		g := expectedGeneration(n, t.instanceForNode(nodeID))
 		if g.Bootstrap {
 			return g.From, g.To, "bootstrap: BCC has not verified a generation for this node yet; the node's own counter must be one step ahead and is recorded"
 		}
 		return g.From, g.To, ""
 	}
-	exFrom, exTo, exNote := gen(ex)
-	irFrom, irTo, irNote := gen(ir)
+	exFrom, exTo, exNote := gen(ex, ex.ID)
+	irFrom, irTo, irNote := gen(ir, ir.ID)
 	peer := net.JoinHostPort(t.PublicAddress, strconv.Itoa(t.Port))
 	p := Plan{
 		Request: TunnelRequest{
-			Engine: req.Engine, InstanceID: t.InstanceID, AllowLegacyCoexistence: req.AllowLegacyCoexistence, EXNode: t.EXNode, IRNode: t.IRNode, PublicAddress: t.PublicAddress, Port: t.Port, Target: t.Target,
+			Engine: req.Engine, InstanceID: t.InstanceID, IRInstanceID: t.IRInstanceID, JoinExistingTunnelID: t.JoinOwnerID, AllowLegacyCoexistence: req.AllowLegacyCoexistence, EXNode: t.EXNode, IRNode: t.IRNode, PublicAddress: t.PublicAddress, Port: t.Port, ClientPort: t.ClientPort, Target: t.Target,
 			RouteListen: t.RouteListen, RouteID: t.RouteID, EXMetricsListen: t.EXMetricsListen, IRMetricsListen: t.IRMetricsListen,
-			RecordShaping: t.RecordShaping,
+			RecordShaping:      t.RecordShaping,
+			AutoSelectEvidence: req.AutoSelectEvidence,
 		},
 		Nodes: []PlanNode{
-			{NodeID: ex.ID, Role: "ex", GenerationFrom: exFrom, GenerationTo: exTo, GenerationNote: exNote, Changes: []string{
+			{NodeID: ex.ID, Role: "ex", InstanceID: t.instanceForNode(ex.ID), GenerationFrom: exFrom, GenerationTo: exTo, GenerationNote: exNote, Changes: []string{
 				fmt.Sprintf("listener config: 0.0.0.0:%d, route %s exits to the fixed target %s", t.Port, t.RouteID, t.Target),
 				"outer-TLS key material and Noise key ensured for " + t.PublicAddress,
 				"service unit written and (re)started; previous config and unit backed up",
 			}},
-			{NodeID: ir.ID, Role: "ir", GenerationFrom: irFrom, GenerationTo: irTo, GenerationNote: irNote, Changes: []string{
+			{NodeID: ir.ID, Role: "ir", InstanceID: t.instanceForNode(ir.ID), GenerationFrom: irFrom, GenerationTo: irTo, GenerationNote: irNote, Changes: []string{
 				fmt.Sprintf("dialer config: local route %s on %s, peer %s", t.RouteID, t.RouteListen, peer),
 				"Noise key ensured; pairing reply produced from the EX's one-time code",
 				"service unit written and (re)started; previous config and unit backed up",
@@ -139,6 +146,33 @@ func (s *Store) buildPlanLocked(req TunnelRequest, now time.Time) (Plan, error) 
 			"any failure, timeout or cancel before finalize restores, on every node that reached a step: previous config, unit, service state and generation",
 			"IR is restored first, then EX",
 		},
+	}
+	if t.JoinOwnerID != "" {
+		p.Nodes[0].Changes = []string{
+			fmt.Sprintf("preserve the physical EX listener owned by tunnel %s at 0.0.0.0:%d", t.JoinOwnerID, t.Port),
+			fmt.Sprintf("add only tenant route %s to the fixed target %s", t.RouteID, t.Target),
+			"verify the shared owner marker and advance its accepted config, unit and generation baseline",
+		}
+		p.Steps = []string{
+			"prepare a one-time pairing on the existing EX listener without changing its live config",
+			"prepare the new IR dialer",
+			"add only the new authenticated peer and route to the shared EX listener",
+			"commit the new IR dialer",
+			"health check IR then EX",
+			"observe both nodes and compare the new tenant with this plan",
+			"finalize IR then EX and delete one-time secrets",
+		}
+		p.Verify = []string{
+			"the physical EX listener remains owned by the selected owner tunnel",
+			"the new authenticated peer and route match the reviewed tenant request",
+			"existing owner and sibling tenants remain active and their shared EX baseline advances",
+			"the new IR service and route are active and match the reviewed plan",
+		}
+		p.Rollback = []string{
+			"on failure before finalize, remove only the new tenant and restore the shared EX before-images without retiring the listener",
+			"restore the new IR's previous config, unit, service state and generation",
+			"existing owner and sibling tenants remain attached to the physical listener",
+		}
 	}
 	gate := func(name, status, detail string) {
 		p.Gates = append(p.Gates, PlanGate{Name: name, Status: status, Detail: detail})
@@ -169,7 +203,8 @@ func (s *Store) buildPlanLocked(req TunnelRequest, now time.Time) (Plan, error) 
 		if other.Phase == TunnelActive && req.AllowLegacyCoexistence && t.InstanceID != "" && other.InstanceID == "" && tunnelsShareNode(t, other) {
 			gate("keeps legacy tunnel active", "WARN", "explicit independent instance: "+id+" stays active; new instance must pass isolated listener and runtime health checks")
 		}
-		if other.Phase == TunnelActive && sameManagedSlot(t, other) {
+		sharedJoinMember := t.JoinOwnerID != "" && (id == t.JoinOwnerID || other.JoinOwnerID == t.JoinOwnerID)
+		if other.Phase == TunnelActive && sameManagedSlot(t, other) && !sharedJoinMember {
 			p.Replaces = id
 			gate("replaces active tunnel", "WARN", id+" owns the same BAFT instance and becomes superseded when this one is active; sibling instances remain active")
 		}

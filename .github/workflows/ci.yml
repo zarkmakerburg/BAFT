@@ -37,6 +37,12 @@ jobs:
         run: |
           set -o pipefail
           go test ./... 2>&1 | tee "$RUNNER_TEMP/go-test.log"
+      - name: Privileged network rollback sandbox
+        # Compile unprivileged, then execute only the isolated fake-sysctl test.
+        # The normal suite runs as runner and otherwise skips this root guard.
+        run: |
+          go test -c -o "$RUNNER_TEMP/baft-installer.test" ./tests/installer
+          sudo env BAFT_REQUIRE_NETWORK_TESTS=1 "$RUNNER_TEMP/baft-installer.test" -test.run '^TestNetworkToolRuntimeRollback$' -test.v
       - name: Report failing tests
         # Job logs are not always retrievable; annotations are.
         if: failure()
@@ -190,6 +196,8 @@ jobs:
         run: BIN_DIR="$RUNNER_TEMP/bin" tests/e2e/pair_and_run.sh
       - name: Pair and pass traffic (record shaping)
         run: BIN_DIR="$RUNNER_TEMP/bin" E2E_RECORD_SHAPING=1 tests/e2e/pair_and_run.sh
+      - name: Shared EX listener, two tunnels (live tenant join)
+        run: BIN_DIR="$RUNNER_TEMP/bin" tests/e2e/shared_multiplex.sh
       - name: WebSocket carrier (transport=ws, Cloudflare path)
         run: tests/e2e/ws_carrier.sh
       - name: WebSocket carrier with uTLS fingerprint (ECDSA cert)
@@ -428,6 +436,10 @@ jobs:
         run: sudo git config --system --add safe.directory '*'
       - name: Failure-injection and pre-confirmation checks
         run: sudo env "PATH=$PATH" "HOME=$HOME" tests/e2e/installer_faults.sh
+      - name: Installer ingress chain (private netns)
+        run: |
+          sudo apt-get install -y -qq nftables
+          sudo tests/e2e/installer_ingress_chain.sh
 
   e2e-install-release:
     # The production path: install.sh downloads a signed release (built here

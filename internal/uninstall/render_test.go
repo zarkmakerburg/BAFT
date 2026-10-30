@@ -104,6 +104,10 @@ func TestAgentUnitMatchesInstaller(t *testing.T) {
 			if got := renderAgentUnit(p); got != want {
 				t.Fatalf("Go render differs:\n--- go\n%s\n--- sh\n%s", got, want)
 			}
+			legacy := strings.Replace(want, " --ingress-manifest-dir /var/lib/baft-agent", "", 1)
+			if old, ok := installerAgentParams(legacy); !ok || old.IngressManifest || renderAgentUnit(old) != legacy {
+				t.Fatal("previous installer agent unit lost ownership recognition")
+			}
 			if p.NodeID != "ex-1" || p.AgentDir != "/etc/baft-agent" || p.ReleaseState != "/opt/baft/release-state.json" {
 				t.Fatalf("params %+v", p)
 			}
@@ -119,7 +123,13 @@ func TestAgentUnitMatchesInstaller(t *testing.T) {
 func TestCopyTreeKeepsModesAndLinks(t *testing.T) {
 	src := t.TempDir() + "/src"
 	os.MkdirAll(src+"/sub", 0o750)
-	os.WriteFile(src+"/sub/a", []byte("a"), 0o640)
+	if err := os.WriteFile(src+"/sub/a", []byte("a"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	// WriteFile applies umask; set the fixture mode explicitly.
+	if err := os.Chmod(src+"/sub/a", 0o640); err != nil {
+		t.Fatal(err)
+	}
 	os.WriteFile(src+"/b", []byte("bb"), 0o600)
 	os.Symlink("sub/a", src+"/link")
 	dst := t.TempDir() + "/dst"
@@ -158,6 +168,9 @@ func TestBCCUnitFromInstallerIsRecognized(t *testing.T) {
 		"BAFT_BCC_ALLOW_INSECURE_HTTP": "0",
 		"BAFT_BCC_BOOTSTRAP_SCRIPT":    bootstrap,
 		"BAFT_BCC_PUBLIC_URL":          "https://bcc.example.test",
+		"BAFT_BCC_BACKUP_KEY_FILE":     "/etc/baft-bcc/backup-key",
+		"BAFT_BCC_UPDATE_ROOT_FILE":    "/etc/baft-bcc/release-root.pub",
+		"BAFT_ROOT_PUB":                "NJq0LmZ503x67pdXSuNGmSOqaiNJDpYf9nDE8Bwa-JI",
 	}
 	unit := runInstaller(t, "render_bcc_unit", env)
 	if !labelled(unit, "bcc") {
@@ -171,7 +184,9 @@ func TestBCCUnitFromInstallerIsRecognized(t *testing.T) {
 		p.AccessFile != "/etc/baft-bcc/access.json" ||
 		p.JobKeyFile != "/etc/baft-bcc/job-key" ||
 		p.BackupDir != "/var/lib/baft-bcc/backups" ||
-		p.BootstrapScript != bootstrap || p.BootstrapSHA256 != wantBootstrapSHA {
+		p.BootstrapScript != bootstrap || p.BootstrapSHA256 != wantBootstrapSHA ||
+		p.BackupKeyFile != "/etc/baft-bcc/backup-key" ||
+		p.UpdateRootFile != "/etc/baft-bcc/release-root.pub" {
 		t.Fatalf("wrong BCC paths parsed: %+v", p)
 	}
 	if !strings.Contains(unit, "--install-script "+bootstrap+" --public-url https://bcc.example.test") {

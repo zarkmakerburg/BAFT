@@ -1,0 +1,46 @@
+/* Aurora Action Wizard shell — isolated from legacy BCC forms. */
+.baw-backdrop{position:fixed;inset:0;z-index:9000;display:grid;place-items:center;padding:24px;background:rgba(8,13,27,.54);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.baw-backdrop[hidden]{display:none}
+.baw-dialog{box-sizing:border-box;position:relative;width:min(100%,800px);max-height:min(90dvh,900px);overflow:auto;overscroll-behavior:contain;border:1px solid rgba(185,215,255,.28);border-radius:26px;padding:24px;background:linear-gradient(145deg,rgba(37,52,78,.88),rgba(20,30,49,.94));color:#f4f7ff;box-shadow:0 22px 80px rgba(0,0,0,.38),0 0 34px rgba(105,161,255,.13),inset 0 1px rgba(255,255,255,.14);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px)}
+.baw-dialog::before{content:"";pointer-events:none;position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 22px rgba(143,189,255,.05)}
+.baw-header{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:18px}
+.baw-title{font-size:1.25rem;font-weight:700;margin:0}
+.baw-close{border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:inherit;border-radius:12px;padding:8px 12px;cursor:pointer}
+.baw-progress{display:flex;gap:6px;margin-bottom:20px}
+.baw-progress>span{height:5px;flex:1;border-radius:5px;background:rgba(255,255,255,.18)}
+.baw-progress>span[aria-current=step],.baw-progress>span[data-complete=true]{background:#88b6ff}
+.baw-body{min-height:150px;line-height:1.7}
+.baw-actions{display:flex;justify-content:space-between;gap:12px;margin-top:24px}
+.baw-actions button{padding:10px 18px;border-radius:12px;cursor:pointer}
+.baw-dialog :focus-visible{outline:2px solid #9bc7ff;outline-offset:3px}
+@media(prefers-color-scheme:light){.baw-backdrop{background:rgba(30,42,65,.32)}.baw-dialog{background:linear-gradient(145deg,rgba(249,251,255,.94),rgba(229,237,250,.96));color:#17223a;border-color:rgba(255,255,255,.75);box-shadow:0 22px 80px rgba(34,49,80,.2),0 0 30px rgba(87,142,255,.13)}.baw-close{border-color:rgba(40,70,110,.2);background:rgba(255,255,255,.6)}.baw-progress>span{background:rgba(30,50,80,.14)}}
+@media(max-width:600px){.baw-backdrop{padding:8px;align-items:end}.baw-dialog{width:100%;max-height:calc(100dvh - 16px);border-radius:24px 24px 16px 16px;padding:20px 16px calc(20px + env(safe-area-inset-bottom))}}
+@media(prefers-reduced-motion:no-preference){.baw-dialog{animation:baw-appear .22s ease-out}@keyframes baw-appear{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}}
+
+/* Interactive form elements and preview launch affordance */
+.baw-launch{border:1px solid rgba(138,184,255,.38);background:rgba(114,165,255,.11);color:inherit;border-radius:12px;padding:9px 12px;cursor:pointer;white-space:nowrap}
+.baw-launch:hover,.baw-launch:focus-visible{box-shadow:0 0 18px rgba(119,172,255,.18);outline-offset:3px}
+.baw-body label{display:flex;flex-direction:column;gap:7px;margin-block:12px;font-weight:600}
+.baw-body input,.baw-body select{box-sizing:border-box;width:100%;padding:11px 13px;border:1px solid rgba(145,175,220,.38);border-radius:12px;background:rgba(14,24,44,.68);color:#fff;font:inherit}
+.baw-body option{color:#101d33;background:#fff}
+.baw-body p{overflow-wrap:anywhere}
+.baw-actions button{border:1px solid rgba(150,190,245,.38);background:rgba(95,148,240,.2);color:inherit}
+.baw-actions button:disabled{opacity:.4;cursor:not-allowed}
+@media(prefers-color-scheme:light){.baw-body input,.baw-body select{background:rgba(255,255,255,.75);color:#17223a}.baw-actions button{background:rgba(100,150,235,.12)}}
+@media(max-width:600px){.baw-launch{padding:8px;font-size:.8rem}}
+
+/* Logical spacing keeps the same modal usable in Persian RTL and English LTR. */
+.baw-dialog{direction:inherit;text-align:start}
+.baw-dialog label>span{display:block}
+.baw-body{overflow-wrap:break-word}
+.baw-dialog:focus-within{outline:none}
+@media(max-width:420px){.baw-header{align-items:flex-start}.baw-title{font-size:1.05rem}.baw-actions button{min-width:80px}}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.baw-backdrop{background:rgba(5,10,20,.86)}.baw-dialog{background:#202d45}}
+
+/* Explicit invalid-state styling and assistive feedback. */
+.baw-body [aria-invalid="true"]{border-color:#ff9d9d;box-shadow:0 0 0 1px rgba(255,157,157,.3)}
+.baw-body [role="alert"]{border-inline-start:3px solid #ffb3a7;padding-inline-start:12px;margin-block:12px}
+.baw-body [role="status"]{opacity:.86;font-size:.92rem}
+@media(prefers-reduced-motion:reduce){.baw-dialog{animation:none!important;transition:none!important}}
+
+.baw-description{font-size:.85rem;line-height:1.5;opacity:.78;margin:0 0 12px}

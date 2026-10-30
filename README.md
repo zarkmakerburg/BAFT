@@ -70,6 +70,22 @@ Details: [Use with x-ui](docs/en/guide/02-use-with-x-ui.md).
 | `baft doctor` / `baft version` | every server | health check / installed version |
 | `journalctl -u baft -f` | every server | live tunnel logs |
 
+## Development status and code organization
+
+**Next planned release: v0.4.0** — this is a development target, **not a published release**. For production installs, use the latest published release; the installer command above targets the default branch, not the development branch.
+
+- [P0 implementation and acceptance gates](docs/design/p0-oneclick-ingress-269.md) — installer safety, BCC TLS, public ingress, network diagnostics and Linux menu accessibility.
+- [Draft v0.4.0 integration PR](https://github.com/zarkmakerburg/BAFT/pull/270) and [HQ progress log](https://github.com/zarkmakerburg/BAFT/issues/67) — review and CI evidence, not release approval.
+- `install.sh`: installation, generated `baft-panel` and `baft-net` management tools.
+- `internal/bcc/`: BCC backend, including pure public-ingress planning and reservation checks. **Planning does not provision a public listener or firewall rule.**
+- `web/`: BCC browser UI and preview-only Aurora wizard components.
+- `tests/installer/`: installer contract tests; static checks are not a substitute for VM and live-path validation.
+- `docs/design/`: proposed P0 work and engineering decisions, not proof that each feature has shipped.
+
+**Known development gaps:** The generated `baft-panel` and `baft-net` menus and the Linux Go console support Up/Down arrows, Tab/Shift+Tab and numbered choices, with plain input fallback; the complete command catalog and localization still need completion. Signed read-only public-ingress preflight is available, but agent apply/reconcile, fully reversible adaptive network profiles, and the v0.4.0 end-to-end release gates remain under development. Aurora is intended to complement the existing BCC, not replace it. Existing 3X-UI subscriptions and services remain externally owned.
+
+See the [v0.4.0 readiness matrix and upgrade gates](docs/release/v0.4.0-readiness.md) for tested changes and remaining blockers.
+
 ## Documentation
 
 - **[User guide](docs/en/guide/README.md)**: [install](docs/en/guide/01-install.md), [x-ui](docs/en/guide/02-use-with-x-ui.md), [panel](docs/en/guide/03-panel.md), [network and BBR](docs/en/guide/04-network-and-bbr.md), [update, backup, uninstall](docs/en/guide/05-update-backup-uninstall.md), [troubleshooting](docs/en/guide/06-troubleshooting.md), [FAQ](docs/en/guide/07-faq.md)

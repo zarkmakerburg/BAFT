@@ -1,0 +1,56 @@
+name: shared operational ingress
+# Supplementary unified shared-transport/public-ingress acceptance. The pinned
+# 28-test operational-ingress-v1 gate remains separate and unchanged.
+on:
+  pull_request:
+  push:
+    branches: ['main', 'qa/**', 'claude/**', 'agent-*/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: shared-operational-ingress-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+env:
+  EXPECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  SHAREDOP_REQUIRE_CLEAN: '1'
+jobs:
+  shared-operational-ingress:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          check-latest: false
+          cache: false
+      - name: Verify exact checkout and strict verifier
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECT_SHA"
+          python3 -B tests/release/sharedop/verdict_test.py
+      - name: Separate-process shared transport regression (race)
+        run: |
+          set -euo pipefail
+          go test -race -count=1 -timeout=10m ./internal/agent -run '^TestBCCSignedSharedSameIRRealFlowsPreserveOwner$'
+      - name: Install private-netns LAB tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq iproute2 nftables python3
+      - name: Run combined path, restart, retirement and partial-apply failure
+        run: bash tests/release/sharedop/run_lab.sh "$RUNNER_TEMP/sharedop"
+      - name: Require both exact cases, zero SKIP and matching evidence
+        if: always()
+        run: python3 -B tests/release/sharedop/verdict.py "$RUNNER_TEMP/sharedop"
+      - name: Upload source and LAB evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: shared-operational-ingress-${{ env.EXPECT_SHA }}
+          path: ${{ runner.temp }}/sharedop
+          if-no-files-found: warn

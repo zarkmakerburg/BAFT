@@ -64,6 +64,16 @@ type Options struct {
 	RecoveryRetention  time.Duration
 	CarrierID          string
 	BootID             string
+	// FlowIdleTimeout closes a Flow's application connection after this long
+	// with no bytes in either direction. Zero disables it.
+	FlowIdleTimeout    time.Duration
+	// Capabilities is this node's capability policy (see protocol.CapabilityOffer).
+	// The zero value advertises nothing and requires nothing: the wire is then
+	// exactly the v0.3.7 baseline.
+	Capabilities       protocol.CapabilityOffer
+	// CapabilityObserver, when set, is called once per handshake decision with
+	// the negotiated outcome, or with a *protocol.CapabilityError on refusal.
+	CapabilityObserver func(protocol.NegotiatedCapabilities, error)
 }
 
 type Peer struct {
@@ -74,6 +84,7 @@ type Peer struct {
 	routes             *routes.Table
 	dial               func(context.Context, string, string) (net.Conn, error)
 	allocator          *resources.Allocator
+	flowIdle           time.Duration
 	flowSlots          *resources.FlowSlots
 	sender             *outboundSender
 	nodeID             string
@@ -89,6 +100,10 @@ type Peer struct {
 	localReady         bool
 	peerReady          bool
 	helloSeen          bool
+	capOffer           protocol.CapabilityOffer
+	capObserver        func(protocol.NegotiatedCapabilities, error)
+	capNegotiated      protocol.NegotiatedCapabilities
+	capDone            bool
 	mu                 sync.Mutex
 	flows              map[uint64]*flow
 	closedFlows        map[uint64]struct{}
@@ -254,6 +269,7 @@ func New(role Role, c Carrier, peerID string, table *routes.Table, opts Options)
 	if opts.Resources == nil {
 		opts.Resources = defaultAllocator()
 	}
+	if err:=opts.Capabilities.Validate();err!=nil{return nil,fmt.Errorf("invalid capability offer: %w",err)}
 	bootID:=opts.BootID
 	if bootID=="" {
 		var err error
@@ -265,11 +281,12 @@ func New(role Role, c Carrier, peerID string, table *routes.Table, opts Options)
 	}
 	p := &Peer{
 		role: role, carrier: c, writer: frameWriter{w: c.Out}, peerID: peerID,
-		routes: table, allocator: opts.Resources, flowSlots: opts.FlowSlots, flows: make(map[uint64]*flow),
+		routes: table, allocator: opts.Resources, flowSlots: opts.FlowSlots, flowIdle: opts.FlowIdleTimeout, flows: make(map[uint64]*flow),
 		closedFlows: make(map[uint64]struct{}), finishedFins: make(map[uint64]uint64), finishedPeerFins: make(map[uint64]uint64), resetFlows: make(map[uint64]protocol.ErrorCode), pendingOpens: make(map[uint64]protocol.OpenRequest),
 		nodeID: opts.NodeID, expectedPeerNodeID: opts.ExpectedPeerNodeID,
 		bootID: bootID, shardID: opts.ShardID, profileID: opts.ProfileID,
 		profileVersion: opts.ProfileVersion, configRevision: opts.ConfigRevision,
+		capOffer: opts.Capabilities, capObserver: opts.CapabilityObserver,
 		epoch: "1", readyCh: make(chan struct{}), trafficObserver: opts.TrafficObserver,
 		latencyObserver: opts.LatencyObserver, pingInterval: opts.PingInterval, pingBase: time.Now(),
 		recoveryEnabled: opts.RecoveryEnabled, recoveryRetention: opts.RecoveryRetention,
@@ -534,6 +551,8 @@ func (p *Peer) OpenFlow(ctx context.Context, routeID string, conn net.Conn) erro
 		if p.recoveryEnabled{p.recoveryGate.Unlock()}
 		return err
 	}
+	tuneAppConn(conn)
+	conn = newIdleConn(conn, p.flowIdle)
 	fl := newFlow(id, routeID, hex.EncodeToString(nonceBytes), conn, p.allocator)
 	fl.slots = p.flowSlots
 	p.mu.Lock()
@@ -806,7 +825,7 @@ func (p *Peer) sendHello() error {
 		ProtocolMin: 1, ProtocolMax: 1, NodeID: p.nodeID, BootID: p.bootID,
 		SessionID: p.sessionID, ShardID: p.shardID, Epoch: p.epoch, Mode: "new",
 		ResumeSnapshotID: nil, ProfileID: p.profileID, ProfileVersion: p.profileVersion,
-		ConfigRevision: p.configRevision, Capabilities: []string{},
+		ConfigRevision: p.configRevision, Capabilities: p.capOffer.Wire(),
 	}
 	p.mu.Unlock()
 	payload, err := protocol.EncodeControl(h)
@@ -838,6 +857,15 @@ func (p *Peer) handleHello(fr protocol.Frame) error {
 		p.mu.Unlock()
 		return errors.New("duplicate HELLO")
 	}
+	neg, negErr := protocol.NegotiateCapabilities(p.capOffer, h.Capabilities)
+	if negErr != nil {
+		// Explicit refusal: no HELLO_ACK is sent, the carrier is closed by the
+		// caller. Nothing falls back to a weaker mode.
+		p.mu.Unlock()
+		p.observeCapabilities(neg, negErr)
+		return negErr
+	}
+	p.capNegotiated, p.capDone = neg, true
 	p.helloSeen = true
 	p.sessionID = h.SessionID
 	p.peerBootID = h.BootID
@@ -852,7 +880,13 @@ func (p *Peer) handleHello(fr protocol.Frame) error {
 			RetentionMS: 30000,
 		},
 	}
+	// Only a capability-aware dialer (one that advertised something) gets our
+	// list back: the v0.3.7 HELLO_ACK decoder rejects unknown fields.
+	if len(h.Capabilities) > 0 {
+		ack.Capabilities = p.capOffer.Wire()
+	}
 	p.mu.Unlock()
+	p.observeCapabilities(neg, nil)
 	payload, err := protocol.EncodeControl(ack)
 	if err != nil {
 		return err
@@ -880,10 +914,42 @@ func (p *Peer) handleHelloAck(fr protocol.Frame) error {
 		p.mu.Unlock()
 		return errors.New("HELLO_ACK state mismatch")
 	}
+	var neg protocol.NegotiatedCapabilities
+	var negErr error
+	if len(ack.Capabilities) > 0 && len(p.capOffer.Advertise) == 0 {
+		// We advertised nothing, so a conforming listener sends nothing back.
+		negErr = &protocol.CapabilityError{Reason: protocol.RefusalUnsolicited}
+	} else {
+		neg, negErr = protocol.NegotiateCapabilities(p.capOffer, ack.Capabilities)
+	}
+	if negErr != nil {
+		p.mu.Unlock()
+		p.observeCapabilities(neg, negErr)
+		return negErr
+	}
+	p.capNegotiated, p.capDone = neg, true
 	p.helloSeen = true
 	p.peerBootID = ack.PeerBootID
 	p.mu.Unlock()
+	p.observeCapabilities(neg, nil)
 	return p.sendReady()
+}
+
+func (p *Peer) observeCapabilities(n protocol.NegotiatedCapabilities, err error) {
+	if p.capObserver != nil {
+		p.capObserver(n, err)
+	}
+}
+
+// NegotiatedCapabilities returns the outcome of the HELLO capability
+// negotiation. ok is false until the handshake has completed.
+func (p *Peer) NegotiatedCapabilities() (n protocol.NegotiatedCapabilities, ok bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	n = p.capNegotiated
+	n.Enabled = append([]string{}, n.Enabled...)
+	n.Ignored = append([]string(nil), n.Ignored...)
+	return n, p.capDone
 }
 
 func (p *Peer) sendReady() error {
@@ -1051,6 +1117,8 @@ func (p *Peer) finishOpen(ctx context.Context, id uint64, req protocol.OpenReque
 		payload, _ := protocol.EncodeControl(protocol.OpenError{Code: targetDialErrorCode(dialErr)})
 		return p.senderNow().sendControl(protocol.Frame{Type: protocol.TypeOpenErr, StreamID: id, Payload: payload})
 	}
+	tuneAppConn(conn)
+	conn = newIdleConn(conn, p.flowIdle)
 	fl := newFlow(id, req.RouteID, req.OpenNonce, conn, p.allocator)
 	fl.slots = p.flowSlots
 	p.mu.Lock()

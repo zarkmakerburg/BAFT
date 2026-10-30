@@ -51,7 +51,7 @@ On a colour, UTF-8 terminal the installer opens with the BAFT mark and walks thr
 
 ## Limits
 
-Source installs (`--from-source`) rebuild the binaries, so a rerun there is an upgrade by definition. `--plan` does not download, so it can only compare with `BAFT_VERSION`; the exact comparison happens after the release is verified. Update and Repair in the `baft` menu stay `(planned)` until a later change wires them to this installer.
+Source installs (`--from-source`) rebuild the binaries, so a rerun there is an upgrade by definition. `--plan` does not download, so it can only compare with `BAFT_VERSION`; the exact comparison happens after the release is verified. Repair in the `baft` menu stays `(planned)`; Update prints read-only guidance for this installer and the BCC Update Center (see [update-center design](../design/update-center.md)).
 
 ## Panel install, SSL and the management commands
 

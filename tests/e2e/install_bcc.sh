@@ -79,7 +79,7 @@ assert re.fullmatch(r"[0-9a-f]{40}", s["commit"]), s
 assert isinstance(s["revocation_sequence"], int) and s["revocation_sequence"] >= 0, s
 PY
 
-for f in /etc/baft-bcc-e2e-rel/admin-token /etc/baft-bcc-e2e-rel/access.json /etc/baft-bcc-e2e-rel/job-key; do
+for f in /etc/baft-bcc-e2e-rel/admin-token /etc/baft-bcc-e2e-rel/access.json /etc/baft-bcc-e2e-rel/job-key /etc/baft-bcc-e2e-rel/backup-key; do
   [[ "$(stat -c '%U %a' "$f")" == "root 600" ]] || { stat "$f"; fail "$f is not root 0600"; }
 done
 [[ -s /var/lib/baft-bcc-e2e-rel/bcc-state.json ]] || fail "BCC state was not created"
@@ -87,6 +87,11 @@ grep -q '^# baft-managed: true' /etc/systemd/system/baft-bcc-e2e-rel.service || 
 grep -q '^# baft-component: bcc' /etc/systemd/system/baft-bcc-e2e-rel.service || fail "BCC component marker missing"
 grep -Fq -- '--listen 127.0.0.1:18080' /etc/systemd/system/baft-bcc-e2e-rel.service || fail "listen argument missing from unit"
 grep -Fq -- '--admin-token-file /etc/baft-bcc-e2e-rel/admin-token' /etc/systemd/system/baft-bcc-e2e-rel.service || fail "admin token path missing from unit"
+# Scheduled backups and Update Center imports are on for an installed panel.
+[[ "$(base64 -d /etc/baft-bcc-e2e-rel/backup-key | wc -c)" == 32 ]] || fail "backup key is not a base64 32-byte key"
+grep -Fq -- '--backup-key-file /etc/baft-bcc-e2e-rel/backup-key' /etc/systemd/system/baft-bcc-e2e-rel.service || fail "backup key path missing from unit"
+[[ "$(stat -c '%U %a' /etc/baft-bcc-e2e-rel/release-root.pub)" == "root 644" && -s /etc/baft-bcc-e2e-rel/release-root.pub ]] || fail "Update Center root pin missing"
+grep -Fq -- '--update-root-pub /etc/baft-bcc-e2e-rel/release-root.pub' /etc/systemd/system/baft-bcc-e2e-rel.service || fail "update root pin missing from unit"
 BOOTSTRAP=/opt/baft-bcc-e2e-rel/bcc-bootstrap/install.sh
 [[ "$(stat -c '%U %a' "$BOOTSTRAP")" == "root 700" ]] || fail "managed BCC bootstrap installer is not root 0700"
 cmp -s "$BOOTSTRAP" "$REL/dist/baft-install-linux-$ARCH" || fail "managed bootstrap installer differs from the signed release installer"
@@ -199,7 +204,7 @@ env "${src_env[@]}" bash install.sh --bcc-only >"$W/src.out" 2>"$W/src.err"
 systemctl is-active --quiet baft-bcc-e2e-src || fail "source BCC is not active"
 [[ ! -e /opt/baft-bcc-e2e-src/release-state.json ]] ||
   fail "source BCC must not fabricate signed-release provenance state"
-for f in /etc/baft-bcc-e2e-src/admin-token /etc/baft-bcc-e2e-src/access.json /etc/baft-bcc-e2e-src/job-key; do
+for f in /etc/baft-bcc-e2e-src/admin-token /etc/baft-bcc-e2e-src/access.json /etc/baft-bcc-e2e-src/job-key /etc/baft-bcc-e2e-src/backup-key; do
   [[ "$(stat -c '%U %a' "$f")" == "root 600" ]] || fail "$f is not root 0600"
 done
 SRC_BOOTSTRAP=/opt/baft-bcc-e2e-src/bcc-bootstrap/install.sh

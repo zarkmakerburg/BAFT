@@ -25,6 +25,8 @@ Exception: a Noise dialer (`node.role: dialer` with a `noise` section) presents 
 
 `primary: h2` is the only default transport. H3 remains disabled until its later experimental gate. Shards are limited to 1..8.
 
+`transport.require_capabilities` (optional list, default empty) names capabilities (`carrier.h2`, `carrier.ws`, `noise.v1`, `shape.v1`) the peer must negotiate at HELLO; a peer lacking one, including a v0.3.7 peer, is refused explicitly. Each token must be enabled by this node's own configuration. See [capability negotiation](04-protocol-baft1.md#capability-negotiation-capability-set-v1).
+
 ## Resource limits
 
 `data_memory_mib`, receive limits, and replay limits bound Stage-C memory behavior. Receive and replay pools do not silently borrow from each other.

@@ -1,6 +1,7 @@
 package bcc
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"errors"
 	"fmt"
@@ -41,10 +42,20 @@ func (s *Server) ConfigureJobSigning(key ed25519.PrivateKey) { s.jobKey = key }
 
 // JobPublicKey is what agents pin, or "" without job signing.
 func (s *Server) JobPublicKey() string {
-	if s.jobKey == nil {
+	if validateJobSigningKey(s.jobKey) != nil {
 		return ""
 	}
 	return release.EncodePublic(s.jobKey.Public().(ed25519.PublicKey))
+}
+
+func validateJobSigningKey(key ed25519.PrivateKey) error {
+	if len(key) != ed25519.PrivateKeySize {
+		return errors.New("BCC job-signing key is not configured")
+	}
+	if !bytes.Equal(key, ed25519.NewKeyFromSeed(key.Seed())) {
+		return errors.New("BCC job-signing key is inconsistent")
+	}
+	return nil
 }
 
 // AgentJob is a job as served to an agent: the record plus its signed form,
@@ -59,7 +70,10 @@ func agentAction(j Job) (string, map[string]string, error) {
 	case JobDeployBAFT:
 		return agentjob.ActionUpdateBAFT, map[string]string{"version": j.Version}, nil
 	case JobTunnelPrepareEX, JobTunnelPrepareIR, JobTunnelCommitEX, JobTunnelCommitIR, JobTunnelHealth, JobTunnelObserve, JobTunnelInspect, JobTunnelDiscover, JobTunnelFinalize, JobTunnelRollback, agentjob.ActionTunnelRetire,
+		agentjob.ActionTunnelTenantAdd, agentjob.ActionTunnelTenantRemove,
 		agentjob.ActionPathProbeInventory, agentjob.ActionPathProbeListen, agentjob.ActionPathProbeRun, agentjob.ActionPathProbeStop,
+		agentjob.ActionPublicIngressPreflight, agentjob.ActionPublicIngressInspect, agentjob.ActionPublicIngressPrepare, agentjob.ActionPublicIngressCancel,
+		agentjob.ActionPublicIngressApply, agentjob.ActionPublicIngressRetire,
 		agentjob.ActionCertPrepareEX, agentjob.ActionCertTrustIR, agentjob.ActionCertVerifyEX, agentjob.ActionCertVerifyIR,
 		agentjob.ActionCertActivateEX, agentjob.ActionCertConfirmIR, agentjob.ActionCertRetireIR, agentjob.ActionCertRetireEX,
 		agentjob.ActionCertRollback:
@@ -73,18 +87,42 @@ func agentAction(j Job) (string, map[string]string, error) {
 }
 
 func (s *Server) signAgentJobs(jobs []Job) ([]AgentJob, error) {
+	if len(jobs) != 0 {
+		if err := validateJobSigningKey(s.jobKey); err != nil {
+			return nil, err
+		}
+	}
 	out := make([]AgentJob, 0, len(jobs))
 	now := s.now()
 	for _, j := range jobs {
 		aj := AgentJob{Job: j}
 		if s.jobKey != nil {
+			deadline := now.Add(jobValidity)
+			if j.Type == agentjob.ActionPublicIngressPreflight || j.Type == agentjob.ActionPublicIngressInspect || j.Type == agentjob.ActionPublicIngressPrepare || j.Type == agentjob.ActionPublicIngressCancel {
+				if j.CreatedAt.IsZero() || !now.Before(publicIngressPreflightDeadline(j)) {
+					return nil, fmt.Errorf("read-only ingress job %s expired before signing", j.ID)
+				}
+				if deadline.After(publicIngressPreflightDeadline(j)) {
+					deadline = publicIngressPreflightDeadline(j)
+				}
+			}
 			action, params, err := agentAction(j)
 			if err != nil {
 				return nil, err
 			}
+			issued := now
+			if j.Type == agentjob.ActionPublicIngressApply || j.Type == agentjob.ActionPublicIngressRetire {
+				// Operational ingress is signed only from the persisted reviewed
+				// command: identical params and the command's own signed window.
+				cmd, err := s.store.signableOperationalIngress(j, now)
+				if err != nil {
+					return nil, err
+				}
+				issued, deadline = cmd.IssuedAt, cmd.ExpiresAt
+			}
 			env, err := agentjob.Sign(s.jobKey, agentjob.Job{
 				JobID: j.ID, NodeID: j.NodeID, Action: action, Params: params,
-				IssuedAt: now, ExpiresAt: now.Add(jobValidity),
+				IssuedAt: issued, ExpiresAt: deadline,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("sign job %s: %w", j.ID, err)

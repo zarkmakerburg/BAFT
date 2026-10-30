@@ -13,6 +13,7 @@ package bcc
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -70,19 +71,27 @@ const (
 
 // Tunnel is one planned or running change.
 type Tunnel struct {
-	ID              string `json:"id"`
-	InstanceID      string `json:"instance_id,omitempty"`
-	TopologyKey     string `json:"topology_key,omitempty"`
-	EXNode          string `json:"ex_node"`
-	IRNode          string `json:"ir_node"`
-	PublicAddress   string `json:"public_address"`
-	Port            int    `json:"port"`
-	Target          string `json:"target"`
-	RouteID         string `json:"route_id"`
-	RouteListen     string `json:"route_listen"`
-	EXMetricsListen string `json:"ex_metrics_listen,omitempty"`
-	IRMetricsListen string `json:"ir_metrics_listen,omitempty"`
-	RecordShaping   bool   `json:"record_shaping,omitempty"`
+	ID                     string `json:"id"`
+	InstanceID             string `json:"instance_id,omitempty"`    // EX-side instance; shared tenants retain the physical owner's scope.
+	IRInstanceID           string `json:"ir_instance_id,omitempty"` // Optional independent dialer instance when joining from the same IR host.
+	JoinOwnerID            string `json:"join_owner_id,omitempty"`
+	PeerID                 string `json:"peer_id,omitempty"`
+	PeerPublicKey          string `json:"peer_public_key,omitempty"`
+	EXConfigNodeID         string `json:"ex_config_node_id,omitempty"`
+	EXListen               string `json:"ex_listen,omitempty"`
+	DecommissionMutationID string `json:"decommission_mutation_id,omitempty"`
+	TopologyKey            string `json:"topology_key,omitempty"`
+	EXNode                 string `json:"ex_node"`
+	IRNode                 string `json:"ir_node"`
+	PublicAddress          string `json:"public_address"`
+	Port                   int    `json:"port"`
+	ClientPort             int    `json:"client_port,omitempty"` // Reviewed desired IR public ingress; NOT an applied listener.
+	Target                 string `json:"target"`
+	RouteID                string `json:"route_id"`
+	RouteListen            string `json:"route_listen"`
+	EXMetricsListen        string `json:"ex_metrics_listen,omitempty"`
+	IRMetricsListen        string `json:"ir_metrics_listen,omitempty"`
+	RecordShaping          bool   `json:"record_shaping,omitempty"`
 
 	PlanHash string           `json:"plan_hash,omitempty"`
 	Evidence []TunnelEvidence `json:"evidence,omitempty"`
@@ -149,6 +158,10 @@ type TunnelRequest struct {
 	// Planned/unknown engines must fail closed in both plan and deploy.
 	Engine     string `json:"engine,omitempty"`
 	InstanceID string `json:"instance_id,omitempty"`
+	// IRInstanceID is server-derived and binds a separate IR service when another logical tenant uses the same IR host.
+	IRInstanceID string `json:"ir_instance_id,omitempty"`
+	// JoinExistingTunnelID opts into joining a specific active EX listener instead of creating a new listener.
+	JoinExistingTunnelID string `json:"join_existing_tunnel_id,omitempty"`
 	// Explicit opt-in to an independent scoped tunnel alongside an active legacy
 	// singleton. The old tunnel stays untouched, with no implicit migration.
 	AllowLegacyCoexistence bool   `json:"allow_legacy_coexistence,omitempty"`
@@ -156,14 +169,28 @@ type TunnelRequest struct {
 	IRNode                 string `json:"ir_node"`
 	PublicAddress          string `json:"public_address"`
 	Port                   int    `json:"port"`
+	ClientPort             int    `json:"client_port,omitempty"` // Same numeric TCP port as the eventual IR client configuration.
 	Target                 string `json:"target"`
 	RouteListen            string `json:"route_listen"`
 	RouteID                string `json:"route_id"`
 	EXMetricsListen        string `json:"ex_metrics_listen,omitempty"`
 	IRMetricsListen        string `json:"ir_metrics_listen,omitempty"`
 	RecordShaping          bool   `json:"record_shaping"`
+	// AutoSelectEvidence binds a path/capability recommendation into this
+	// reviewed request. BCC revalidates it during both Review and Deploy.
+	AutoSelectEvidence *AutoTransportCandidate `json:"auto_select_evidence,omitempty"`
 	// PlanHash, when set, must equal the hash of the plan BCC computes now.
 	PlanHash string `json:"plan_hash,omitempty"`
+}
+
+// instanceForNode maps a tunnel's per-endpoint instance scope. InstanceID remains
+// the EX listener's scope; IRInstanceID is only used when the same IR host needs
+// an isolated dialer to join the shared physical EX listener.
+func (t Tunnel) instanceForNode(node string) string {
+	if node == t.IRNode && t.IRInstanceID != "" {
+		return t.IRInstanceID
+	}
+	return t.InstanceID
 }
 
 func terminalTunnel(p string) bool {
@@ -182,32 +209,75 @@ func tunnelsShareNode(a, b Tunnel) bool {
 // instance. Legacy singleton and scoped instances are deliberately different
 // slots; resolveTunnelLocked rejects mixing them on a live shared node until an
 // explicit migration path exists.
+func sameNodeInstance(a, b Tunnel, node string) bool {
+	return a.instanceForNode(node) == b.instanceForNode(node)
+}
+
+func sameIRSlot(a, b Tunnel) bool {
+	return a.IRNode == b.IRNode && sameNodeInstance(a, b, a.IRNode)
+}
+
 func sameManagedSlot(a, b Tunnel) bool {
 	if !tunnelsShareNode(a, b) {
 		return false
 	}
-	if a.InstanceID == "" && b.InstanceID == "" {
-		return true
+	for _, node := range []string{a.EXNode, a.IRNode} {
+		if (node == b.EXNode || node == b.IRNode) && sameNodeInstance(a, b, node) {
+			return true
+		}
 	}
-	if a.InstanceID == "" || b.InstanceID == "" {
-		return false
-	}
-	return a.InstanceID == b.InstanceID
+	return false
 }
 
 func mixedLegacyScope(a, b Tunnel) bool {
-	return tunnelsShareNode(a, b) && (a.InstanceID == "") != (b.InstanceID == "")
+	if !tunnelsShareNode(a, b) {
+		return false
+	}
+	for _, node := range []string{a.EXNode, a.IRNode} {
+		if node != b.EXNode && node != b.IRNode {
+			continue
+		}
+		if (a.instanceForNode(node) == "") != (b.instanceForNode(node) == "") {
+			return true
+		}
+	}
+	return false
+}
+
+func tunnelEndpointPort(endpoint string) int {
+	_, port, err := net.SplitHostPort(endpoint)
+	if err != nil {
+		return 0
+	}
+	n, err := strconv.Atoi(port)
+	if err != nil || n < 1 || n > 65535 {
+		return 0
+	}
+	return n
+}
+
+func effectiveIRMetricsListen(t Tunnel) string {
+	if t.IRMetricsListen != "" {
+		return t.IRMetricsListen
+	}
+	if t.instanceForNode(t.IRNode) == "" {
+		return "127.0.0.1:9191"
+	}
+	return ""
 }
 
 func tunnelResourceConflict(a, b Tunnel) string {
-	if !tunnelsShareNode(a, b) || sameManagedSlot(a, b) {
+	if !tunnelsShareNode(a, b) {
 		return ""
 	}
-	if a.EXNode == b.EXNode {
+	// An identical instance is a reviewed replacement slot, so it may keep
+	// its existing endpoints. A shared EX instance is allowed to serve more
+	// than one tenant, but each IR instance still needs its own local route and
+	// metrics sockets.
+	if a.EXNode == b.EXNode && !sameNodeInstance(a, b, a.EXNode) {
 		if a.Port == b.Port {
 			return fmt.Sprintf("EX listener port %d is already used by tunnel %s", a.Port, b.ID)
 		}
-		// Empty in a legacy singleton means its runtime default :9191.
 		am, bm := a.EXMetricsListen, b.EXMetricsListen
 		if am == "" {
 			am = "127.0.0.1:9191"
@@ -219,22 +289,77 @@ func tunnelResourceConflict(a, b Tunnel) string {
 			return fmt.Sprintf("EX metrics listener %s is already used by tunnel %s", am, b.ID)
 		}
 	}
-	if a.IRNode == b.IRNode {
+	if a.IRNode == b.IRNode && !sameIRSlot(a, b) {
 		if a.RouteListen == b.RouteListen {
 			return fmt.Sprintf("IR route listener %s is already used by tunnel %s", a.RouteListen, b.ID)
 		}
-		am, bm := a.IRMetricsListen, b.IRMetricsListen
-		if am == "" {
-			am = "127.0.0.1:9191"
-		}
-		if bm == "" {
-			bm = "127.0.0.1:9191"
-		}
-		if am == bm {
+		am, bm := effectiveIRMetricsListen(a), effectiveIRMetricsListen(b)
+		if am != "" && am == bm {
 			return fmt.Sprintf("IR metrics listener %s is already used by tunnel %s", am, b.ID)
+		}
+		if rp := tunnelEndpointPort(a.RouteListen); rp != 0 && rp == tunnelEndpointPort(b.IRMetricsListen) {
+			return fmt.Sprintf("IR route listener port %d conflicts with metrics listener of tunnel %s", rp, b.ID)
+		}
+		if rp, mp := tunnelEndpointPort(b.RouteListen), tunnelEndpointPort(a.IRMetricsListen); rp != 0 && rp == mp {
+			return fmt.Sprintf("IR metrics listener port %d conflicts with route listener of tunnel %s", mp, b.ID)
 		}
 	}
 	return ""
+}
+
+func endpointPortUsedByIRLocked(s *Store, irNode, endpoint string) bool {
+	port := tunnelEndpointPort(endpoint)
+	if port == 0 {
+		return true
+	}
+	for _, other := range s.st.Tunnels {
+		if other.IRNode != irNode || !tunnelKeepsPorts(other) {
+			continue
+		}
+		if tunnelEndpointPort(other.RouteListen) == port || tunnelEndpointPort(effectiveIRMetricsListen(other)) == port {
+			return true
+		}
+	}
+	return false
+}
+
+func allocateSharedIREndpointLocked(s *Store, irNode, requested, routeID, kind string, avoid ...string) (string, error) {
+	conflictsAvoid := func(endpoint string) bool {
+		port := tunnelEndpointPort(endpoint)
+		if port == 0 {
+			return true
+		}
+		for _, other := range avoid {
+			if tunnelEndpointPort(other) == port {
+				return true
+			}
+		}
+		return false
+	}
+	if requested != "" && !endpointPortUsedByIRLocked(s, irNode, requested) && !conflictsAvoid(requested) {
+		return requested, nil
+	}
+	minPort, maxPort := 15000, 24999
+	if kind == "metrics" {
+		minPort, maxPort = 25000, 34999
+	}
+	sum := sha256.Sum256([]byte("baft-shared-ir-port-v1\x00" + irNode + "\x00" + routeID + "\x00" + kind))
+	span := maxPort - minPort + 1
+	start := int(sum[0])<<8 | int(sum[1])
+	start %= span
+	for i := 0; i < span; i++ {
+		port := minPort + (start+i)%span
+		candidate := net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
+		if !endpointPortUsedByIRLocked(s, irNode, candidate) && !conflictsAvoid(candidate) {
+			return candidate, nil
+		}
+	}
+	return "", fmt.Errorf("no free managed IR %s port is available for shared tenant", kind)
+}
+
+func sharedIRInstanceID(ownerID, irNode, routeID string) string {
+	sum := sha256.Sum256([]byte("baft-shared-ir-instance-v1\x00" + ownerID + "\x00" + irNode + "\x00" + routeID))
+	return "tenant-" + hex.EncodeToString(sum[:8])
 }
 
 func validateLoopbackEndpoint(v, field string) error {
@@ -284,8 +409,16 @@ func (s *Store) tunnelJobLocked(t *Tunnel, node, typ string, params map[string]s
 		params = map[string]string{}
 	}
 	params["tunnel_id"] = t.ID
-	if t.InstanceID != "" {
-		params["instance_id"] = t.InstanceID
+	if t.JoinOwnerID != "" && node == t.EXNode && (typ == JobTunnelPrepareEX || typ == JobTunnelCommitEX) {
+		params["join_owner_id"] = t.JoinOwnerID
+	}
+	if instance := t.instanceForNode(node); instance != "" {
+		params["instance_id"] = instance
+		if node == t.EXNode {
+			params["metrics_listen"] = t.EXMetricsListen
+		} else if node == t.IRNode {
+			params["metrics_listen"] = t.IRMetricsListen
+		}
 	}
 	j := s.newJobLocked(Job{Type: typ, NodeID: node, Params: params})
 	t.Jobs = append(t.Jobs, j.ID)
@@ -332,10 +465,28 @@ func (s *Store) resolveTunnelLocked(req TunnelRequest, now time.Time) (Tunnel, N
 		return Tunnel{}, Node{}, Node{}, errors.New("a revoked node cannot be part of a tunnel")
 	}
 	t := Tunnel{
-		ID: newTunnelID(), InstanceID: strings.TrimSpace(req.InstanceID), EXNode: req.EXNode, IRNode: req.IRNode,
-		PublicAddress: req.PublicAddress, Port: req.Port, Target: req.Target, RouteID: req.RouteID, RouteListen: req.RouteListen,
+		ID: newTunnelID(), InstanceID: strings.TrimSpace(req.InstanceID), IRInstanceID: strings.TrimSpace(req.IRInstanceID), JoinOwnerID: strings.TrimSpace(req.JoinExistingTunnelID), EXNode: req.EXNode, IRNode: req.IRNode,
+		PublicAddress: req.PublicAddress, Port: req.Port, ClientPort: req.ClientPort, Target: req.Target, RouteID: req.RouteID, RouteListen: req.RouteListen,
 		EXMetricsListen: req.EXMetricsListen, IRMetricsListen: req.IRMetricsListen, RecordShaping: req.RecordShaping,
 		CreatedAt: now.UTC(), UpdatedAt: now.UTC(),
+	}
+	if t.JoinOwnerID != "" {
+		owner, ok := s.st.Tunnels[t.JoinOwnerID]
+		if !ok || owner.Phase != TunnelActive || owner.JoinOwnerID != "" {
+			return Tunnel{}, Node{}, Node{}, errors.New("shared join requires an active physical owner tunnel")
+		}
+		if t.PublicAddress == "" {
+			t.PublicAddress = owner.PublicAddress
+		}
+		if t.Port == 0 {
+			t.Port = owner.Port
+		}
+		if t.InstanceID == "" && owner.InstanceID != "" {
+			t.InstanceID = owner.InstanceID
+		}
+		if t.EXMetricsListen == "" {
+			t.EXMetricsListen = owner.EXMetricsListen
+		}
 	}
 	if t.PublicAddress == "" {
 		host, _, err := net.SplitHostPort(ex.Address)
@@ -354,7 +505,42 @@ func (s *Store) resolveTunnelLocked(req TunnelRequest, now time.Time) (Tunnel, N
 		t.RouteListen = "127.0.0.1:1443"
 	}
 	if t.RouteID == "" {
-		t.RouteID = "service-main"
+		if t.JoinOwnerID != "" {
+			// Distinct routes from the same IR to the same physical EX must be
+			// deterministic but not collide merely because the IR node is equal.
+			seed := t.JoinOwnerID + "\x00" + t.IRNode + "\x00" + t.Target + "\x00" + strconv.Itoa(t.ClientPort) + "\x00" + t.RouteListen
+			sum := sha256.Sum256([]byte(seed))
+			t.RouteID = "tenant-" + hex.EncodeToString(sum[:8])
+		} else {
+			t.RouteID = "service-main"
+		}
+	}
+	if t.JoinOwnerID != "" {
+		owner := s.st.Tunnels[t.JoinOwnerID]
+		if owner.IRNode == t.IRNode {
+			want := sharedIRInstanceID(owner.ID, t.IRNode, t.RouteID)
+			if t.IRInstanceID != "" && t.IRInstanceID != want {
+				return Tunnel{}, Node{}, Node{}, errors.New("shared IR instance ID does not match the reviewed owner/node/route")
+			}
+			t.IRInstanceID = want
+			var err error
+			t.RouteListen, err = allocateSharedIREndpointLocked(s, t.IRNode, t.RouteListen, t.RouteID, "route")
+			if err != nil {
+				return Tunnel{}, Node{}, Node{}, err
+			}
+			metric := t.IRMetricsListen
+			if metric == "" {
+				metric = "127.0.0.1:9302"
+			}
+			t.IRMetricsListen, err = allocateSharedIREndpointLocked(s, t.IRNode, metric, t.RouteID, "metrics", t.RouteListen)
+			if err != nil {
+				return Tunnel{}, Node{}, Node{}, err
+			}
+		} else if t.IRInstanceID != "" {
+			return Tunnel{}, Node{}, Node{}, errors.New("ir_instance_id is only valid when a shared tenant joins from the owner's IR node")
+		}
+	} else if t.IRInstanceID != "" {
+		return Tunnel{}, Node{}, Node{}, errors.New("ir_instance_id requires an explicit shared-listener owner")
 	}
 	if t.InstanceID == "default" {
 		return Tunnel{}, Node{}, Node{}, errors.New("instance_id default is reserved for the legacy singleton")
@@ -369,13 +555,60 @@ func (s *Store) resolveTunnelLocked(req TunnelRequest, now time.Time) (Tunnel, N
 		if err := validateLoopbackEndpoint(t.EXMetricsListen, "ex_metrics_listen"); err != nil {
 			return Tunnel{}, Node{}, Node{}, err
 		}
+	}
+	if t.instanceForNode(t.IRNode) != "" {
+		if t.IRMetricsListen == "" {
+			return Tunnel{}, Node{}, Node{}, errors.New("scoped IR instances require ir_metrics_listen")
+		}
 		if err := validateLoopbackEndpoint(t.IRMetricsListen, "ir_metrics_listen"); err != nil {
 			return Tunnel{}, Node{}, Node{}, err
+		}
+	}
+	if t.Port == 22 {
+		return Tunnel{}, Node{}, Node{}, errors.New("EX listener port 22 is reserved for SSH management")
+	}
+	exMetrics := t.EXMetricsListen
+	if exMetrics == "" {
+		exMetrics = "127.0.0.1:9191" // legacy singleton runtime default
+	}
+	if _, mp, err := net.SplitHostPort(exMetrics); err == nil && mp == strconv.Itoa(t.Port) {
+		return Tunnel{}, Node{}, Node{}, fmt.Errorf("EX listener port %d conflicts with the EX metrics listener", t.Port)
+	}
+	if t.JoinOwnerID != "" {
+		owner := s.st.Tunnels[t.JoinOwnerID]
+		if owner.EXNode != t.EXNode || owner.Port != t.Port || owner.InstanceID != t.InstanceID ||
+			owner.PublicAddress != t.PublicAddress || owner.EXMetricsListen != t.EXMetricsListen ||
+			owner.RecordShaping != t.RecordShaping {
+			return Tunnel{}, Node{}, Node{}, errors.New("shared join does not match the owner's listener or transport")
+		}
+		for _, other := range s.st.Tunnels {
+			if other.Phase == TunnelActive && (other.ID == owner.ID || other.JoinOwnerID == owner.ID) && other.RouteID == t.RouteID {
+				return Tunnel{}, Node{}, Node{}, fmt.Errorf("shared listener route id %q is already used by tunnel %s", t.RouteID, other.ID)
+			}
 		}
 	}
 	for _, other := range s.st.Tunnels {
 		if !tunnelsShareNode(t, other) {
 			continue
+		}
+		sharedJoinPair := t.JoinOwnerID != "" && (other.ID == t.JoinOwnerID || other.JoinOwnerID == t.JoinOwnerID)
+		sharedJoinPair = sharedJoinPair && other.EXNode == t.EXNode && other.Phase == TunnelActive
+		if sharedJoinPair {
+			if other.IRNode == t.IRNode {
+				if t.IRInstanceID == "" || t.IRInstanceID == other.instanceForNode(t.IRNode) {
+					return Tunnel{}, Node{}, Node{}, errors.New("shared listener tenants on the same IR require distinct scoped dialer instances")
+				}
+				if t.RouteListen == other.RouteListen || tunnelEndpointPort(t.RouteListen) == tunnelEndpointPort(other.RouteListen) {
+					return Tunnel{}, Node{}, Node{}, fmt.Errorf("IR route listener %s is already used by tunnel %s", t.RouteListen, other.ID)
+				}
+				if tunnelEndpointPort(t.IRMetricsListen) == tunnelEndpointPort(effectiveIRMetricsListen(other)) || tunnelEndpointPort(t.RouteListen) == tunnelEndpointPort(effectiveIRMetricsListen(other)) || tunnelEndpointPort(t.IRMetricsListen) == tunnelEndpointPort(other.RouteListen) {
+					return Tunnel{}, Node{}, Node{}, fmt.Errorf("shared IR listener or metrics port conflicts with tunnel %s", other.ID)
+				}
+			}
+			continue
+		}
+		if t.JoinOwnerID != "" && sameManagedSlot(t, other) {
+			return Tunnel{}, Node{}, Node{}, fmt.Errorf("tunnel %s uses the same managed slot but is not part of the requested shared listener", other.ID)
 		}
 		if mixedLegacyScope(t, other) && (other.Phase == TunnelActive || !terminalTunnel(other.Phase) || other.Phase == TunnelRollbackFailed || other.Phase == TunnelDecommissionFailed) {
 			// A new scoped tunnel can coexist only after explicit consent and
@@ -385,6 +618,13 @@ func (s *Store) resolveTunnelLocked(req TunnelRequest, now time.Time) (Tunnel, N
 			}
 		}
 		if sameManagedSlot(t, other) {
+			if t.JoinOwnerID == "" && other.JoinOwnerID == "" && other.Phase == TunnelActive {
+				for _, tenant := range s.st.Tunnels {
+					if tenant.JoinOwnerID == other.ID && tunnelKeepsPorts(tenant) {
+						return Tunnel{}, Node{}, Node{}, fmt.Errorf("shared tenant %s still depends on tunnel %s; retire its tenants before replacing the physical owner", tenant.ID, other.ID)
+					}
+				}
+			}
 			if !terminalTunnel(other.Phase) {
 				return Tunnel{}, Node{}, Node{}, fmt.Errorf("tunnel %s is still being built in the same BAFT instance", other.ID)
 			}
@@ -404,6 +644,62 @@ func (s *Store) resolveTunnelLocked(req TunnelRequest, now time.Time) (Tunnel, N
 	if r := s.rotationOnNodesLocked(req.EXNode, req.IRNode); r != nil {
 		return Tunnel{}, Node{}, Node{}, fmt.Errorf("certificate rotation %s is %s on one of these nodes", r.ID, r.Phase)
 	}
+	// Client ingress claims are numeric TCP-port claims on their historical IR
+	// node, regardless of whether a new tunnel uses that node as EX or IR.
+	// Include effective default listeners and cross-role resource allocations.
+	for _, other := range s.st.Tunnels {
+		if other.ClientPort == 0 || !tunnelKeepsPorts(other) || sameIRSlot(t, other) {
+			continue
+		}
+		if t.IRNode == other.IRNode && t.ClientPort != 0 && t.ClientPort == other.ClientPort {
+			return Tunnel{}, Node{}, Node{}, fmt.Errorf("IR client configuration port %d is claimed by tunnel %s", t.ClientPort, other.ID)
+		}
+		ports, err := tunnelPortsOnNode(t, other.IRNode)
+		if err != nil {
+			return Tunnel{}, Node{}, Node{}, err
+		}
+		for _, port := range ports {
+			if port == other.ClientPort {
+				return Tunnel{}, Node{}, Node{}, fmt.Errorf("listener port %d is claimed by tunnel %s for IR client ingress", port, other.ID)
+			}
+		}
+		if t.ClientPort != 0 {
+			oldPorts, err := tunnelPortsOnNode(other, t.IRNode)
+			if err != nil {
+				return Tunnel{}, Node{}, Node{}, err
+			}
+			for _, port := range oldPorts {
+				if port == t.ClientPort {
+					return Tunnel{}, Node{}, Node{}, fmt.Errorf("IR client configuration port %d conflicts with listener of tunnel %s", port, other.ID)
+				}
+			}
+		}
+	}
+	// The reviewed client port does NOT authorize an Agent listener.
+	if t.ClientPort != 0 {
+		ownPorts, err := tunnelPortsOnNode(t, t.IRNode)
+		if err != nil {
+			return Tunnel{}, Node{}, Node{}, err
+		}
+		for _, port := range ownPorts {
+			if port == t.ClientPort {
+				return Tunnel{}, Node{}, Node{}, fmt.Errorf("IR client configuration port %d aliases this tunnel's own IR route or metrics listener", port)
+			}
+		}
+		spec, err := PlanPublicIngress(t.IRNode, "reviewed-plan-candidate", t.ClientPort, t.RouteListen)
+		if err != nil {
+			return Tunnel{}, Node{}, Node{}, fmt.Errorf("invalid client ingress port: %w", err)
+		}
+		if err := s.validatePublicIngressPortSetLocked(t.IRNode, t.ClientPort); err != nil {
+			return Tunnel{}, Node{}, Node{}, err
+		}
+		if err := s.validateIngressReservationResourcesLocked(spec); err != nil {
+			return Tunnel{}, Node{}, Node{}, err
+		}
+	}
+	if err := s.validateTunnelPublicIngressReservationsLocked(t); err != nil {
+		return Tunnel{}, Node{}, Node{}, err
+	}
 	// The same rules the agents apply, checked up front so a bad plan never
 	// starts.
 	exParams := t.prepareEXParams()
@@ -414,8 +710,8 @@ func (s *Store) resolveTunnelLocked(req TunnelRequest, now time.Time) (Tunnel, N
 	}
 	probe.Action = JobTunnelPrepareIR
 	probe.Params = map[string]string{"tunnel_id": t.ID, "code": "BAFTPAIR1:AAAAAAAAAAAAAAAAAAAAAAAAAA", "route_listen": t.RouteListen, "route_id": t.RouteID}
-	if t.InstanceID != "" {
-		probe.Params["instance_id"] = t.InstanceID
+	if t.instanceForNode(t.IRNode) != "" {
+		probe.Params["instance_id"] = t.instanceForNode(t.IRNode)
 		probe.Params["metrics_listen"] = t.IRMetricsListen
 	}
 	if err := probe.Validate(); err != nil {
@@ -448,6 +744,11 @@ func (s *Store) CreateTunnelFromPlan(req TunnelRequest, planHash string, now tim
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	// Deploy must revalidate the exact auto-select evidence atomically with the
+	// state used to compare the reviewed plan hash and create the tunnel.
+	if err := s.validateAutoSelectEvidenceLocked(req, now); err != nil {
+		return Tunnel{}, Plan{}, err
+	}
 	if planHash != "" {
 		cur, err := s.buildPlanLocked(req, now)
 		if err != nil {
@@ -472,7 +773,7 @@ func (s *Store) createTunnelLocked(req TunnelRequest, planHash, topologyKey stri
 	}
 	t.PlanHash = planHash
 	t.TopologyKey = topologyKey
-	t.ExpectedGen = map[string]GenExpect{ex.ID: expectedGeneration(ex, t.InstanceID), ir.ID: expectedGeneration(ir, t.InstanceID)}
+	t.ExpectedGen = map[string]GenExpect{ex.ID: expectedGeneration(ex, t.instanceForNode(ex.ID)), ir.ID: expectedGeneration(ir, t.instanceForNode(ir.ID))}
 	exParams := t.prepareEXParams()
 	t.Phase = TunnelPreparingEX
 	touch(&t, t.EXNode)
@@ -508,6 +809,9 @@ func (t Tunnel) prepareEXParams() map[string]string {
 	if t.InstanceID != "" {
 		p["instance_id"] = t.InstanceID
 		p["metrics_listen"] = t.EXMetricsListen
+	}
+	if t.JoinOwnerID != "" {
+		p["join_owner_id"] = t.JoinOwnerID
 	}
 	return p
 }
@@ -610,8 +914,13 @@ func (s *Store) startRollbackLocked(t *Tunnel, now time.Time) {
 	t.Phase = TunnelRollingBack
 	for _, node := range order {
 		params := map[string]string{"tunnel_id": t.ID}
-		if t.InstanceID != "" {
-			params["instance_id"] = t.InstanceID
+		if instance := t.instanceForNode(node); instance != "" {
+			params["instance_id"] = instance
+			if node == t.EXNode {
+				params["metrics_listen"] = t.EXMetricsListen
+			} else if node == t.IRNode {
+				params["metrics_listen"] = t.IRMetricsListen
+			}
 		}
 		j := s.newJobLocked(Job{Type: JobTunnelRollback, NodeID: node, Params: params})
 		t.Jobs = append(t.Jobs, j.ID)
@@ -671,6 +980,10 @@ func (s *Store) AdvanceTunnels(now time.Time) ([]TunnelEvent, error) {
 			s.st.Tunnels[id] = t
 		}
 		if ev != nil {
+			if ev.Action == "tunnel.active" {
+				// Same lock and same save as the activation itself.
+				s.stageReviewedIngressOnActivationLocked(id, now.UTC())
+			}
 			events = append(events, *ev)
 		}
 	}
@@ -776,6 +1089,18 @@ func (s *Store) advanceLocked(t *Tunnel, now time.Time) *TunnelEvent {
 		t.Phase = TunnelCommittingEX
 		s.tunnelJobLocked(t, t.EXNode, JobTunnelCommitEX, map[string]string{"reply": secret}, now)
 	case TunnelCommittingEX:
+		if t.JoinOwnerID != "" {
+			var receipt tunnelnode.TenantJoinReceipt
+			if err := json.Unmarshal([]byte(secret), &receipt); err != nil ||
+				receipt.OwnerTunnelID != t.JoinOwnerID || receipt.NodeID == "" || receipt.Listen == "" || receipt.PeerID == "" || receipt.PeerPublicKey == "" ||
+				!validSHA256Digest(receipt.ConfigSHA256) || !validSHA256Digest(receipt.UnitSHA256) ||
+				!validSHA256Digest(receipt.MarkerSHA256) || receipt.Generation <= 0 {
+				s.failLocked(t, "EX join returned an invalid shared-tenant receipt", now)
+				return nil
+			}
+			t.PeerID, t.PeerPublicKey = receipt.PeerID, receipt.PeerPublicKey
+			t.EXConfigNodeID, t.EXListen = receipt.NodeID, receipt.Listen
+		}
 		t.Phase = TunnelCommittingIR
 		s.tunnelJobLocked(t, t.IRNode, JobTunnelCommitIR, nil, now)
 	case TunnelCommittingIR:
@@ -839,17 +1164,26 @@ func (s *Store) nextAfterFinalizeLocked(t *Tunnel, now time.Time) *TunnelEvent {
 	}
 	t.Phase, t.JobID, t.UpdatedAt = TunnelActive, "", now
 	s.recordActiveTunnelChangesLocked(t, now)
+	if t.JoinOwnerID != "" {
+		s.syncSharedTenantBaselineLocked(t.JoinOwnerID, *t, now)
+	}
 	for node, gen := range t.ObservedGen {
 		if n, ok := s.st.Nodes[node]; ok {
-			setAppliedGeneration(&n, t.InstanceID, gen)
+			setAppliedGeneration(&n, t.instanceForNode(node), gen)
 			s.st.Nodes[node] = n
 		}
 	}
 	for id, other := range s.st.Tunnels {
-		if id != t.ID && other.Phase == TunnelActive && sameManagedSlot(*t, other) {
-			other.Phase, other.UpdatedAt = TunnelSuperseded, now
-			s.st.Tunnels[id] = other
+		if id == t.ID || other.Phase != TunnelActive || !sameManagedSlot(*t, other) {
+			continue
 		}
+		sharedGroup := (t.JoinOwnerID != "" && (id == t.JoinOwnerID || other.JoinOwnerID == t.JoinOwnerID)) ||
+			(t.JoinOwnerID == "" && other.JoinOwnerID == t.ID)
+		if sharedGroup {
+			continue
+		}
+		other.Phase, other.UpdatedAt = TunnelSuperseded, now
+		s.st.Tunnels[id] = other
 	}
 	detail := fmt.Sprintf("%s <-> %s via %s:%d", t.IRNode, t.EXNode, t.PublicAddress, t.Port)
 	if t.Error != "" {
@@ -889,6 +1223,10 @@ func (s *Store) advanceRollbackLocked(t *Tunnel, now time.Time) *TunnelEvent {
 
 // AdvanceTunnels steps tunnels and records final outcomes in the audit log.
 func (s *Server) AdvanceTunnels() {
+	if err := s.store.ReconcileSharedTenantMutationAcks(s.now()); err != nil {
+		_, _ = s.audit.Append(AuditEntry{Timestamp: s.now().UTC(), Actor: "bcc", Action: "tunnel.shared_tenant.reconcile", Target: "cluster", Outcome: "failure", Details: map[string]any{"error": err.Error()}})
+		return
+	}
 	if devs, err := s.store.AdvanceDiscovery(s.now()); err == nil {
 		s.auditDiscovery(devs)
 	}
@@ -898,6 +1236,11 @@ func (s *Server) AdvanceTunnels() {
 	}
 	_ = s.FlushSecurityAuditIntents()
 	for _, e := range events {
+		if e.Action == "tunnel.active" && !ingressGlueDisabled.Load() {
+			// Held until the production gate (enrolled IR node + fresh
+			// capability heartbeat) opens; a refusal leaves it staged/held.
+			_ = s.store.EnqueueOperationalIngress(e.TunnelID)
+		}
 		if strings.HasPrefix(e.Action, "cert.rotation.") || strings.HasPrefix(e.Action, "tunnel.decommission") {
 			continue
 		}
@@ -944,10 +1287,15 @@ func (s *Server) tunnels(w http.ResponseWriter, r *http.Request) {
 				http.NotFound(w, r)
 				return
 			}
-			writeJSON(w, 200, t)
+			writeJSON(w, 200, s.tunnelWithIngress(t))
 			return
 		}
-		writeJSON(w, 200, s.store.ListTunnels())
+		list := s.store.ListTunnels()
+		out := make([]tunnelIngressView, 0, len(list))
+		for _, t := range list {
+			out = append(out, s.tunnelWithIngress(t))
+		}
+		writeJSON(w, 200, out)
 	case http.MethodPost:
 		if !s.admin(w, r) {
 			return
@@ -959,7 +1307,26 @@ func (s *Server) tunnels(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), 400)
 			return
 		}
+		if strings.TrimSpace(in.PlanHash) == "" {
+			http.Error(w, "reviewed plan_hash is required", http.StatusBadRequest)
+			return
+		}
 		details := map[string]any{"ex_node": in.EXNode, "ir_node": in.IRNode, "port": in.Port, "target": in.Target, "route_listen": in.RouteListen}
+		// Replacing a tunnel whose public ingress is applied requires a Retire.
+		// Fail closed BEFORE anything durable exists when it cannot be queued.
+		replaced := ""
+		if !ingressGlueDisabled.Load() {
+			if cur, perr := s.store.BuildPlan(in, s.now()); perr == nil && cur.Hash == in.PlanHash {
+				replaced = cur.Replaces
+			}
+			if replaced != "" {
+				if needed, perr := s.store.PrecheckOperationalIngressRetire(replaced); needed && perr != nil {
+					details["replaces"] = replaced
+					s.auditFailure(w, r, "tunnel.create", in.EXNode+"->"+in.IRNode, details, errors.New("replacement refused: applied public ingress of "+replaced+" cannot be retired now: "+perr.Error()), http.StatusConflict)
+					return
+				}
+			}
+		}
 		t, _, err := s.store.CreateTunnelFromPlan(in, in.PlanHash, s.now(), AuditEntry{
 			Timestamp: s.now().UTC(), Actor: "admin", RemoteIP: s.clientIP(r), Details: withRequest(r, details),
 		})
@@ -976,6 +1343,14 @@ func (s *Server) tunnels(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			s.auditFailure(w, r, "tunnel.create", in.EXNode+"->"+in.IRNode, details, err, 400)
 			return
+		}
+		if replaced != "" {
+			if _, rerr := s.store.RetireAppliedOperationalIngress(replaced); rerr != nil {
+				// Compensate: no half-replaced tunnel with an orphaned ingress.
+				_, _ = s.store.CancelTunnel(t.ID, "ingress retire could not be queued: "+rerr.Error(), s.now())
+				s.auditFailure(w, r, "tunnel.create", in.EXNode+"->"+in.IRNode, details, errors.New("replacement cancelled: ingress retire failed: "+rerr.Error()), http.StatusConflict)
+				return
+			}
 		}
 		if err := s.FlushSecurityAuditIntents(); err != nil {
 			w.Header().Set("X-BAFT-Audit-State", "pending")
@@ -1026,8 +1401,8 @@ func verifyObserved(t Tunnel, node, role string, o tunnelnode.Observed) []string
 	if o.TunnelID != t.ID {
 		bad("change id is %q, want %q", o.TunnelID, t.ID)
 	}
-	if o.InstanceID != t.InstanceID {
-		bad("instance id is %q, want %q", o.InstanceID, t.InstanceID)
+	if want := t.instanceForNode(node); o.InstanceID != want {
+		bad("instance id is %q, want %q", o.InstanceID, want)
 	}
 	if o.Role != role {
 		bad("node role is %q, want %q", o.Role, role)
@@ -1059,8 +1434,12 @@ func verifyObserved(t Tunnel, node, role string, o tunnelnode.Observed) []string
 	if !o.Managed {
 		bad("the node has no BAFT ownership marker for this configuration")
 	} else {
-		if o.MarkerTunnelID != t.ID || o.MarkerGeneration != o.Generation {
-			bad("ownership marker is for %q generation %d, want %q generation %d", o.MarkerTunnelID, o.MarkerGeneration, t.ID, o.Generation)
+		wantMarkerOwner := t.ID
+		if role == tunnelnode.RoleEX && t.JoinOwnerID != "" {
+			wantMarkerOwner = t.JoinOwnerID
+		}
+		if o.MarkerTunnelID != wantMarkerOwner || o.MarkerGeneration != o.Generation {
+			bad("ownership marker is for %q generation %d, want %q generation %d", o.MarkerTunnelID, o.MarkerGeneration, wantMarkerOwner, o.Generation)
 		}
 		if !o.MarkerConfigMatches {
 			bad("the config differs from the one BAFT installed")
@@ -1119,4 +1498,22 @@ func (s *Server) tunnelDrift(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 202, t)
+}
+
+// tunnelIngressView is the Tunnel JSON plus the derived operational ingress
+// state (never persisted). Ready only uses an already cached fresh BCC probe.
+type tunnelIngressView struct {
+	Tunnel
+	Ingress *IngressOperationalState `json:"ingress,omitempty"`
+}
+
+func (s *Server) tunnelWithIngress(t Tunnel) tunnelIngressView {
+	now := s.now()
+	var obs *IndependentIngressObservation
+	s.ingressObsMu.Lock()
+	if e, ok := s.ingressObsCache[t.ID]; ok && now.Sub(e.at) < ingressObsTTL && !e.at.After(now) {
+		obs = e.obs
+	}
+	s.ingressObsMu.Unlock()
+	return tunnelIngressView{Tunnel: t, Ingress: s.store.IngressOperationalState(t.ID, obs, now)}
 }

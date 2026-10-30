@@ -18,6 +18,8 @@ func TestPlanBCCOnlyFresh(t *testing.T) {
 		"BCC admin token":      "create",
 		"BCC access":           "create",
 		"BCC job key":          "create",
+		"BCC backup key":       "create",
+		"BCC update root pin":  "create",
 		"BCC bootstrap script": "create",
 		"BCC SSH enrollment":   "skip",
 		"BCC systemd unit":     "create",
@@ -67,13 +69,15 @@ func TestPlanBCCOnlyKeepsExistingCredentials(t *testing.T) {
 	r.write("bccetc/admin-token", "admin\n", 0o600)
 	r.write("bccetc/access.json", "{}\n", 0o600)
 	r.write("bccetc/job-key", "key\n", 0o600)
+	r.write("bccetc/backup-key", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\n", 0o600)
+	r.write("bccetc/release-root.pub", "NJq0LmZ503x67pdXSuNGmSOqaiNJDpYf9nDE8Bwa-JI\n", 0o644)
 	r.write("bccvar/bcc-state.json", "state\n", 0o600)
 	r.write("sysd/baft-bcc.service", "# baft-managed: true\n# baft-component: bcc\n[Unit]\n", 0o644)
 	r.mark("active.baft-bcc.service")
 	r.mark("enabled.baft-bcc.service")
 
 	p := r.plan("--bcc-only")
-	for _, item := range []string{"BCC admin token", "BCC access", "BCC job key"} {
+	for _, item := range []string{"BCC admin token", "BCC access", "BCC job key", "BCC backup key", "BCC update root pin"} {
 		if got := p.action(item); got != "keep" {
 			t.Errorf("%s=%q want keep: %+v", item, got, p.Steps)
 		}

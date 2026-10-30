@@ -1,0 +1,238 @@
+package ingressownership
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net"
+	"strconv"
+	"sync"
+	"time"
+
+	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
+	"github.com/zarkmakerburg/baft/internal/publicingress"
+)
+
+// Runtime owns only sockets it bound itself. This lab-only executor never
+// changes host firewall policy and must not be wired to signed deploy jobs.
+var ErrStopped = errors.New("ingress session has stopped; explicit retire required")
+
+// retiredWithCause is produced ONLY after exact owner proof was released
+// from the registry and the stopped listener has fully exited. It preserves
+// the terminal failure without confusing successful socket teardown with
+// uncertainty about which socket was stopped. Other failures are NOT proof
+// of retirement and must never authorize firewall cleanup.
+type retiredWithCause struct{ cause error }
+
+func (e *retiredWithCause) Error() string {
+	return "ingress listener retired with terminal failure: " + e.cause.Error()
+}
+func (e *retiredWithCause) Unwrap() error { return e.cause }
+
+func listenerRetirementVerified(err error) bool {
+	if err == nil {
+		return true
+	}
+	var stopped *retiredWithCause
+	return errors.As(err, &stopped)
+}
+
+type Runtime struct {
+	mu       sync.Mutex
+	registry *Registry
+	sessions map[string]*session
+}
+type session struct {
+	proof  ingressmanifest.Proof
+	ctx    context.Context // original lifecycle, including cancellation before done
+	cancel context.CancelFunc
+	// The exact listener/forwarder are retained only for read-only replay
+	// verification. Neither is a durable host or firewall ownership claim.
+	listener  net.Listener
+	forwarder *publicingress.Forwarder
+	// A lost live-port claim found by replay is immutable evidence until
+	// exact-owner Retire, even if cancellation makes Serve exit cleanly.
+	violation error
+	// done is a broadcast completion signal, not a consumable error queue.
+	// Multiple health checks must not drain the terminal outcome before
+	// exact-owner Retire has inspected it.
+	done     chan struct{}
+	result   error
+	retiring bool
+}
+
+func NewRuntime() *Runtime { return &Runtime{registry: New(), sessions: make(map[string]*session)} }
+
+// canonicalEndpoint matches the manifest's canonical IP and decimal port.
+func canonicalEndpoint(endpoint string) (string, error) {
+	host, port, err := net.SplitHostPort(endpoint)
+	if err != nil {
+		return "", ErrInvalid
+	}
+	ip := net.ParseIP(host)
+	n, err := strconv.Atoi(port)
+	if ip == nil || err != nil || n < 1 || n > 65535 {
+		return "", ErrInvalid
+	}
+	return net.JoinHostPort(ip.String(), strconv.Itoa(n)), nil
+}
+
+// Apply binds before recording ownership; a bind conflict never touches the
+// existing service. All session transitions are serialized.
+func (r *Runtime) Apply(parent context.Context, spec ingressmanifest.Spec, proof ingressmanifest.Proof) error {
+	if r == nil || parent == nil {
+		return ErrInvalid
+	}
+	if err := parent.Err(); err != nil {
+		return err
+	}
+	expected, err := ingressmanifest.Preview(spec)
+	if err != nil {
+		return err
+	}
+	if expected != proof {
+		return ErrInvalid
+	}
+	canonical, err := canonicalEndpoint(spec.Config.Listen)
+	if err != nil {
+		return err
+	}
+	spec.Config.Listen = canonical
+	f, err := publicingress.New(publicingress.Config{Listen: spec.Config.Listen, Target: spec.Config.Target, MaxClients: spec.Config.MaxClients, DialTimeout: time.Duration(spec.Config.DialTimeoutMS) * time.Millisecond})
+	if err != nil {
+		return err
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	// A zero-value LAB runtime must retain exact-owner generation fences.
+	if r.registry == nil {
+		r.registry = New()
+	}
+	if r.sessions == nil {
+		r.sessions = make(map[string]*session)
+	}
+	if s, ok := r.sessions[spec.Config.Listen]; ok {
+		if s.proof == proof && !s.retiring {
+			select {
+			case <-s.done:
+				return ErrStopped
+			default:
+				// The original owner's cancellation must be visible even
+				// before Serve has acquired r.mu to publish its terminal
+				// result. A fresh replay context cannot revive it.
+				if s.ctx.Err() != nil {
+					return ErrStopped
+				}
+				// A foreign process may have bound another IP/family since
+				// admission and before the 1-second watchdog tick. Never
+				// claim a healthy replay without re-verifying the exact
+				// listener's current live TCP-port ownership.
+				if err := s.forwarder.ValidateListener(s.listener); err != nil {
+					s.violation = err
+					s.cancel()
+					return errors.Join(ErrStopped, err)
+				}
+				if s.ctx.Err() != nil {
+					return ErrStopped
+				}
+				if err := parent.Err(); err != nil {
+					return err
+				}
+				return nil
+			}
+		}
+		return ErrConflict
+	}
+	// Reject stale or conflicting ownership before touching the OS socket.
+	// Claim still runs after bind, so a bind failure does not consume a generation.
+	if err := r.registry.checkClaim(spec.Config.Listen, proof); err != nil {
+		return err
+	}
+	// Bind before claiming: an unrelated process holding the port must not
+	// consume the owner's generation or leave a false reservation.
+	// Match the manifest family explicitly: a generic wildcard bind can
+	// return an IPv6 listener for 0.0.0.0, which Serve correctly rejects.
+	host, _, _ := net.SplitHostPort(spec.Config.Listen)
+	network := "tcp6"
+	if net.ParseIP(host).To4() != nil {
+		network = "tcp4"
+	}
+	ln, err := net.Listen(network, spec.Config.Listen)
+	if err != nil {
+		return fmt.Errorf("ingress bind: %w", err)
+	}
+	// Check for live foreign owners across both TCP address families before
+	// consuming the generation or reporting Apply success. Serve repeats this
+	// read-only check after launch to narrow (not eliminate) TOCTOU exposure.
+	if err := f.ValidateListener(ln); err != nil {
+		_ = ln.Close()
+		return fmt.Errorf("ingress admission: %w", err)
+	}
+	if err := r.registry.Claim(spec.Config.Listen, proof); err != nil {
+		_ = ln.Close()
+		return err
+	}
+	// After claiming a generation, never roll it back as if unused:
+	// doing so would consume the high-water mark without a session to retire.
+	// A concurrently cancelled parent is represented by a stopped session,
+	// which can only be retired with its exact proof.
+	ctx, cancel := context.WithCancel(parent)
+	s := &session{proof: proof, ctx: ctx, cancel: cancel, listener: ln, forwarder: f, done: make(chan struct{})}
+	r.sessions[spec.Config.Listen] = s
+	go func() {
+		err := f.Serve(ctx, ln)
+		// Serve leaves a rejected listener with its caller. Runtime owns it
+		// even on rejection; close before reporting session completion.
+		_ = ln.Close()
+		r.mu.Lock()
+		// Retain a completed session until explicit exact-owner retirement.
+		// Otherwise an unexpected exit could allow a stale same-proof retry.
+		s.result = err
+		close(s.done)
+		r.mu.Unlock()
+	}()
+	return nil
+}
+
+// Retire never closes a foreign socket or a newer owner's session.
+func (r *Runtime) Retire(endpoint string, proof ingressmanifest.Proof) error {
+	if r == nil {
+		return ErrInvalid
+	}
+	canonical, err := canonicalEndpoint(endpoint)
+	if err != nil {
+		return err
+	}
+	endpoint = canonical
+	r.mu.Lock()
+	s, ok := r.sessions[endpoint]
+	if !ok || s.proof != proof {
+		r.mu.Unlock()
+		return ErrUnknown
+	}
+	if s.retiring {
+		r.mu.Unlock()
+		return ErrConflict
+	}
+	s.retiring = true
+	s.cancel()
+	r.mu.Unlock()
+	<-s.done
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	err = s.result
+	// If a health read detected lost ownership and canceled Serve before
+	// its watchdog reported failure, retain that cause across any number
+	// of intervening health checks and cleanup.
+	if s.violation != nil {
+		err = errors.Join(err, s.violation)
+	}
+	if releaseErr := r.registry.Release(endpoint, proof); releaseErr != nil {
+		return releaseErr
+	}
+	delete(r.sessions, endpoint)
+	if err != nil && !errors.Is(err, net.ErrClosed) {
+		return &retiredWithCause{cause: err}
+	}
+	return nil
+}

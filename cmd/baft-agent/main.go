@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/zarkmakerburg/baft/internal/agent"
+	"github.com/zarkmakerburg/baft/internal/ingressauthority"
 	"github.com/zarkmakerburg/baft/internal/release"
 	"github.com/zarkmakerburg/baft/internal/tunnelnode"
 )
@@ -75,6 +76,7 @@ func run(ctx context.Context, args []string, stderr io.Writer) int {
 	releaseBase := fs.String("release-base-url", "https://github.com/zarkmakerburg/baft/releases/download", "release assets at <base>/<version>/<file>")
 	revocations := fs.String("revocations-url", "https://raw.githubusercontent.com/zarkmakerburg/baft/main/release/keys/revocations.json", "current release revocation list")
 	stateDir := fs.String("state-dir", "/var/lib/baft-agent", "agent state (seen jobs)")
+	ingressManifestDir := fs.String("ingress-manifest-dir", "", "pre-existing private ingress manifest directory (empty disables prepare)")
 	releaseState := fs.String("release-state", "/opt/baft/release-state.json", "installer release trust state")
 	binDir := fs.String("bin-dir", "/usr/local/bin", "where baft and baft-pair are installed")
 	service := fs.String("service", "baft", "BAFT systemd unit")
@@ -84,13 +86,38 @@ func run(ctx context.Context, args []string, stderr io.Writer) int {
 	metricsListen := fs.String("metrics-listen", "127.0.0.1:9191", "loopback metrics address given to tunnels this agent builds")
 	serviceUser := fs.String("service-user", "baft", "user the BAFT service runs as")
 	interval := fs.Duration("interval", 30*time.Second, "poll interval")
+	provisionPolicy := fs.Bool("provision-ingress-policy", false, "local root-only managed ingress policy bootstrap; does not enable Apply")
+	reconcileMode := fs.String("ingress-reconcile", "auto", "post-restart reconciliation of interrupted operational ingress: auto (finish only with complete kernel/firewall/authority evidence), report (evaluate, write nothing) or off")
+	reconcileOnly := fs.Bool("reconcile-ingress", false, "run the post-restart ingress reconciliation once, print the evidence and exit (1 if anything stays fenced)")
 	once := fs.Bool("once", false, "handle pending jobs once and exit")
 	allowHTTP := fs.Bool("allow-insecure-http", false, "allow a plain-HTTP BCC URL (testing only)")
 	if err := fs.Parse(args); err != nil || fs.NArg() != 0 {
 		return 2
 	}
+	if *provisionPolicy {
+		if *nodeID == "" {
+			fmt.Fprintln(stderr, "baft-agent: --provision-ingress-policy requires --node-id")
+			return 2
+		}
+		p, err := ingressauthority.ProvisionInstalledManagedNodePolicy(ctx, *nodeID)
+		if err != nil {
+			fmt.Fprintln(stderr, "baft-agent: ingress policy:", err)
+			return 1
+		}
+		fmt.Fprintf(stderr, "baft-agent: installed managed ingress policy for %s at %s; operational Apply remains blocked pending complete coverage and held authority\n", p.NodeID, p.ProfilePath)
+		return 0
+	}
 	if *bccURL == "" || *nodeID == "" {
 		fmt.Fprintln(stderr, "baft-agent: --bcc-url and --node-id are required")
+		return 2
+	}
+	mode, merr := parseReconcileMode(*reconcileMode)
+	if merr != nil {
+		fmt.Fprintln(stderr, "baft-agent:", merr)
+		return 2
+	}
+	if *reconcileOnly && mode == agent.RestartReconcileOff {
+		fmt.Fprintln(stderr, "baft-agent: --reconcile-ingress cannot be combined with --ingress-reconcile=off")
 		return 2
 	}
 	if !strings.HasPrefix(*bccURL, "https://") && !*allowHTTP {
@@ -109,7 +136,8 @@ func run(ctx context.Context, args []string, stderr io.Writer) int {
 	}
 	cfg := agent.Config{
 		BCCURL: *bccURL, NodeID: *nodeID, Token: token, BCCJobKey: jobKey, StateDir: *stateDir,
-		Service: *service, ReleaseBaseURL: *releaseBase, RevocationsURL: *revocations,
+		IngressManifestDir: *ingressManifestDir,
+		Service:            *service, ReleaseBaseURL: *releaseBase, RevocationsURL: *revocations,
 		ReleaseState: *releaseState, BinDir: *binDir, System: hostSystem{},
 	}
 	tn, err := tunnelnode.New(tunnelnode.Env{
@@ -129,12 +157,32 @@ func run(ctx context.Context, args []string, stderr io.Writer) int {
 	} else {
 		fmt.Fprintln(stderr, "baft-agent: no release root pinned; update_baft jobs will fail")
 	}
+	// Operational ingress is built only if every prerequisite verifies; any
+	// failure leaves it nil (no capability header, v1 jobs BLOCKED). It never
+	// falls back to the LAB executor or an in-memory firewall.
+	logger := log.New(stderr, "", log.LstdFlags)
+	if op, err := buildIngressOperational(ctx, *nodeID, *stateDir, hostIngressDeps(logger.Printf)); err != nil {
+		logger.Printf("baft-agent: operational ingress disabled (v1 ingress jobs stay BLOCKED): %v", err)
+	} else {
+		cfg.IngressOperational = op
+		logger.Printf("baft-agent: operational ingress provisioned for %s", *nodeID)
+	}
 	a, err := agent.New(cfg)
 	if err != nil {
 		fmt.Fprintln(stderr, "baft-agent:", err)
 		return 1
 	}
-	logger := log.New(stderr, "", log.LstdFlags)
+	// Interrupted operational ingress is reconciled BEFORE any job can run.
+	// It finishes an operation only with complete evidence (see
+	// docs/release/managed-ingress-policy-bootstrap.md); otherwise it leaves
+	// everything fenced exactly as before and logs why.
+	fenced := reconcileIngressAtStartup(ctx, a, mode, logger.Printf)
+	if *reconcileOnly {
+		if fenced {
+			return 1
+		}
+		return 0
+	}
 	if *once {
 		results, err := a.RunOnce(ctx)
 		for _, r := range results {

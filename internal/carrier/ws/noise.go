@@ -110,6 +110,11 @@ func HandlerWithNoise(stream StreamHandler, o NoiseOptions) (http.Handler, error
 		// served. A failed Noise handshake simply drops the connection.
 		ctx, cancel := context.WithCancel(r.Context())
 		defer cancel()
+		// A hijacked socket is outside http.Server shutdown ownership. Close
+		// its raw connection on cancellation, without waiting for a WS control
+		// frame or the write mutex held by a blocked application writer.
+		stopClose := context.AfterFunc(ctx, conn.closeUnderlying)
+		defer func() { stopClose(); conn.closeUnderlying() }()
 
 		_ = conn.SetReadDeadline(time.Now().Add(o.HandshakeTimeout))
 		_ = conn.SetWriteDeadline(time.Now().Add(o.HandshakeTimeout + time.Second))

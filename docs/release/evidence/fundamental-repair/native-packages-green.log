@@ -1,0 +1,5 @@
+ok  	github.com/zarkmakerburg/baft/internal/node	2.443s
+ok  	github.com/zarkmakerburg/baft/internal/carrier/h2	1.597s
+ok  	github.com/zarkmakerburg/baft/internal/carrier/utlsdial	1.231s
+ok  	github.com/zarkmakerburg/baft/internal/carrier/ws	1.585s
+ok  	github.com/zarkmakerburg/baft/internal/session	2.328s

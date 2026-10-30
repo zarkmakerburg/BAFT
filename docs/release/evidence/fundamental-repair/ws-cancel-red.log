@@ -1,0 +1,8 @@
+--- FAIL: TestWSNoiseServerCancellationClosesHijackedConnection (1.02s)
+    --- FAIL: TestWSNoiseServerCancellationClosesHijackedConnection/idle_handshake (0.51s)
+        noise_cancel_test.go:58: server cancellation left hijacked Noise handler blocked
+    --- FAIL: TestWSNoiseServerCancellationClosesHijackedConnection/authenticated_read (0.51s)
+        noise_cancel_test.go:58: server cancellation left hijacked Noise handler blocked
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/carrier/ws	1.026s
+FAIL

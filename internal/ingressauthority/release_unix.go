@@ -267,22 +267,44 @@ func (g *PendingGuard) ReleaseVerified(ctx context.Context, ev RetirementEvidenc
 	return savePending(g.fd, g.root, claims)
 }
 
-// staleReleasedClaim reports whether an existing claim is the leftover of a
-// release that crashed after its tombstone: no lifecycle entry and a tombstone
-// at or above the claim's generation with the same identities.
-func staleReleasedClaim(root *os.Root, key string, claim BindingV1) (bool, error) {
-	rel, err := loadReleased(root)
-	if err != nil {
-		return false, err
-	}
-	r, ok := rel[key]
-	if !ok || r.Generation != claim.Spec.Generation || r.OperationID != claim.OperationID || r.LeaseID != claim.LeaseID || r.PlanSHA256 != claim.PlanSHA256 {
+// completeStaleRelease finishes only the metadata tail of a committed release,
+// under the store's OS lock. The protected tombstone was persisted AFTER the
+// verified retirement; it does not authorize any new listener/firewall effect.
+// Match every recorded resource identity, and never discard lifecycle work that
+// the tombstone does not account for. Persist lifecycle removal before allowing
+// the caller to remove the pending claim, preserving the original write order.
+func completeStaleRelease(d *os.File, root *os.Root, key string, claim BindingV1, r ReleasedV1) (bool, error) {
+	if key != reservationKey(claim) || r.NodeID != claim.NodeID || r.Port != claim.Port ||
+		r.TunnelID != claim.Spec.TunnelID || r.InstanceID != claim.Spec.InstanceID ||
+		r.Generation != claim.Spec.Generation || r.OperationID != claim.OperationID || r.LeaseID != claim.LeaseID || r.PlanSHA256 != claim.PlanSHA256 {
 		return false, nil
 	}
 	entries, err := readLifecycle(root)
 	if err != nil {
 		return false, err
 	}
-	_, hasEntry := entries[key]
-	return !hasEntry, nil
+	if entry, hasEntry := entries[key]; hasEntry {
+		if entry.Binding != claim {
+			return false, nil
+		}
+		spent := make(map[string]bool, len(r.SpentJobs))
+		for _, job := range r.SpentJobs {
+			spent[job] = true
+		}
+		for _, cmd := range entry.Commands {
+			if !spent[cmd.JobID] {
+				return false, nil
+			}
+		}
+		for _, job := range entry.Superseded {
+			if !spent[job] {
+				return false, nil
+			}
+		}
+		delete(entries, key)
+		if err := writeLifecycle(d, root, entries); err != nil {
+			return false, err
+		}
+	}
+	return true, nil
 }

@@ -5,6 +5,7 @@ Discovery reads directory entries and file metadata only, never key contents.
 The trusted signing wrapper still performs all verification, the manual offline
 acknowledgement, signing and final verification. No keys are created or uploaded.
 """
+import argparse
 import hashlib
 import os
 from pathlib import Path
@@ -82,7 +83,13 @@ def choose(name, paths, terminal):
             return paths[number - 1]
 
 
-def main():
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--key-file", type=Path)
+    parser.add_argument("--cert-file", type=Path)
+    args = parser.parse_args(argv)
+    if bool(args.key_file) != bool(args.cert_file):
+        raise RuntimeError("مسیر کلید و گواهی باید با هم مشخص شوند.")
     if sys.platform != "darwin":
         raise RuntimeError("این ابزار برای اجرا روی macOS است.")
     if os.environ.get("CI") == "true" or os.environ.get("GITHUB_ACTIONS") == "true":
@@ -97,8 +104,24 @@ def main():
         raise RuntimeError("اسکریپت اصلی بسته پیدا نشد.")
     if hashlib.sha256(wrapper.read_bytes()).hexdigest() != WRAPPER_SHA256:
         raise RuntimeError("هش اسکریپت اصلی تغییر کرده؛ اجرای امضا متوقف شد.")
-    print("در حال جستجوی فایل‌های موجود در پوشهٔ کاربر؛ محتوای کلید خوانده نمی‌شود…", flush=True)
-    found, denied = discover(home, base)
+    if args.key_file is not None:
+        found = {}
+        for name, path in zip(NAMES, (args.key_file, args.cert_file)):
+            if not path.is_absolute() or "\n" in str(path) or "\r" in str(path):
+                raise RuntimeError("مسیر کامل و تک‌خطی لازم است: " + name)
+            try:
+                regular = stat.S_ISREG(path.lstat().st_mode)
+            except OSError:
+                regular = False
+            if not regular:
+                raise RuntimeError("فایل معمولی موجود و غیر symlink لازم است: " + str(path))
+            if base in path.resolve().parents:
+                raise RuntimeError("کلید و گواهی باید بیرون پوشهٔ بسته باشند.")
+            found[name] = [path]
+        denied = 0
+    else:
+        print("در حال جستجوی فایل‌های موجود در پوشهٔ کاربر؛ محتوای کلید خوانده نمی‌شود…", flush=True)
+        found, denied = discover(home, base)
     missing = [name for name, paths in found.items() if not paths]
     if missing:
         for name in NAMES:

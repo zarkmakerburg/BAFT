@@ -121,12 +121,14 @@ func TestReleaseCIOperationalIngressFalsification(t *testing.T) {
 
 // Gates that become required once their workflow file is part of the tagged
 // commit: a missing or red run is a FAIL, a green run passes.
-func TestReleaseCIRequiresCarriedSecurityUIAndPinGates(t *testing.T) {
+func TestReleaseCIRequiresCarriedSecurityUIAndContinuityGates(t *testing.T) {
 	gates := []struct{ path, job, label string }{
 		{".github/workflows/bcc-v3-ui-tests.yml", "test", "bcc-ui-unit"},
 		{".github/workflows/bcc-v3-ui-tests.yml", "browser", "bcc-ui-browser"},
 		{".github/workflows/vulncheck.yml", "govulncheck", "vulncheck"},
 		{".github/workflows/delta-ingress-pin.yml", "check", "delta-ingress-pin"},
+		{".github/workflows/operational-recovery.yml", "operational-recovery", "operational-recovery"},
+		{".github/workflows/shared-operational-ingress.yml", "shared-operational-ingress", "shared-operational-ingress"},
 	}
 	for _, g := range gates {
 		for _, scenario := range []string{"absent-file-not-required", "missing-run", "failed", "green"} {
@@ -166,6 +168,54 @@ func TestReleaseCIRequiresCarriedSecurityUIAndPinGates(t *testing.T) {
 	}
 }
 
+// Green transport and ingress runs from another source, a lookalike workflow,
+// or an older successful attempt cannot stand in for the tagged candidate's
+// combined lifecycle and crash-recovery evidence.
+func TestReleaseCISharedAndRecoveryRejectUnqualifiedEvidence(t *testing.T) {
+	for _, g := range []struct{ path, job string }{
+		{".github/workflows/operational-recovery.yml", "operational-recovery"},
+		{".github/workflows/shared-operational-ingress.yml", "shared-operational-ingress"},
+	} {
+		for _, scenario := range []string{"wrong-sha", "wrong-workflow", "wrong-job", "later-failure", "later-attempt-failure", "unfinished-workflow", "unfinished-job", "failed-job"} {
+			t.Run(g.job+"/"+scenario, func(t *testing.T) {
+				runs, jobs := qualifiedCI()
+				runs, jobs = withOperational(runs, jobs, "success")
+				runs = append(runs, run{ID: 41, Path: g.path, RunNumber: 1, RunAttempt: 1, Conclusion: "success"})
+				jobs[41] = []job{{ID: 410, Name: g.job, Status: "completed", Conclusion: "success"}}
+				current := len(runs) - 1
+				switch scenario {
+				case "wrong-sha":
+					runs[current].HeadSHA = strings.Repeat("0", 40)
+				case "wrong-workflow":
+					runs[current].Path = ".github/workflows/lookalike.yml"
+				case "wrong-job":
+					jobs[41][0].Name = "something-else"
+				case "later-failure", "later-attempt-failure":
+					later := runs[current]
+					later.ID, later.Conclusion = 42, "failure"
+					if scenario == "later-attempt-failure" {
+						later.RunAttempt = 2
+					} else {
+						later.RunNumber = 2
+					}
+					runs = append(runs, later)
+					jobs[42] = []job{{ID: 420, Name: g.job, Status: "completed", Conclusion: "failure"}}
+				case "unfinished-workflow":
+					runs[current].Status = "in_progress"
+				case "unfinished-job":
+					jobs[41][0].Status, jobs[41][0].Conclusion = "in_progress", ""
+				case "failed-job":
+					jobs[41][0].Conclusion = "failure"
+				}
+				out := ciSetupFiles(t, []string{opWorkflow, g.path}, runs, jobs)
+				if l := rowFor(out, "ci: "+g.job); !strings.HasPrefix(l, "FAIL") || strings.Contains(out, "ACCEPTED:") {
+					t.Fatalf("continuity gate admitted on %s: %q\n%s", scenario, l, out)
+				}
+			})
+		}
+	}
+}
+
 // Every workflow gate accept.sh names must exist in this repository with the
 // named job, so a rename cannot silently turn a gate into a permanent FAIL or
 // leave it pointing at a job that no longer exists.
@@ -194,7 +244,7 @@ func TestAcceptShNamesRealWorkflowJobs(t *testing.T) {
 			t.Errorf("%s has no job %q", parts[0], parts[1])
 		}
 	}
-	if n != 9 {
-		t.Fatalf("expected 9 workflow gates in accept.sh, found %d", n)
+	if n != 11 {
+		t.Fatalf("expected 11 workflow gates in accept.sh, found %d", n)
 	}
 }

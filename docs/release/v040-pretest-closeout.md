@@ -1,47 +1,76 @@
-# v0.4.0 pre-test closeout
+# v0.4.0 candidate acceptance and remaining gates
 
-Date: 2026-10-28  
-Scope: finish implementation-only work before the owner-authorized final acceptance tests. This file is a tracking boundary, not evidence that an item is implemented or passed.
+Updated: 2026-10-30. This ledger distinguishes implemented behavior from
+acceptance evidence. The owner's newer HQ instruction authorizes integration,
+merge, tagging and release after the gates pass. Production deployment remains
+a distinct action. This document records technical readiness, not permission.
 
-## Canonical candidate
+## Candidate and history
 
-- Integration PR: #278, branch `claude/v040-integration`, base `qa/integration-20261023-latest`.
-- Observed PR head at this checkpoint: `1824ae460f5e7e9860384ea9055e1f3eaf8b35100fb`.
-- PR is open and draft. Do not merge, tag, publish, or deploy before all P0 and release gates pass.
-- The readiness document's historical checkpoint header contains an older SHA; use live PR metadata and exact-SHA workflow evidence as canonical. A previous 8/8 workflow pass on `e1101ec7b2040b2977b24e5ea3455e1f31686dcd` is not a pass for the current head.
+- PR #289 (`hq/p0-candidate-20261029`, base `hq/p0-continuation-20261029`)
+  supersedes this document's old PR #278 checkpoint. Read live PR metadata;
+  neither an earlier SHA nor a green parent supplies checks for a new head.
+- PR #290 (`hq/cloud-continuation-20261029`) adds held-authority restart fencing,
+  signed shared-tenant lifecycle corrections and the supplementary combined
+  ingress acceptance. It remains separate from the shared QA branch.
+- The earlier `1824ae460f5e7e9860384ea9055e1f3eaf8b35100fb` checkpoint and
+  implementation-only/Mac-wait instructions are historical. The owner's newer
+  HQ handoff authorizes independent test execution in the available cloud LAB.
+- The isolated-LAB policy in `v040-lab-acceptance-policy.md` remains the
+  environmental contract. Production hosts are not a release prerequisite;
+  untested critical behavior still blocks release.
 
-## Implementation-only work, in order
+## Implemented behavior requiring exact-head validation
 
-### 1. BCC tenant lifecycle and transport capability contract
-- Current known boundary: shared join/reload exists through CLI, but BCC transactions do not create/list/remove joined tenants end-to-end.
-- `multiplex-v1` is not implemented on the wire. Do not advertise or enable shared transport without a negotiated, authenticated capability and tenant isolation proof.
-- Implement BCC-owned create/list/edit/remove lifecycle, acknowledgement and rollback only after inspecting the canonical shared-multiplex branch and resolving its merge base with the current integration candidate.
-- Until this is genuinely integrated, expose dedicated-port mode only and explain why shared mode is unavailable. Do not imply that port 443 alone provides censorship resistance.
+- BCC reviewed shared joins allocate separate IR instances, retain an explicit
+  EX owner, and carry tenant identity/digests through signed normal Agent jobs.
+  Same-IR joins, tenant restart/removal and a persistent owner flow are exercised
+  by `TestBCCSignedSharedSameIRRealFlowsPreserveOwner` with real binaries,
+  certificate-validated HTTPS and a test process supervisor instead of systemd.
+- Tenant actions must pass the normal BCC signing allowlist and strict scoped
+  job schema. Finalizing a shared join retains the physical-owner transaction
+  and sibling observation records. Physical-owner replacement refuses dependent
+  tenants instead of superseding their ownership records.
+- Public ingress has a pinned 28-case operational gate. Restart recovery has a
+  separate 13-case zero-SKIP gate covering real process death and exact cleanup.
+  Remove-only reconciliation is not adoption of an old live session; unknown
+  ownership or partial evidence must remain fenced.
+- Recovery authority, fresh socket evidence, exact rule readback and deletion
+  share one held guard. A late foreign listener or revoked authority prevents
+  cleanup rather than acknowledging a destructive effect after the fact.
+- Independent peer sessions sharing an authenticated Noise listener are not a
+  `multiplex-v1` wire capability. Do not advertise unsupported engines, carriers
+  or per-session multiplexing. Keep dedicated mode explicit when no compatible
+  reviewed shared owner exists.
 
-### 2. Public ingress recovery and ownership
-- Reboot adoption/reconciliation of live listener + firewall ownership remains blocked.
-- Implement explicit reconciliation from trusted durable owner/generation evidence; unknown or partial state must remain fenced and must never be adopted based only on a listening socket, config file, caller boolean, or stale lease.
-- Preserve rollback and exact-owner cleanup semantics. Keep the existing Arno 0.3.7 tunnel and unrelated services untouched.
+## Remaining acceptance
 
-### 3. Safe dedicated-port fallback and preflight
-- Ensure the wizard/API selects a dedicated public TCP port by default when shared capability is absent or the candidate port is unavailable.
-- Preflight must cover numeric-port conflicts across address families, persistent stopped-service claims, routing, firewall ownership, destination reachability, transport compatibility, and preservation of unrelated services.
-- Never acquire or stop an existing service just because its port number is used as an example. The existing active 2053 listener is protected by actual ownership, not by a hardcoded port rule.
-- Ensure destination 3X-UI inbound port and client public port defaults are consistent; if the operator chooses a different public port, clearly flag the external subscription-rewrite requirement. Do not add a subscription-domain field to BCC.
+1. On the final candidate SHA, require full Go/race/vet, UI units and real-browser
+   checks, applicable security scans and hosted workflows. Preserve failures,
+   skips and reruns; no parent-green substitutions.
+2. Combine reviewed BCC provisioning, real shared transport, operational ingress
+   listener/nft, authenticated receipts and the verified client card in one
+   acceptance path. Separate transport and ingress successes do not prove this.
+   Include partial failure, cold start, sibling/foreign preservation and cleanup.
+   The [combined acceptance contract](v040-shared-ingress-acceptance.md) now has
+   positive and real partial-Add failure cases, including tenant Runtime restart,
+   retirement, authenticated receipts/cards and durable component reconstruction.
+   Local WIP runs passed with zero SKIPs and independent review; final committed
+   workflow evidence is still required. Reopening Agent objects/stores is not
+   process death. Automatic BCC port reuse after failed Apply remains unavailable.
+3. Install exact candidate artifacts in the six-node disposable LAB. Synthetic
+   labels, application delay and echo probes are not geographic measurements,
+   kernel netem or product auto-selection evidence. Record unsupported cases.
+4. Complete final-candidate backup/restore, upgrade/rollback and artifact
+   provenance/checksum evidence. CLI updater proposals and disabled external
+   engine roadmap issues must be truthfully scoped rather than marked complete.
+5. Reconcile the P0 ledger and Issue #67, then record a final GO/NO-GO decision.
+   Trusted offline signing and final signed-asset verification remain necessary;
+   the owner's merge/tag/release authorization is already recorded in HQ.
 
-### 4. Final-candidate backup/restore and provenance
-- Complete final-candidate encrypted backup/restore fault-injection and stopped-service restore drill documentation/artifacts.
-- Confirm independent trusted build provenance/signing and artifact checksum acceptance procedure. Existing historical signing or restore results on other SHAs do not satisfy this candidate's gate.
+## Current disposition
 
-### 5. Release documentation and exact-head evidence
-- Keep the readiness ledger's candidate SHA synchronized with the actual PR head.
-- Once implementation is complete, run the required exact-head workflows and verify each final status; no inherited or predecessor-SHA green check is accepted.
-- Only after the owner-authorized test phase closes all remaining gates may HQ consider merge, tag, signed publication, and deployment.
-
-## Deferred by explicit owner instruction
-
-The owner asked to do all non-test work first and defer tests until the Mac is online. Do not start Mac or real-host tests before that instruction changes. This does not authorize claiming unrun tests as passing.
-
-## Current release gate
-
-**NO-GO.** Known implementation gaps remain in BCC shared-tenant lifecycle/capability, reboot reconciliation, and final-candidate backup/restore/provenance. Exact-head hosted workflow status must be rechecked after the last implementation commit. No merge, release, or deployment is authorized by this checklist.
+**NO-GO pending final-SHA evidence.** Source presence and bounded local tests do
+not close #269. Final committed shared-ingress workflow evidence and the complete
+release gate/provenance set remain required.
+No production host or protected existing service is a substitute for a LAB.

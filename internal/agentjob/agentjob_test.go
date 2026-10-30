@@ -170,7 +170,6 @@ func TestPathProbeActionsAreStrictlyBounded(t *testing.T) {
 	}
 }
 
-
 func TestSharedTenantActionsRequireExactDigestFencedShape(t *testing.T) {
 	now := time.Now().UTC()
 	base := Job{
@@ -188,16 +187,36 @@ func TestSharedTenantActionsRequireExactDigestFencedShape(t *testing.T) {
 	if err := base.Validate(); err != nil {
 		t.Fatalf("valid tenant add job rejected: %v", err)
 	}
+	base.Params["instance_id"] = "shared-de"
+	base.Params["metrics_listen"] = "127.0.0.1:9291"
+	if err := base.Validate(); err != nil {
+		t.Fatalf("scoped tenant add job rejected: %v", err)
+	}
+	for field, value := range map[string]string{"instance_id": "../escape", "metrics_listen": "0.0.0.0:9291"} {
+		bad := base
+		bad.Params = make(map[string]string, len(base.Params))
+		for k, v := range base.Params {
+			bad.Params[k] = v
+		}
+		bad.Params[field] = value
+		if err := bad.Validate(); err == nil {
+			t.Fatalf("invalid tenant scope %s accepted", field)
+		}
+	}
 	bad := base
 	bad.Params = make(map[string]string, len(base.Params))
-	for k, v := range base.Params { bad.Params[k] = v }
+	for k, v := range base.Params {
+		bad.Params[k] = v
+	}
 	bad.Params["listen"] = "0.0.0.0:0"
 	if err := bad.Validate(); err == nil {
 		t.Fatal("zero listener port accepted")
 	}
 	bad = base
 	bad.Params = make(map[string]string, len(base.Params))
-	for k, v := range base.Params { bad.Params[k] = v }
+	for k, v := range base.Params {
+		bad.Params[k] = v
+	}
 	bad.Params["config_sha256"] = "not-a-digest"
 	if err := bad.Validate(); err == nil {
 		t.Fatal("malformed config digest accepted")
@@ -206,7 +225,9 @@ func TestSharedTenantActionsRequireExactDigestFencedShape(t *testing.T) {
 	remove.Action = ActionTunnelTenantRemove
 	remove.Params = make(map[string]string, len(base.Params))
 	for k, v := range base.Params {
-		if k != "target" { remove.Params[k] = v }
+		if k != "target" {
+			remove.Params[k] = v
+		}
 	}
 	if err := remove.Validate(); err != nil {
 		t.Fatalf("valid tenant remove job rejected: %v", err)

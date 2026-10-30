@@ -549,6 +549,10 @@ func TestSharedJoinAddsNewPeerWithoutChangingLegacyOwner(t *testing.T) {
 	if _, err := p.ex.Finalize(ctx, "shared-tenant"); err != nil {
 		t.Fatalf("finalize shared tenant: %v", err)
 	}
+	owner, err := p.ex.readTxn("shared-owner")
+	if err != nil || owner.Phase != PhaseFinalized {
+		t.Fatalf("finalizing a tenant deleted its physical ownership evidence: %v", err)
+	}
 	if _, err := ir2.Finalize(ctx, "shared-tenant"); err != nil {
 		t.Fatalf("finalize new IR: %v", err)
 	}

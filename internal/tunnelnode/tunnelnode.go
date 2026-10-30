@@ -999,11 +999,16 @@ func (m *Manager) Finalize(ctx context.Context, id string) (string, error) {
 		_ = os.RemoveAll(m.pkiDir() + ".before-" + id)
 	}
 	m.clearActive()
-	// Older changes are superseded: nothing references their stage any more.
+	// A finalized shared tenant still depends on its physical owner's
+	// transaction and its sibling tenants' observation records. Only older
+	// changes outside that shared group are superseded.
 	if ents, err := os.ReadDir(filepath.Join(m.StateDir, "tunnels")); err == nil {
 		for _, e := range ents {
-			if e.IsDir() && e.Name() != id {
+			if e.IsDir() && e.Name() != id && e.Name() != t.JoinOwnerID {
 				if old, err := m.readTxn(e.Name()); err == nil && (old.Phase == PhaseFinalized || old.Phase == PhaseRolledBack) {
+					if t.JoinOwnerID != "" && old.JoinOwnerID == t.JoinOwnerID && old.Phase == PhaseFinalized {
+						continue
+					}
 					_ = os.RemoveAll(m.stage(e.Name()))
 				}
 			}

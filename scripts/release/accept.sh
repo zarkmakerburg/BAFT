@@ -11,8 +11,8 @@
 #   2. every required CI job succeeded on that commit, as produced by the
 #      intended GitHub Actions workflow file (see "CI evidence" below). The
 #      `operational ingress v1` workflow is required for every tag; the BCC UI,
-#      vulncheck, delta-ingress-pin and LAB workflows are required whenever
-#      the tagged commit carries them (see "Workflow gates");
+#      vulncheck, delta-ingress-pin, recovery, shared-ingress and LAB workflows
+#      are required whenever the tagged commit carries them (see "Workflow gates");
 #   3. the signed manifest of the published release names that same commit;
 #   4. the published assets verify against the root key and revocation list
 #      committed at that commit;
@@ -83,6 +83,8 @@ unconditional_gates=(
   ".github/workflows/operational-ingress-v1.yml|operational-ingress-v1|operational-ingress-v1"
 )
 conditional_gates=(
+  ".github/workflows/operational-recovery.yml|operational-recovery|operational-recovery"
+  ".github/workflows/shared-operational-ingress.yml|shared-operational-ingress|shared-operational-ingress"
   ".github/workflows/p0-ingress-lab.yml|lab-acceptance|ingress-kernel-lab"
   ".github/workflows/gamma-two-node-lab.yml|isolated-two-node|gamma-two-node-lab"
   ".github/workflows/gamma-v037-upgrade-lab.yml|upgrade-rollback|gamma-v037-upgrade-lab"

@@ -15,7 +15,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import urllib.request
 
 REPO = 'zarkmakerburg/BAFT'
 VERSION = 'v0.4.0'
@@ -72,19 +71,42 @@ def remote_assets():
     return found
 
 
-def download(url, target, expected):
+def curl_fetch(url, target, max_bytes):
+    """Use curl's normal CA trust, with HTTPS-only redirects and bounded output."""
+    command = ['curl', '--disable', '--fail', '--silent', '--show-error', '--location',
+               '--proto', '=https', '--proto-redir', '=https',
+               '--connect-timeout', '30', '--max-time', '600', url]
     digest = hashlib.sha256()
     count = 0
-    with urllib.request.urlopen(url, timeout=120) as response, target.open('xb') as output:
-        while True:
-            chunk = response.read(1024 * 1024)
-            if not chunk:
-                break
-            count += len(chunk)
-            require(count <= expected['bytes'], 'اندازه دانلود بیشتر از مقدار ثابت است.')
-            digest.update(chunk)
-            output.write(chunk)
-    require(count == expected['bytes'] and digest.hexdigest() == expected['sha256'],
+    # Keeping stderr off a pipe prevents an error response from blocking stdout.
+    # No CA overrides, TLS-disable flags or credential/header injection are used.
+    with tempfile.TemporaryFile() as errors, target.open('xb') as output:
+        with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=errors) as response:
+            try:
+                while True:
+                    chunk = response.stdout.read(min(1024 * 1024, max_bytes - count + 1))
+                    if not chunk:
+                        break
+                    count += len(chunk)
+                    require(count <= max_bytes, 'اندازه دانلود بیشتر از مقدار ثابت است.')
+                    digest.update(chunk)
+                    output.write(chunk)
+                status = response.wait()
+                if status != 0:
+                    errors.seek(0)
+                    detail = errors.read(4096).decode('utf-8', errors='replace').strip()
+                    raise RuntimeError('دانلود معتبر HTTPS با curl ناموفق بود: ' + detail)
+            except BaseException:
+                if response.poll() is None:
+                    response.kill()
+                response.wait()
+                raise
+    return count, digest.hexdigest()
+
+
+def download(url, target, expected):
+    count, digest = curl_fetch(url, target, expected['bytes'])
+    require(count == expected['bytes'] and digest == expected['sha256'],
             'هش یا اندازه فایل دانلودشده مطابقت ندارد: ' + target.name)
 
 
@@ -113,6 +135,7 @@ def main(argv=None):
     require(os.environ.get('CI') != 'true' and os.environ.get('GITHUB_ACTIONS') != 'true',
             'این ابزار برای GitHub Actions یا CI نیست.')
     require(shutil.which('gh'), 'ابتدا gh را نصب کن: brew install gh')
+    require(shutil.which('curl'), 'ابزار curl پیدا نشد.')
     auth = subprocess.run(['gh', 'auth', 'status', '--hostname', 'github.com'],
                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     require(auth.returncode == 0,
@@ -123,12 +146,10 @@ def main(argv=None):
     base = f'https://raw.githubusercontent.com/{REPO}/{args.commit}/publication-v0.4.0'
     inventory_path = work / 'ASSET-INVENTORY.json'
     # A hard limit applies before interpreting the pinned inventory.
-    with urllib.request.urlopen(base + '/ASSET-INVENTORY.json', timeout=60) as response:
-        raw = response.read(65537)
-    require(len(raw) <= 65536 and hashlib.sha256(raw).hexdigest() == INVENTORY_SHA256,
+    count, digest = curl_fetch(base + '/ASSET-INVENTORY.json', inventory_path, 65536)
+    require(count <= 65536 and digest == INVENTORY_SHA256,
             'هش فهرست ثابت انتشار مطابقت ندارد.')
-    inventory_path.write_bytes(raw)
-    inventory = json.loads(raw)
+    inventory = json.loads(inventory_path.read_bytes())
     require(inventory.get('version') == VERSION and inventory.get('commit') == SOURCE
             and inventory.get('draft_release_id') == RELEASE_ID
             and set(inventory.get('assets', {})) == NAMES,

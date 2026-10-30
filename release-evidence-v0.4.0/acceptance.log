@@ -1,0 +1,36 @@
+INFO   tag                          v0.4.0 -> 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   on main                      commit is on origin/main
+PASS   ci: workflow                 ci.yml run #2923 completed successfully on 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   ci: test                     success in ci.yml run #2923 on 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   ci: release-dry-run          success in ci.yml run #2923 on 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   ci: e2e-binaries             success in ci.yml run #2923 on 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   ci: e2e-install              success in ci.yml run #2923 on 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   ci: e2e-install-release      success in ci.yml run #2923 on 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   ci: e2e-agent-enroll         success in ci.yml run #2923 on 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   ci: e2e-ssh-bootstrap        success in ci.yml run #2923 on 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   ci: e2e-launch1              success in ci.yml run #2923 on 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   ci: third-party-licenses     success in ci.yml run #2923 on 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   ci: e2e-bcc-install          success in ci.yml run #2923 on 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   ci: e2e-bcc-schema-upgrade   success in ci.yml run #2923 on 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   ci: e2e-install-ssh          success in ci.yml run #2923 on 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   ci: e2e-install-offline      success in ci.yml run #2923 on 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   ci: e2e-uninstall            success in ci.yml run #2923 on 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   ci: installer-faults         success in ci.yml run #2923 on 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   ci: gosec                    success in .github/workflows/static-analysis.yml run #1629 on 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   ci: r3                       success in .github/workflows/r2-noise.yml run #1297 on 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   ci: operational-ingress-v1   success in .github/workflows/operational-ingress-v1.yml run #402 on 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   ci: operational-recovery     success in .github/workflows/operational-recovery.yml run #306 on 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   ci: shared-operational-ingress success in .github/workflows/shared-operational-ingress.yml run #3 on 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   ci: ingress-kernel-lab       success in .github/workflows/p0-ingress-lab.yml run #483 on 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   ci: gamma-two-node-lab       success in .github/workflows/gamma-two-node-lab.yml run #99 on 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   ci: gamma-v037-upgrade-lab   success in .github/workflows/gamma-v037-upgrade-lab.yml run #84 on 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   ci: gamma-v037-tunnel-upgrade-lab success in .github/workflows/gamma-v037-tunnel-upgrade-lab.yml run #79 on 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   ci: bcc-ui-unit              success in .github/workflows/bcc-v3-ui-tests.yml run #1215 on 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   ci: bcc-ui-browser           success in .github/workflows/bcc-v3-ui-tests.yml run #1215 on 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   ci: vulncheck                success in .github/workflows/vulncheck.yml run #98 on 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   ci: delta-ingress-pin        success in .github/workflows/delta-ingress-pin.yml run #97 on 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   manifest commit              signed manifest names 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   signature + hashes           verified against the root key committed at 9c32ba369fe2be2c549f2878d1de5dbf092c8f64
+PASS   offline bundle               byte-identical to a rebuild from the assets
+
+ACCEPTED: v0.4.0 @ 9c32ba369fe2be2c549f2878d1de5dbf092c8f64

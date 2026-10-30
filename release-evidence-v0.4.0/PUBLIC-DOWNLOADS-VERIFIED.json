@@ -1,0 +1,13 @@
+{
+  "result": "PASS",
+  "release_url": "https://github.com/zarkmakerburg/BAFT/releases/tag/v0.4.0",
+  "anonymous_official_downloads": [
+    "baft-offline-v0.4.0.tar.gz",
+    "manifest.json",
+    "release-key.cert.json",
+    "SHA256SUMS"
+  ],
+  "normal_tls_verification": true,
+  "all_match_signed_asset_inventory": true,
+  "no_private_keys_accessed": true
+}

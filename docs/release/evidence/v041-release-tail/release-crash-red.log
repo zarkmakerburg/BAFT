@@ -1,0 +1,19 @@
+=== RUN   TestReleaseCrashNeverAcknowledgesReleasedBinding
+    release_crash_unix_test.go:64: released binding was acknowledged as an idempotent reservation: <nil>
+--- FAIL: TestReleaseCrashNeverAcknowledgesReleasedBinding (0.01s)
+=== RUN   TestReleaseCrashCompletesLifecycleBeforeReusingPort
+    release_crash_unix_test.go:79: release stopped after tombstone could not complete: ingress numeric TCP port is already reserved
+--- FAIL: TestReleaseCrashCompletesLifecycleBeforeReusingPort (0.00s)
+=== RUN   TestReleaseCrashPreservesUncoveredLifecycleJobs
+--- PASS: TestReleaseCrashPreservesUncoveredLifecycleJobs (0.01s)
+=== RUN   TestReleaseCrashRejectsForeignTombstoneIdentity
+=== RUN   TestReleaseCrashRejectsForeignTombstoneIdentity/tunnel
+    release_crash_unix_test.go:147: foreign tunnel tombstone cleared another claim: <nil>
+=== RUN   TestReleaseCrashRejectsForeignTombstoneIdentity/instance
+    release_crash_unix_test.go:147: foreign instance tombstone cleared another claim: <nil>
+--- FAIL: TestReleaseCrashRejectsForeignTombstoneIdentity (0.02s)
+    --- FAIL: TestReleaseCrashRejectsForeignTombstoneIdentity/tunnel (0.01s)
+    --- FAIL: TestReleaseCrashRejectsForeignTombstoneIdentity/instance (0.01s)
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/ingressauthority	0.049s
+FAIL

@@ -1,0 +1,175 @@
+=== RUN   TestCommandIntentRequiresHeldGuardAndPinnedInstalledPolicy
+--- PASS: TestCommandIntentRequiresHeldGuardAndPinnedInstalledPolicy (0.01s)
+=== RUN   TestBoundaryAllowsOwnedPolicyPortsWithoutBlanketPrivilegedBan
+--- PASS: TestBoundaryAllowsOwnedPolicyPortsWithoutBlanketPrivilegedBan (0.00s)
+=== RUN   TestBoundaryRequiresExplicitEffectiveDefaults
+--- PASS: TestBoundaryRequiresExplicitEffectiveDefaults (0.00s)
+=== RUN   TestBoundaryMissingProtocolMustReject
+--- PASS: TestBoundaryMissingProtocolMustReject (0.00s)
+=== RUN   TestBoundaryLiveLeaseCannotTravelAsJSON
+--- PASS: TestBoundaryLiveLeaseCannotTravelAsJSON (0.00s)
+=== RUN   TestBindingV1CanonicalAndIdentity
+=== RUN   TestBindingV1CanonicalAndIdentity/port_mismatch
+=== RUN   TestBindingV1CanonicalAndIdentity/wrong_proof
+=== RUN   TestBindingV1CanonicalAndIdentity/target_alias
+=== RUN   TestBindingV1CanonicalAndIdentity/noncanonical_listen
+=== RUN   TestBindingV1CanonicalAndIdentity/non-dedicated
+=== RUN   TestBindingV1CanonicalAndIdentity/config_port_mismatch
+=== RUN   TestBindingV1CanonicalAndIdentity/generation_alias
+=== RUN   TestBindingV1CanonicalAndIdentity/wrong_plan
+=== RUN   TestBindingV1CanonicalAndIdentity/invalid_node
+--- PASS: TestBindingV1CanonicalAndIdentity (0.00s)
+    --- PASS: TestBindingV1CanonicalAndIdentity/port_mismatch (0.00s)
+    --- PASS: TestBindingV1CanonicalAndIdentity/wrong_proof (0.00s)
+    --- PASS: TestBindingV1CanonicalAndIdentity/target_alias (0.00s)
+    --- PASS: TestBindingV1CanonicalAndIdentity/noncanonical_listen (0.00s)
+    --- PASS: TestBindingV1CanonicalAndIdentity/non-dedicated (0.00s)
+    --- PASS: TestBindingV1CanonicalAndIdentity/config_port_mismatch (0.00s)
+    --- PASS: TestBindingV1CanonicalAndIdentity/generation_alias (0.00s)
+    --- PASS: TestBindingV1CanonicalAndIdentity/wrong_plan (0.00s)
+    --- PASS: TestBindingV1CanonicalAndIdentity/invalid_node (0.00s)
+=== RUN   TestCommandIdentitySeparateFromLease
+--- PASS: TestCommandIdentitySeparateFromLease (0.00s)
+=== RUN   TestNoForgedLiveLeaseFromZeroValue
+--- PASS: TestNoForgedLiveLeaseFromZeroValue (0.00s)
+=== RUN   TestInternalMintFlagIsNotAnOSLock
+--- PASS: TestInternalMintFlagIsNotAnOSLock (0.00s)
+=== RUN   TestPendingGuardRefusesAliasReplacementAndPostClose
+--- PASS: TestPendingGuardRefusesAliasReplacementAndPostClose (0.00s)
+=== RUN   TestAuthorityDirectoryRefusesSymlinksAndFIFO
+--- PASS: TestAuthorityDirectoryRefusesSymlinksAndFIFO (0.00s)
+=== RUN   TestPendingGuardConcurrentChecksAndClose
+--- PASS: TestPendingGuardConcurrentChecksAndClose (0.00s)
+=== RUN   TestAuthorityRootStatMustMatchLockedInode
+--- PASS: TestAuthorityRootStatMustMatchLockedInode (0.00s)
+=== RUN   TestAuthorityDirectoryRejectsSpecialBitsAndUnsafePermissions
+--- PASS: TestAuthorityDirectoryRejectsSpecialBitsAndUnsafePermissions (0.00s)
+=== RUN   TestPendingGuard
+--- PASS: TestPendingGuard (0.00s)
+=== RUN   TestHeldCommandDeniesWithoutPinnedInstalledPolicy
+--- PASS: TestHeldCommandDeniesWithoutPinnedInstalledPolicy (0.00s)
+=== RUN   TestWithLockedIngressNeverRunsEffectWithoutLiveLease
+--- PASS: TestWithLockedIngressNeverRunsEffectWithoutLiveLease (0.00s)
+=== RUN   TestMintLeaseLABSingleUseRevokedOnCloseAndUncertainty
+    lease_lab_linux_test.go:15: requires disposable Linux root with explicit LAB opt-in
+--- SKIP: TestMintLeaseLABSingleUseRevokedOnCloseAndUncertainty (0.00s)
+=== RUN   TestMintLeaseRefusesWithoutSealedEvidenceOrHeldPolicy
+--- PASS: TestMintLeaseRefusesWithoutSealedEvidenceOrHeldPolicy (0.01s)
+=== RUN   TestInspectFencedLeftoversReportsWithoutReleasing
+--- PASS: TestInspectFencedLeftoversReportsWithoutReleasing (0.01s)
+=== RUN   TestDurableLifecycleRestartRetainsUnknownAndPendingClaim
+--- PASS: TestDurableLifecycleRestartRetainsUnknownAndPendingClaim (0.01s)
+=== RUN   TestLifecycleCannotAdvanceAfterGuardClose
+--- PASS: TestLifecycleCannotAdvanceAfterGuardClose (0.00s)
+=== RUN   TestLifecycleCorruptAndUnknownClaimsDenyRecovery
+--- PASS: TestLifecycleCorruptAndUnknownClaimsDenyRecovery (0.00s)
+=== RUN   TestLifecycleCrashBeforeJournalRecordNeedsReconciliation
+--- PASS: TestLifecycleCrashBeforeJournalRecordNeedsReconciliation (0.00s)
+=== RUN   TestProvisionInstalledPolicyLABPersistsSharedIdentity
+    policy_bootstrap_linux_test.go:48: requires disposable Linux root with explicit LAB opt-in
+--- SKIP: TestProvisionInstalledPolicyLABPersistsSharedIdentity (0.00s)
+=== RUN   TestProvisionInstalledPolicyLABRefusesUnsafeExistingState
+=== RUN   TestProvisionInstalledPolicyLABRefusesUnsafeExistingState/writable-parent
+    policy_bootstrap_linux_test.go:108: requires disposable Linux root with explicit LAB opt-in
+=== RUN   TestProvisionInstalledPolicyLABRefusesUnsafeExistingState/symlink-parent
+    policy_bootstrap_linux_test.go:108: requires disposable Linux root with explicit LAB opt-in
+=== RUN   TestProvisionInstalledPolicyLABRefusesUnsafeExistingState/nonroot-parent
+    policy_bootstrap_linux_test.go:108: requires disposable Linux root with explicit LAB opt-in
+=== RUN   TestProvisionInstalledPolicyLABRefusesUnsafeExistingState/fifo-file
+    policy_bootstrap_linux_test.go:108: requires disposable Linux root with explicit LAB opt-in
+=== RUN   TestProvisionInstalledPolicyLABRefusesUnsafeExistingState/malformed-file
+    policy_bootstrap_linux_test.go:108: requires disposable Linux root with explicit LAB opt-in
+=== RUN   TestProvisionInstalledPolicyLABRefusesUnsafeExistingState/namespace-drift
+    policy_bootstrap_linux_test.go:108: requires disposable Linux root with explicit LAB opt-in
+=== RUN   TestProvisionInstalledPolicyLABRefusesUnsafeExistingState/writable-source
+    policy_bootstrap_linux_test.go:108: requires disposable Linux root with explicit LAB opt-in
+--- PASS: TestProvisionInstalledPolicyLABRefusesUnsafeExistingState (0.00s)
+    --- SKIP: TestProvisionInstalledPolicyLABRefusesUnsafeExistingState/writable-parent (0.00s)
+    --- SKIP: TestProvisionInstalledPolicyLABRefusesUnsafeExistingState/symlink-parent (0.00s)
+    --- SKIP: TestProvisionInstalledPolicyLABRefusesUnsafeExistingState/nonroot-parent (0.00s)
+    --- SKIP: TestProvisionInstalledPolicyLABRefusesUnsafeExistingState/fifo-file (0.00s)
+    --- SKIP: TestProvisionInstalledPolicyLABRefusesUnsafeExistingState/malformed-file (0.00s)
+    --- SKIP: TestProvisionInstalledPolicyLABRefusesUnsafeExistingState/namespace-drift (0.00s)
+    --- SKIP: TestProvisionInstalledPolicyLABRefusesUnsafeExistingState/writable-source (0.00s)
+=== RUN   TestProvisionInstalledPolicyLABConcurrentNoReplace
+    policy_bootstrap_linux_test.go:177: requires disposable Linux root with explicit LAB opt-in
+--- SKIP: TestProvisionInstalledPolicyLABConcurrentNoReplace (0.00s)
+=== RUN   TestProvisionInstalledPolicyLABCancellationAndRootRequirement
+    policy_bootstrap_linux_test.go:211: requires disposable Linux root with explicit LAB opt-in
+--- SKIP: TestProvisionInstalledPolicyLABCancellationAndRootRequirement (0.00s)
+=== RUN   TestProvisionInstalledPolicyNonRootHelper
+    policy_bootstrap_linux_test.go:230: subprocess only
+--- SKIP: TestProvisionInstalledPolicyNonRootHelper (0.00s)
+=== RUN   TestProvisionInstalledPolicyLABCompetingNodeIdentity
+    policy_bootstrap_linux_test.go:241: requires disposable Linux root with explicit LAB opt-in
+--- SKIP: TestProvisionInstalledPolicyLABCompetingNodeIdentity (0.00s)
+=== RUN   TestInstalledPolicyBindingLABSurvivesJournalAndRefusesInodeDrift
+    policy_bootstrap_linux_test.go:273: requires disposable Linux root with explicit LAB opt-in
+--- SKIP: TestInstalledPolicyBindingLABSurvivesJournalAndRefusesInodeDrift (0.00s)
+=== RUN   TestInstalledPolicyBindingLABRejectsMalformedDurableIdentity
+    policy_bootstrap_linux_test.go:357: requires disposable Linux root with explicit LAB opt-in
+--- SKIP: TestInstalledPolicyBindingLABRejectsMalformedDurableIdentity (0.00s)
+=== RUN   TestCommandIntentLABSurvivesRestartAndFencesReplays
+    policy_bootstrap_linux_test.go:413: requires disposable Linux root with explicit LAB opt-in
+--- SKIP: TestCommandIntentLABSurvivesRestartAndFencesReplays (0.00s)
+=== RUN   TestCommandIntentLABRejectsCrossOperationJobAndRetireWithoutApply
+    policy_bootstrap_linux_test.go:506: requires disposable Linux root with explicit LAB opt-in
+--- SKIP: TestCommandIntentLABRejectsCrossOperationJobAndRetireWithoutApply (0.00s)
+=== RUN   TestCommandIntentLABRejectsMalformedDurableRequest
+    policy_bootstrap_linux_test.go:575: requires disposable Linux root with explicit LAB opt-in
+--- SKIP: TestCommandIntentLABRejectsMalformedDurableRequest (0.00s)
+=== RUN   TestExpiredRecordedCommandLABPersistsReconciliationWithoutExecution
+    policy_bootstrap_linux_test.go:647: requires disposable Linux root with explicit LAB opt-in
+--- SKIP: TestExpiredRecordedCommandLABPersistsReconciliationWithoutExecution (0.00s)
+=== RUN   TestReleaseCrashNeverAcknowledgesReleasedBinding
+--- PASS: TestReleaseCrashNeverAcknowledgesReleasedBinding (0.01s)
+=== RUN   TestReleaseCrashCompletesLifecycleBeforeReusingPort
+--- PASS: TestReleaseCrashCompletesLifecycleBeforeReusingPort (0.01s)
+=== RUN   TestReleaseCrashPreservesUncoveredLifecycleJobs
+--- PASS: TestReleaseCrashPreservesUncoveredLifecycleJobs (0.02s)
+=== RUN   TestReleaseCrashRejectsForeignTombstoneIdentity
+=== RUN   TestReleaseCrashRejectsForeignTombstoneIdentity/tunnel
+=== RUN   TestReleaseCrashRejectsForeignTombstoneIdentity/instance
+--- PASS: TestReleaseCrashRejectsForeignTombstoneIdentity (0.02s)
+    --- PASS: TestReleaseCrashRejectsForeignTombstoneIdentity/tunnel (0.01s)
+    --- PASS: TestReleaseCrashRejectsForeignTombstoneIdentity/instance (0.01s)
+=== RUN   TestReleaseCrashProcessBoundary
+=== RUN   TestReleaseCrashProcessBoundary/tombstone
+=== RUN   TestReleaseCrashProcessBoundary/lifecycle
+--- PASS: TestReleaseCrashProcessBoundary (0.06s)
+    --- PASS: TestReleaseCrashProcessBoundary/tombstone (0.03s)
+    --- PASS: TestReleaseCrashProcessBoundary/lifecycle (0.03s)
+=== RUN   TestReservePendingAfterReleaseIsMonotonic
+--- PASS: TestReservePendingAfterReleaseIsMonotonic (0.01s)
+=== RUN   TestStaleReleasedClaimIsClearedButNeverReusable
+--- PASS: TestStaleReleasedClaimIsClearedButNeverReusable (0.01s)
+=== RUN   TestReleaseVerifiedRefusesWithoutAnyAuthority
+--- PASS: TestReleaseVerifiedRefusesWithoutAnyAuthority (0.00s)
+=== RUN   TestPendingReservationSurvivesRestartAndFencesNumericPort
+--- PASS: TestPendingReservationSurvivesRestartAndFencesNumericPort (0.00s)
+=== RUN   TestPendingReservationConcurrentWriters
+--- PASS: TestPendingReservationConcurrentWriters (0.01s)
+=== RUN   TestPendingReservationAcrossProcesses
+--- PASS: TestPendingReservationAcrossProcesses (1.03s)
+=== RUN   TestPendingReservationRejectsSecondPortForSameOwner
+--- PASS: TestPendingReservationRejectsSecondPortForSameOwner (0.01s)
+=== RUN   TestRestartDirectionRequiresAConsumedLease
+--- PASS: TestRestartDirectionRequiresAConsumedLease (0.00s)
+=== RUN   TestRestartDirectionDeniesMismatchedAndSupersededJobs
+--- PASS: TestRestartDirectionDeniesMismatchedAndSupersededJobs (0.00s)
+=== RUN   TestRestartAuthorityDoesNotReviveSupersededRetire
+--- PASS: TestRestartAuthorityDoesNotReviveSupersededRetire (0.00s)
+=== RUN   TestRestartAuthorityLABCloseWaitsForReconciliationEffect
+    restart_effect_lab_linux_test.go:13: requires disposable Linux root with explicit LAB opt-in
+--- SKIP: TestRestartAuthorityLABCloseWaitsForReconciliationEffect (0.00s)
+=== RUN   TestRestartAuthorityWithLockedReconciliationRejectsInvalidAuthority
+--- PASS: TestRestartAuthorityWithLockedReconciliationRejectsInvalidAuthority (0.00s)
+=== RUN   TestSpentRetireCannotBeRevivedByPingPong
+--- PASS: TestSpentRetireCannotBeRevivedByPingPong (0.00s)
+=== RUN   TestMayResumeRetireOnlyForSpentRetireInNeedsReconciliation
+--- PASS: TestMayResumeRetireOnlyForSpentRetireInNeedsReconciliation (0.00s)
+=== RUN   TestOperationalIngressV1Gate_HeldLeaseMintedOnlyFromSignedEnrolledJob
+    operational_ingress_v1_gate_test.go:62: requires the operational-ingress-v1 private-netns LAB (run_lab.sh): private mount namespace not prepared (set BAFT_OPERATIONAL_INGRESS_V1=1 and use run_lab.sh)
+--- SKIP: TestOperationalIngressV1Gate_HeldLeaseMintedOnlyFromSignedEnrolledJob (0.00s)
+PASS
+ok  	github.com/zarkmakerburg/baft/internal/ingressauthority	2.272s

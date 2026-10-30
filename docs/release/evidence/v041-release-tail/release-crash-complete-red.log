@@ -1,0 +1,26 @@
+=== RUN   TestReleaseCrashNeverAcknowledgesReleasedBinding
+    release_crash_unix_test.go:68: released binding was acknowledged as an idempotent reservation: <nil>
+--- FAIL: TestReleaseCrashNeverAcknowledgesReleasedBinding (0.01s)
+=== RUN   TestReleaseCrashCompletesLifecycleBeforeReusingPort
+    release_crash_unix_test.go:83: release stopped after tombstone could not complete: ingress numeric TCP port is already reserved
+--- FAIL: TestReleaseCrashCompletesLifecycleBeforeReusingPort (0.01s)
+=== RUN   TestReleaseCrashPreservesUncoveredLifecycleJobs
+--- PASS: TestReleaseCrashPreservesUncoveredLifecycleJobs (0.01s)
+=== RUN   TestReleaseCrashRejectsForeignTombstoneIdentity
+=== RUN   TestReleaseCrashRejectsForeignTombstoneIdentity/tunnel
+    release_crash_unix_test.go:151: foreign tunnel tombstone cleared another claim: <nil>
+=== RUN   TestReleaseCrashRejectsForeignTombstoneIdentity/instance
+    release_crash_unix_test.go:151: foreign instance tombstone cleared another claim: <nil>
+--- FAIL: TestReleaseCrashRejectsForeignTombstoneIdentity (0.02s)
+    --- FAIL: TestReleaseCrashRejectsForeignTombstoneIdentity/tunnel (0.01s)
+    --- FAIL: TestReleaseCrashRejectsForeignTombstoneIdentity/instance (0.01s)
+=== RUN   TestReleaseCrashProcessBoundary
+=== RUN   TestReleaseCrashProcessBoundary/tombstone
+    release_crash_unix_test.go:215: killed writer revived released binding: <nil>
+=== RUN   TestReleaseCrashProcessBoundary/lifecycle
+--- FAIL: TestReleaseCrashProcessBoundary (0.03s)
+    --- FAIL: TestReleaseCrashProcessBoundary/tombstone (0.02s)
+    --- PASS: TestReleaseCrashProcessBoundary/lifecycle (0.01s)
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/ingressauthority	0.089s
+FAIL

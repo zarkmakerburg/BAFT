@@ -472,16 +472,16 @@ func TestCrossTenantRouteAccessRefused(t *testing.T) {
 		config.Route{ID: "steal", Listen: steal, RemoteRoute: "only-a", Direction: "outbound"},
 		config.Route{ID: "ghost", Listen: unknown, RemoteRoute: "no-such-route", Direction: "outbound"})
 	irB := startNode(t, irBcfg, b.local)
-	// The route listeners bind after the node reports its local address; a dial
-	// that races them is reset by the kernel (flake seen on CI).
-	waitTCP(t, steal, time.Now().Add(10*time.Second))
-	waitTCP(t, unknown, time.Now().Add(10*time.Second))
-	var mu sync.Mutex
-	var errs []string
+	// Readiness is a bind event, not a connection to a route that is expected
+	// to reject OPEN. Such probes could contaminate the refusal observations.
+	select {
+	case <-irB.rt.DialerReady():
+	case <-time.After(10 * time.Second):
+		t.Fatal("tenant b route listeners did not become ready")
+	}
+	errs := make(chan string, 4)
 	irB.rt.SetFlowOpenErrorHookForTest(func(route string, err error) {
-		mu.Lock()
-		errs = append(errs, route+":"+err.Error())
-		mu.Unlock()
+		select { case errs <- route+":"+err.Error(): default: }
 	})
 	startNode(t, e.irConfig(a), a.local)
 	if err := roundtripOnce(a.local, "a"); err != nil {
@@ -489,34 +489,32 @@ func TestCrossTenantRouteAccessRefused(t *testing.T) {
 	}
 	base := a.accepted.Load()
 
-	for _, addr := range []string{steal, unknown} {
-		c, err := net.DialTimeout("tcp", addr, time.Second)
+	for _, denied := range []struct{ addr, route, code string }{
+		{steal, "steal", "ROUTE_DENIED"},
+		{unknown, "ghost", "ROUTE_NOT_FOUND"},
+	} {
+		c, err := net.DialTimeout("tcp", denied.addr, time.Second)
 		if err != nil {
-			t.Fatal(err)
+			// OPEN_ERR causes an abortive close. Its RST may reach the local
+			// client before connect finishes, rather than during Read. Require
+			// the exact EX refusal below in either case; other dial errors fail.
+			if !errors.Is(err, syscall.ECONNRESET) { t.Fatal(err) }
+		} else {
+			_ = c.SetDeadline(time.Now().Add(5 * time.Second))
+			_, _ = c.Write([]byte("probe"))
+			n, readErr := c.Read(make([]byte, 8))
+			_ = c.Close()
+			if readErr == nil || n != 0 { t.Fatalf("refused flow carried data: n=%d err=%v", n, readErr) }
 		}
-		_ = c.SetDeadline(time.Now().Add(5 * time.Second))
-		_, _ = c.Write([]byte("probe"))
-		if n, err := c.Read(make([]byte, 8)); err == nil || n != 0 {
-			t.Fatalf("refused flow carried data: n=%d err=%v", n, err)
+		select {
+		case refusal := <-errs:
+			if !strings.HasPrefix(refusal, denied.route+":") || !strings.Contains(refusal, denied.code) {
+				t.Fatalf("expected %s:%s, got %q", denied.route, denied.code, refusal)
+			}
+		case <-time.After(5 * time.Second): t.Fatalf("missing EX refusal %s:%s", denied.route, denied.code)
 		}
-		c.Close()
 	}
-	if a.accepted.Load() != base {
-		t.Fatal("cross-tenant flow reached tenant a's target")
-	}
-	var joined string
-	for i := 0; i < 50; i++ { // the hook runs just after the client side is closed
-		mu.Lock()
-		joined = strings.Join(errs, ";")
-		mu.Unlock()
-		if strings.Contains(joined, "ROUTE_DENIED") && strings.Contains(joined, "ROUTE_NOT_FOUND") {
-			break
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	if !strings.Contains(joined, "steal:") || !strings.Contains(joined, "ROUTE_DENIED") || !strings.Contains(joined, "ROUTE_NOT_FOUND") {
-		t.Fatalf("expected EX refusals ROUTE_DENIED and ROUTE_NOT_FOUND, got %q", joined)
-	}
+	if a.accepted.Load() != base { t.Fatal("cross-tenant flow reached tenant a's target") }
 	// Tenant b's own route still works.
 	if err := roundtripOnce(b.local, "b"); err != nil {
 		t.Fatal(err)

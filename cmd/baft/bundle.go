@@ -11,10 +11,11 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"regexp"
 	"sort"
 	"strconv"
 	"time"
+
+	secretredact "github.com/zarkmakerburg/baft/internal/redact"
 )
 
 // baft support-bundle writes one owner-only archive an operator can attach to
@@ -25,28 +26,11 @@ import (
 
 const bundleVersion = 1
 
-var redactions = []struct {
-	name string
-	re   *regexp.Regexp
-	to   string
-}{
-	{"pem-private-key", regexp.MustCompile(`(?s)-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.*?-----END [A-Z0-9 ]*PRIVATE KEY-----`), "[redacted private key]"},
-	{"pairing-code", regexp.MustCompile(`BAFT(?:PAIR|REPLY)1:[A-Za-z0-9_-]+`), "[redacted pairing code]"},
-	{"bearer-token", regexp.MustCompile(`(?i)(bearer\s+)[A-Za-z0-9._~+/=-]{8,}`), "${1}[redacted]"},
-	{"secret-assignment", regexp.MustCompile(`(?i)((?:token|password|passphrase|secret|private[_-]?key|api[_-]?key)["']?\s*[:=]\s*["']?)[^\s"',;]{4,}`), "${1}[redacted]"},
-}
-
-// redact removes secrets from text and counts what it removed by rule.
+// redact removes secrets from text and counts what it removed by rule. The
+// rules are shared with the Agent's ACK/receipt boundaries (internal/redact)
+// so a secret shape caught in one place is caught everywhere.
 func redact(b []byte, counts map[string]int) []byte {
-	for _, r := range redactions {
-		n := len(r.re.FindAll(b, -1))
-		if n == 0 {
-			continue
-		}
-		counts[r.name] += n
-		b = r.re.ReplaceAll(b, []byte(r.to))
-	}
-	return b
+	return []byte(secretredact.Apply(string(b), counts))
 }
 
 type bundleFile struct {

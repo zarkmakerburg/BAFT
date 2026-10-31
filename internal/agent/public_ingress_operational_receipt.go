@@ -13,9 +13,15 @@ import (
 
 	"github.com/zarkmakerburg/baft/internal/agentjob"
 	"github.com/zarkmakerburg/baft/internal/ingressauthority"
+	"github.com/zarkmakerburg/baft/internal/redact"
 )
 
-const maxIngressReceiptBytes = 16 << 10
+const (
+	maxIngressReceiptBytes = 16 << 10
+	// maxIngressFailureCause keeps a failure receipt far below
+	// maxIngressReceiptBytes whatever the executor error contains.
+	maxIngressFailureCause = 1024
+)
 
 // An authenticated v1 job still has no live authority. Report that real
 // refusal to BCC, then fail the normal job ACK regardless of POST outcome.
@@ -81,6 +87,13 @@ func validOutboundIngressReceipt(r ingressauthority.ReceiptV1) bool {
 // validated HTTPS with the enrolled bearer token. The receipt is inert
 // evidence; BCC decides what it means.
 func (a *Agent) postIngressReceipt(ctx context.Context, receipt ingressauthority.ReceiptV1) error {
+	if a != nil {
+		// FailureCause can wrap executor, nft or HTTP errors. Redact it and
+		// bound it so a long cause can neither leak secrets nor push the
+		// receipt past maxIngressReceiptBytes, which would leave BCC with no
+		// failure evidence at all (ADR-001 §3, §5).
+		receipt.FailureCause = redact.Diagnostic(receipt.FailureCause, maxIngressFailureCause, a.cfg.Token)
+	}
 	if a == nil || ctx == nil || a.cfg.Token == "" || receipt.Binding.NodeID != a.cfg.NodeID || !validOutboundIngressReceipt(receipt) {
 		return errors.New("invalid operational ingress receipt")
 	}

@@ -187,10 +187,12 @@ Owner direction (2026-10-31): combine C-BAFT's essential capabilities and ease o
 | Run | SHA | Result | Finding |
 |---|---|---|---|
 | [41229286650](https://github.com/zarkmakerburg/BAFT/actions/runs/41229286650) | `e156fd7f` | **failure**: `test`, `e2e-launch1` | Real regression from `1cdef92a`: redacting the ACK **Output** replaced the EX pairing code with `[redacted pairing code]`, so BCC could not issue IR prepare/trust jobs (`tunnel 1 ended as 'preparing_ir'`; rotation flow `pull jobs: HTTP 500`). Not reproducible locally because those tests import `internal/bcc`. |
-| [41229725348](https://github.com/zarkmakerburg/BAFT/actions/runs/41229725348) | `9c32ba36` (main) | control run | Dispatched to separate time-dependent flakiness from the regression; `e2e-launch1` passed on main. |
+| [41229725348](https://github.com/zarkmakerburg/BAFT/actions/runs/41229725348) | `9c32ba36` (main) | **success** (control) | Dispatched to separate flakiness from the regression; every job passed on main, confirming the `e156fd7f` failure was introduced on this branch. |
 | [41230304771](https://github.com/zarkmakerburg/BAFT/actions/runs/41230304771) | `26a86708` | `test` failed **only** on `tests/docs` RTL check | Rotation/tunnel tests pass after `5392b404`. Remaining failure: `EXECUTION_PLAN.fa.md` (from `2b275764`) lacked the canonical RTL wrapper — fixed in `3f51221e`, `tests/docs` passes locally. (Correction to §9.3: the local `tests/docs` failure was this defect, not the sandbox.) |
 | [41230317598](https://github.com/zarkmakerburg/BAFT/actions/runs/41230317598) | `26a86708` | **success** | `BCC UI tests` (JS unit + Playwright/Chromium browser regressions). |
-| [41230590263](https://github.com/zarkmakerburg/BAFT/actions/runs/41230590263) / [41230592672](https://github.com/zarkmakerburg/BAFT/actions/runs/41230592672) | `7b417b2f` | running at time of writing | Results must be read from the runs, not inferred. |
+| [41230590263](https://github.com/zarkmakerburg/BAFT/actions/runs/41230590263) / [41230592672](https://github.com/zarkmakerburg/BAFT/actions/runs/41230592672) | `7b417b2f` | `ci`: `test` failed (same RTL docs defect + one `cmd/baft` `tunnel_live_test.go:244` failure); all e2e incl. `e2e-launch1` passed. UI tests **success** | The `cmd/baft` live-tunnel test did not fail on `26a86708`, `826744cb` or `b8017da4` and `cmd/baft` is untouched by `7b417b2f`; treated as a flaky port-race test (its history has several port-reservation fixes). Not proven flaky — watch it. |
+| [41230762372](https://github.com/zarkmakerburg/BAFT/actions/runs/41230762372) / [41230764756](https://github.com/zarkmakerburg/BAFT/actions/runs/41230764756) | `826744cb` | **success** / **success** | First fully green `ci` (all jobs, Go 1.27.3 toolchain from `go.mod`) and UI run on this branch. |
+| [41230913489](https://github.com/zarkmakerburg/BAFT/actions/runs/41230913489) | `b8017da4` | **success** | Includes BCC-side failure-ACK redaction and `TestAgentFailureACKIsRedactedBeforeStorage`. |
 
 Lesson recorded for the next agent: ACK `Output` is an authenticated one-time channel (pairing/reply codes, rotation plan) and must not be redacted; only failure text and logs are. `TestSucceededACKOutputCarriesPairingCodeUnchanged` guards it.
 
@@ -203,14 +205,17 @@ C-BAFT (`zarkmakerburg/C-BAFT` `ed57639`) was cloned and inspected: a fork of C-
 | Commit | Change | Local evidence |
 |---|---|---|
 | `5392b404` | Keep ACK Output intact; failure text/log redaction kept | `internal/agent` subset (-race) passes; new regression test fails on `1cdef92a`, passes here |
-| `26a86708` | Wizard **Connection Test**: signed path probe IR → EX on the chosen port + common TLS ports, live bilingual/RTL board, only `FULL_DATA` reads as passing, selection via the evidence-checked auto-select, 3 s polling capped at 10 min, cancel, invalidated on server change | `web/tests/connection-test-wizard.test.cjs`; JS suite 168/168; `node --check` of the dashboard script; Chromium screenshots EN/FA at 1000 px and 390 px |
+| `26a86708` | Wizard **Connection Test** (also visible in Aurora's Tunnels page, which mounts the classic studio card): signed path probe IR → EX on the chosen port + common TLS ports, live bilingual/RTL board, only `FULL_DATA` reads as passing, selection via the evidence-checked auto-select, 3 s polling capped at 10 min, cancel, invalidated on server change | `web/tests/connection-test-wizard.test.cjs`; JS suite 168/168; `node --check` of the dashboard script; Chromium screenshots EN/FA at 1000 px and 390 px |
 | `7b417b2f` | Probe evidence adds `attempts` and `connect_spread_ms`; board shows "38 ms ±4 · 3/3 ok". No throughput figure (64 KiB flows incl. connect time would mislead) | classification test in an isolated scratch package (Go 1.25.1); JS suite 169/169 |
 | `3f51221e` | RTL wrapper for `EXECUTION_PLAN.fa.md` | `tests/docs` passes locally |
+| `b8017da4` | BCC redacts **failure** ACK text before storing it (defense in depth for older agents); succeeded messages and Output untouched | `internal/bcc` typechecks/vets with a compile-only sqlite stub; DB-free bcc tests pass locally; DB test green in CI run 41230913489 |
 
 ### 10.4 Next executable actions
 
-1. Read the results of the runs for `7b417b2f` and the final head; fix anything red before new features.
+1. Keep dispatching `ci.yml` and `bcc-v3-ui-tests.yml` per head; watch `cmd/baft` `tunnel_live_test.go:244` for flakiness.
 2. ADR-002 slice: a bounded, signed throughput action (separate from reachability probes) so the board can show a real speed figure.
 3. ADR-002 slice: Aurora wizard parity with the live classic wizard (test → recommend → review → deploy).
 4. Transport-driver contract ADR (WireGuard first candidate) before any kernel/UDP transport from C-BAFT.
-5. BCC-side redaction on ACK/receipt ingest and the `agentjob.Verifier` nil-`Seen` hardening (from §9.6).
+5. `agentjob.Verifier` nil-`Seen` hardening (from §9.6; touches 28 call sites, mostly tests). BCC-side ACK redaction is done (`b8017da4`); receipt `FailureCause` is bounded and redacted Agent-side.
+
+Local-verification tip for the next agent: `internal/bcc` only blank-imports `modernc.org/sqlite`, so a scratch `replace` to an empty stub package lets `go vet ./internal/bcc` and DB-free bcc tests run where modernc's libc is unreachable. Never commit that replace.

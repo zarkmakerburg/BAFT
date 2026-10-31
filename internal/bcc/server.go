@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/zarkmakerburg/baft/internal/geoip"
+	"github.com/zarkmakerburg/baft/internal/redact"
 	"github.com/zarkmakerburg/baft/internal/telemetry"
 )
 
@@ -482,6 +483,13 @@ func (s *Server) agentAck(w http.ResponseWriter, r *http.Request) {
 	if err := decodeJSON(r, &in); err != nil {
 		http.Error(w, err.Error(), 400)
 		return
+	}
+	if in.Status == "failed" {
+		// Defense in depth (ADR-001 §5): agents before v0.5.0 send raw
+		// command output in failure text, which BCC stores, audits and
+		// displays. Succeeded messages are structured agent reports and Output
+		// is the pairing/plan channel, so neither is rewritten here.
+		in.Message = redact.Text(in.Message, bearer(r))
 	}
 	err := s.store.AckJobOutput(in.NodeID, bearer(r), in.JobID, in.Status, in.Message, in.Output)
 	s.agentAuthResult(r, err)

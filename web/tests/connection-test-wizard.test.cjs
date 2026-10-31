@@ -182,3 +182,11 @@ test('rows show connect time, its spread and data attempts only when measured',(
  const html=r.run('tnConnTestBoardHTML')(probe('complete',[{port:443,class:'FULL_DATA',connect_rtt_ms:'<b>',attempts:3,ack_successes:3}]));
  assert.doesNotMatch(html,/<b>\s*ms/,'metrics are escaped');
 });
+
+test('classic board shows derived throughput only when present',()=>{
+ const r=rig();
+ const m=r.run('tnConnTestMetrics');
+ assert.equal(m({connect_rtt_ms:38,attempts:3,ack_successes:3,throughput_kbps:85400}),'38 ms · 3/3 ok · ≈ 85 Mbps');
+ assert.equal(m({throughput_kbps:4200}),'≈ 4.2 Mbps');
+ assert.equal(m({throughput_kbps:0}),'');
+});

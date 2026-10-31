@@ -88,7 +88,7 @@ func newGateRig(t *testing.T) *gateRig {
 		defer g.mu.Unlock()
 		switch r.URL.Path {
 		case "/api/agent/jobs":
-			if r.Header.Get(CapabilityHeader) == "" {
+			if !strings.Contains(r.Header.Get(CapabilityHeader), CapabilityOperationalV1) {
 				t.Errorf("the Agent polled without declaring %s although fully provisioned", CapabilityOperationalV1)
 			}
 			_ = json.NewEncoder(w).Encode(g.serve)

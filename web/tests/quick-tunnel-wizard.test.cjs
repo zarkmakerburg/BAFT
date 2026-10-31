@@ -104,3 +104,10 @@ test('gates are ordered FAIL, WARN, PASS',()=>{
  assert.deepEqual(qt.gateOrder([{status:'PASS',name:'a'},{status:'FAIL',name:'b'},{status:'WARN',name:'c'},{status:'?',name:'d'}]).map(g=>g.name),['b','c','a','d']);
  assert.deepEqual(qt.gateOrder(null),[]);
 });
+
+test('throughput appears only when BCC derived it, in Mbps',()=>{
+ assert.equal(qt.probeMetrics({connect_rtt_ms:41,attempts:3,ack_successes:3,throughput_kbps:85400}),'41 ms · 3/3 · ≈ 85 Mbps');
+ assert.equal(qt.probeMetrics({throughput_kbps:4200}),'≈ 4.2 Mbps');
+ assert.equal(qt.probeMetrics({throughput_kbps:0}),'');
+ assert.equal(qt.mbps(10000),'10');
+});

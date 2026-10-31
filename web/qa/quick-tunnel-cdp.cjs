@@ -52,7 +52,7 @@ function mockBCC() {
         const ports = log.find(x => x.path === '/api/path-probes' && x.method === 'POST').body.candidate_ports;
         const done = probePolls >= 2;
         return send(200, { id: 'pp-1', phase: done ? 'complete' : 'running', recommended_port: done ? 443 : 0, candidates: ports.map((port, i) => !done && i > 2 ? { port } :
-          port === 443 ? { port, class: 'FULL_DATA', connect_rtt_ms: 41, connect_spread_ms: 3, attempts: 3, ack_successes: 3 } :
+          port === 443 ? { port, class: 'FULL_DATA', connect_rtt_ms: 41, connect_spread_ms: 3, attempts: 3, ack_successes: 3, throughput_kbps: 85400 } :
           port === 2053 ? { port, class: 'BYTE_CEILING', byte_ceiling: 16384, attempts: 3, ack_successes: 0 } :
           port === 2083 ? { port, class: 'TIMEOUT_UNREACHABLE', attempts: 3 } : { port, class: 'FULL_DATA', connect_rtt_ms: 58, attempts: 3, ack_successes: 3 }) });
       }

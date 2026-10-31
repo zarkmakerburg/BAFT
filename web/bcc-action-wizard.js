@@ -101,8 +101,10 @@
     const out = [];
     if (c.connect_rtt_ms) out.push(c.connect_rtt_ms + ' ms' + (c.connect_spread_ms ? ' ±' + c.connect_spread_ms : ''));
     if (c.attempts) out.push((c.ack_successes || 0) + '/' + c.attempts);
+    if (c.throughput_kbps > 0) out.push('≈ ' + mbps(c.throughput_kbps) + ' Mbps');
     return out.join(' · ');
   }
+  function mbps(kbps) { const v = Number(kbps) / 1000; return v >= 10 ? String(Math.round(v)) : v.toFixed(1); }
 
   // Tunnel progress. Steps are only marked done once BCC's phase is past them.
   const STEPS = [
@@ -131,7 +133,7 @@
   }
   function gateOrder(gates) { const rank = { FAIL: 0, WARN: 1, PASS: 2 }; return (gates || []).slice().sort((a, b) => (rank[a.status] ?? 3) - (rank[b.status] ?? 3)); }
 
-  const core = Object.freeze({ AGENT_FRESH_MS, TEST_PORTS, nodeOnline, splitNodes, activeTunnels, endpointPort, validPort, clientPortProblem, candidatePorts, allocateInternal, instanceID, buildRequest, targetFor, validTargetHost, probeRow, probeMetrics, progress, gateOrder });
+  const core = Object.freeze({ AGENT_FRESH_MS, TEST_PORTS, nodeOnline, splitNodes, activeTunnels, endpointPort, validPort, clientPortProblem, candidatePorts, allocateInternal, instanceID, buildRequest, targetFor, validTargetHost, probeRow, probeMetrics, mbps, progress, gateOrder });
   if (typeof module === 'object' && module.exports) { module.exports = core; return; }
 
   // ---------- browser UI ----------

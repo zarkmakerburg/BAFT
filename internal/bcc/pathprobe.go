@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -64,6 +65,10 @@ type PathProbeCandidate struct {
 	// across connected bulk attempts (at least two). It describes
 	// connect-time stability during the probe; it is not tunnel jitter.
 	ConnectSpreadMS int64 `json:"connect_spread_ms,omitempty"`
+	// ThroughputKbps is set only from a time-bounded speed flow whose byte
+	// count the destination listener confirmed exactly (path-probe-speed-v1).
+	// It is a single-stream TCP figure for the raw path, not tunnel capacity.
+	ThroughputKbps int64 `json:"throughput_kbps,omitempty"`
 }
 
 type PathProbe struct {
@@ -106,6 +111,45 @@ type probeRunEvidence struct {
 	Target  string              `json:"target"`
 	Bulk    []probeFlowEvidence `json:"bulk"`
 	Trickle probeFlowEvidence   `json:"trickle"`
+	Speed   *probeSpeedEvidence `json:"speed,omitempty"`
+}
+
+type probeSpeedEvidence struct {
+	Seconds      int    `json:"seconds"`
+	BytesWritten int64  `json:"bytes_written"`
+	AckedBytes   int64  `json:"acked_bytes"`
+	TransferMS   int64  `json:"transfer_ms"`
+	ACK          bool   `json:"ack"`
+	Error        string `json:"error,omitempty"`
+}
+
+// pathProbeSpeedCapability is the agent-native feature both ends must
+// advertise before BCC asks for a speed flow (older agents reject the param).
+const pathProbeSpeedCapability = "path-probe-speed-v1"
+
+// pathProbeSpeedSeconds bounds each speed flow; the listener TTL must cover
+// bulk + trickle + this.
+const pathProbeSpeedSeconds = 5
+
+// nodeHasFreshCapability reports a capability from an authenticated poll no
+// older than ingressCapabilityMaxAge.
+func nodeHasFreshCapability(n Node, ok bool, capability string, now time.Time) bool {
+	if !ok || n.Revoked || n.AgentTokenHash == "" || n.AgentSeen.IsZero() ||
+		n.AgentSeen.After(now.Add(time.Minute)) || now.Sub(n.AgentSeen) > ingressCapabilityMaxAge {
+		return false
+	}
+	return slices.Contains(n.Capabilities, capability)
+}
+
+// probeThroughputKbps derives kbit/s from a speed flow only when the listener
+// confirmed exactly the bytes written, enough data moved and enough time
+// passed for the figure to mean something.
+func probeThroughputKbps(sp *probeSpeedEvidence) int64 {
+	if sp == nil || !sp.ACK || sp.Error != "" || sp.AckedBytes != sp.BytesWritten ||
+		sp.BytesWritten < 256<<10 || sp.TransferMS < 500 {
+		return 0
+	}
+	return sp.BytesWritten * 8 / sp.TransferMS
 }
 
 type probeListenEvidence struct {
@@ -306,14 +350,17 @@ func (s *Store) queuePathProbeListenLocked(p *PathProbe, now time.Time) {
 func (s *Store) queuePathProbeRunLocked(p *PathProbe, now time.Time) {
 	c := &p.Candidates[p.Current]
 	target := net.JoinHostPort(p.DestinationIP, strconv.Itoa(c.Port))
-	j := s.newJobLocked(Job{
-		Type: agentjob.ActionPathProbeRun, NodeID: p.SourceNode,
-		Params: map[string]string{
-			"probe_id": p.ID, "family": p.Family, "target": target,
-			"payload_bytes": "65536", "attempts": "3",
-			"trickle_bytes": "16384", "trickle_ms": "1000",
-		},
-	})
+	params := map[string]string{
+		"probe_id": p.ID, "family": p.Family, "target": target,
+		"payload_bytes": "65536", "attempts": "3",
+		"trickle_bytes": "16384", "trickle_ms": "1000",
+	}
+	src, srcOK := s.st.Nodes[p.SourceNode]
+	dst, dstOK := s.st.Nodes[p.DestinationNode]
+	if nodeHasFreshCapability(src, srcOK, pathProbeSpeedCapability, now) && nodeHasFreshCapability(dst, dstOK, pathProbeSpeedCapability, now) {
+		params["speed_seconds"] = strconv.Itoa(pathProbeSpeedSeconds)
+	}
+	j := s.newJobLocked(Job{Type: agentjob.ActionPathProbeRun, NodeID: p.SourceNode, Params: params})
 	c.RunJobID, p.JobID, p.Phase, p.UpdatedAt = j.ID, j.ID, PathProbeRunning, now
 }
 
@@ -431,6 +478,7 @@ func classifyPathProbeCandidate(c *PathProbeCandidate, run probeRunEvidence, lis
 	}
 	c.Attempts = len(run.Bulk)
 	c.ConnectSpreadMS = connectSpreadMS(run.Bulk)
+	c.ThroughputKbps = probeThroughputKbps(run.Speed)
 	c.TricklePassed = run.Trickle.ACK
 	c.Received = append([]int64(nil), listen.Received...)
 	allBulk := len(run.Bulk) > 0 && c.ACKSuccesses == len(run.Bulk)

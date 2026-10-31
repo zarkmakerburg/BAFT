@@ -18,9 +18,11 @@ func TestPollAdvertisesOperationalCapabilityOnlyWhenProvisioned(t *testing.T) {
 		policyErr error
 		want      []string
 	}{
-		{"provisioned", true, nil, []string{CapabilityOperationalV1}},
-		{"no trusted policy", true, errors.New("no policy"), nil},
-		{"no operational config", false, nil, nil},
+		// The agent-native speed-probe feature is always advertised; the
+		// operational ingress capability only with a provisioned path.
+		{"provisioned", true, nil, []string{CapabilityOperationalV1 + "," + CapabilityPathProbeSpeedV1}},
+		{"no trusted policy", true, errors.New("no policy"), []string{CapabilityPathProbeSpeedV1}},
+		{"no operational config", false, nil, []string{CapabilityPathProbeSpeedV1}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

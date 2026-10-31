@@ -11,6 +11,9 @@ import (
 const (
 	CapabilityHeader        = "X-BAFT-Agent-Capabilities"
 	CapabilityOperationalV1 = "operational-ingress-v1"
+	// CapabilityPathProbeSpeedV1 says this agent can run and serve the
+	// time-bounded BAFTS1 throughput flow of path_probe_run (speed_seconds).
+	CapabilityPathProbeSpeedV1 = "path-probe-speed-v1"
 )
 
 // capabilityHeaders lists, in one header, operational-ingress-v1 (only when
@@ -25,6 +28,8 @@ func (a *Agent) capabilityHeaders(ctx context.Context) map[string]string {
 		tokens = append(tokens, CapabilityOperationalV1)
 	}
 	tokens = append(tokens, a.transportCapabilities(ctx)...)
+	// Agent-native feature: true of this agent build whatever binary is installed.
+	tokens = append(tokens, CapabilityPathProbeSpeedV1)
 	if len(tokens) == 0 {
 		return nil
 	}

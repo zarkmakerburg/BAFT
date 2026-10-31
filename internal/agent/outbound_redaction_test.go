@@ -110,6 +110,44 @@ func TestFailedJobACKAndResultAreRedacted(t *testing.T) {
 	}
 }
 
+// Regression for CI run 41229286650 on e156fd7f: redacting the ACK Output
+// field stripped the pairing/reply code BCC needs to pair IR with EX, so
+// tunnels stalled in preparing_ir. Output is the authenticated one-time
+// channel for those codes and must reach BCC byte-for-byte on success.
+func TestSucceededACKOutputCarriesPairingCodeUnchanged(t *testing.T) {
+	const code = "BAFTPAIR1:QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVo"
+	var mu sync.Mutex
+	var acks []map[string]string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var ack map[string]string
+		if err := json.NewDecoder(r.Body).Decode(&ack); err != nil {
+			t.Error(err)
+		}
+		mu.Lock()
+		acks = append(acks, ack)
+		mu.Unlock()
+	}))
+	defer srv.Close()
+	a := &Agent{cfg: Config{BCCURL: srv.URL, NodeID: "ex-1", Token: redactionTestToken, HTTP: srv.Client()}}
+	if err := a.ack(context.Background(), "job-pair", "succeeded", "pairing code issued", code); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.ack(context.Background(), "job-fail", "failed", "baft-pair failed near "+code+" token="+redactionTestToken, ""); err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(acks) != 2 {
+		t.Fatalf("acks: %d", len(acks))
+	}
+	if acks[0]["Output"] != code || acks[0]["Message"] != "pairing code issued" || acks[0]["Status"] != "succeeded" {
+		t.Fatalf("succeeded ACK altered the pairing channel: %+v", acks[0])
+	}
+	if strings.Contains(acks[1]["Message"], code) || strings.Contains(acks[1]["Message"], redactionTestToken) || acks[1]["Output"] != "" {
+		t.Fatalf("failure ACK leaked a secret: %+v", acks[1])
+	}
+}
+
 func TestOperationalReceiptFailureCauseIsRedactedAndDeliverable(t *testing.T) {
 	// A long executor error used to push the receipt past
 	// maxIngressReceiptBytes, so BCC received no failure evidence at all.

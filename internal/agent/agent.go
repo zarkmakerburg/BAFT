@@ -378,13 +378,14 @@ func (a *Agent) ack(ctx context.Context, jobID, status, message, output string) 
 	// itself (tunnel_discover's is bounded to 48 KiB); cutting it would leave
 	// invalid JSON that BCC rejects as "unreadable".
 	//
-	// Everything leaving the node is redacted first (ADR-001 §5): failure
-	// text and output can echo subprocess output, URLs or credentials, and the
-	// ACK is stored and displayed by BCC. Redacting before cutting means a
-	// secret that straddles the limit cannot leak as a partial prefix.
-	output = a.redactDiagnostic(output)
+	// Failure text is redacted before it is cut (ADR-001 §5): it can echo
+	// subprocess output, URLs or credentials, and BCC stores and displays it.
+	// Redacting first means a secret that straddles the limit cannot leak as a
+	// partial prefix. Output is deliberately NOT redacted: it is the
+	// authenticated one-time channel that carries pairing/reply codes and the
+	// public rotation plan to BCC, is sent only for succeeded jobs, and is
+	// never logged. A succeeded message is the agent's own structured report.
 	if status == "succeeded" {
-		message = a.redactDiagnostic(message)
 		if len(message) > maxSuccessMessage {
 			message = message[:maxSuccessMessage]
 		}

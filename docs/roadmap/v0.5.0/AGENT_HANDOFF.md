@@ -13,7 +13,9 @@
 
 > These are historical checkpoints, not a claim about live status. Verify current GitHub state, branch head, main, open PRs/issues and CI before acting.
 
-**Latest recorded progress (2026-10-31, Stage 1):** first local test execution and the first P0 fix (ADR-001 §5 secret redaction at Agent ACK/log/receipt boundaries, plus deliverable bounded failure receipts) — commit `1cdef92a3a3bae00f727297516c928a8d0340ec3`. Environment limits, exact results and the next four actions are in [BASELINE_AUDIT.md §9](./BASELINE_AUDIT.md#9-stage-1--first-local-execution-and-first-p0-fix-2026-10-31). Start there; do not repeat the Stage 0/1 discovery.
+**Latest recorded progress (2026-10-31, Stage 2):** first exact-SHA CI on the pinned toolchain caught and fixed a pairing regression; C-BAFT was inventoried and [ADR-002](./ADR-002-c-baft-capability-integration.md) records what is adopted, adapted, deferred or rejected; the wizard now has an on-demand Connection Test. Details, run links and next actions: [BASELINE_AUDIT.md §10](./BASELINE_AUDIT.md#10-stage-2--first-exact-sha-ci-a-caught-regression-and-c-baft-integration-2026-10-31). CI does not run on push for `codex/**`; dispatch `ci.yml` and `bcc-v3-ui-tests.yml` manually.
+
+**Stage 1 (2026-10-31):** first local test execution and the first P0 fix (ADR-001 §5 secret redaction at Agent ACK/log/receipt boundaries, plus deliverable bounded failure receipts) — commit `1cdef92a3a3bae00f727297516c928a8d0340ec3`. Environment limits, exact results and the next four actions are in [BASELINE_AUDIT.md §9](./BASELINE_AUDIT.md#9-stage-1--first-local-execution-and-first-p0-fix-2026-10-31). Start there; do not repeat the Stage 0/1 discovery.
 
 ## 1. One-line mission
 

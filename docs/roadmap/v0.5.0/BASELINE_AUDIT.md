@@ -175,3 +175,42 @@ After the fix (Go 1.25.1, `-race`): both new tests pass; `internal/redact` (unit
 2. Add BCC-side redaction/bounding on ACK and receipt ingest using `internal/redact`, with `internal/bcc` tests.
 3. Harden `agentjob.Verifier` so a nil `Seen` cannot silently disable replay protection (explicit opt-out for callers that hold a durable claim), with tests.
 4. Decide #292/#293/#294 sequencing in Issue #67 before touching lease/listener/recovery code.
+
+## 10. Stage 2 — first exact-SHA CI, a caught regression, and C-BAFT integration (2026-10-31)
+
+Owner direction (2026-10-31): combine C-BAFT's essential capabilities and ease of use with BAFT's BCC into one product on this branch, with full authority to take the necessary steps. Merge/tag/release/deploy remain separate decisions.
+
+### 10.1 CI on the pinned toolchain (GitHub Actions, `ci.yml` via `workflow_dispatch`)
+
+`codex/**` branches do not trigger CI on push, so runs were dispatched manually.
+
+| Run | SHA | Result | Finding |
+|---|---|---|---|
+| [41229286650](https://github.com/zarkmakerburg/BAFT/actions/runs/41229286650) | `e156fd7f` | **failure**: `test`, `e2e-launch1` | Real regression from `1cdef92a`: redacting the ACK **Output** replaced the EX pairing code with `[redacted pairing code]`, so BCC could not issue IR prepare/trust jobs (`tunnel 1 ended as 'preparing_ir'`; rotation flow `pull jobs: HTTP 500`). Not reproducible locally because those tests import `internal/bcc`. |
+| [41229725348](https://github.com/zarkmakerburg/BAFT/actions/runs/41229725348) | `9c32ba36` (main) | control run | Dispatched to separate time-dependent flakiness from the regression; `e2e-launch1` passed on main. |
+| [41230304771](https://github.com/zarkmakerburg/BAFT/actions/runs/41230304771) | `26a86708` | `test` failed **only** on `tests/docs` RTL check | Rotation/tunnel tests pass after `5392b404`. Remaining failure: `EXECUTION_PLAN.fa.md` (from `2b275764`) lacked the canonical RTL wrapper — fixed in `3f51221e`, `tests/docs` passes locally. (Correction to §9.3: the local `tests/docs` failure was this defect, not the sandbox.) |
+| [41230317598](https://github.com/zarkmakerburg/BAFT/actions/runs/41230317598) | `26a86708` | **success** | `BCC UI tests` (JS unit + Playwright/Chromium browser regressions). |
+| [41230590263](https://github.com/zarkmakerburg/BAFT/actions/runs/41230590263) / [41230592672](https://github.com/zarkmakerburg/BAFT/actions/runs/41230592672) | `7b417b2f` | running at time of writing | Results must be read from the runs, not inferred. |
+
+Lesson recorded for the next agent: ACK `Output` is an authenticated one-time channel (pairing/reply codes, rotation plan) and must not be redacted; only failure text and logs are. `TestSucceededACKOutputCarriesPairingCodeUnchanged` guards it.
+
+### 10.2 C-BAFT inventory and decision
+
+C-BAFT (`zarkmakerburg/C-BAFT` `ed57639`) was cloned and inspected: a fork of C-Tunnel by CIAUB (AGPL-3.0 with §7(b) attribution and §7(e) name terms; some files from BackPack), 28 kernel/UDP methods, UDP-Crypt AES-GCM, `rudp-fec`, reverse TCP carrier, one-line `ctunnel://` links with a shared token, a web panel and a Connection Test. Feature-by-feature decisions, licensing obligations and slice order are in [ADR-002](./ADR-002-c-baft-capability-integration.md). No C-BAFT code has been copied.
+
+### 10.3 Implemented in this stage
+
+| Commit | Change | Local evidence |
+|---|---|---|
+| `5392b404` | Keep ACK Output intact; failure text/log redaction kept | `internal/agent` subset (-race) passes; new regression test fails on `1cdef92a`, passes here |
+| `26a86708` | Wizard **Connection Test**: signed path probe IR → EX on the chosen port + common TLS ports, live bilingual/RTL board, only `FULL_DATA` reads as passing, selection via the evidence-checked auto-select, 3 s polling capped at 10 min, cancel, invalidated on server change | `web/tests/connection-test-wizard.test.cjs`; JS suite 168/168; `node --check` of the dashboard script; Chromium screenshots EN/FA at 1000 px and 390 px |
+| `7b417b2f` | Probe evidence adds `attempts` and `connect_spread_ms`; board shows "38 ms ±4 · 3/3 ok". No throughput figure (64 KiB flows incl. connect time would mislead) | classification test in an isolated scratch package (Go 1.25.1); JS suite 169/169 |
+| `3f51221e` | RTL wrapper for `EXECUTION_PLAN.fa.md` | `tests/docs` passes locally |
+
+### 10.4 Next executable actions
+
+1. Read the results of the runs for `7b417b2f` and the final head; fix anything red before new features.
+2. ADR-002 slice: a bounded, signed throughput action (separate from reachability probes) so the board can show a real speed figure.
+3. ADR-002 slice: Aurora wizard parity with the live classic wizard (test → recommend → review → deploy).
+4. Transport-driver contract ADR (WireGuard first candidate) before any kernel/UDP transport from C-BAFT.
+5. BCC-side redaction on ACK/receipt ingest and the `agentjob.Verifier` nil-`Seen` hardening (from §9.6).

@@ -4,6 +4,14 @@ All notable changes to BAFT are listed here. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+### v0.5.0 in development (branch `codex/v0.5.0-foundation-20261031`, not released)
+
+- **New tunnel, guided and live**: the Command Center's "+ New tunnel" dialog now builds real tunnels in five steps (servers, service, connection test, review, deploy) on BCC's reviewed APIs. It reports "done" only when the tunnel is active and the public Iran port is verified; rollbacks are shown as such. It replaces the earlier preview-only wizard.
+- **Connection test**: an on-demand, signed path test between the two servers on the chosen and common TLS ports, with a live per-port board (only full data counts as passing), connect time, attempt success and connect-time spread; the port is chosen by the evidence-checked auto-select.
+- **Speed in the connection test**: agents advertise `path-probe-speed-v1`; when both ends do, BCC asks for a 5-second, 64 MiB-capped throughput flow whose byte count the destination must confirm exactly. The figure is a single-stream raw-path estimate, not tunnel capacity. Older agents are never sent the new parameter.
+- **Secret redaction**: failure messages, agent logs and operational receipt causes are redacted (tokens, private keys, pairing codes, URL credentials, key=value secrets) and bounded on the Agent, and failure ACKs again on BCC ingest. Oversized failure receipts are now delivered instead of being dropped. The ACK output channel that carries pairing codes is unchanged.
+- Design records: [ADR-001](docs/roadmap/v0.5.0/ADR-001-operation-evidence-and-truthful-readiness.md), [ADR-002 (C-BAFT capability integration)](docs/roadmap/v0.5.0/ADR-002-c-baft-capability-integration.md).
+
 - Read-only ingress preflight now expires from its persisted creation time across queue dispatch, signed payload and acknowledgement; expired dispatch writes a durable security-audit intent. TCP/2053 is governed by resource ownership and OS bind conflicts instead of a blanket port ban. Existing unrelated listeners remain owned by their services.
 
 Development target: **v0.4.0**, draft PR #270. Not released. See [readiness and upgrade gates](docs/release/v0.4.0-readiness.md).

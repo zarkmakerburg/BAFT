@@ -46,6 +46,18 @@ With an outside and an Iran server added, **Tunnels** builds a tunnel between th
 
 The agent on each server only runs a fixed list of signed jobs; it has no shell access.
 
+## Creating a tunnel step by step
+
+On the **Tunnels** page press **+ New tunnel**. A five-step dialog opens; nothing changes on any server until BCC has reviewed the plan:
+
+1. **Servers.** Pick the Iran server (where users connect) and the foreign server (where the service runs). Each server shows whether its agent is online; one that has not reported in the last 5 minutes is flagged.
+2. **Service.** Enter the service port on the foreign server (in 3X-UI, the inbound port). The port users connect to on the Iran server defaults to the same number. Port 22, and a port another tunnel already uses on that Iran server, are refused. You must explicitly allow BAFT to open this port on the Iran server once the tunnel is active.
+3. **Connection test.** Press **Run connection test**. Through signed jobs, BCC asks the foreign server to open a short-lived test listener and the Iran server to send real data to it on several common TLS ports. Green means full data passed, yellow means it connects but data is cut, red means blocked. Connect time, successful attempts and — when both agents support it — an approximate speed in Mbps are shown. The tunnel port is chosen only among ports that passed full data. Under Advanced you can pick a port manually without test evidence.
+4. **Review.** BCC reviews the plan and shows its safety checks as FAIL, WARN and PASS. Deploy stays disabled unless BCC accepts the plan.
+5. **Deploy.** Progress is shown step by step: prepare foreign server, pair Iran server, install, health checks, finalize, active. "Done" appears only when the tunnel is active and the public Iran port has been verified independently. If a step fails, BAFT rolls back its own changes and says so.
+
+You can close the dialog at any time; the build continues in BCC and appears in the tunnel list. The same connection test is also in the Tunnel Studio, which adds shared-listener joins and editing.
+
 More detail: [BCC access](../24-p1c-bcc-access.md), [SSH bootstrap](../26-p1d-ssh-bootstrap.md), [Tunnel builder](../27-p1e-tunnel-builder.md), [Layered health](../30-bcc-layered-health.md).
 
 ## Security tips

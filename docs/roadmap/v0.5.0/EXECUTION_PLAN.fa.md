@@ -1,3 +1,5 @@
+<div dir="rtl" align="right" lang="fa">
+
 # BAFT v0.5.0 — سند اجرایی و نقشه راه مهندسی
 
 > وضعیت سند: **پیشنهاد اجرایی مبنا / Draft 0.1**  
@@ -754,3 +756,5 @@ v0.5.0 زمانی Done است که:
 - release dossier شامل source SHA، artifact hashes، signatures، workflow runs و محدودیت‌ها باشد.
 
 **پایان سند — این سند مجوز merge، tag، release یا deploy نیست.**
+
+</div>

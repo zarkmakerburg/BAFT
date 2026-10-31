@@ -192,6 +192,31 @@ func TestPathProbeUsesOnlyEnrolledNodeAddressesAndPersists(t *testing.T) {
 	}
 }
 
+func TestPathProbeCandidateReportsAttemptsAndConnectSpread(t *testing.T) {
+	flow := func(ms int64, connected, ack bool) probeFlowEvidence {
+		return probeFlowEvidence{Requested: 65536, BytesWritten: 65536, ConnectMS: ms, Connected: connected, Handshake: connected, ACK: ack}
+	}
+	full := probeFlowEvidence{Requested: 16384, BytesWritten: 16384, Connected: true, Handshake: true, ACK: true}
+	var c PathProbeCandidate
+	classifyPathProbeCandidate(&c, probeRunEvidence{Bulk: []probeFlowEvidence{flow(7, true, true), flow(5, true, true), flow(6, true, true)}, Trickle: full}, probeListenEvidence{})
+	if c.Class != PathFullData || c.Attempts != 3 || c.ACKSuccesses != 3 || c.ConnectRTTMS != 6 || c.ConnectSpreadMS != 1 {
+		t.Fatalf("stable full-data candidate: %+v", c)
+	}
+	c = PathProbeCandidate{}
+	classifyPathProbeCandidate(&c, probeRunEvidence{Bulk: []probeFlowEvidence{flow(10, true, true), flow(90, true, false), flow(0, false, false)}, Trickle: full}, probeListenEvidence{})
+	if c.Class == PathFullData || c.Attempts != 3 || c.ACKSuccesses != 1 || c.ConnectSpreadMS != 40 {
+		t.Fatalf("lossy candidate must not be FULL_DATA and must expose spread over connected flows only: %+v", c)
+	}
+	c = PathProbeCandidate{}
+	classifyPathProbeCandidate(&c, probeRunEvidence{Bulk: []probeFlowEvidence{flow(12, true, true)}}, probeListenEvidence{})
+	if c.Attempts != 1 || c.ConnectSpreadMS != 0 {
+		t.Fatalf("one sample has no spread: %+v", c)
+	}
+	if got := connectSpreadMS(nil); got != 0 {
+		t.Fatalf("empty spread = %d", got)
+	}
+}
+
 func TestPathProbeRecommendationIsDeterministic(t *testing.T) {
 	cs := []PathProbeCandidate{
 		{Port: 8443, Class: PathFullData, ConnectRTTMS: 18},

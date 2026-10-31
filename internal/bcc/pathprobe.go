@@ -57,6 +57,13 @@ type PathProbeCandidate struct {
 	ListenJobID      string  `json:"listen_job_id,omitempty"`
 	RunJobID         string  `json:"run_job_id,omitempty"`
 	StopJobID        string  `json:"stop_job_id,omitempty"`
+	// Attempts is the number of bulk flows the source actually reported;
+	// with ACKSuccesses it is the per-port data success ratio users see.
+	Attempts int `json:"attempts,omitempty"`
+	// ConnectSpreadMS is the mean absolute deviation of TCP connect time
+	// across connected bulk attempts (at least two). It describes
+	// connect-time stability during the probe; it is not tunnel jitter.
+	ConnectSpreadMS int64 `json:"connect_spread_ms,omitempty"`
 }
 
 type PathProbe struct {
@@ -377,6 +384,33 @@ func repeatedCeiling(values []int64, limit int64) int64 {
 	return 0
 }
 
+// connectSpreadMS is the mean absolute deviation (rounded) of connect time
+// over connected flows with a non-negative timing; 0 with fewer than two.
+func connectSpreadMS(flows []probeFlowEvidence) int64 {
+	var samples []int64
+	var sum int64
+	for _, f := range flows {
+		if f.Connected && f.ConnectMS >= 0 {
+			samples = append(samples, f.ConnectMS)
+			sum += f.ConnectMS
+		}
+	}
+	if len(samples) < 2 {
+		return 0
+	}
+	n := int64(len(samples))
+	var dev int64
+	for _, v := range samples {
+		d := v*n - sum
+		if d < 0 {
+			d = -d
+		}
+		dev += d
+	}
+	// dev/n is the summed deviation scaled by n; divide by n again and round.
+	return (dev + n*n/2) / (n * n)
+}
+
 func classifyPathProbeCandidate(c *PathProbeCandidate, run probeRunEvidence, listen probeListenEvidence) {
 	connectSum := int64(0)
 	handshakes := 0
@@ -395,6 +429,8 @@ func classifyPathProbeCandidate(c *PathProbeCandidate, run probeRunEvidence, lis
 	if c.ConnectSuccesses > 0 {
 		c.ConnectRTTMS = connectSum / int64(c.ConnectSuccesses)
 	}
+	c.Attempts = len(run.Bulk)
+	c.ConnectSpreadMS = connectSpreadMS(run.Bulk)
 	c.TricklePassed = run.Trickle.ACK
 	c.Received = append([]int64(nil), listen.Received...)
 	allBulk := len(run.Bulk) > 0 && c.ACKSuccesses == len(run.Bulk)

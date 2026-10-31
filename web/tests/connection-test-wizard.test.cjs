@@ -171,3 +171,14 @@ test('refused start reports BCC text and re-enables the button; cancel posts the
  assert.deepEqual(c.calls[1],{url:'/api/path-probes/cancel',method:'POST',body:{id:'pp-1'}});
  assert.match(c.els.tnConnTestNote.textContent,/Test cancelled/);
 });
+
+test('rows show connect time, its spread and data attempts only when measured',()=>{
+ const r=rig();
+ const m=r.run('tnConnTestMetrics');
+ assert.equal(m({connect_rtt_ms:38,connect_spread_ms:4,attempts:3,ack_successes:3}),'38 ms ±4 · 3/3 ok');
+ assert.equal(m({connect_rtt_ms:38,attempts:3,ack_successes:1}),'38 ms · 1/3 ok');
+ assert.equal(m({attempts:3}),'0/3 ok');
+ assert.equal(m({}),'');
+ const html=r.run('tnConnTestBoardHTML')(probe('complete',[{port:443,class:'FULL_DATA',connect_rtt_ms:'<b>',attempts:3,ack_successes:3}]));
+ assert.doesNotMatch(html,/<b>\s*ms/,'metrics are escaped');
+});

@@ -5,6 +5,8 @@
 - Repository: `zarkmakerburg/BAFT`
 - Governance/evidence board: [Issue #67](https://github.com/zarkmakerburg/BAFT/issues/67)
 - Version plan: [EXECUTION_PLAN.fa.md](./EXECUTION_PLAN.fa.md)
+- Baseline audit (Stage 0, live evidence): [BASELINE_AUDIT.md](./BASELINE_AUDIT.md)
+- First architecture contract: [ADR-001 — operation evidence and truthful readiness](./ADR-001-operation-evidence-and-truthful-readiness.md)
 - Working branch recorded at handoff: `codex/v0.5.0-foundation-20261031`
 - Base SHA recorded at branch creation: `9c32ba369fe2be2c549f2878d1de5dbf092c8f64`
 - Plan commit recorded: `2b2757641943f79ce93a39a2e6589f6734b0c246`
@@ -138,6 +140,8 @@ Use file paths, line numbers, commit links and CI links wherever possible.
 Write the results to `docs/roadmap/v0.5.0/BASELINE_AUDIT.md` (or an existing, more appropriate canonical path after checking the repository). Update Issue #67 with a concise evidence-linked summary. Do not modify runtime behavior until the baseline and relevant contracts are understood, except for an urgent, clearly scoped security fix.
 
 ## 7. Second mission: architecture contracts
+
+Stage 0 baseline audit is committed at [BASELINE_AUDIT.md](./BASELINE_AUDIT.md). The first contract is [ADR-001 — operation evidence and truthful readiness](./ADR-001-operation-evidence-and-truthful-readiness.md). It defines operation-state semantics, authority/scope invariants, evidence-before-success, ownership-scoped recovery, secret redaction and required acceptance cases. It is a proposed contract, not proof that current runtime behavior passes.
 
 After the audit, document the gaps between actual implementation and target architecture. Add focused ADRs where needed for:
 - BCC/Agent responsibility boundaries;

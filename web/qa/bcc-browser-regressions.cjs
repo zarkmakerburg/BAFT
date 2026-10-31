@@ -181,6 +181,32 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       assert.equal(await page.locator('#ops_tnEngine').getAttribute('type'),'hidden');
       assert.equal(await page.locator('#ops_tnDirection option[value="ex-to-ir"]').isDisabled(),true);
     });
+    await check('live Quick Tunnel wizard reads real BCC inventory and writes nothing before deploy',async()=>{
+      await nav('tunnels');
+      const before=apiRequests.filter(x=>x.method!=='GET').length;
+      await page.locator('#main [data-baw-open]').click();
+      const dlg=page.locator('.baw-dialog');
+      await dlg.locator('[data-k=ir]').waitFor({state:'visible'});
+      const ir=await dlg.locator('[data-k=ir] option').evaluateAll(o=>o.map(x=>x.value));
+      const ex=await dlg.locator('[data-k=ex] option').evaluateAll(o=>o.map(x=>x.value));
+      assert.ok(ir.includes('qa-ir')&&!ir.includes('qa-ex'),'Iran list must hold worker/master nodes only');
+      assert.ok(ex.includes('qa-ex')&&!ex.includes('qa-ir'),'foreign list must hold foreign nodes only');
+      assert.equal(await dlg.locator('[data-k=next]').isDisabled(),true);
+      await dlg.locator('[data-k=ir]').selectOption('qa-ir');
+      await dlg.locator('[data-k=ex]').selectOption('qa-ex');
+      await dlg.locator('[data-k=next]').click();
+      await dlg.locator('[data-k=servicePort]').fill('2096');
+      assert.equal(await dlg.locator('[data-k=next]').isDisabled(),true,'public ingress consent is required');
+      await dlg.locator('[data-k=consent]').click();
+      assert.equal(await dlg.locator('[data-k=consent]').isChecked(),true);
+      await dlg.locator('[data-k=next]').click();
+      await dlg.locator('[data-k=runTest]').waitFor({state:'visible'});
+      assert.equal(await dlg.locator('[data-k=next]').isDisabled(),true,'no tunnel port without test evidence or an explicit choice');
+      assert.equal(apiRequests.filter(x=>x.method!=='GET').length,before,'opening and filling the wizard must not write');
+      await shot('quick-tunnel');
+      await page.keyboard.press('Escape');
+      assert.equal(await page.evaluate(()=>window.BAFTActionWizard.isOpen()),false);
+    });
     await check('shared listener Join is explicit and plans only the new tenant',async()=>{
       const tunnels=f.base+'api/tunnels',planEndpoint=f.base+'api/tunnels/plan';
       const owner={id:'qa-owner',phase:'active',ex_node:'qa-ex',ir_node:'qa-ir-owner',instance_id:'qa-shared',public_address:'203.0.113.20',port:8443,target:'127.0.0.1:2443',route_listen:'127.0.0.1:1443',route_id:'service-main',ex_metrics_listen:'127.0.0.1:9202',ir_metrics_listen:'127.0.0.1:9302',record_shaping:false};

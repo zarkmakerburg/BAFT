@@ -219,3 +219,35 @@ C-BAFT (`zarkmakerburg/C-BAFT` `ed57639`) was cloned and inspected: a fork of C-
 5. `agentjob.Verifier` nil-`Seen` hardening (from §9.6; touches 28 call sites, mostly tests). BCC-side ACK redaction is done (`b8017da4`); receipt `FailureCause` is bounded and redacted Agent-side.
 
 Local-verification tip for the next agent: `internal/bcc` only blank-imports `modernc.org/sqlite`, so a scratch `replace` to an empty stub package lets `go vet ./internal/bcc` and DB-free bcc tests run where modernc's libc is unreachable. Never commit that replace.
+
+## 11. Stage 3 — product: live guided tunnel flow and speed test (2026-10-31)
+
+Owner direction (2026-10-31): full latitude to make the best final product; no attachment to the existing UI. Merge, tag, release and deploy are still left for an explicit owner decision.
+
+### 11.1 Implemented
+
+| Commit | Change |
+|---|---|
+| `033cb4d1` | **Live Quick Tunnel wizard** replaces the preview-only floating wizard (`web/bcc-action-wizard.js`): servers → service → connection test → BCC-reviewed plan → deploy & truthful progress. Uses only existing reviewed APIs with the session CSRF header; deploy needs `plan.ok` and sends `plan_hash` (409 → re-review); "done" requires `active` **and** `ingress.ready`. Internal listeners/instance ID allocated like the classic studio. Signed-out visitors get a sign-in link. |
+| `12e4e3ec` | **Signed throughput flow** `path-probe-speed-v1`: optional `speed_seconds` on `path_probe_run`; agent streams ≤ 5 s / 64 MiB over `BAFTS1`, listener confirms the exact byte count; BCC requests it only when both agents advertise the capability on a fresh poll and derives `throughput_kbps` only from an exactly acknowledged flow (≥ 256 KiB, ≥ 500 ms). Shown as "≈ N Mbps" in both boards. |
+| `809c9299` | fa/en user guide section "Creating a tunnel step by step"; CHANGELOG `[Unreleased]` v0.5.0 entries. |
+| `17e7230b` | "+ New tunnel" on the dashboard map header; header wraps on narrow screens. |
+
+### 11.2 Evidence
+
+| Evidence | Result |
+|---|---|
+| `ci` [41234105961](https://github.com/zarkmakerburg/BAFT/actions/runs/41234105961) on `033cb4d1` | **success** (all jobs) |
+| `ci` [41234926979](https://github.com/zarkmakerburg/BAFT/actions/runs/41234926979) on `12e4e3ec` | **success** (all jobs; includes BCC speed-request gating and agent capability tests that need the real store) |
+| `BCC UI tests` [41234103901](https://github.com/zarkmakerburg/BAFT/actions/runs/41234103901) / [41234929324](https://github.com/zarkmakerburg/BAFT/actions/runs/41234929324) / [41235541122](https://github.com/zarkmakerburg/BAFT/actions/runs/41235541122) on `033cb4d1` / `12e4e3ec` / `17e7230b` | **success**; the Playwright run now opens the live wizard against the real BCC fixture and proves it lists real nodes by role, requires consent and writes nothing before deploy |
+| Local (Node 22, Chrome) `web/qa/quick-tunnel-cdp.cjs` | full walk-through against a scripted mock BCC passes in en/dark 1280 px and fa/light 390 px: request shapes, CSRF on every write, allocation, gate order, truthful completion. UI evidence only — not proof that a tunnel can be built. |
+| Local (Go 1.25.1, -race) | agentjob speed-param bounds; agent speed flow, legacy run, listener refusal matrix; DB-free BCC throughput derivation |
+| JS suite | 174/174 |
+| LAB / real hosts | **not run** |
+
+### 11.3 Next executable actions
+
+1. Real two-host (or namespace LAB) run of the guided flow end to end, including the speed flow across two agents of this build; record whether `ingress.ready` becomes true.
+2. Live traffic per tunnel and edit/decommission inside the new flow (Tunnel Studio still covers them).
+3. Transport-driver contract ADR before any C-BAFT kernel/UDP transport (WireGuard first).
+4. Owner decision on #292/#293/#294 and on merging this branch / cutting v0.5.0 — not done without explicit instruction.

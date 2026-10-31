@@ -28,9 +28,9 @@ C-BAFT's **user experience and measurement ideas** are adopted into BAFT; C-BAFT
 | # | C-BAFT capability | Decision | How it lands in BAFT / why |
 |---|---|---|---|
 | 1 | Connection Test board + recommendation | **Adopted — implemented** (`26a86708`) | Wizard "Run connection test" starts a signed path probe IR → EX on the chosen port + common TLS ports; live bilingual board; only `FULL_DATA` reads as passing; selection goes through the existing evidence-checked auto-select, never around it. |
-| 2 | Speed test (latency, jitter, loss, throughput) | **Adapt — next slice** | Extend `path_probe_run` evidence (bulk flows already record bytes and duration) with RTT samples, jitter and throughput; rank by evidence in auto-select; show in the board. No separate unauthenticated responder. |
-| 3 | "Deploy best" / measured deployment | **Adapt** | Keep BAFT's plan → review → deploy with revalidation; add a one-click "use recommended" path in the wizard that pre-fills, never auto-deploys. |
-| 4 | Web panel ease of use (create/edit/delete, live traffic, status dots, mobile) | **Adopt incrementally** | The live studio already appears in Aurora's Tunnels page; next, retire or wire Aurora's floating preview wizard so users never hit a preview dead-end; reuse BAFT telemetry for live traffic; keep ADR-001 distinctions (configured / queued / applied / verified). |
+| 2 | Speed test (latency, jitter, loss, throughput) | **Adapted — implemented** (`7b417b2f`, `12e4e3ec`) | Attempt success and connect-time spread from existing evidence; a signed, time-bounded (5 s, 64 MiB cap) throughput flow requested only when both agents advertise `path-probe-speed-v1`, counted only when the listener confirms the exact byte count. No separate unauthenticated responder; ranking unchanged. |
+| 3 | "Deploy best" / measured deployment | **Adapted — implemented** (`033cb4d1`) | The live Quick Tunnel wizard runs test → evidence-checked selection → BCC-reviewed plan → explicit deploy → truthful progress. It never auto-deploys. |
+| 4 | Web panel ease of use (create/edit/delete, live traffic, status dots, mobile) | **Adopted in part** (`033cb4d1`, `17e7230b`) | The preview-only floating wizard is replaced by the live five-step wizard, launched from the dashboard, the Tunnels page and the public header; bilingual, mobile sheet, light/dark. Live traffic per tunnel and edit/delete inside the new flow remain next steps (the Tunnel Studio still provides edit/decommission). |
 | 5 | Path-MTU discovery | **Defer to UDP/L3 transports** | BAFT carriers are TCP-based and rely on kernel PMTUD; PMTU becomes a signed probe when a UDP or kernel transport lands. C-BAFT's probe also accepts replies from any source address — must bind to the peer. |
 | 6 | Kernel tunnels (GRE, IPIP, SIT, VXLAN, GENEVE, …) | **Defer (P2), via transport-driver ADR** | Unencrypted encapsulations may only be underlays beneath an authenticated layer. Interfaces, routes and firewall rules need ownership proof and rollback like public ingress. WireGuard is the strongest first candidate (authenticated encryption, kernel-native). |
 | 7 | UDP-Crypt family, `rudp-fec` (2+1 XOR FEC), look-alike headers | **Defer (P2), crypto review first** | Requires independent review of key derivation from a shared token, nonce/sequence handling and replay window under loss; look-alike framing gives no DPI guarantee and must be labelled that way. |
@@ -59,7 +59,7 @@ BAFT and C-BAFT are both AGPL-3.0. Slice 1 copies **no C-BAFT source code**; it 
 ## Slice order
 
 1. Connection Test in the wizard — **done** (`26a86708`; shown in classic and in Aurora's Tunnels page).
-2. Attempt success and connect-time spread — **done** (`7b417b2f`). A real throughput figure needs its own bounded signed action: the current listener caps a flow at 1 MiB and bulk flows are 64 KiB including connect time.
-3. Replace Aurora's floating preview wizard with an entry point into the live studio, then add "use recommended" pre-fill.
+2. Attempt success and connect-time spread — **done** (`7b417b2f`); throughput via the separate bounded `BAFTS1` speed flow — **done** (`12e4e3ec`).
+3. Live guided wizard replacing the preview — **done** (`033cb4d1`, dashboard entry `17e7230b`).
 4. Transport-driver contract ADR; WireGuard as first kernel transport candidate, with ownership + rollback.
 5. PMTU probe and UDP transports only after (4) and a crypto review.

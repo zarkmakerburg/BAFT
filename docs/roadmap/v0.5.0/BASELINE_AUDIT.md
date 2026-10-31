@@ -122,3 +122,56 @@ No unrun test is reported as passed.
 4. On the selected exact SHA, run targeted tests first, then race/vet/relevant integration/UI checks; record commands, exit codes and SHA.
 5. Only then implement the vertical slice: BCC plan → signed job → scoped Agent effect → ownership/journal evidence → real probe → truthful receipt/readiness → rollback/recovery under injected failure.
 6. Keep all changes on the dedicated v0.5.0 branch; no merge/tag/release/deploy without the applicable explicit authorization and acceptance gates.
+
+## 9. Stage 1 — first local execution and first P0 fix (2026-10-31)
+
+### 9.1 Live state re-checked before runtime work
+
+| Ref / item | Observed |
+|---|---|
+| `main` | `9c32ba369fe2be2c549f2878d1de5dbf092c8f64` (unchanged) |
+| v0.5.0 branch head before Stage 1 | `fe063f919f222d131cc88bfc905888322c2d4d02` |
+| PR #292 / #293 / #294 / #295 | still open drafts at the heads listed in §3 |
+| PR #290 | still an open draft, **but its head `ced78f50…` is the same commit that #291 merged into `main`**. Its content is already in `main`; treat #290 as superseded rather than as a pending dependency. (Correction to §3/§6.) |
+| Issue #269 | open, no-go; last comments 2026-10-29 still list shared-transport lifecycle and E2E acceptance as missing. |
+
+### 9.2 Execution environment (honest limits)
+
+- Cloud Linux sandbox, amd64. The pinned toolchain `go1.27.3` could not be downloaded (egress policy denies `proxy.golang.org`/`go.dev`), and building it from source was not permitted. Tests ran with the locally installed **Go 1.25.1** on a scratch copy whose `go.mod` directive was lowered to `go 1.25`; nothing in that scratch change is committed.
+- Dependencies were fetched from the upstream GitHub mirrors at the exact `go.sum` versions. Every module zip and `go.mod` was hashed and **matched its `go.sum` `h1:` line byte-for-byte** before use (x/sys, x/crypto, noise, yaml v3, utls, compress, brotli, sqlite, humanize, uuid, isatty, strftime). `x/sys`, `x/crypto` and `sqlite` declare `go 1.26.0`; their go directive was lowered in the scratch copy only.
+- `modernc.org/libc|mathutil|memory` are only on GitLab (blocked), so **`internal/bcc`, `cmd/baft-bcc*` and every test that imports `internal/bcc` could not be built**. For `internal/agent`, the 8 test files that import `internal/bcc`/`oplab` (or helpers defined in them) were held aside in the scratch copy; the remaining 32 test files ran.
+- No IPv6 `/proc/net/tcp6` and no access to `/proc/1/ns/net` in the sandbox; the Linux-kernel/namespace "LAB" tests fail for that reason, not as product evidence either way.
+
+### 9.3 Baseline result at `fe063f91` (Go 1.25.1, `go test -count=1 ./...`)
+
+- **40 packages ok**: cmd/baft, cmd/baft-agent, cmd/baft-pair, agentjob, benchpath, carrier/h2, carrier/utlsdial, carrier/ws, cluster, clustersync, config, dnsfailover, failover, geoip, identity, ingressauthority, ingressmanifest, ingressunit, metrics, node, protocol, recordshape, recovery, release, resources, routes, scheduler, securityinternal, session, sshboot, sshmigrate, telemetry, tunnelengine, tunnelnode, uninstall, tests/camouflage, tests/correctness, tests/e2e/operational/recovery, tests/installer, tests/release/opgate.
+- **9 setup failures (environment: modernc libc unavailable)**: cmd/baft-bcc, cmd/baft-bcc-audit-verify, internal/agent (full set), internal/bcc, tests/e2e/operational, tests/integration, tests/release, tests/uninstall, web/qa/fixture.
+- **4 test failures, all environment-caused** (`/proc/net/tcp6` missing or `/proc/1/ns/net` denied, plus cascades): internal/ingressinventory, internal/ingressownership (NFT LAB tests), internal/publicingress (forwarder/listener tests), tests/docs.
+- This is **Locally tested (partial, non-pinned toolchain)** evidence only. It is not CI evidence and not a substitute for the Go 1.27.3 gates.
+
+### 9.4 First confirmed P0 defect and fix — ADR-001 §5 secret redaction
+
+Reproduced on `fe063f91` with new tests (both **failed before the fix**):
+
+1. `TestFailedJobACKAndResultAreRedacted` — a failing `health` job whose `baft doctor` output contains the agent bearer token, a PEM private key, a pairing code and URL credentials leaked all of them into `Result.Detail` (logged by `Agent.Run`) and the ACK `Message` stored by BCC.
+2. `TestOperationalReceiptFailureCauseIsRedactedAndDeliverable` — a long executor error in `FailureCause` made the receipt exceed `maxIngressReceiptBytes`; the Agent refused to send it (`operational ingress receipt exceeds bound`), so **BCC received no failure evidence** (ADR-001 §3). The cause was also unredacted.
+
+Fix in commit `1cdef92a3a3bae00f727297516c928a8d0340ec3` (`fix(agent): redact and bound diagnostics at every outbound boundary`): new stdlib-only `internal/redact`; Agent ACK message/output, `Result.Detail` and receipt `FailureCause` (bounded to 1024 bytes) are redacted at the boundary; the support bundle shares the same rule set. Diff: 6 files, +462/−33 (tests included).
+
+After the fix (Go 1.25.1, `-race`): both new tests pass; `internal/redact` (unit + 30 s fuzz, ~119k execs), `cmd/baft`, `internal/agentjob`, `internal/release` pass; `internal/agent` (32 of 40 test files) passes except `TestPublicIngressPreflightAcceptsLinuxTCP6Header` (`/proc/net/tcp6` missing — environment). `go build` of `internal/agent`, `cmd/baft`, `cmd/baft-agent` and `go vet` of the changed packages are clean.
+
+### 9.5 ADR-001 acceptance mapping progress
+
+| ADR-001 case | Status after Stage 1 |
+|---|---|
+| Secrets in errors/receipts/logs redacted | **Agent side implemented + locally tested** (ACK, Result/log, operational receipt). BCC-side defense-in-depth on ingest (`/api/agent/ack` message, receipt `FailureCause` before persist/UI) **not yet implemented** — needs a build environment with `modernc.org/libc`. |
+| Failure evidence must reach BCC | Oversized failure receipts are now deliverable (Agent side). |
+| Wrong key / wrong node / expired / replay / modified digest | Existing tests in `internal/agentjob` and `internal/agent` pass locally (partial set). Note: `agentjob.Verifier` silently skips replay checks when `Seen == nil`; both nil-`Seen` callers (`ingress_operational.go`, `ingress_signed_held_admission.go`) rely on `RunOnce`'s durable claim and the single-use lease mint. Not exploitable as observed, but fail-open by construction — candidate hardening. |
+| Remaining cases (stale lease, lost receipt, partial failure, crash matrix, shared-listener retirement, ownership ambiguity) | Unchanged: need a full Go 1.27.3 + Linux LAB environment and the #292/#293/#294 decisions. |
+
+### 9.6 Next executable actions
+
+1. Run the full suite on the pinned Go 1.27.3 toolchain (CI or a host with module-proxy access) at the new branch head; record exact-SHA results.
+2. Add BCC-side redaction/bounding on ACK and receipt ingest using `internal/redact`, with `internal/bcc` tests.
+3. Harden `agentjob.Verifier` so a nil `Seen` cannot silently disable replay protection (explicit opt-out for callers that hold a durable claim), with tests.
+4. Decide #292/#293/#294 sequencing in Issue #67 before touching lease/listener/recovery code.

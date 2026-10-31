@@ -13,6 +13,8 @@
 
 > These are historical checkpoints, not a claim about live status. Verify current GitHub state, branch head, main, open PRs/issues and CI before acting.
 
+**Latest recorded progress (2026-10-31, Stage 1):** first local test execution and the first P0 fix (ADR-001 §5 secret redaction at Agent ACK/log/receipt boundaries, plus deliverable bounded failure receipts) — commit `1cdef92a3a3bae00f727297516c928a8d0340ec3`. Environment limits, exact results and the next four actions are in [BASELINE_AUDIT.md §9](./BASELINE_AUDIT.md#9-stage-1--first-local-execution-and-first-p0-fix-2026-10-31). Start there; do not repeat the Stage 0/1 discovery.
+
 ## 1. One-line mission
 
 Move BAFT from its verified current state toward a stable, secure and user-friendly v0.5.0 by inspecting the real code, fixing the highest-priority gaps, implementing and testing real behavior, and leaving reproducible evidence for the next agent.

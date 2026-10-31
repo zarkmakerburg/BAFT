@@ -95,3 +95,6 @@
 @media(max-width:600px){.qt-steps{grid-template-columns:repeat(5,minmax(0,1fr))}.qt-step-name{font-size:.68rem}.qt-row{grid-template-columns:14px 3.6em minmax(0,1fr)}.qt-metric{grid-column:3}.qt .baw-actions button{flex:1 1 auto}}
 .baw-launch-primary{background:#88b6ff;color:#0d1830;border-color:#88b6ff;font-weight:700}
 @media(prefers-color-scheme:light){.baw-launch-primary{background:#2f6fe0;border-color:#2f6fe0;color:#fff}}
+.map-modes{flex-wrap:wrap}
+.map-modes button.baw-launch-primary{background:#88b6ff;color:#0d1830;border-color:#88b6ff;font-weight:700}
+@media(prefers-color-scheme:light){.map-modes button.baw-launch-primary{background:#2f6fe0;border-color:#2f6fe0;color:#fff}}

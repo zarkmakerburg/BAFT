@@ -131,8 +131,8 @@ func inventoryAddresses(n Node, inv PathInventory, family string) []string {
 }
 
 // ParseDiscoveryPorts reads BAFT_BCC_DISCOVERY_PORTS: a comma-separated list
-// of the ports the automatic path discovery may test, so an operator can keep
-// BCC away from ports a production server keeps free on purpose. The same
+// of the ports the automatic path discovery may test. Setting it is what turns
+// the automatic discovery on; unset, BCC never starts one by itself. The same
 // rules as any connection test apply (1-16 ports, never 22).
 func ParseDiscoveryPorts(v string) ([]int, error) {
 	var ports []int
@@ -562,10 +562,17 @@ func (s *Store) NeedsPathDiscovery(now time.Time) bool {
 	return age >= pathDiscoveryFreshFor
 }
 
+// AdvancePathDiscoveries moves running discoveries forward. It STARTS one on
+// its own only when the operator chose the ports (BAFT_BCC_DISCOVERY_PORTS):
+// an automatic discovery opens short-lived listeners on the destination
+// server and sends probe flows between every pair of servers every 30
+// minutes, which an operator of a production server must decide on. The
+// on-demand connection test of the tunnel wizard and the manual "Run
+// discovery" action do not depend on it.
 func (s *Server) AdvancePathDiscoveries() {
 	now := s.now()
 	_ = s.store.AdvancePathDiscoveries(now)
-	if !s.store.NeedsPathDiscovery(now) {
+	if len(s.store.DiscoveryPorts) == 0 || !s.store.NeedsPathDiscovery(now) {
 		return
 	}
 	d, err := s.store.StartPathDiscovery(nil, now)

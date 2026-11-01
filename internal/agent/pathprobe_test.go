@@ -117,3 +117,53 @@ func TestPathProbeProductionTrickleCompletesOnAHealthyPath(t *testing.T) {
 		t.Fatalf("receiver did not get the whole trickle: %+v", listen)
 	}
 }
+
+// path-probe-tls-v1: the same integrity-checked flows, speed included, inside
+// TLS 1.3 under the probe-derived certificate.
+func TestPathProbeOverTLSCarriesIntegrityCheckedData(t *testing.T) {
+	a := &Agent{probeListeners: map[string]*pathProbeListener{}}
+	port := freeProbePort(t)
+	id := "probe-tls-1"
+	if out, err := a.pathProbeListen(agentjob.Job{Action: agentjob.ActionPathProbeListen, Params: map[string]string{
+		"probe_id": id, "family": "4", "port": strconv.Itoa(port), "ttl_seconds": "20", "tls": "1", "server_ip": "127.0.0.1",
+	}}); err != nil || !strings.Contains(out, "(TLS)") {
+		t.Fatalf("listen: %q %v", out, err)
+	}
+	runJSON, err := a.pathProbeRun(context.Background(), agentjob.Job{Action: agentjob.ActionPathProbeRun, Params: map[string]string{
+		"probe_id": id, "family": "4", "target": net.JoinHostPort("127.0.0.1", strconv.Itoa(port)),
+		"payload_bytes": "4096", "attempts": "2", "trickle_bytes": "2048", "trickle_ms": "10", "speed_seconds": "1", "tls": "1",
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var run pathProbeRunEvidence
+	if err := json.Unmarshal([]byte(runJSON), &run); err != nil {
+		t.Fatal(err)
+	}
+	if !run.TLS || len(run.Bulk) != 2 || !run.Bulk[0].ACK || !run.Bulk[1].ACK || !run.Trickle.ACK ||
+		run.Speed == nil || !run.Speed.ACK || run.Speed.AckedBytes != run.Speed.BytesWritten {
+		t.Fatalf("unexpected TLS run evidence: %s", runJSON)
+	}
+	_ = a.pathProbeStop(agentjob.Job{Params: map[string]string{"probe_id": id}})
+
+	// A plaintext source against a TLS listener completes nothing.
+	port2 := freeProbePort(t)
+	if _, err := a.pathProbeListen(agentjob.Job{Action: agentjob.ActionPathProbeListen, Params: map[string]string{
+		"probe_id": "probe-tls-2", "family": "4", "port": strconv.Itoa(port2), "ttl_seconds": "20", "tls": "1", "server_ip": "127.0.0.1",
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	plainJSON, _ := a.pathProbeRun(context.Background(), agentjob.Job{Action: agentjob.ActionPathProbeRun, Params: map[string]string{
+		"probe_id": "probe-tls-2", "family": "4", "target": net.JoinHostPort("127.0.0.1", strconv.Itoa(port2)),
+		"payload_bytes": "4096", "attempts": "1", "trickle_bytes": "2048", "trickle_ms": "10",
+	}})
+	if strings.Contains(plainJSON, `"ack":true`) {
+		t.Fatalf("a plaintext flow was acknowledged by a TLS listener: %s", plainJSON)
+	}
+	_ = a.pathProbeStop(agentjob.Job{Params: map[string]string{"probe_id": "probe-tls-2"}})
+	if _, err := a.pathProbeListen(agentjob.Job{Action: agentjob.ActionPathProbeListen, Params: map[string]string{
+		"probe_id": "probe-tls-3", "family": "4", "port": strconv.Itoa(freeProbePort(t)), "ttl_seconds": "20", "tls": "1",
+	}}); err == nil {
+		t.Fatal("a TLS listener without the server IP was accepted")
+	}
+}

@@ -230,8 +230,9 @@ type Store struct {
 	// DriftEvery is how often active tunnels are checked for drift; zero
 	// disables the automatic check (a check can still be requested).
 	DriftEvery time.Duration
-	// DiscoveryPorts replaces the default ports of the automatic path
-	// discovery (BAFT_BCC_DISCOVERY_PORTS); nil keeps the defaults.
+	// DiscoveryPorts turns the automatic path discovery on and limits it to
+	// these ports (BAFT_BCC_DISCOVERY_PORTS). Nil: no automatic discovery; a
+	// manual discovery then uses the default ports.
 	DiscoveryPorts []int
 	// signingCmds is the immutable snapshot of operational ingress commands
 	// for the jobs being signed inside one pullJobs call (which holds mu).

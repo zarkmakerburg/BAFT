@@ -130,8 +130,29 @@ func TestPathGraphIgnoresStaleEvidenceAndPrefersHealthyDirect(t *testing.T) {
 	}
 }
 
+// Off by default: without BAFT_BCC_DISCOVERY_PORTS BCC never starts a
+// discovery by itself (it would open listeners on production servers).
+func TestAutomaticDiscoveryIsOffUntilPortsAreConfigured(t *testing.T) {
+	s := newGenericDiscoveryStore(t, "A", "B")
+	app, err := NewServer(s, "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.AdvancePathDiscoveries()
+	app.AdvancePathDiscoveries()
+	if ds := s.ListPathDiscoveries(); len(ds) != 0 {
+		t.Fatalf("an automatic discovery started without configured ports: %+v", ds)
+	}
+	// A manual discovery still works and uses the default ports.
+	d, err := s.StartPathDiscovery(nil, time.Now())
+	if err != nil || len(d.CandidatePorts) != len(defaultDiscoveryPorts) {
+		t.Fatalf("manual discovery: %+v %v", d, err)
+	}
+}
+
 func TestAutomaticDiscoveryStartsAndRefreshesWhenNodeSetChanges(t *testing.T) {
 	s := newGenericDiscoveryStore(t, "A", "B")
+	s.DiscoveryPorts = []int{443, 2053}
 	app, err := NewServer(s, "admin")
 	if err != nil {
 		t.Fatal(err)
@@ -140,8 +161,8 @@ func TestAutomaticDiscoveryStartsAndRefreshesWhenNodeSetChanges(t *testing.T) {
 	app.now = func() time.Time { return now }
 	app.AdvancePathDiscoveries()
 	ds := s.ListPathDiscoveries()
-	if len(ds) != 1 || ds[0].Phase != PathDiscoveryInventory {
-		t.Fatalf("automatic discovery was not started: %+v", ds)
+	if len(ds) != 1 || ds[0].Phase != PathDiscoveryInventory || len(ds[0].CandidatePorts) != 2 {
+		t.Fatalf("automatic discovery was not started on the configured ports: %+v", ds)
 	}
 	app.AdvancePathDiscoveries()
 	if got := len(s.ListPathDiscoveries()); got != 1 {

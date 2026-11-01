@@ -162,6 +162,22 @@ for ip in "$IR_IP" "$EX_IP"; do
   vm "$ip" "command -v nft >/dev/null || { apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq nftables >/dev/null; }"
 done
 
+# Self-test of the real-servers driver: run tests/e2e/real_hosts.sh against
+# the two guests exactly as it runs against the owner's servers (SSH, sudo,
+# BCC on the foreign host, reboot persistence), so the driver is proven before
+# anyone spends real servers on it. The guests stand in for the servers only;
+# this is still not an Iran<->abroad path.
+if [[ "${REAL_HOSTS_SELFTEST:-0}" == 1 ]]; then
+  log "self-test: tests/e2e/real_hosts.sh MODE=full REBOOT=1 against the two guests"
+  MODE=full REL="$REL" IR_HOST="$IR_IP" EX_HOST="$EX_IP" SSH_KEY_FILE="$WORK/id" SSH_USER=ubuntu REBOOT=1 \
+    SUMMARY_OUT="$WORK/real-hosts-summary.json" GITHUB_STEP_SUMMARY="${GITHUB_STEP_SUMMARY:-}" \
+    tests/e2e/real_hosts.sh || fail "real_hosts.sh self-test failed"
+  cp "$WORK/real-hosts-summary.json" "$SUMMARY"
+  cp "$SUMMARY" "${TWO_HOST_SUMMARY_OUT:-/dev/null}" 2>/dev/null || true
+  log "PASS: real_hosts.sh drove the full product path on two guests, including reboot persistence"
+  exit 0
+fi
+
 # -------------------------------------------------------------------- BCC --
 log "BCC (the release's own baft-bcc) on $BCC; release mirror for agents"
 case "$(uname -m)" in x86_64) ARCH=amd64 ;; aarch64) ARCH=arm64 ;; esac

@@ -31,4 +31,11 @@ jobs:
       - name: Build a signed release of this commit with throwaway keys
         run: scripts/release/local_release.sh "$RUNNER_TEMP/rel" v0.0.2-ci
       - name: Guided tunnel flow on real installed agents
-        run: sudo env GITHUB_ACTIONS=true PATH="$PATH" tests/e2e/guided_flow.sh "$RUNNER_TEMP/rel"
+        run: |
+          set -o pipefail
+          sudo env GITHUB_ACTIONS=true PATH="$PATH" tests/e2e/guided_flow.sh "$RUNNER_TEMP/rel" 2>&1 | tee "$RUNNER_TEMP/guided-flow.log"
+      - name: Report the end of the guided flow log
+        if: failure()
+        run: |
+          grep -E '^\[guided\]|FAIL|error|Error|refused|denied' "$RUNNER_TEMP/guided-flow.log" | tail -n 9 | cut -c1-900 | sed 's/%/%25/g; s/^/::error title=guided-log::/'
+          tail -n 1 "$RUNNER_TEMP/guided-flow.log" | cut -c1-900 | sed 's/%/%25/g; s/^/::error title=guided-last::/'

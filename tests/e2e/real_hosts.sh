@@ -476,8 +476,12 @@ for _ in $(seq 1 120); do
 done
 record probe "$(printf '%s' "$PROBE" | python3 -c 'import json,sys
 d=json.load(sys.stdin)
-print(json.dumps({"phase":d.get("phase"),"candidates":[{k:c.get(k) for k in ("port","class","connect_rtt_ms","connect_spread_ms","connect_successes","attempts","throughput_kbps","throughput_at_least")} for c in d.get("candidates") or []]}))')"
+print(json.dumps({"phase":d.get("phase"),"candidates":[{k:c.get(k) for k in ("port","class","tls","connect_rtt_ms","connect_spread_ms","connect_successes","attempts","throughput_kbps","throughput_at_least")} for c in d.get("candidates") or []]}))')"
 [[ "$(printf '%s' "$PROBE" | jget phase)" == complete ]] || fail "the connection test did not complete: $(printf '%s' "$PROBE" | head -c 1500)"
+# Both agents advertise path-probe-tls-v1: no flow may have crossed the path
+# with the plaintext probe header.
+printf '%s' "$PROBE" | python3 -c 'import json,sys;sys.exit(0 if all(c.get("tls") for c in json.load(sys.stdin).get("candidates") or []) else 1)' \
+  || fail "a connection-test flow ran without TLS although both agents support it"
 printf '%s' "$PROBE" | python3 -c 'import json,sys;sys.exit(0 if any(c.get("class")=="FULL_DATA" for c in json.load(sys.stdin).get("candidates") or []) else 1)' \
   || fail "no candidate port proved FULL_DATA across the real path: $(python3 -c 'import json,sys;print(json.dumps(json.load(open(sys.argv[1]))["probe"]))' "$SUMMARY")"
 

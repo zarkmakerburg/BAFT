@@ -218,7 +218,7 @@ for _ in $(seq 1 90); do
 done
 [[ "$(printf '%s' "$PROBE" | jget phase)" == complete && "$(printf '%s' "$PROBE" | jget candidates 0 class)" == FULL_DATA ]] \
   || fail "connection test across the guests did not prove FULL_DATA: $(printf '%s' "$PROBE" | head -c 1500)"
-record probe "$(printf '%s' "$PROBE" | python3 -c 'import json,sys;c=json.load(sys.stdin)["candidates"][0];print(json.dumps({k:c.get(k) for k in ("port","class","connect_rtt_ms","connect_spread_ms","attempts","ack_successes","throughput_kbps")}))')"
+record probe "$(printf '%s' "$PROBE" | python3 -c 'import json,sys;c=json.load(sys.stdin)["candidates"][0];print(json.dumps({k:c.get(k) for k in ("port","class","connect_rtt_ms","connect_spread_ms","connect_successes","attempts","ack_successes","throughput_kbps","throughput_at_least")}))')"
 
 # The agent's own speed evidence for the probe. /api/jobs deliberately wipes
 # job output, so read the run job read-only from BCC's state database.
@@ -241,6 +241,10 @@ print(json.dumps(out))
 PY
 )"
 log "probe speed evidence: $(python3 -c 'import json,sys;print(json.dumps(json.load(open(sys.argv[1])).get("probe_speed")))' "$SUMMARY")"
+# Both agents advertise path-probe-speed-v1, so a healthy path must report a
+# speed (an estimate, or a floor when the flow hit its byte cap).
+[[ "$(printf '%s' "$PROBE" | jget candidates 0 throughput_kbps)" =~ ^[1-9][0-9]*$ ]] \
+  || fail "the connection test reported no speed although both agents support it: $(printf '%s' "$PROBE" | head -c 800)"
 
 log "step 2 — evidence-checked auto-select"
 SEL=""

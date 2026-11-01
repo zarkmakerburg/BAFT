@@ -1,6 +1,6 @@
 # ADR-003: Operational public ingress on ordinary servers (host profile)
 
-- **Status:** Proposed — needs an explicit owner decision before implementation
+- **Status:** Accepted by the owner on 2026-11-01 (decisions in §8); implementation in progress
 - **Date:** 2026-11-01
 - **Scope:** Agent public-ingress Apply/Retire on an Iran (IR) server that runs in the host's init network namespace; BCC capability gating, review and readiness; installer opt-in
 - **Related:** [ADR-001](./ADR-001-operation-evidence-and-truthful-readiness.md), [ADR-002](./ADR-002-c-baft-capability-integration.md), [BASELINE_AUDIT §12](./BASELINE_AUDIT.md#12-stage-4--the-product-path-proven-on-real-installed-agents-2026-11-01), Issue #269
@@ -96,3 +96,10 @@ Each result must be tied to an exact commit SHA and labelled unit / container / 
 1. Accept Option B and its residual risk (a service *configured but stopped* on *P* that no detector recognises may fail to start later), mitigated by detectors + explicit per-port acknowledgement + reversible Retire.
 2. Keep the host profile **opt-in** at install time (recommended) or make it default for new installs.
 3. Which detectors are mandatory for v0.5.0 (recommended: systemd sockets, BAFT inventory, Xray/3X-UI; nginx/haproxy/Docker when present).
+
+## 8. Owner decisions (2026-11-01)
+
+1. **Option B accepted** — safe host mode with bind-exclusive ownership, latent-claim refusal and a plan-bound per-port acknowledgement, including its documented residual risk.
+2. **Opt-in at install time** — off by default; enabled only by the local installer option (`--enable-host-ingress`) on the IR server.
+3. **Mandatory latent-claim checks for v0.5.0:** BAFT's own inventory and systemd socket units (always) **plus Xray / 3X-UI inbounds** (read-only). nginx/haproxy and Docker detectors are not required for v0.5.0; until they exist, the acknowledgement text must name them as unchecked.
+

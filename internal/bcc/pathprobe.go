@@ -64,8 +64,12 @@ type PathProbeCandidate struct {
 	Received         []int64 `json:"received,omitempty"`
 	Detail           string  `json:"detail,omitempty"`
 	ListenJobID      string  `json:"listen_job_id,omitempty"`
-	RunJobID         string  `json:"run_job_id,omitempty"`
-	StopJobID        string  `json:"stop_job_id,omitempty"`
+	// TLS: the flows of this candidate ran inside TLS 1.3
+	// (path-probe-tls-v1 on both agents), so no fixed BAFT header crossed
+	// the path in the clear. Decided once when the listener is queued.
+	TLS       bool   `json:"tls,omitempty"`
+	RunJobID  string `json:"run_job_id,omitempty"`
+	StopJobID string `json:"stop_job_id,omitempty"`
 	// Attempts is the number of bulk flows the source actually reported;
 	// with ACKSuccesses it is the per-port data success ratio users see.
 	Attempts int `json:"attempts,omitempty"`
@@ -137,6 +141,10 @@ type probeSpeedEvidence struct {
 // pathProbeSpeedCapability is the agent-native feature both ends must
 // advertise before BCC asks for a speed flow (older agents reject the param).
 const pathProbeSpeedCapability = "path-probe-speed-v1"
+
+// pathProbeTLSCapability: the agent carries probe flows inside TLS 1.3
+// (internal/pathprobetls). Older agents keep the plaintext flows.
+const pathProbeTLSCapability = "path-probe-tls-v1"
 
 // pathProbeSpeedSeconds bounds each speed flow; the listener TTL must cover
 // bulk + trickle + this.
@@ -358,13 +366,19 @@ func (s *Store) createPathProbeLocked(source, destination, family, destinationIP
 
 func (s *Store) queuePathProbeListenLocked(p *PathProbe, now time.Time) {
 	c := &p.Candidates[p.Current]
-	j := s.newJobLocked(Job{
-		Type: agentjob.ActionPathProbeListen, NodeID: p.DestinationNode,
-		Params: map[string]string{
-			"probe_id": p.ID, "family": p.Family, "port": strconv.Itoa(c.Port),
-			"ttl_seconds": strconv.Itoa(pathProbeTTL),
-		},
-	})
+	params := map[string]string{
+		"probe_id": p.ID, "family": p.Family, "port": strconv.Itoa(c.Port),
+		"ttl_seconds": strconv.Itoa(pathProbeTTL),
+	}
+	src, srcOK := s.st.Nodes[p.SourceNode]
+	dst, dstOK := s.st.Nodes[p.DestinationNode]
+	// The plaintext probe header is a fixed, recognisable signature on the
+	// Iran<->abroad path; carry the flows inside TLS whenever both agents can.
+	c.TLS = nodeHasFreshCapability(src, srcOK, pathProbeTLSCapability, now) && nodeHasFreshCapability(dst, dstOK, pathProbeTLSCapability, now)
+	if c.TLS {
+		params["tls"], params["server_ip"] = "1", p.DestinationIP
+	}
+	j := s.newJobLocked(Job{Type: agentjob.ActionPathProbeListen, NodeID: p.DestinationNode, Params: params})
 	c.ListenJobID, p.JobID, p.Phase, p.UpdatedAt = j.ID, j.ID, PathProbeStartingListener, now
 }
 
@@ -380,6 +394,9 @@ func (s *Store) queuePathProbeRunLocked(p *PathProbe, now time.Time) {
 	dst, dstOK := s.st.Nodes[p.DestinationNode]
 	if nodeHasFreshCapability(src, srcOK, pathProbeSpeedCapability, now) && nodeHasFreshCapability(dst, dstOK, pathProbeSpeedCapability, now) {
 		params["speed_seconds"] = strconv.Itoa(pathProbeSpeedSeconds)
+	}
+	if c.TLS {
+		params["tls"] = "1" // the listener was asked for TLS: the source must match it
 	}
 	j := s.newJobLocked(Job{Type: agentjob.ActionPathProbeRun, NodeID: p.SourceNode, Params: params})
 	c.RunJobID, p.JobID, p.Phase, p.UpdatedAt = j.ID, j.ID, PathProbeRunning, now

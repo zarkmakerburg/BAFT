@@ -19,9 +19,17 @@
 #                   path cut and recovery -> [optional reboot persistence] ->
 #                   exact decommission -> full uninstall and cleanup.
 #
-# The servers must be TEST servers without real users: full mode installs and
-# removes BAFT, restarts agents, drops traffic on the planned ports and can
-# reboot the Iran server (REBOOT=1).
+# The Iran server must be a clean TEST server: full mode installs and removes
+# BAFT there, drops traffic on the client port and can reboot it (REBOOT=1).
+#
+# The foreign server may already run a production BAFT (and other services
+# such as 3X-UI). Then the LAB COEXISTS with it: every LAB path, unit and
+# binary on that server lives in its own namespace ("rhlab"), the standard
+# BAFT paths are never written or removed, `baft uninstall` is never run
+# there, and a fingerprint of the production BAFT (unit files, binaries,
+# configuration, unit states, listeners) taken before any change must be
+# identical after cleanup, or the run fails. Foreign candidate ports that are
+# already in use are dropped from the connection test, never taken over.
 #
 # Required environment:
 #   IR_HOST EX_HOST     public IPv4 addresses (never printed; GitHub masks them)
@@ -47,6 +55,24 @@ LAB_CA=/usr/local/share/ca-certificates/baft-real-hosts.crt
 # so after the uninstaller (which keeps certificates, audit and agent state by
 # design) the LAB removes what is left and the servers can run it again.
 BAFT_PATHS="/etc/baft /etc/baft-* /var/lib/baft /var/lib/baft-agent /var/lib/baft-agent-* /usr/local/bin/baft /usr/local/bin/baft-* /usr/local/lib/baft /etc/sysctl.d/99-baft-net.conf"
+# Coexistence namespace (foreign server with a production BAFT). Every path
+# below is created by this LAB only; full mode refuses if any already exists.
+NS=rhlab
+NS_PATHS="/opt/baft-$NS /etc/baft-$NS /var/lib/baft-$NS /etc/baft-agent-$NS /var/lib/baft-agent-$NS"
+NS_UNITS="baft-$NS baft-agent-$NS baft-$NS-recover baft-$NS-ingress-chain baft-$NS-echo"
+# Loopback ports the LAB tunnel uses on each server (route, metrics, echo).
+LOOPBACK_PORTS="1444,9202,9302,9391,$((2543))"
+declare -A HOSTMODE=([ir]=clean [ex]=clean) AGENT_UNIT=([ir]=baft-agent [ex]=baft-agent)
+ns_env() { # extra installer environment for a coexisting host
+  [[ "${HOSTMODE[$1]}" == coexist ]] || return 0
+  printf '%s ' BAFT_PREFIX=/opt/baft-$NS BAFT_CONFIG_DIR=/etc/baft-$NS BAFT_STATE_DIR=/var/lib/baft-$NS \
+    BAFT_RELEASE_STATE=/opt/baft-$NS/release-state.json BAFT_BIN=/opt/baft-$NS/bin/baft BAFT_PAIR_BIN=/opt/baft-$NS/bin/baft-pair \
+    BAFT_SERVICE=baft-$NS BAFT_AGENT_BIN=/opt/baft-$NS/bin/baft-agent BAFT_AGENT_DIR=/etc/baft-agent-$NS \
+    BAFT_AGENT_STATE_DIR=/var/lib/baft-agent-$NS BAFT_AGENT_UNIT=baft-agent-$NS BAFT_RECOVER_UNIT=baft-$NS-recover.service \
+    BAFT_INGRESS_UNIT=baft-$NS-ingress-chain.service BAFT_INGRESS_HELPER=/opt/baft-$NS/lib/ingress-chain.sh \
+    BAFT_INGRESS_MARKER=/var/lib/baft-agent-$NS/ingress-chain.owner BAFT_METRICS_LISTEN=127.0.0.1:9391 \
+    BAFT_TUNE_NETWORK=0 BAFT_NET_SYSCTL=/opt/baft-$NS/99-baft-net.conf
+}
 case "$MODE" in preflight|full) ;; *) echo "MODE must be preflight or full"; exit 2 ;; esac
 for p in $CLIENT_PORT $BCC_PORT $MIRROR_PORT ${CANDIDATE_PORTS//,/ }; do
   [[ "$p" =~ ^[0-9]+$ && "$p" -ge 1 && "$p" -le 65535 ]] || { echo "invalid port: $p"; exit 2; }
@@ -86,16 +112,35 @@ else
   log "WARNING: no pinned host keys (SSH_KNOWN_HOSTS); first-use keys are accepted and their fingerprints recorded"
   record host_keys '"first-use"'
 fi
-COMMON=(-i "$WORK/id" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking="$HOSTKEY"
-        -o UserKnownHostsFile="$WORK/known_hosts" -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 -o LogLevel=ERROR)
+BASEOPTS=(-i "$WORK/id" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking="$HOSTKEY"
+        -o UserKnownHostsFile="$WORK/known_hosts" -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 -o LogLevel=ERROR)
+COMMON=("${BASEOPTS[@]}" -o ControlMaster=auto -o ControlPath="$WORK/cm-%C" -o ControlPersist=900)
 SSHO=("${COMMON[@]}" -p "$SSH_PORT"); SCPO=("${COMMON[@]}" -P "$SSH_PORT")
 JUMP=("-o" "ProxyCommand=ssh -i $WORK/id -p $SSH_PORT -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=$HOSTKEY -o UserKnownHostsFile=$WORK/known_hosts -o ConnectTimeout=15 -o LogLevel=ERROR -W %h:%p $SSH_USER@$EX_HOST")
 IR_VIA=()   # set to JUMP when the runner cannot reach the Iran server directly
 SUDO=""; [[ "$SSH_USER" == root ]] || SUDO="sudo -n"
-on() { # ex|ir command... (runs as root)
-  local h="$1"; shift
-  if [[ "$h" == ex ]]; then ssh "${SSHO[@]}" "$SSH_USER@$EX_HOST" "$SUDO bash -c $(printf '%q' "$*")"
-  else ssh "${SSHO[@]}" "${IR_VIA[@]}" "$SSH_USER@$IR_HOST" "$SUDO bash -c $(printf '%q' "$*")"; fi
+# The Iran<->abroad path drops connections now and then (a GitHub runner's
+# second SSH connect to the Iran server timed out right after a first one
+# succeeded). One multiplexed SSH connection per server is reused, and an
+# SSH-level failure (exit 255: no connection, or a dropped one) is retried a
+# few times. Commands never read the runner's stdin; on_in feeds a buffered
+# input to every attempt.
+ssh_try() { # input-file ex|ir command...
+  local in="$1" h="$2" rc=0 i; shift 2
+  local cmd; cmd="$SUDO bash -c $(printf '%q' "$*")"
+  for i in 1 2 3 4; do
+    if [[ "$h" == ex ]]; then ssh "${SSHO[@]}" "$SSH_USER@$EX_HOST" "$cmd" <"$in" && rc=0 || rc=$?
+    else ssh "${SSHO[@]}" "${IR_VIA[@]}" "$SSH_USER@$IR_HOST" "$cmd" <"$in" && rc=0 || rc=$?; fi
+    [[ $rc -eq 255 ]] || return $rc
+    echo "[real-hosts] ssh to the $h server failed (attempt $i); retrying" >&2
+    sleep $((i * 5))
+  done
+  return $rc
+}
+on() { ssh_try /dev/null "$@"; }
+on_in() { # like on, with this function's stdin buffered for every attempt
+  local buf; buf="$(mktemp "$WORK/in.XXXXXX")"; cat >"$buf"
+  ssh_try "$buf" "$@"; local rc=$?; rm -f "$buf"; return $rc
 }
 STAGE="/tmp/baft-real-hosts-stage-$$"
 put() { # ex|ir remote-dir files...  (the login user may not be root: copy to
@@ -107,6 +152,52 @@ put() { # ex|ir remote-dir files...  (the login user may not be root: copy to
   on "$h" "mv -f $STAGE/* $dir/ && rm -rf $STAGE"
 }
 
+# Coexisting host: remove only what this LAB created (its namespace and the
+# units it added), never the standard BAFT paths, never `baft uninstall`; then
+# prove the production BAFT fingerprint is unchanged.
+cleanup_coexist() {
+  local h="$1" units after
+  log "cleanup: LAB namespace '$NS' only on $h (production BAFT untouched)"
+  units="$(on "$h" "comm -13 <(printf '%s\\n' $UNITS_BEFORE | sort -u) <(ls /etc/systemd/system | grep -E '^baft.*\\.service\$' | sort -u) | tr '\\n' ' '" 2>/dev/null)"
+  log "cleanup on $h: baft units created during this run: ${units:-none}"
+  # Only names inside the LAB namespace are ever stopped or removed; any
+  # other new baft unit is reported and left alone.
+  local labunits="" u
+  for u in $units; do [[ "$u" == *"-$NS"* || "$u" == *"-$NS-"* ]] && labunits+="$u " || log "cleanup on $h: left alone (not a LAB name): $u"; done
+  on "$h" "for u in baft-$NS-echo baft-realhosts-bcc baft-realhosts-mirror $labunits; do systemctl stop \"\${u%.service}\" 2>/dev/null; systemctl disable \"\${u%.service}\" 2>/dev/null; done
+    for u in $labunits; do rm -f /etc/systemd/system/\$u /etc/systemd/system/*.wants/\$u; done
+    systemctl daemon-reload; systemctl reset-failed 'baft-$NS*' 'baft-realhosts-*' 2>/dev/null
+    rm -rf $NS_PATHS $LAB; rm -f $LAB_CA; update-ca-certificates >/dev/null 2>&1; true" 2>/dev/null
+  after="$(on "$h" "ls -d $NS_PATHS $LAB 2>/dev/null; ls /etc/systemd/system | grep -E '$NS|realhosts' ; true" 2>/dev/null | tr '\n' ' ')"
+  log "cleanup on $h: LAB namespace left: ${after:-nothing}"
+  record lab_leftovers_foreign "\"${after:-}\""
+  if [[ -f "$WORK/prod-before.json" ]]; then
+    if prod_fingerprint "$h" >"$WORK/prod-after.json" 2>/dev/null && compare_prod "$WORK/prod-before.json" "$WORK/prod-after.json" >"$WORK/prod-diff.txt"; then
+      log "production BAFT on $h is unchanged (files, units, listeners, x-ui)"; record production_unchanged true
+    else
+      log "PRODUCTION BAFT ON $h CHANGED: $(head -c 1500 "$WORK/prod-diff.txt" | tr '\n' ' ')"
+      record production_unchanged false; record production_diff "$(python3 -c 'import json,sys;print(json.dumps(open(sys.argv[1]).read()[:3000]))' "$WORK/prod-diff.txt")"
+      PROD_CHANGED=1
+    fi
+  fi
+}
+PROD_CHANGED=0; UNITS_BEFORE=""
+compare_prod() { # before.json after.json -> 0 when identical; prints the differences
+  python3 - "$1" "$2" <<'PY'
+import json, sys
+a, b = (json.load(open(p)) for p in sys.argv[1:3])
+diff = []
+for k in sorted(set(a["files"]) | set(b["files"])):
+    if a["files"].get(k) != b["files"].get(k):
+        diff.append("file %s: %s -> %s" % (k, "present" if k in a["files"] else "absent", "changed" if k in b["files"] else "absent"))
+for key in ("units", "listeners", "x-ui"):
+    if a[key] != b[key]:
+        diff.append("%s: %s -> %s" % (key, a[key], b[key]))
+print("\n".join(diff))
+sys.exit(1 if diff else 0)
+PY
+}
+
 cleanup() {
   local rc=$?
   set +e
@@ -116,7 +207,7 @@ cleanup() {
     for h in ir ex; do
       [[ "$h" == ir && "$INSTALLED_IR" == 0 ]] && continue
       [[ "$h" == ex && "$INSTALLED_EX" == 0 ]] && continue
-      echo "== agent journal $h"; on "$h" "journalctl -u baft-agent -n 60 --no-pager -o cat" 2>/dev/null | tail -n 60
+      echo "== agent journal $h"; on "$h" "journalctl -u ${AGENT_UNIT[$h]} -n 60 --no-pager -o cat" 2>/dev/null | tail -n 60
     done
     [[ "$INSTALLED_EX" == 1 ]] && { echo "== BCC journal"; on ex "journalctl -u baft-realhosts-bcc -n 40 --no-pager -o cat" 2>/dev/null; }
     [[ -n "$TUNNEL" ]] && { echo "== tunnel"; curl -sS -H 'Authorization: Bearer admintok' "$BCC/api/tunnels?id=$TUNNEL" 2>/dev/null | head -c 6000; echo; }
@@ -132,14 +223,18 @@ cleanup() {
   for h in ir ex; do
     [[ "$h" == ir && "$INSTALLED_IR" == 0 ]] && continue
     [[ "$h" == ex && "$INSTALLED_EX" == 0 ]] && continue
+    if [[ "${HOSTMODE[$h]}" == coexist ]]; then
+      cleanup_coexist "$h"
+      continue
+    fi
     log "cleanup: full uninstall of BAFT on $h"
-    on "$h" "systemctl stop lab-echo baft-realhosts-bcc baft-realhosts-mirror 2>/dev/null
+    on "$h" "systemctl stop baft-$NS-echo baft-realhosts-bcc baft-realhosts-mirror 2>/dev/null
       if command -v baft >/dev/null; then baft uninstall --full --delete-tunnel-configs --delete-certificates --delete-backups --delete-audit --stop-active-tunnels --yes >$LAB/uninstall.log 2>&1 || tail -n 20 $LAB/uninstall.log; fi
-      systemctl disable --now baft-agent 2>/dev/null
+      systemctl disable --now ${AGENT_UNIT[$h]} 2>/dev/null
       for u in \$(systemctl list-units --all --plain --no-legend 'baft*' 2>/dev/null | awk '{print \$1}' | grep -v baft-uninstall); do systemctl stop \"\$u\" 2>/dev/null; done
       echo uninstaller-left: \$(ls -d $BAFT_PATHS 2>/dev/null | tr '\n' ' ')
       rm -rf $BAFT_PATHS; systemctl daemon-reload; true" 2>/dev/null
-    on "$h" "rm -f $LAB_CA; update-ca-certificates --fresh >/dev/null 2>&1; rm -rf $LAB; systemctl reset-failed 'baft-realhosts-*' lab-echo 2>/dev/null; true" 2>/dev/null
+    on "$h" "rm -f $LAB_CA; update-ca-certificates >/dev/null 2>&1; rm -rf $LAB; systemctl reset-failed 'baft-realhosts-*' baft-$NS-echo 2>/dev/null; true" 2>/dev/null
     left="$(on "$h" "systemctl daemon-reload 2>/dev/null; systemctl reset-failed 'baft*' 2>/dev/null
       echo units: \$(systemctl list-unit-files --no-legend 'baft*' 2>/dev/null | awk '{print \$1}' | grep -v baft-uninstall | tr '\n' ' ')
       echo loaded: \$(systemctl list-units --all --plain --no-legend 'baft*' 2>/dev/null | awk '{print \$1\"(\"\$3\"/\"\$4\")\"}' | grep -v baft-uninstall | tr '\n' ' ')
@@ -150,7 +245,12 @@ cleanup() {
   for p in "${PIDS[@]}"; do kill "$p" 2>/dev/null; done
   [[ -f "$SUMMARY" ]] && { echo "== summary"; cat "$SUMMARY"; }
   [[ -n "${SUMMARY_OUT:-}" ]] && cp "$SUMMARY" "$SUMMARY_OUT" 2>/dev/null
+  ssh "${SSHO[@]}" -O exit "$SSH_USER@$EX_HOST" >/dev/null 2>&1; ssh "${SSHO[@]}" -O exit "$SSH_USER@$IR_HOST" >/dev/null 2>&1
   rm -rf "$WORK"
+  if [[ "$PROD_CHANGED" == 1 ]]; then
+    [[ "${GITHUB_ACTIONS:-}" == "true" ]] && echo "::error title=production::the production BAFT fingerprint on the foreign server changed; see production_diff in the summary"
+    rc=1
+  fi
   exit "$rc"
 }
 # shellcheck source=tests/e2e/lib/flow.sh
@@ -173,7 +273,7 @@ if [[ "$HOSTKEY" == accept-new ]]; then
 fi
 
 facts() { # host -> JSON of read-only facts
-  on "$1" "PORTS='$CANDIDATE_PORTS,$CLIENT_PORT,$BCC_PORT,$MIRROR_PORT' python3 - <<'PY'
+  on "$1" "PORTS='$CANDIDATE_PORTS,$CLIENT_PORT,$BCC_PORT,$MIRROR_PORT,$LOOPBACK_PORTS' python3 - <<'PY'
 import json, os, re, shutil, subprocess
 def sh(c):
     try: return subprocess.run(c, shell=True, capture_output=True, text=True, timeout=20).stdout.strip()
@@ -192,6 +292,7 @@ print(json.dumps({
   'mem_mib': int(open('/proc/meminfo').read().split()[1]) // 1024,
   'nft': bool(shutil.which('nft')), 'python3': True,
   'baft_installed': bool(sh('systemctl list-unit-files --no-legend \"baft*\" 2>/dev/null | grep -v baft-uninstall')) or bool(sh('ls -d $BAFT_PATHS 2>/dev/null')),
+  'lab_namespace_present': sh('ls -d $NS_PATHS 2>/dev/null; for u in $NS_UNITS; do [ -e /etc/systemd/system/\$u.service ] && echo \$u; done; true'),
   'planned_ports_busy': busy,
   'services': {k: bool(sh(c)) for k, c in {
       'xray': 'pgrep -x xray || ls /usr/local/etc/xray/config.json 2>/dev/null',
@@ -231,10 +332,61 @@ fi
 # ------------------------------------------------------------------- full --
 [[ -n "${REL:-}" && -f "$REL/dist/manifest.json" ]] || fail "MODE=full needs REL=<release dir from local_release.sh>"
 for f in "$FEX" "$FIR"; do
-  [[ "$(printf '%s' "$f" | jget baft_installed)" == False ]] || fail "BAFT is already installed on a server; this LAB only runs on clean test servers"
-  [[ "$(printf '%s' "$f" | jget planned_ports_busy)" == "{}" ]] || fail "a planned port is already in use: $(printf '%s' "$f" | jget planned_ports_busy)"
   [[ "$(printf '%s' "$f" | jget arch)" == x86_64 ]] || fail "only x86_64 servers are supported by this LAB"
+  [[ -z "$(printf '%s' "$f" | jget lab_namespace_present)" ]] || fail "leftovers of an earlier LAB run exist on a server: $(printf '%s' "$f" | jget lab_namespace_present)"
 done
+# The Iran server takes host-mode ingress (BAFT's own nft chain and policy):
+# it must be clean. The foreign server may keep its production BAFT.
+[[ "$(printf '%s' "$FIR" | jget baft_installed)" == False ]] || fail "BAFT is already installed on the Iran server; this LAB needs a clean Iran test server"
+if [[ "$(printf '%s' "$FEX" | jget baft_installed)" == True ]]; then
+  HOSTMODE[ex]=coexist; AGENT_UNIT[ex]=baft-agent-$NS
+  log "the foreign server runs a production BAFT: the LAB coexists in namespace '$NS' and never touches it"
+fi
+record host_modes "{\"ir\":\"${HOSTMODE[ir]}\",\"ex\":\"${HOSTMODE[ex]}\"}"
+busy_on() { printf '%s' "$1" | python3 -c 'import json,sys;print(" ".join(json.load(sys.stdin)["planned_ports_busy"]))'; }
+EXBUSY=" $(busy_on "$FEX") "; IRBUSY=" $(busy_on "$FIR") "
+# A foreign candidate port in use is someone else's: drop it, never take it.
+kept=(); dropped=()
+for p in ${CANDIDATE_PORTS//,/ }; do [[ "$EXBUSY" == *" $p "* ]] && dropped+=("$p") || kept+=("$p"); done
+[[ ${#kept[@]} -gt 0 ]] || fail "every candidate port is in use on the foreign server: ${dropped[*]}"
+CANDIDATE_PORTS="$(IFS=,; echo "${kept[*]}")"
+record candidate_ports "{\"used\":\"$CANDIDATE_PORTS\",\"dropped_busy_on_foreign\":\"${dropped[*]:-}\"}"
+[[ ${#dropped[@]} -eq 0 ]] || log "foreign ports in use, left alone and not tested: ${dropped[*]}"
+for p in $BCC_PORT $MIRROR_PORT ${LOOPBACK_PORTS//,/ }; do
+  [[ "$EXBUSY" != *" $p "* ]] || fail "port $p is in use on the foreign server; pass other LAB ports"
+done
+for p in $CLIENT_PORT ${LOOPBACK_PORTS//,/ }; do
+  [[ "$IRBUSY" != *" $p "* ]] || fail "port $p is in use on the Iran server; pass another client port"
+done
+# Fingerprint of everything BAFT outside the LAB namespace on a coexisting
+# host. Hashes and names only; compared after cleanup.
+prod_fingerprint() {
+  on "$1" "NS=$NS python3 - <<'PY'
+import glob, hashlib, json, os, subprocess
+ns = os.environ['NS']
+def run(c): return subprocess.run(c, shell=True, capture_output=True, text=True).stdout
+def digest(p):
+    try:
+        with open(p, 'rb') as f: return hashlib.sha256(f.read()).hexdigest()
+    except OSError as e: return 'unreadable:' + type(e).__name__
+files = set()
+for pat in ('/etc/systemd/system/baft*', '/etc/systemd/system/*.wants/baft*', '/usr/local/bin/baft*', '/etc/baft*/**', '/opt/baft/**', '/usr/local/lib/baft/**', '/etc/sysctl.d/*baft*'):
+    files.update(glob.glob(pat, recursive=True))
+skip = lambda p: ns in p or 'real-hosts' in p or 'realhosts' in p
+out = {'files': {p: digest(p) for p in sorted(files) if (os.path.isfile(p) or os.path.islink(p)) and not skip(p)}}
+out['units'] = sorted(' '.join(l.split()[:4]) for l in run(\"systemctl list-units --all --plain --no-legend 'baft*'\").splitlines() if l.strip() and not skip(l))
+out['listeners'] = sorted({l.split()[3] for l in run('ss -Htlnp').splitlines() if 'users:((\\\"baft' in l and ns not in l})
+out['x-ui'] = run('systemctl is-active x-ui 2>/dev/null').strip()
+print(json.dumps(out, sort_keys=True))
+PY"
+}
+if [[ "${HOSTMODE[ex]}" == coexist ]]; then
+  PROD_BEFORE="$(prod_fingerprint ex)" || fail "could not fingerprint the production BAFT on the foreign server"
+  printf '%s' "$PROD_BEFORE" >"$WORK/prod-before.json"
+  record production_before "$(python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));print(json.dumps({"files":len(d["files"]),"units":d["units"],"listeners":d["listeners"],"x-ui":d["x-ui"]}))' "$WORK/prod-before.json")"
+  UNITS_BEFORE="$(on ex "ls /etc/systemd/system | grep -E '^baft.*\\.service\$' | tr '\\n' ' '")"
+  log "production BAFT on the foreign server: $(python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));print(len(d["files"]),"files,",len(d["units"]),"units, listeners",d["listeners"],"x-ui",d["x-ui"])' "$WORK/prod-before.json")"
+fi
 VERSION="$(python3 -c 'import json,base64,sys;e=json.load(open(sys.argv[1]));print(json.loads(base64.b64decode(e["payload"]))["version"])' "$REL/dist/manifest.json")"
 COMMIT="$(python3 -c 'import json,base64,sys;e=json.load(open(sys.argv[1]));print(json.loads(base64.b64decode(e["payload"]))["commit"])' "$REL/dist/manifest.json")"
 [[ "$COMMIT" == "$(git rev-parse HEAD)" ]] || fail "the release was not built from the checked-out commit"
@@ -254,7 +406,7 @@ openssl x509 -req -in "$WORK/bcc.csr" -CA "$WORK/ca.crt" -CAkey "$WORK/ca.key" -
 rm -f "$WORK/ca.key"
 # The runner reaches BCC through an SSH forward; curl still verifies the
 # certificate for the public IP against the throwaway CA.
-ssh "${SSHO[@]}" -N -o ExitOnForwardFailure=yes -L "127.0.0.1:$BCC_PORT:$BIND:$BCC_PORT" "$SSH_USER@$EX_HOST" & PIDS+=($!)
+ssh "${BASEOPTS[@]}" -p "$SSH_PORT" -N -o ExitOnForwardFailure=yes -L "127.0.0.1:$BCC_PORT:$BIND:$BCC_PORT" "$SSH_USER@$EX_HOST" & PIDS+=($!)
 export CURL_HOME="$WORK"
 printf 'cacert = "%s"\nconnect-to = "%s:%s:127.0.0.1:%s"\n' "$WORK/ca.crt" "$EX_HOST" "$BCC_PORT" "$BCC_PORT" >"$WORK/.curlrc"
 
@@ -263,20 +415,21 @@ TOK_EX="$(head -c 24 /dev/urandom | base64 | tr -d '/+=')"; TOK_IR="$(head -c 24
 stage() { # host: copy release, CA, helpers; trust the CA; nft present
   on "$1" "mkdir -p $LAB && chmod 700 $LAB"
   put "$1" "$LAB" "$WORK/rel.tgz" "$WORK/ca.crt" install.sh tests/e2e/echo.py
-  on "$1" "set -e; tar -C $LAB -xzf $LAB/rel.tgz; install -m 0644 $LAB/ca.crt $LAB_CA; update-ca-certificates >/dev/null 2>&1
-    command -v nft >/dev/null || { apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq nftables >/dev/null; }"
+  on "$1" "set -e; tar -C $LAB -xzf $LAB/rel.tgz; install -m 0644 $LAB/ca.crt $LAB_CA; update-ca-certificates >/dev/null 2>&1"
+  [[ "${HOSTMODE[$1]}" == coexist ]] && return 0
+  on "$1" "command -v nft >/dev/null || { apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq nftables >/dev/null; }"
 }
 log "stage the release on the foreign server; start BCC and the release mirror"
 INSTALLED_EX=1; stage ex
 put ex "$LAB" "$WORK/bcc.crt" "$WORK/bcc.key"
-printf '%s\n%s\n' "$TOK_EX" "$TOK_IR" | on ex "umask 077; cat >$LAB/tokens"
-printf '%s\n' "$TOK_EX" | on ex "umask 077; cat >$LAB/agent.token"
+printf '%s\n%s\n' "$TOK_EX" "$TOK_IR" | on_in ex "umask 077; cat >$LAB/tokens"
+printf '%s\n' "$TOK_EX" | on_in ex "umask 077; cat >$LAB/agent.token"
 on ex "set -e; cd $LAB; install -m 0755 dist/baft-bcc-linux-amd64 $LAB/baft-bcc; echo admintok >admin.token; chmod 600 admin.token bcc.key
   ./baft-bcc access init --access-file $LAB/s.json.access.json >/dev/null
   mkdir -p www/$VERSION; cp dist/* www/$VERSION/; cp revocations.json www/
   systemd-run --unit=baft-realhosts-mirror --collect -p WorkingDirectory=$LAB/www python3 -m http.server $MIRROR_PORT --bind $BIND >/dev/null
   systemd-run --unit=baft-realhosts-bcc --collect -p WorkingDirectory=$LAB \
-    --setenv=BAFT_BCC_ALLOWED_LISTEN_IPS=$BIND --setenv=TOK_EX=\$(sed -n 1p tokens) --setenv=TOK_IR=\$(sed -n 2p tokens) \
+    --setenv=BAFT_BCC_ALLOWED_LISTEN_IPS=$BIND --setenv=BAFT_BCC_DISCOVERY_PORTS=$CANDIDATE_PORTS --setenv=TOK_EX=\$(sed -n 1p tokens) --setenv=TOK_IR=\$(sed -n 2p tokens) \
     $LAB/baft-bcc --admin-token-file $LAB/admin.token --state-file $LAB/s.json --listen $BIND:$BCC_PORT \
     --tls-cert $LAB/bcc.crt --tls-key $LAB/bcc.key >/dev/null
   rm -f tokens"
@@ -292,15 +445,16 @@ install_agent() { # host node flags... ($LAB/agent.token is already in place)
     env BAFT_INSTALL_FROM=release BAFT_RELEASE_URL=file://$LAB/dist BAFT_ROOT_PUB=\"\$(cat $LAB/root.pub)\" \
       BAFT_REVOCATIONS_URL=file://$LAB/revocations.json BAFT_BCC_JOB_KEY='$JOB_KEY' BAFT_AGENT_TOKEN_FILE=$LAB/agent.token \
       BAFT_AGENT_RELEASE_BASE_URL=http://$EX_HOST:$MIRROR_PORT BAFT_AGENT_REVOCATIONS_URL=http://$EX_HOST:$MIRROR_PORT/revocations.json \
-      BAFT_AGENT_INTERVAL=2s bash $LAB/install.sh --agent-only --bcc-url '$BCC' --node-id '$node' $* >$LAB/install.log 2>&1 \
+      BAFT_AGENT_INTERVAL=2s $(ns_env "$h") bash $LAB/install.sh --agent-only --bcc-url '$BCC' --node-id '$node' $* >$LAB/install.log 2>&1 \
       || { tail -n 15 $LAB/install.log; exit 1; }
-    systemctl is-active baft-agent >/dev/null" </dev/null || fail "install.sh failed on the $h server"
+    systemctl is-active ${AGENT_UNIT[$h]} >/dev/null" || fail "install.sh failed on the $h server"
+  on "$h" "grep -E '^\\[baft-install\\]   ' $LAB/install.log" | sed "s/^/[real-hosts]   $h plan: /" || true
 }
 log "install.sh --agent-only on the foreign server"
 install_agent ex "$EX_NODE" --no-ingress-chain
 log "stage and install on the Iran server (--enable-host-ingress)"
 INSTALLED_IR=1; stage ir
-printf '%s\n' "$TOK_IR" | on ir "umask 077; cat >$LAB/agent.token"
+printf '%s\n' "$TOK_IR" | on_in ir "umask 077; cat >$LAB/agent.token"
 install_agent ir "$IR_NODE" --enable-host-ingress
 for _ in $(seq 1 60); do
   IRC="$(caps "$IR_NODE")"; EXC="$(caps "$EX_NODE")"
@@ -310,7 +464,7 @@ done
 log "Iran capabilities: ${IRC:-none}; foreign capabilities: ${EXC:-none}"
 [[ ",$IRC," == *",operational-ingress-host-v1,"* ]] || fail "the Iran server does not advertise safe host mode: $IRC"
 
-on ex "systemd-run --unit=lab-echo --collect python3 $LAB/echo.py serve $TARGET_PORT >/dev/null"
+on ex "systemd-run --unit=baft-$NS-echo --collect python3 $LAB/echo.py serve $TARGET_PORT >/dev/null"
 
 log "step 1 — connection test: signed probe Iran -> foreign on $CANDIDATE_PORTS"
 PROBE="$(post /api/path-probes "{\"source_node\":\"$IR_NODE\",\"destination_node\":\"$EX_NODE\",\"family\":\"4\",\"candidate_ports\":[$CANDIDATE_PORTS]}")"
@@ -322,8 +476,12 @@ for _ in $(seq 1 120); do
 done
 record probe "$(printf '%s' "$PROBE" | python3 -c 'import json,sys
 d=json.load(sys.stdin)
-print(json.dumps({"phase":d.get("phase"),"candidates":[{k:c.get(k) for k in ("port","class","connect_rtt_ms","connect_spread_ms","connect_successes","attempts","throughput_kbps","throughput_at_least")} for c in d.get("candidates") or []]}))')"
+print(json.dumps({"phase":d.get("phase"),"candidates":[{k:c.get(k) for k in ("port","class","tls","connect_rtt_ms","connect_spread_ms","connect_successes","attempts","throughput_kbps","throughput_at_least")} for c in d.get("candidates") or []]}))')"
 [[ "$(printf '%s' "$PROBE" | jget phase)" == complete ]] || fail "the connection test did not complete: $(printf '%s' "$PROBE" | head -c 1500)"
+# Both agents advertise path-probe-tls-v1: no flow may have crossed the path
+# with the plaintext probe header.
+printf '%s' "$PROBE" | python3 -c 'import json,sys;sys.exit(0 if all(c.get("tls") for c in json.load(sys.stdin).get("candidates") or []) else 1)' \
+  || fail "a connection-test flow ran without TLS although both agents support it"
 printf '%s' "$PROBE" | python3 -c 'import json,sys;sys.exit(0 if any(c.get("class")=="FULL_DATA" for c in json.load(sys.stdin).get("candidates") or []) else 1)' \
   || fail "no candidate port proved FULL_DATA across the real path: $(python3 -c 'import json,sys;print(json.dumps(json.load(open(sys.argv[1]))["probe"]))' "$SUMMARY")"
 
@@ -335,6 +493,9 @@ for _ in $(seq 1 15); do
 done
 [[ -n "$SEL" ]] || fail "auto-select refused fresh evidence"
 EX_PORT="$(printf '%s' "$SEL" | jget port)"; record selected_port "$EX_PORT"
+# BCC's automatic discovery is limited to the LAB candidates
+# (BAFT_BCC_DISCOVERY_PORTS), so no other foreign port may be chosen.
+[[ ",$CANDIDATE_PORTS," == *",$EX_PORT,"* ]] || fail "auto-select chose foreign port $EX_PORT outside the LAB candidates $CANDIDATE_PORTS"
 log "auto-select chose foreign port $EX_PORT"
 
 log "step 3 — reviewed plan with the acknowledged public port $CLIENT_PORT; deploy"
@@ -395,7 +556,7 @@ print(json.dumps({"label": label, "integrity": bytes(got) == data, "mib": mib, "
 PY
 measure_from() { # runner|ex label MiB timeout
   if [[ "$1" == runner ]]; then python3 "$WORK/measure.py" "$IR_HOST" "$CLIENT_PORT" "$2" "$3" "$4"
-  else on ex "python3 - '$IR_HOST' '$CLIENT_PORT' '$2' '$3' '$4'" <"$WORK/measure.py"; fi
+  else on_in ex "python3 - '$IR_HOST' '$CLIENT_PORT' '$2' '$3' '$4'" <"$WORK/measure.py"; fi
 }
 log "step 5 — real client traffic through the Iran server's public port (from abroad: the foreign server and the runner)"
 M="$(measure_from ex from_foreign_server 8 300)" || fail "client traffic from the foreign server through the Iran public port failed"
@@ -407,7 +568,7 @@ else record traffic_from_runner '"unreachable from the runner (not required)"'; 
 log "step 6 — agent restarts must not disturb the live tunnel or its public port"
 ingress_job() { get "/api/tunnels?id=$T" | python3 -c 'import json,sys;print((json.load(sys.stdin).get("ingress") or {}).get("job_id",""))'; }
 J0="$(ingress_job)"; t0=$(date +%s)
-on ir "systemctl restart baft-agent"; on ex "systemctl restart baft-agent"
+on ir "systemctl restart ${AGENT_UNIT[ir]}"; on ex "systemctl restart ${AGENT_UNIT[ex]}"
 # The listener lives in the Agent process, so a restart closes the public
 # port; the Agent rolls it back with evidence and BCC re-issues a fresh
 # signed Apply (ADR-003 §4.4). Wait for that new Apply (BCC's readiness

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/zarkmakerburg/baft/internal/ingressinventory"
+	"github.com/zarkmakerburg/baft/internal/pathprobetls"
 )
 
 // CapabilityHeader advertises the operational ingress v1 path to BCC.
@@ -37,7 +38,7 @@ func (a *Agent) capabilityHeaders(ctx context.Context) map[string]string {
 	}
 	tokens = append(tokens, a.transportCapabilities(ctx)...)
 	// Agent-native feature: true of this agent build whatever binary is installed.
-	tokens = append(tokens, CapabilityPathProbeSpeedV1)
+	tokens = append(tokens, CapabilityPathProbeSpeedV1, pathprobetls.Capability)
 	if len(tokens) == 0 {
 		return nil
 	}

@@ -168,10 +168,35 @@ done
 # anyone spends real servers on it. The guests stand in for the servers only;
 # this is still not an Iran<->abroad path.
 if [[ "${REAL_HOSTS_SELFTEST:-0}" == 1 ]]; then
-  log "self-test: tests/e2e/real_hosts.sh MODE=full REBOOT=1 against the two guests"
+  # The owner's foreign server already runs a production BAFT (and 3X-UI).
+  # Simulate that on the EX guest: the standard BAFT binary, configuration
+  # and a running baft.service holding port 8443. The driver must coexist,
+  # skip the busy port, and leave all of it byte-for-byte unchanged.
+  log "self-test: simulate a production BAFT on the EX guest (baft.service on 8443, standard paths)"
+  scp "${SSHO[@]}" -q "$REL/dist/baft-linux-amd64" tests/e2e/echo.py "ubuntu@$EX_IP:/tmp/"
+  vm "$EX_IP" "set -e; install -m 0755 /tmp/baft-linux-amd64 /usr/local/bin/baft; install -d -m 0755 /etc/baft /usr/local/lib/baft-prodsim
+    printf 'prodsim: true\\n' >/etc/baft/baft.yaml; install -m 0644 /tmp/echo.py /usr/local/lib/baft-prodsim/echo.py
+    install -m 0755 \"\$(readlink -f /usr/bin/python3)\" /usr/local/lib/baft-prodsim/baft
+    printf '[Unit]\\nDescription=simulated production BAFT\\n[Service]\\nExecStart=/usr/local/lib/baft-prodsim/baft /usr/local/lib/baft-prodsim/echo.py serve 8443\\n[Install]\\nWantedBy=multi-user.target\\n' >/etc/systemd/system/baft.service
+    systemctl daemon-reload; systemctl enable --now baft.service >/dev/null 2>&1
+    for i in \$(seq 1 20); do ss -Htln | grep -q ':8443 ' && break; sleep 0.5; done; ss -Htlnp | grep ':8443 '" || fail "could not simulate the production BAFT"
+  PROD_SIM_BEFORE="$(vm "$EX_IP" "sha256sum /usr/local/bin/baft /etc/baft/baft.yaml /etc/systemd/system/baft.service; systemctl is-active baft.service")"
+  log "self-test: tests/e2e/real_hosts.sh MODE=full REBOOT=1 (Iran guest clean, EX guest coexisting)"
   MODE=full REL="$REL" IR_HOST="$IR_IP" EX_HOST="$EX_IP" SSH_KEY_FILE="$WORK/id" SSH_USER=ubuntu REBOOT=1 \
     SUMMARY_OUT="$WORK/real-hosts-summary.json" GITHUB_STEP_SUMMARY="${GITHUB_STEP_SUMMARY:-}" \
     tests/e2e/real_hosts.sh || fail "real_hosts.sh self-test failed"
+  python3 - "$WORK/real-hosts-summary.json" <<'PY' || fail "the self-test did not prove coexistence with the simulated production BAFT"
+import json, sys
+d = json.load(open(sys.argv[1]))
+assert d.get("host_modes", {}).get("ex") == "coexist", d.get("host_modes")
+assert d.get("production_unchanged") is True, d.get("production_diff")
+assert "8443" in d.get("candidate_ports", {}).get("dropped_busy_on_foreign", ""), d.get("candidate_ports")
+assert not d.get("lab_leftovers_foreign"), d.get("lab_leftovers_foreign")
+PY
+  PROD_SIM_AFTER="$(vm "$EX_IP" "sha256sum /usr/local/bin/baft /etc/baft/baft.yaml /etc/systemd/system/baft.service; systemctl is-active baft.service")"
+  [[ "$PROD_SIM_BEFORE" == "$PROD_SIM_AFTER" ]] || fail "the simulated production BAFT changed: before=[$PROD_SIM_BEFORE] after=[$PROD_SIM_AFTER]"
+  vm "$EX_IP" "ss -Htlnp | grep -q ':8443 .*\\\"baft\\\"'" || fail "the simulated production listener on 8443 is gone"
+  log "self-test: simulated production BAFT unchanged and still serving 8443"
   cp "$WORK/real-hosts-summary.json" "$SUMMARY"
   cp "$SUMMARY" "${TWO_HOST_SUMMARY_OUT:-/dev/null}" 2>/dev/null || true
   log "PASS: real_hosts.sh drove the full product path on two guests, including reboot persistence"

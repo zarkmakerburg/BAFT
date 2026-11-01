@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	"github.com/zarkmakerburg/baft/internal/agentjob"
+	"github.com/zarkmakerburg/baft/internal/pathprobetls"
 )
 
 const maxPathProbeBytes = 1 << 20
@@ -55,6 +57,7 @@ type pathProbeRunEvidence struct {
 	ProbeID string          `json:"probe_id"`
 	Family  string          `json:"family"`
 	Target  string          `json:"target"`
+	TLS     bool            `json:"tls,omitempty"`
 	Bulk    []pathProbeFlow `json:"bulk"`
 	Trickle pathProbeFlow   `json:"trickle"`
 	Speed   *pathProbeSpeed `json:"speed,omitempty"`
@@ -172,9 +175,20 @@ func (a *Agent) pathProbeListen(j agentjob.Job) (string, error) {
 		return "", err
 	}
 	addr := net.JoinHostPort(bind, strconv.Itoa(port))
+	var tlsCfg *tls.Config
+	if p["tls"] == "1" {
+		// path-probe-tls-v1: the flows arrive inside TLS 1.3 under the
+		// certificate both ends derive from the probe ID.
+		if tlsCfg, err = pathprobetls.ServerConfig(p["probe_id"], p["server_ip"]); err != nil {
+			return "", fmt.Errorf("path probe TLS: %w", err)
+		}
+	}
 	ln, err := net.Listen(network, addr)
 	if err != nil {
 		return "", fmt.Errorf("path probe listen %s: %w", addr, err)
+	}
+	if tlsCfg != nil {
+		ln = tls.NewListener(ln, tlsCfg)
 	}
 	pl := &pathProbeListener{
 		ln: ln, probeID: p["probe_id"], family: p["family"], port: port,
@@ -192,7 +206,11 @@ func (a *Agent) pathProbeListen(j agentjob.Job) (string, error) {
 	a.probeListeners[p["probe_id"]] = pl
 	a.probeMu.Unlock()
 	go a.servePathProbe(pl, time.Duration(ttl)*time.Second)
-	return fmt.Sprintf("path probe listener ready on %s/%s", addr, network), nil
+	mode := ""
+	if tlsCfg != nil {
+		mode = " (TLS)"
+	}
+	return fmt.Sprintf("path probe listener ready on %s/%s%s", addr, network, mode), nil
 }
 
 func (a *Agent) servePathProbe(pl *pathProbeListener, ttl time.Duration) {
@@ -323,17 +341,18 @@ func (a *Agent) pathProbeRun(ctx context.Context, j agentjob.Job) (string, error
 		trickleBytes < 1024 || trickleBytes > 64<<10 || trickleMS < 10 || trickleMS > 1000 {
 		return "", fmt.Errorf("invalid path-probe run bounds")
 	}
-	ev := pathProbeRunEvidence{ProbeID: p["probe_id"], Family: p["family"], Target: target}
+	ev := pathProbeRunEvidence{ProbeID: p["probe_id"], Family: p["family"], Target: target, TLS: p["tls"] == "1"}
+	pd := probeDialer{network: network, target: target, probeID: p["probe_id"], tls: ev.TLS}
 	for i := 0; i < attempts; i++ {
-		ev.Bulk = append(ev.Bulk, runPathProbeFlow(ctx, network, target, p["probe_id"], payloadBytes, 0))
+		ev.Bulk = append(ev.Bulk, runPathProbeFlow(ctx, pd, payloadBytes, 0))
 	}
-	ev.Trickle = runPathProbeFlow(ctx, network, target, p["probe_id"], trickleBytes, time.Duration(trickleMS)*time.Millisecond)
+	ev.Trickle = runPathProbeFlow(ctx, pd, trickleBytes, time.Duration(trickleMS)*time.Millisecond)
 	if raw, ok := p["speed_seconds"]; ok {
 		seconds, err := strconv.Atoi(raw)
 		if err != nil || seconds < 1 || seconds > 8 {
 			return "", fmt.Errorf("invalid path-probe speed bounds")
 		}
-		ev.Speed = runPathProbeSpeed(ctx, network, target, p["probe_id"], time.Duration(seconds)*time.Second, maxPathProbeSpeedBytes)
+		ev.Speed = runPathProbeSpeed(ctx, pd, time.Duration(seconds)*time.Second, maxPathProbeSpeedBytes)
 		ev.Speed.Seconds = seconds
 	}
 	b, err := json.Marshal(ev)
@@ -343,21 +362,48 @@ func (a *Agent) pathProbeRun(ctx context.Context, j agentjob.Job) (string, error
 	return string(b), nil
 }
 
-func runPathProbeFlow(parent context.Context, network, target, probeID string, size int, pause time.Duration) pathProbeFlow {
+// probeDialer opens one probe flow: a TCP connect (timed alone, so connect
+// RTTs stay comparable) and, for path-probe-tls-v1, the TLS 1.3 handshake
+// under the probe-derived certificate.
+type probeDialer struct {
+	network, target, probeID string
+	tls                      bool
+}
+
+func (pd probeDialer) dial(ctx context.Context) (c net.Conn, connectMS int64, connected bool, err error) {
+	start := time.Now()
+	d := net.Dialer{Timeout: 3 * time.Second}
+	raw, err := d.DialContext(ctx, pd.network, pd.target)
+	if err != nil {
+		return nil, time.Since(start).Milliseconds(), false, err
+	}
+	connectMS = time.Since(start).Milliseconds()
+	if !pd.tls {
+		return raw, connectMS, true, nil
+	}
+	host, _, _ := net.SplitHostPort(pd.target)
+	tc, err := pathprobetls.Client(ctx, raw, pd.probeID, host)
+	if err != nil {
+		_ = raw.Close()
+		return nil, connectMS, true, err
+	}
+	return tc, connectMS, true, nil
+}
+
+func runPathProbeFlow(parent context.Context, pd probeDialer, size int, pause time.Duration) pathProbeFlow {
+	probeID := pd.probeID
 	out := pathProbeFlow{Requested: int64(size)}
 	ctx, cancel := context.WithTimeout(parent, 12*time.Second)
 	defer cancel()
 	start := time.Now()
-	d := net.Dialer{Timeout: 3 * time.Second}
-	c, err := d.DialContext(ctx, network, target)
+	c, connectMS, connected, err := pd.dial(ctx)
+	out.ConnectMS, out.Connected = connectMS, connected
 	if err != nil {
 		out.Error = err.Error()
 		out.DurationMS = time.Since(start).Milliseconds()
 		return out
 	}
 	defer c.Close()
-	out.ConnectMS = time.Since(start).Milliseconds()
-	out.Connected = true
 	_ = c.SetDeadline(time.Now().Add(10 * time.Second))
 	payload := make([]byte, size)
 	if _, err := rand.Read(payload); err != nil {
@@ -425,12 +471,12 @@ func runPathProbeFlow(parent context.Context, network, target, probeID string, s
 // runPathProbeSpeed streams random data to the probe listener until the time
 // budget or the byte cap is reached, half-closes, and verifies that the
 // listener counted exactly what was written.
-func runPathProbeSpeed(parent context.Context, network, target, probeID string, budget time.Duration, max int64) *pathProbeSpeed {
+func runPathProbeSpeed(parent context.Context, pd probeDialer, budget time.Duration, max int64) *pathProbeSpeed {
+	probeID := pd.probeID
 	out := &pathProbeSpeed{}
 	ctx, cancel := context.WithTimeout(parent, budget+6*time.Second)
 	defer cancel()
-	d := net.Dialer{Timeout: 3 * time.Second}
-	c, err := d.DialContext(ctx, network, target)
+	c, _, _, err := pd.dial(ctx)
 	if err != nil {
 		out.Error = err.Error()
 		return out

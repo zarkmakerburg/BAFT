@@ -491,3 +491,86 @@ func TestPathProbePortsNeverIncludeSSH(t *testing.T) {
 		t.Fatalf("ordinary ports: %v %v", got, err)
 	}
 }
+
+// BAFT_BCC_DISCOVERY_PORTS lets an operator restrict the automatic path
+// discovery; the same rules as any connection test apply.
+func TestDiscoveryPortsSetting(t *testing.T) {
+	got, err := ParseDiscoveryPorts(" 443, 2053,443 ")
+	if err != nil || len(got) != 2 {
+		t.Fatalf("parse: %v %v", got, err)
+	}
+	for _, bad := range []string{"22", "443,22", "x", "0", "70000", ",", "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17"} {
+		if _, err := ParseDiscoveryPorts(bad); err == nil {
+			t.Fatalf("%q accepted", bad)
+		}
+	}
+	s := newGenericDiscoveryStore(t, "A", "B")
+	s.DiscoveryPorts = got
+	d, err := s.StartPathDiscovery(nil, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(d.CandidatePorts) != 2 {
+		t.Fatalf("automatic discovery ignored the configured ports: %v", d.CandidatePorts)
+	}
+	for _, p := range d.CandidatePorts {
+		if p != 443 && p != 2053 {
+			t.Fatalf("automatic discovery used %d", p)
+		}
+	}
+}
+
+// TLS probe flows only when both agents advertise path-probe-tls-v1; the
+// listener and the run job of one candidate always agree, and the listener
+// is told the IP its certificate must name.
+func TestPathProbeRequestsTLSOnlyWhenBothAgentsAdvertiseIt(t *testing.T) {
+	tlsCap := []string{pathProbeTLSCapability}
+	for _, tc := range []struct {
+		name     string
+		src, dst []string
+		want     bool
+	}{
+		{"both agents", tlsCap, tlsCap, true},
+		{"source only", tlsCap, nil, false},
+		{"destination only", nil, tlsCap, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := newPathProbeStore(t)
+			for _, poll := range []struct {
+				node, token string
+				caps        []string
+			}{{"src", "tok-src", tc.src}, {"dst", "tok-dst", tc.dst}} {
+				if _, err := s.pullJobsReporting(poll.node, poll.token, poll.caps, func([]Job) error { return nil }); err != nil {
+					t.Fatal(err)
+				}
+			}
+			now := time.Now().UTC()
+			p := startOnePathProbe(t, s, 22002)
+			var listen Job
+			for _, j := range s.ListJobs() {
+				if j.ID == p.JobID {
+					listen = j
+				}
+			}
+			if listen.Type != "path_probe_listen" || (listen.Params["tls"] == "1") != tc.want ||
+				(tc.want && listen.Params["server_ip"] != p.DestinationIP) || (!tc.want && listen.Params["server_ip"] != "") {
+				t.Fatalf("listen params %+v, want tls=%v", listen.Params, tc.want)
+			}
+			if err := s.AckJobOutput("dst", "tok-dst", p.JobID, "succeeded", "listener ready", ""); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := s.AdvancePathProbes(now.Add(time.Second)); err != nil {
+				t.Fatal(err)
+			}
+			p, _ = s.GetPathProbe(p.ID)
+			for _, j := range s.ListJobs() {
+				if j.ID == p.JobID && (j.Params["tls"] == "1") != tc.want {
+					t.Fatalf("run params %+v disagree with the listener (tls=%v)", j.Params, tc.want)
+				}
+			}
+			if p.Candidates[0].TLS != tc.want {
+				t.Fatalf("candidate TLS=%v want %v", p.Candidates[0].TLS, tc.want)
+			}
+		})
+	}
+}

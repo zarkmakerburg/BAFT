@@ -113,7 +113,10 @@ decommission() { # tunnel id
   local t="$1" pending=1 code drift="" out dplan dhash phase i
   # Like launch1.sh for scoped instances: the reviewed decommission needs the
   # initial automatic drift inspection finished and a fresh IN_SYNC baseline.
-  for i in $(seq 1 40); do
+  # A check whose inspect result was lost (the agent restarted or the server
+  # rebooted between running the job and acknowledging it) is only settled
+  # by BCC's drift timeout (10 min), so wait past it, not just 2 minutes.
+  for i in $(seq 1 230); do
     pending="$(get "/api/tunnels?id=$t" | python3 -c 'import json,sys;print(len(json.load(sys.stdin).get("drift_jobs") or []))')"
     [[ "$pending" == 0 ]] && break
     sleep 3

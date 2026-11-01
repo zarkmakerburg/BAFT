@@ -65,6 +65,9 @@ LOOPBACK_PORTS="1444,1445,9202,9302,9303,9391,2543,2544"
 CLIENT_PORT2=$((CLIENT_PORT + 1))   # the shared tenant's public port on the Iran server
 TARGET_PORT2=2544                   # the shared tenant's own service on the foreign server
 declare -A HOSTMODE=([ir]=clean [ex]=clean) AGENT_UNIT=([ir]=baft-agent [ex]=baft-agent)
+# 1 unless preflight saw no 'inet baft' nft table on that host (then the
+# table is this run's and cleanup may delete it).
+declare -A NFT_BAFT_BEFORE=([ir]=1 [ex]=1)
 ns_env() { # extra installer environment for a coexisting host
   [[ "${HOSTMODE[$1]}" == coexist ]] || return 0
   printf '%s ' BAFT_PREFIX=/opt/baft-$NS BAFT_CONFIG_DIR=/etc/baft-$NS BAFT_STATE_DIR=/var/lib/baft-$NS \
@@ -234,8 +237,12 @@ cleanup() {
       if command -v baft >/dev/null; then baft uninstall --full --delete-tunnel-configs --delete-certificates --delete-backups --delete-audit --stop-active-tunnels --yes >$LAB/uninstall.log 2>&1 || tail -n 20 $LAB/uninstall.log; fi
       systemctl disable --now ${AGENT_UNIT[$h]} 2>/dev/null
       for u in \$(systemctl list-units --all --plain --no-legend 'baft*' 2>/dev/null | awk '{print \$1}' | grep -v baft-uninstall); do systemctl stop \"\$u\" 2>/dev/null; done
-      echo uninstaller-left: \$(ls -d $BAFT_PATHS 2>/dev/null | tr '\n' ' ')
-      rm -rf $BAFT_PATHS; systemctl daemon-reload; true" 2>/dev/null
+      echo uninstaller-left: \$(ls -d $BAFT_PATHS 2>/dev/null | tr '\n' ' ') \$(ls /etc/systemd/system | grep -E '^baft.*\\.service\$' | tr '\n' ' ')
+      rm -rf $BAFT_PATHS
+      # This host had no BAFT unit at preflight: every baft unit file is this run's.
+      for u in \$(ls /etc/systemd/system | grep -E '^baft.*\\.service\$'); do systemctl stop \"\$u\" 2>/dev/null; systemctl disable \"\$u\" 2>/dev/null; rm -f /etc/systemd/system/\$u /etc/systemd/system/*.wants/\$u; done
+      $( [[ "${NFT_BAFT_BEFORE[$h]:-1}" == 0 ]] && echo "nft delete table inet baft 2>/dev/null;" )
+      systemctl daemon-reload; true" 2>/dev/null
     on "$h" "rm -f $LAB_CA; update-ca-certificates >/dev/null 2>&1; rm -rf $LAB; systemctl reset-failed 'baft-realhosts-*' baft-$NS-echo baft-$NS-echo2 baft-$NS-stream 2>/dev/null; true" 2>/dev/null
     left="$(on "$h" "systemctl daemon-reload 2>/dev/null; systemctl reset-failed 'baft*' 2>/dev/null
       echo units: \$(systemctl list-unit-files --no-legend 'baft*' 2>/dev/null | awk '{print \$1}' | grep -v baft-uninstall | tr '\n' ' ')
@@ -294,6 +301,7 @@ print(json.dumps({
   'mem_mib': int(open('/proc/meminfo').read().split()[1]) // 1024,
   'nft': bool(shutil.which('nft')), 'python3': True,
   'baft_installed': bool(sh('systemctl list-unit-files --no-legend \"baft*\" 2>/dev/null | grep -v baft-uninstall')) or bool(sh('ls -d $BAFT_PATHS 2>/dev/null')),
+  'nft_baft_table': bool(sh('nft list table inet baft 2>/dev/null')),
   'lab_namespace_present': sh('ls -d $NS_PATHS 2>/dev/null; for u in $NS_UNITS; do [ -e /etc/systemd/system/\$u.service ] && echo \$u; done; true'),
   'planned_ports_busy': busy,
   'services': {k: bool(sh(c)) for k, c in {
@@ -306,6 +314,8 @@ PY"
 FEX="$(facts ex)" || fail "could not read the foreign server's facts"
 FIR="$(facts ir)" || fail "could not read the Iran server's facts"
 record ex_facts "$FEX"; record ir_facts "$FIR"
+[[ "$(printf '%s' "$FIR" | jget nft_baft_table)" == False ]] && NFT_BAFT_BEFORE[ir]=0
+[[ "$(printf '%s' "$FEX" | jget nft_baft_table)" == False ]] && NFT_BAFT_BEFORE[ex]=0
 log "foreign: $(printf '%s' "$FEX" | python3 -c 'import json,sys;d=json.load(sys.stdin);print(d["os"],d["kernel"],d["arch"],"busy:",list(d["planned_ports_busy"]),"services:",[k for k,v in d["services"].items() if v])')"
 log "iran:    $(printf '%s' "$FIR" | python3 -c 'import json,sys;d=json.load(sys.stdin);print(d["os"],d["kernel"],d["arch"],"busy:",list(d["planned_ports_busy"]),"services:",[k for k,v in d["services"].items() if v])')"
 

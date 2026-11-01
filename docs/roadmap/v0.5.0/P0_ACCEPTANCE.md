@@ -56,4 +56,15 @@
 | Reboot سرور IR | پس از بالا آمدن Ready شد و ترافیک سالم بود |
 | Decommission | پورت بسته شد و قانون متعلق به BAFT حذف شد |
 
+## مشاهدهٔ جانبی: آنچه uninstall کامل باقی می‌گذارد
+
+پس از `baft uninstall --full --delete-tunnel-configs --stop-active-tunnels --yes`، روی هر دو ماشین این مسیرها باقی ماندند: `/etc/baft`، `/etc/baft-agent`، `/var/lib/baft`، `/var/lib/baft-agent` و `/usr/local/bin/baft-net`. روی IR که reboot شده بود، یک unit هم با وضعیت `not-found/active` باقی ماند.
+
+- **مسیرهای داده:** نگه‌داشتن گواهی، audit و وضعیت agent بدون `--delete-*` طراحی uninstaller است.
+- **`baft-net` و unit فعال:** این دو احتمالاً کمبود uninstaller هستند. باید جداگانه بررسی شوند (P2، نه مانع انتشار).
+- **اثر روی LAB:** ممکن بود وضعیت باقی‌ماندهٔ agent (tombstoneهای generation) اجرای دوم LAB روی همان سرورها را رد کند. برای همین `real_hosts.sh`:
+  - همهٔ `--delete-*`ها را به uninstall می‌دهد؛
+  - چون full mode فقط روی سرور بدون BAFT اجرا می‌شود، باقی‌ماندهٔ مسیرهای BAFT را خودش پاک می‌کند؛
+  - آنچه uninstaller باقی گذاشته بود را در لاگ (`uninstaller-left`) ثبت می‌کند.
+
 </div>

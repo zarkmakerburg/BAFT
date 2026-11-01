@@ -43,6 +43,10 @@ TARGET_PORT=2543
 EX_NODE=ex-real; IR_NODE=ir-real
 LAB=/opt/baft-real-hosts
 LAB_CA=/usr/local/share/ca-certificates/baft-real-hosts.crt
+# Every path BAFT writes on a server. Full mode runs only where none exists,
+# so after the uninstaller (which keeps certificates, audit and agent state by
+# design) the LAB removes what is left and the servers can run it again.
+BAFT_PATHS="/etc/baft /etc/baft-* /var/lib/baft /var/lib/baft-agent /var/lib/baft-agent-* /usr/local/bin/baft /usr/local/bin/baft-* /usr/local/lib/baft /etc/sysctl.d/99-baft-net.conf"
 case "$MODE" in preflight|full) ;; *) echo "MODE must be preflight or full"; exit 2 ;; esac
 for p in $CLIENT_PORT $BCC_PORT $MIRROR_PORT ${CANDIDATE_PORTS//,/ }; do
   [[ "$p" =~ ^[0-9]+$ && "$p" -ge 1 && "$p" -le 65535 ]] || { echo "invalid port: $p"; exit 2; }
@@ -130,14 +134,17 @@ cleanup() {
     [[ "$h" == ex && "$INSTALLED_EX" == 0 ]] && continue
     log "cleanup: full uninstall of BAFT on $h"
     on "$h" "systemctl stop lab-echo baft-realhosts-bcc baft-realhosts-mirror 2>/dev/null
-      if command -v baft >/dev/null; then baft uninstall --full --delete-tunnel-configs --stop-active-tunnels --yes >$LAB/uninstall.log 2>&1 || tail -n 20 $LAB/uninstall.log; fi
-      systemctl disable --now baft-agent 2>/dev/null; true" 2>/dev/null
+      if command -v baft >/dev/null; then baft uninstall --full --delete-tunnel-configs --delete-certificates --delete-backups --delete-audit --stop-active-tunnels --yes >$LAB/uninstall.log 2>&1 || tail -n 20 $LAB/uninstall.log; fi
+      systemctl disable --now baft-agent 2>/dev/null
+      for u in \$(systemctl list-units --all --plain --no-legend 'baft*' 2>/dev/null | awk '{print \$1}' | grep -v baft-uninstall); do systemctl stop \"\$u\" 2>/dev/null; done
+      echo uninstaller-left: \$(ls -d $BAFT_PATHS 2>/dev/null | tr '\n' ' ')
+      rm -rf $BAFT_PATHS; systemctl daemon-reload; true" 2>/dev/null
     on "$h" "rm -f $LAB_CA; update-ca-certificates --fresh >/dev/null 2>&1; rm -rf $LAB; systemctl reset-failed 'baft-realhosts-*' lab-echo 2>/dev/null; true" 2>/dev/null
     left="$(on "$h" "systemctl daemon-reload 2>/dev/null; systemctl reset-failed 'baft*' 2>/dev/null
       echo units: \$(systemctl list-unit-files --no-legend 'baft*' 2>/dev/null | awk '{print \$1}' | grep -v baft-uninstall | tr '\n' ' ')
-      echo loaded: \$(systemctl list-units --all --no-legend 'baft*' 2>/dev/null | awk '{print \$1\"(\"\$3\"/\"\$4\")\"}' | grep -v baft-uninstall | tr '\n' ' ')
+      echo loaded: \$(systemctl list-units --all --plain --no-legend 'baft*' 2>/dev/null | awk '{print \$1\"(\"\$3\"/\"\$4\")\"}' | grep -v baft-uninstall | tr '\n' ' ')
       echo nft: \$(nft list tables 2>/dev/null | grep -E 'baftlab|inet baft\$' | tr '\n' ' ')
-      echo files: \$(ls -d /etc/baft* /var/lib/baft* /usr/local/bin/baft* 2>/dev/null | grep -v baft-uninstall | tr '\n' ' ')" 2>/dev/null | tr '\n' ';')"
+      echo files: \$(ls -d $BAFT_PATHS 2>/dev/null | tr '\n' ' ')" 2>/dev/null | tr '\n' ';')"
     log "cleanup on $h: what is left of BAFT -> $left"
   done
   for p in "${PIDS[@]}"; do kill "$p" 2>/dev/null; done
@@ -184,7 +191,7 @@ print(json.dumps({
   'virt': sh('systemd-detect-virt 2>/dev/null || true'), 'cpus': os.cpu_count(),
   'mem_mib': int(open('/proc/meminfo').read().split()[1]) // 1024,
   'nft': bool(shutil.which('nft')), 'python3': True,
-  'baft_installed': bool(sh('systemctl list-unit-files --no-legend \"baft*\" 2>/dev/null')) or os.path.exists('/etc/baft'),
+  'baft_installed': bool(sh('systemctl list-unit-files --no-legend \"baft*\" 2>/dev/null | grep -v baft-uninstall')) or bool(sh('ls -d $BAFT_PATHS 2>/dev/null')),
   'planned_ports_busy': busy,
   'services': {k: bool(sh(c)) for k, c in {
       'xray': 'pgrep -x xray || ls /usr/local/etc/xray/config.json 2>/dev/null',

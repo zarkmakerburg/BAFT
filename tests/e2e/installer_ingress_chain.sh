@@ -143,7 +143,7 @@ printf '#!/bin/sh\necho "$@" >>%s/agent.calls\n' "$W" >"$W/stubs/baft-agent"; ch
   BAFT_AGENT_UNIT=baft-agent; BAFT_INGRESS_UNIT=baft-ingress-chain.service
   BAFT_INGRESS_HELPER="$W/lib/ingress-chain.sh"; BAFT_INGRESS_MARKER="$W/owner"
   BAFT_INGRESS_UNIT_FILE="$W/sysd/baft-ingress-chain.service"
-  BAFT_AGENT_BIN="$W/stubs/baft-agent"; BAFT_NODE_ID=n1; INGRESS_CHAIN=1; PROVISION_INGRESS_POLICY=0
+  BAFT_AGENT_BIN="$W/stubs/baft-agent"; BAFT_NODE_ID=n1; INGRESS_CHAIN=1; PROVISION_INGRESS_POLICY=0; HOST_INGRESS=0
   eval "$(block)"
   install_ingress_chain 2>/dev/null || exit 1
   install_ingress_chain 2>/dev/null || exit 1   # rerun is idempotent
@@ -151,6 +151,11 @@ printf '#!/bin/sh\necho "$@" >>%s/agent.calls\n' "$W" >"$W/stubs/baft-agent"; ch
   [[ ! -f "$W/agent.calls" ]] || { echo "policy ran by default" >&2; exit 1; }
   PROVISION_INGRESS_POLICY=1; provision_ingress_policy
   grep -qx -- "--provision-ingress-policy --node-id n1" "$W/agent.calls" || { echo "policy flag not honoured" >&2; exit 1; }
+  # Safe host mode (ADR-003): the host-v1 profile, never the LAB policy too.
+  : >"$W/agent.calls"; HOST_INGRESS=1; provision_ingress_policy
+  grep -qx -- "--provision-ingress-policy --ingress-profile host-v1 --node-id n1" "$W/agent.calls" || { echo "host mode not honoured" >&2; exit 1; }
+  [[ "$(wc -l <"$W/agent.calls")" == 1 ]] || { echo "host mode ran more than one bootstrap" >&2; exit 1; }
+  HOST_INGRESS=0
 ) || fail "installer wiring"
 grep -q '^Before=baft-agent.service$' "$W/sysd/baft-ingress-chain.service" || fail "unit must order before the agent"
 grep -q "^ConditionPathExists=$W/owner$" "$W/sysd/baft-ingress-chain.service" || fail "unit must be gated on the marker"

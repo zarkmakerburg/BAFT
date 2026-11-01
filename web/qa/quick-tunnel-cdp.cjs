@@ -40,7 +40,7 @@ function mockBCC(auto) {
       if (req.method !== 'GET' && entry.csrf !== CSRF) return send(403, { error: 'csrf' });
       const p = u.pathname.slice(5);
       if (p === 'nodes') return send(200, [
-        { id: 'ir-1', alias: 'Tehran-1', role: 'worker', agent_seen: now(), capabilities: auto ? ['carrier-h2', 'operational-ingress-v1'] : ['carrier-h2'] },
+        { id: 'ir-1', alias: 'Tehran-1', role: 'worker', agent_seen: now(), capabilities: auto === 'host' ? ['carrier-h2', 'operational-ingress-host-v1'] : auto ? ['carrier-h2', 'operational-ingress-v1'] : ['carrier-h2'] },
         { id: 'ir-2', alias: 'Mashhad', role: 'worker', agent_seen: '2020-01-01T00:00:00Z' },
         { id: 'ex-1', alias: 'Frankfurt', role: 'foreign', agent_seen: now() },
         { id: 'old', role: 'foreign', revoked: true },
@@ -84,7 +84,7 @@ async function run(lang, width, height, scheme, auto = true) {
   const base = 'http://127.0.0.1:' + server.address().port + '/';
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'qt-chrome-'));
   const chrome = spawn(process.env.CHROME || 'google-chrome', ['--headless=new', '--no-sandbox', '--disable-gpu', '--remote-debugging-port=0', '--user-data-dir=' + dir, '--no-first-run', 'about:blank'], { stdio: 'ignore' });
-  const name = lang + '-' + width + '-' + scheme + (auto ? '' : '-manual'), shots = [];
+  const name = lang + '-' + width + '-' + scheme + (auto === 'host' ? '-host' : auto ? '' : '-manual'), shots = [];
   try {
     const portFile = path.join(dir, 'DevToolsActivePort');
     for (let i = 0; i < 100 && !fs.existsSync(portFile); i++) await sleep(100);
@@ -118,6 +118,17 @@ async function run(lang, width, height, scheme, auto = true) {
       await set('servicePort', '2096');
       assert.equal(await ev("document.querySelector('[data-k=next]').disabled"), true, 'consent required');
       await click('consent');
+      if (auto === 'host') {
+        // Safe host mode: a separate per-port acknowledgement is required,
+        // names the port and what BAFT cannot check, and resets on a change.
+        assert.equal(await ev("document.querySelector('[data-k=next]').disabled"), true, 'host mode needs the per-port acknowledgement');
+        assert.match(await text(), /nginx/); assert.match(await text(), /2096/);
+        await click('hostAck');
+        assert.equal(await ev("document.querySelector('[data-k=next]').disabled"), false);
+        await set('servicePort', '2097');
+        assert.equal(await ev("document.querySelector('[data-k=hostAck]').checked"), false, 'a different port voids the acknowledgement');
+        await set('servicePort', '2096'); await click('hostAck');
+      } else assert.equal(await ev("!!document.querySelector('[data-k=hostAck]')"), false, 'no host acknowledgement in the LAB');
     } else {
       await set('servicePort', '2096');
       assert.equal(await ev("!!document.querySelector('[data-k=consent]')"), false, 'no public-port consent without the IR capability');
@@ -157,6 +168,7 @@ async function run(lang, width, height, scheme, auto = true) {
     const plan = post('tunnels/plan')[0].body;
     assert.equal(plan.port, 443); assert.equal(plan.target, '127.0.0.1:2096');
     if (auto) assert.equal(plan.client_port, 2096); else assert.equal('client_port' in plan, false, 'no public port requested without the IR capability');
+    assert.equal(plan.client_port_ack === true, auto === 'host', 'the acknowledgement is sent exactly in host mode');
     assert.equal(plan.route_listen, '127.0.0.1:1445', 'route listener must skip the live tunnel');
     assert.equal(plan.ex_metrics_listen, '127.0.0.1:9203'); assert.equal(plan.ir_metrics_listen, '127.0.0.1:9303');
     assert.match(plan.instance_id, /^baft-[a-z0-9-]+$/); assert.equal(plan.auto_select_evidence.port, 443);
@@ -172,6 +184,6 @@ async function run(lang, width, height, scheme, auto = true) {
 
 (async () => {
   const results = [];
-  for (const [lang, w, h, scheme, auto] of [['en', 1280, 900, 'dark', true], ['fa', 390, 844, 'light', true], ['en', 1280, 900, 'dark', false], ['fa', 390, 844, 'light', false]]) results.push(await run(lang, w, h, scheme, auto));
+  for (const [lang, w, h, scheme, auto] of [['en', 1280, 900, 'dark', true], ['fa', 390, 844, 'light', true], ['en', 1280, 900, 'dark', false], ['fa', 390, 844, 'light', false], ['en', 1280, 900, 'light', 'host'], ['fa', 390, 844, 'dark', 'host']]) results.push(await run(lang, w, h, scheme, auto));
   console.log(JSON.stringify(results, null, 1));
 })().catch(e => { console.error(e); process.exit(1); });

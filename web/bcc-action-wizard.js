@@ -28,7 +28,7 @@
   }
   function splitNodes(nodes, now) {
     const usable = (nodes || []).filter(n => n && n.id && !n.revoked);
-    const view = n => ({ id: n.id, name: n.alias || n.id, online: nodeOnline(n, now), role: n.role, autoIngress: autoIngressAvailable(n, now) });
+    const view = n => ({ id: n.id, name: n.alias || n.id, online: nodeOnline(n, now), role: n.role, autoIngress: autoIngressAvailable(n, now), ingressMode: ingressMode(n, now) });
     const byOnline = (a, b) => (b.online - a.online) || a.name.localeCompare(b.name);
     return {
       iran: usable.filter(n => IR_ROLES.includes(n.role)).map(view).sort(byOnline),
@@ -39,10 +39,18 @@
   // server's agent advertised operational-ingress-v1 on a fresh poll. Agents
   // advertise it only where every Apply can actually run; elsewhere the wizard
   // must not promise a public port it can never open (v0.5.0, ADR-001).
+  // operational-ingress-host-v1 is ADR-003 safe host mode on an ordinary
+  // server: it also needs the operator's per-port acknowledgement, which BCC
+  // binds into the reviewed plan (client_port_ack).
   const INGRESS_CAPABILITY = 'operational-ingress-v1';
-  function autoIngressAvailable(n, now) {
-    return nodeOnline(n, now) && Array.isArray(n.capabilities) && n.capabilities.includes(INGRESS_CAPABILITY);
+  const INGRESS_HOST_CAPABILITY = 'operational-ingress-host-v1';
+  function ingressMode(n, now) {
+    if (!nodeOnline(n, now) || !Array.isArray(n.capabilities)) return '';
+    if (n.capabilities.includes(INGRESS_CAPABILITY)) return 'lab';
+    if (n.capabilities.includes(INGRESS_HOST_CAPABILITY)) return 'host';
+    return '';
   }
+  function autoIngressAvailable(n, now) { return ingressMode(n, now) !== ''; }
   function activeTunnels(tunnels) { return (tunnels || []).filter(t => t && !INACTIVE.includes(t.phase)); }
   function endpointPort(e) { const m = String(e || '').match(/:(\d+)$/); return m ? Number(m[1]) : 0; }
   function validPort(v) { const s = String(v ?? '').trim(); const p = Number(s); return /^[0-9]{1,5}$/.test(s) && Number.isInteger(p) && p >= 1 && p <= 65535; }
@@ -84,7 +92,10 @@
       target: s.target, instance_id: s.instanceID,
       route_listen: s.internal.route_listen, ex_metrics_listen: s.internal.ex_metrics_listen, ir_metrics_listen: s.internal.ir_metrics_listen,
     };
-    if (s.clientPort !== '' && s.clientPort !== undefined && s.clientPort !== null) r.client_port = Number(s.clientPort);
+    if (s.clientPort !== '' && s.clientPort !== undefined && s.clientPort !== null) {
+      r.client_port = Number(s.clientPort);
+      if (s.clientPortAck === true) r.client_port_ack = true;
+    }
     const e = s.evidence;
     if (e && e.source_node === s.ir && e.destination_node === s.ex && Number(e.port) === Number(s.port)) r.auto_select_evidence = e;
     return r;
@@ -142,7 +153,7 @@
   }
   function gateOrder(gates) { const rank = { FAIL: 0, WARN: 1, PASS: 2 }; return (gates || []).slice().sort((a, b) => (rank[a.status] ?? 3) - (rank[b.status] ?? 3)); }
 
-  const core = Object.freeze({ AGENT_FRESH_MS, TEST_PORTS, INGRESS_CAPABILITY, autoIngressAvailable, nodeOnline, splitNodes, activeTunnels, endpointPort, validPort, clientPortProblem, candidatePorts, allocateInternal, instanceID, buildRequest, targetFor, validTargetHost, probeRow, probeMetrics, mbps, progress, gateOrder });
+  const core = Object.freeze({ AGENT_FRESH_MS, TEST_PORTS, INGRESS_CAPABILITY, INGRESS_HOST_CAPABILITY, ingressMode, autoIngressAvailable, nodeOnline, splitNodes, activeTunnels, endpointPort, validPort, clientPortProblem, candidatePorts, allocateInternal, instanceID, buildRequest, targetFor, validTargetHost, probeRow, probeMetrics, mbps, progress, gateOrder });
   if (typeof module === 'object' && module.exports) { module.exports = core; return; }
 
   // ---------- browser UI ----------
@@ -173,7 +184,9 @@
       prog: ['Prepare foreign server', 'Pair Iran server', 'Install on both servers', 'Health checks', 'Finalize', 'Tunnel active'], ingress: 'Public port on Iran verified',
       out: { working: 'Building the tunnel. You can close this window; progress continues in BCC.', active: 'Tunnel is active. Waiting for the public port to be opened and verified…', ready: 'Done. The tunnel is active and every required check passed.', partial: 'The tunnel is active, but the public port is not verified: ', failed: 'The tunnel was not built and BAFT rolled back its changes.', attention: 'Rollback did not complete. Open the tunnel list and review it before retrying.', rolling: 'A step failed. BAFT is rolling back its own changes…' },
       finish: 'Close', another: 'Create another',
-      manualLead: 'Automatic public port is not available on this Iran server: its agent does not report it (today BAFT opens public ports only inside its isolated LAB). The tunnel still works — it listens on the Iran server itself, and you point your panel at it.',
+      manualLead: 'Automatic public port is not available on this Iran server: its agent does not report it. To let BAFT open it, re-run the installer on the Iran server with --enable-host-ingress (safe host mode). The tunnel works either way — it listens on the Iran server itself, and you can point your panel at it.',
+      hostAck: 'No other service on this Iran server is configured to use port {p}. BAFT itself refuses ports held by a running program, a systemd socket, another BAFT tunnel or an Xray/3X-UI inbound, and never stops or edits another service; it cannot check nginx, haproxy or Docker.',
+      hostLead: 'Safe host mode: BAFT opens only this port, with its own listener and its own firewall rule, and removes exactly those when the tunnel is removed.',
       manualHow: 'After deploy: in your Iran panel (for example a 3X-UI "dokodemo-door" inbound or a port forward), forward the public port users connect to → {p} on the Iran server.',
       reach: 'Tunnel entry on the Iran server', readyManual: 'Done. The tunnel is active. Point your public inbound on the Iran server to {p}.',
     },
@@ -202,7 +215,9 @@
       prog: ['آماده‌سازی سرور خارج', 'جفت‌سازی سرور ایران', 'نصب روی هر دو سرور', 'بررسی سلامت', 'نهایی‌سازی', 'تونل فعال'], ingress: 'پورت عمومی ایران تأیید شد',
       out: { working: 'در حال ساخت تونل. می‌توانید این پنجره را ببندید؛ کار در مرکز فرمان ادامه دارد.', active: 'تونل فعال است. در انتظار باز و تأییدشدن پورت عمومی…', ready: 'انجام شد. تونل فعال است و همهٔ بررسی‌های لازم موفق بود.', partial: 'تونل فعال است ولی پورت عمومی تأیید نشده است: ', failed: 'تونل ساخته نشد و BAFT تغییرات خود را برگرداند.', attention: 'برگرداندن کامل نشد. پیش از تلاش دوباره، تونل را در فهرست بررسی کنید.', rolling: 'یکی از مراحل ناموفق بود؛ BAFT در حال برگرداندن تغییرات خود است…' },
       finish: 'بستن', another: 'ساخت تونل دیگر',
-      manualLead: 'باز کردن خودکار پورت عمومی روی این سرور ایران در دسترس نیست: عامل آن چنین توانایی‌ای گزارش نمی‌کند (فعلاً BAFT پورت عمومی را فقط در LAB ایزوله باز می‌کند). تونل همچنان کار می‌کند؛ روی خود سرور ایران گوش می‌دهد و شما پنل را به آن وصل می‌کنید.',
+      manualLead: 'باز کردن خودکار پورت عمومی روی این سرور ایران در دسترس نیست: عامل آن چنین توانایی‌ای گزارش نمی‌کند. برای اینکه BAFT خودش پورت را باز کند، نصب‌کننده را روی سرور ایران با گزینهٔ --enable-host-ingress (حالت امن میزبان) دوباره اجرا کنید. تونل در هر حال کار می‌کند؛ روی خود سرور ایران گوش می‌دهد و می‌توانید پنل را به آن وصل کنید.',
+      hostAck: 'هیچ سرویس دیگری روی این سرور ایران برای استفاده از پورت {p} تنظیم نشده است. BAFT خودش پورتی را که برنامهٔ در حال اجرا، سوکت systemd، تونل دیگر BAFT یا inbound در Xray/3X-UI گرفته باشد رد می‌کند و هیچ سرویس دیگری را متوقف یا ویرایش نمی‌کند؛ nginx، haproxy و Docker را نمی‌تواند بررسی کند.',
+      hostLead: 'حالت امن میزبان: BAFT فقط همین پورت را با شنونده و قانون فایروال مخصوص خودش باز می‌کند و هنگام حذف تونل دقیقاً همان‌ها را برمی‌دارد.',
       manualHow: 'پس از ساخت: در پنل سرور ایران (مثلاً inbound از نوع dokodemo-door در 3X-UI یا یک port forward) پورت عمومی کاربران را به {p} روی همان سرور ایران هدایت کنید.',
       reach: 'ورودی تونل روی سرور ایران', readyManual: 'انجام شد. تونل فعال است. inbound عمومی سرور ایران را به {p} هدایت کنید.',
     },
@@ -225,7 +240,7 @@
   let box = null, returnFocus = null, prevOverflow = null, timer = null, seq = 0;
   let s = null;
   function fresh() {
-    return { step: 0, nodes: null, tunnels: [], loadError: '', ex: '', ir: '', servicePort: '', clientPort: '', clientSame: true, host: '127.0.0.1', consent: false,
+    return { step: 0, nodes: null, tunnels: [], loadError: '', ex: '', ir: '', servicePort: '', clientPort: '', clientSame: true, host: '127.0.0.1', consent: false, ack: false,
       family: '4', probe: null, testNote: '', port: '', evidence: null, manual: '', plan: null, planReq: null, planNote: '', planBusy: false,
       instanceID: '', internal: null, tunnel: null, deployNote: '', deployBusy: false };
   }
@@ -292,7 +307,7 @@
     const picked = list.find(n => n.id === s[key]);
     return el('label', {}, el('span', { text: label }), sel, picked && !picked.online ? el('small', { class: 'qt-txt-warn', text: t('offlineWarn') }) : null);
   }
-  function resetAfterServers() { s.probe = null; s.testNote = ''; s.port = ''; s.evidence = null; s.plan = null; s.planReq = null; s.planNote = ''; stopTimer(); seq++; }
+  function resetAfterServers() { s.ack = false; s.probe = null; s.testNote = ''; s.port = ''; s.evidence = null; s.plan = null; s.planReq = null; s.planNote = ''; stopTimer(); seq++; }
   function serversView() {
     const g = splitNodes(s.nodes, Date.now());
     const same = s.ir && s.ex && s.ir === s.ex;
@@ -312,7 +327,7 @@
     return out;
   }
   function field(key, label, value, problem, attrs) {
-    const input = el('input', Object.assign({ 'data-k': key, name: key, value, inputmode: 'numeric', autocomplete: 'off', maxlength: '5', 'aria-invalid': problem && value ? 'true' : 'false', oninput: e => { s[key] = e.target.value.trim(); s.plan = null; render(); } }, attrs || {}));
+    const input = el('input', Object.assign({ 'data-k': key, name: key, value, inputmode: 'numeric', autocomplete: 'off', maxlength: '5', 'aria-invalid': problem && value ? 'true' : 'false', oninput: e => { s[key] = e.target.value.trim(); if (key === 'servicePort' || key === 'clientPort') s.ack = false; s.plan = null; render(); } }, attrs || {}));
     return el('label', {}, el('span', { text: label }), input, problem && value !== '' ? el('small', { role: 'alert', class: 'qt-err', text: problem }) : null);
   }
   function serviceView() {
@@ -326,10 +341,12 @@
     }
     return el('div', {}, el('p', { class: 'qt-lead', text: t('serviceLead') }),
       field('servicePort', t('servicePort'), s.servicePort, pr.service, { placeholder: '2096' }),
-      el('label', { class: 'qt-check' }, el('input', { type: 'checkbox', 'data-k': 'clientSame', checked: s.clientSame, onchange: e => { s.clientSame = e.target.checked; s.plan = null; render(); } }), el('span', { text: t('sameAsService') })),
+      el('label', { class: 'qt-check' }, el('input', { type: 'checkbox', 'data-k': 'clientSame', checked: s.clientSame, onchange: e => { s.clientSame = e.target.checked; s.ack = false; s.plan = null; render(); } }), el('span', { text: t('sameAsService') })),
       s.clientSame ? (pr.client && s.servicePort ? el('small', { role: 'alert', class: 'qt-err', text: pr.client }) : null) : field('clientPort', t('clientPort'), s.clientPort, pr.client),
       el('details', { class: 'qt-adv' }, el('summary', { text: t('advanced') }), el('label', {}, el('span', { text: t('serviceHost') }), host, el('small', { text: t('hostHelp') }), pr.host ? el('small', { role: 'alert', class: 'qt-err', text: pr.host }) : null)),
-      el('label', { class: 'qt-check qt-consent' }, el('input', { type: 'checkbox', 'data-k': 'consent', checked: s.consent, onchange: e => { s.consent = e.target.checked; s.plan = null; render(); } }), el('span', { text: t('consent') })));
+      el('label', { class: 'qt-check qt-consent' }, el('input', { type: 'checkbox', 'data-k': 'consent', checked: s.consent, onchange: e => { s.consent = e.target.checked; s.plan = null; render(); } }), el('span', { text: t('consent') })),
+      irMode() === 'host' ? el('p', { class: 'qt-note', role: 'note', 'data-k': 'hostLead', text: t('hostLead') }) : null,
+      irMode() === 'host' ? el('label', { class: 'qt-check qt-consent' }, el('input', { type: 'checkbox', 'data-k': 'hostAck', checked: s.ack, onchange: e => { s.ack = e.target.checked; s.plan = null; render(); } }), el('span', { text: fmt(t('hostAck'), (s.clientSame ? s.servicePort : s.clientPort) || '…') })) : null);
   }
 
   // ----- connection test -----
@@ -392,7 +409,7 @@
     if (!s.instanceID) s.instanceID = instanceID(n => root.crypto.getRandomValues(new Uint32Array(n)));
     s.internal = allocateInternal(s.tunnels, s.ex, s.ir);
     s.target = targetFor(s.host, s.servicePort); s.clientPortFinal = irAuto() ? (s.clientSame ? s.servicePort : s.clientPort) : '';
-    const req = buildRequest({ ex: s.ex, ir: s.ir, port: s.port, clientPort: s.clientPortFinal, target: s.target, instanceID: s.instanceID, internal: s.internal, evidence: s.evidence });
+    const req = buildRequest({ ex: s.ex, ir: s.ir, port: s.port, clientPort: s.clientPortFinal, clientPortAck: irMode() === 'host' && s.ack, target: s.target, instanceID: s.instanceID, internal: s.internal, evidence: s.evidence });
     s.plan = null; s.planReq = null; s.planBusy = true; s.planNote = t('planning'); render();
     const my = seq;
     let r; try { r = await api('tunnels/plan', { method: 'POST', body: req }); } catch (e) { r = { ok: false, text: e.message }; }
@@ -401,7 +418,8 @@
     if (!r.ok || !r.data) { s.planNote = t('planBad') + ' ' + (r.text || r.status); render(); return; }
     s.plan = r.data; s.planReq = req; s.planNote = s.plan.ok ? t('planOk') : t('planBad'); render();
   }
-  function irAuto() { const n = splitNodes(s.nodes, Date.now()).iran.find(x => x.id === s.ir); return Boolean(n && n.autoIngress); }
+  function irAuto() { return irMode() !== ''; }
+  function irMode() { const n = splitNodes(s.nodes, Date.now()).iran.find(x => x.id === s.ir); return (n && n.ingressMode) || ''; }
   function nodeName(id) { const n = (s.nodes || []).find(x => x.id === id); return n && n.alias ? n.alias + ' (' + id + ')' : id; }
   function reviewView() {
     if (!s.plan && !s.planBusy && !s.planNote) { root.setTimeout(makePlan, 0); }
@@ -451,7 +469,7 @@
 
   function canNext() {
     if (s.step === 0) return Boolean(s.ir && s.ex && s.ir !== s.ex);
-    if (s.step === 1) return Object.keys(serviceProblems()).length === 0 && (s.consent || !irAuto());
+    if (s.step === 1) return Object.keys(serviceProblems()).length === 0 && (!irAuto() || (s.consent && (irMode() !== 'host' || s.ack)));
     if (s.step === 2) return validPort(s.port);
     return false;
   }

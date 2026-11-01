@@ -124,6 +124,27 @@ test('automatic public port only when the Iran agent freshly advertises operatio
  assert.deepEqual(g.iran.map(n=>[n.id,n.autoIngress]),[['host',false],['lab',true]]);
 });
 
+test('safe host mode (operational-ingress-host-v1) is automatic but distinct from the LAB',()=>{
+ const fresh='2026-10-31T11:58:00Z',stale='2026-10-31T11:50:00Z';
+ assert.equal(qt.INGRESS_HOST_CAPABILITY,'operational-ingress-host-v1');
+ assert.equal(qt.ingressMode({agent_seen:fresh,capabilities:['operational-ingress-host-v1']},now),'host');
+ assert.equal(qt.ingressMode({agent_seen:fresh,capabilities:['operational-ingress-v1']},now),'lab');
+ assert.equal(qt.ingressMode({agent_seen:fresh,capabilities:['carrier-h2']},now),'');
+ assert.equal(qt.ingressMode({agent_seen:stale,capabilities:['operational-ingress-host-v1']},now),'','a stale report proves nothing');
+ assert.equal(qt.autoIngressAvailable({agent_seen:fresh,capabilities:['operational-ingress-host-v1']},now),true);
+ const g=qt.splitNodes([{id:'h',role:'worker',agent_seen:fresh,capabilities:['operational-ingress-host-v1']}],now);
+ assert.equal(g.iran[0].ingressMode,'host');
+});
+
+test('the per-port acknowledgement is sent only with a client port and only when given',()=>{
+ const base={ex:'ex',ir:'ir',port:'443',target:'127.0.0.1:2096',instanceID:'baft-x',internal:{route_listen:'127.0.0.1:1444',ex_metrics_listen:'127.0.0.1:9202',ir_metrics_listen:'127.0.0.1:9302'}};
+ assert.equal(qt.buildRequest({...base,clientPort:'2096',clientPortAck:true}).client_port_ack,true);
+ assert.equal('client_port_ack' in qt.buildRequest({...base,clientPort:'2096',clientPortAck:false}),false);
+ assert.equal('client_port_ack' in qt.buildRequest({...base,clientPort:'2096'}),false);
+ assert.equal('client_port_ack' in qt.buildRequest({...base,clientPort:'',clientPortAck:true}),false,'no acknowledgement without a public port');
+ assert.equal('client_port_ack' in qt.buildRequest({...base,clientPort:'2096',clientPortAck:'yes'}),false,'only a real boolean');
+});
+
 test('plan request omits client_port when no automatic public port is used',()=>{
  const base={ex:'ex',ir:'ir',port:'443',target:'127.0.0.1:2096',instanceID:'baft-x',internal:{route_listen:'127.0.0.1:1444',ex_metrics_listen:'127.0.0.1:9202',ir_metrics_listen:'127.0.0.1:9302'}};
  assert.equal(qt.buildRequest({...base,clientPort:'2096'}).client_port,2096);

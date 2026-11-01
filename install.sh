@@ -67,6 +67,10 @@ AGENT_ONLY=0
 # policy bootstrap is OFF unless --provision-ingress-policy is given.
 INGRESS_CHAIN=1
 PROVISION_INGRESS_POLICY=0
+# --enable-host-ingress (ADR-003, opt-in): safe host mode policy so BAFT may
+# open reviewed public ports on this ordinary server. Implies the policy
+# bootstrap with --ingress-profile host-v1. Off by default.
+HOST_INGRESS=0
 BAFT_INGRESS_HELPER="${BAFT_INGRESS_HELPER:-/usr/local/lib/baft/ingress-chain.sh}"
 BAFT_INGRESS_UNIT="${BAFT_INGRESS_UNIT:-baft-ingress-chain.service}"
 BAFT_BCC_URL="${BAFT_BCC_URL:-}"
@@ -434,6 +438,12 @@ Usage:
       # (foreign nft objects are never touched; a different existing layout is
       # refused) unless --no-ingress-chain; --provision-ingress-policy also runs
       # 'baft-agent --provision-ingress-policy' (default off)
+  sudo bash install.sh --agent-only --bcc-url https://bcc.example.com --node-id ir-1 --enable-host-ingress
+      # IR server: also enable safe host mode, so BAFT can open the reviewed
+      # public client port itself. Off by default. BAFT refuses ports held by a
+      # live listener, a systemd socket, another BAFT tunnel or an Xray/3X-UI
+      # inbound, and never stops or edits another service; each port also
+      # needs your confirmation in the panel (nginx/haproxy/Docker unchecked)
   sudo bash install.sh --bcc-only [--bcc-domain panel.example.com|IP] [--bcc-port N]
       # installs the BAFT panel (Command Center) only; no IR/EX tunnel is created.
       # On a terminal it asks for a domain (or uses this server's IP) and a port,
@@ -558,6 +568,7 @@ while [[ $# -gt 0 ]]; do
     --agent-only) AGENT_ONLY=1; shift ;;
     --no-ingress-chain) INGRESS_CHAIN=0; shift ;;
     --provision-ingress-policy) PROVISION_INGRESS_POLICY=1; shift ;;
+    --enable-host-ingress) HOST_INGRESS=1; PROVISION_INGRESS_POLICY=1; shift ;;
     --bcc-only) BCC_ONLY=1; shift ;;
     --with-panel) BAFT_WITH_PANEL=1; shift ;;
     --no-panel) BAFT_WITH_PANEL=0; shift ;;
@@ -576,6 +587,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ "$PROVISION_INGRESS_POLICY" == 0 || "$AGENT_ONLY" == 1 ]] || die "--provision-ingress-policy only applies to --agent-only"
+[[ "$HOST_INGRESS" == 0 || "$INGRESS_CHAIN" == 1 ]] || die "--enable-host-ingress needs BAFT's own firewall chain; drop --no-ingress-chain"
 
 # A healthy BCC rerun without --bcc-public-url keeps an already-managed
 # bootstrap configuration. An explicitly supplied environment value or CLI
@@ -971,7 +983,8 @@ build_agent_plan() {
   else plan_add "agent service" keep "left running; no restart needed"; fi
   if [[ "$INGRESS_CHAIN" == 1 ]]; then plan_add "ingress chain" keep "ensure the empty 'inet baft ingress' chain on apply (idempotent; foreign nft objects untouched; a differing layout is refused)"
   else plan_add "ingress chain" keep "skipped (--no-ingress-chain)"; fi
-  if [[ "$PROVISION_INGRESS_POLICY" == 1 ]]; then plan_add "ingress policy" create "baft-agent --provision-ingress-policy --node-id $BAFT_NODE_ID"; fi
+  if [[ "$HOST_INGRESS" == 1 ]]; then plan_add "ingress policy" create "safe host mode: baft-agent --provision-ingress-policy --ingress-profile host-v1 --node-id $BAFT_NODE_ID (opens only reviewed, acknowledged public ports; never touches other services)"
+  elif [[ "$PROVISION_INGRESS_POLICY" == 1 ]]; then plan_add "ingress policy" create "baft-agent --provision-ingress-policy --node-id $BAFT_NODE_ID"; fi
 }
 
 build_bcc_plan() {
@@ -2970,6 +2983,11 @@ ingress_prereq_fingerprint() {
 # Local root-only policy bootstrap; runs only when explicitly requested.
 provision_ingress_policy() {
   [[ "$PROVISION_INGRESS_POLICY" == 1 ]] || return 0
+  if [[ "$HOST_INGRESS" == 1 ]]; then
+    "$BAFT_AGENT_BIN" --provision-ingress-policy --ingress-profile host-v1 --node-id "$BAFT_NODE_ID" || die "safe host mode policy bootstrap failed (an existing different policy is never replaced while it may back public ingress)"
+    ok "safe host mode enabled for $BAFT_NODE_ID: BAFT may open reviewed, acknowledged public ports"
+    return 0
+  fi
   "$BAFT_AGENT_BIN" --provision-ingress-policy --node-id "$BAFT_NODE_ID" || die "ingress policy bootstrap failed"
   ok "managed ingress policy provisioned for $BAFT_NODE_ID"
 }

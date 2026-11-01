@@ -4,8 +4,10 @@ name: Guided tunnel flow E2E
 # reviewed plan -> deploy -> ready -> client traffic -> decommission) against
 # a real BCC and two agents installed from a signed release of the commit.
 # One throwaway host plays both servers; this is not a multi-host or
-# physical LAB result. Automatic public ingress is covered by the isolated
-# namespace LAB workflows.
+# physical LAB result. mode=host runs the same path with ADR-003 safe host
+# mode on the IR (install.sh --enable-host-ingress): owned public port,
+# independent BCC probe, client traffic via the public port, exact retire and
+# an Xray-claimed port refused.
 on:
   pull_request:
   push:
@@ -17,6 +19,11 @@ jobs:
   guided-flow:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [manual, host]
+    name: guided-flow (${{ matrix.mode }})
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -33,7 +40,7 @@ jobs:
       - name: Guided tunnel flow on real installed agents
         run: |
           set -o pipefail
-          sudo env GITHUB_ACTIONS=true PATH="$PATH" tests/e2e/guided_flow.sh "$RUNNER_TEMP/rel" 2>&1 | tee "$RUNNER_TEMP/guided-flow.log"
+          sudo env GITHUB_ACTIONS=true GF_MODE=${{ matrix.mode }} PATH="$PATH" tests/e2e/guided_flow.sh "$RUNNER_TEMP/rel" 2>&1 | tee "$RUNNER_TEMP/guided-flow.log"
       - name: Report the end of the guided flow log
         if: failure()
         run: |

@@ -335,3 +335,41 @@ Scope of the evidence: one GitHub-hosted VM plays both servers (two agents, one 
 4. `TestTopologyCommitDuringRecoveryPrepared` flake (seen once in CI) and the `cmd/baft` `tunnel_live_test.go:244` flake: not root-caused.
 5. Merging v0.5.0 into `main` and any tag/release: owner decision.
 
+## 14. Stage 6 — two-host LAB (two KVM guests), 2026-11-01
+
+Owner direction (2026-11-01): finish #298 to exact-SHA CI, then integration and a two-host LAB, no scattered work.
+
+### 14.1 What the LAB is
+
+Workflow **Two-host LAB** (`tests/e2e/two_host_lab.sh`): two Ubuntu 24.04 KVM guests (image verified against Ubuntu's `SHA256SUMS`) on a private bridge of one GitHub runner — **separate kernels** (distinct boot ids recorded), systemd, nftables and IP addresses (IR `10.77.0.10`, EX `10.77.0.20`). BCC runs on the runner over verified HTTPS (throwaway CA in each trust store; non-loopback listen explicitly allowlisted). Each guest installs its agent with `install.sh --agent-only` from a signed release of the exact commit; the IR guest uses `--enable-host-ingress`. The runner plays the user's client. It now runs on every push to the v0.5.0 branch and on every PR into `main`.
+
+Scope: a real two-machine product path over an emulated network on one physical host. **Not** an Iran↔abroad Internet path.
+
+### 14.2 Evidence (exact SHA `626696cd`, run [41286221217](https://github.com/zarkmakerburg/BAFT/actions/runs/41286221217), job 124787953685) — **PASS**
+
+| Step | Result |
+|---|---|
+| Capabilities | IR guest: `operational-ingress-host-v1` (not the LAB token); both: `path-probe-speed-v1`, carriers, `noise-v1` |
+| Connection test IR guest → EX guest (signed) | `FULL_DATA` on 18543, 3/3 connects and ACKs, connect `<1 ms`, speed flow 64 MiB acknowledged exactly in 59 ms → **≥ 9 100 Mbit/s (floor)** |
+| Plan / deploy | acknowledged public port 18610 → active |
+| Public ingress | owned listener + owned rule in the IR guest's `inet baft ingress`; **Ready by BCC's independent probe** of `10.77.0.10:18610` |
+| Client baseline (runner → IR public port → tunnel → EX service) | 16 MiB echo intact, 0.58 s (≈ 230 Mbit/s echo), RTT p50 1.39 ms / p95 1.87 ms |
+| netem 40±10 ms + 1 % loss on both guest links | 2 MiB echo intact, 19.4 s (≈ 0.86 Mbit/s echo; TCP inside TCP with reordering), RTT p50 128.5 ms / p95 196 ms |
+| EX link cut 20 s | traffic recovered **13 s** after the link returned; 16 MiB echo intact afterwards (34 Mbit/s on this run; 400 Mbit/s on run 41284879343 — post-recovery throughput varies) |
+| Decommission | public port closed, owned rule removed, BAFT's chain kept |
+
+Earlier passing runs of the same LAB: 41284879343 on `14e8afbf` (baseline ≈ 400 Mbit/s, recovery 14 s), 41285737947 on `d2a6f2e0`.
+
+### 14.3 Defect the LAB found and fixed
+
+| | Defect | Fix |
+|---|---|---|
+| P1 (truthfulness/UX) | On any path faster than ~1 Gbit/s the connection test showed **no speed**: the agent wrote and the listener acknowledged the full 64 MiB cap in 77 ms, but BCC dropped every sample under 500 ms (run 41285737947). | `169e3c1d`: a flow that moved the whole cap counts and is reported as a floor (`throughput_at_least`, shown "≥ N Mbps"); the cap is one shared constant; sub-ms connects show "<1 ms". The LAB now fails if no speed is reported. |
+
+Test-harness corrections made while building the LAB (not product defects): BCC listen allowlist; impaired-network volume sized for TCP-in-TCP; job output read from BCC's state DB because `/api/jobs` deliberately wipes output.
+
+### 14.4 Noted, deferred (not scattered into this stage)
+
+- Automatic path discovery includes port 22 in its defaults, which sshd holds on practically every server, so every discovery produces a guaranteed `path_probe_listen` failure; BAFT also refuses 22 for tunnels. Remove 22 from the defaults after integration.
+- Post-recovery throughput variance (34–400 Mbit/s across runs) is worth a dedicated recovery-performance look.
+

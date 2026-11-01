@@ -459,6 +459,30 @@ func TestRemoveOrCrashOneTenantLeavesOthersUp(t *testing.T) {
 
 // (d) A tenant naming another tenant's route is refused on the EX and never
 // reaches the other tenant's target.
+// dialLiveListener dials a listener that is known to be bound. Under parallel
+// test load the loopback SYN to a live route listener was occasionally
+// answered with a reset (CI runs 41232249035 and PR #293; reproduced locally:
+// the listener stayed bound, no session or listener teardown was logged, and
+// an immediate second dial succeeded). That reset is a transport artifact,
+// not the behaviour under test, so only a connect-time reset is retried
+// briefly (a refusal still fails: it would mean the listener is gone);
+// everything after the connect is asserted unchanged.
+func dialLiveListener(addr string) (net.Conn, error) {
+	var err error
+	for attempt := 0; attempt < 5; attempt++ {
+		var c net.Conn
+		c, err = net.DialTimeout("tcp", addr, time.Second)
+		if err == nil {
+			return c, nil
+		}
+		if !errors.Is(err, syscall.ECONNRESET) {
+			return nil, err
+		}
+		time.Sleep(time.Duration(20*(attempt+1)) * time.Millisecond)
+	}
+	return nil, err
+}
+
 func TestCrossTenantRouteAccessRefused(t *testing.T) {
 	e := newSharedEnv(t)
 	a, b := e.newTenant("a"), e.newTenant("b")
@@ -490,7 +514,7 @@ func TestCrossTenantRouteAccessRefused(t *testing.T) {
 	base := a.accepted.Load()
 
 	for _, addr := range []string{steal, unknown} {
-		c, err := net.DialTimeout("tcp", addr, time.Second)
+		c, err := dialLiveListener(addr)
 		if err != nil {
 			t.Fatal(err)
 		}

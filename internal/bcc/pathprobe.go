@@ -35,6 +35,8 @@ const (
 
 	pathProbeTTL        = 45
 	pathProbeJobTimeout = 90 * time.Second
+	// pathProbeQueueTimeout bounds how long a probe may wait for a free slot.
+	pathProbeQueueTimeout = 10 * time.Minute
 )
 
 type PathProbeRequest struct {
@@ -435,6 +437,12 @@ func (s *Store) CancelPathProbe(id string, now time.Time) (PathProbe, error) {
 	}
 	p.CancelRequested = true
 	p.Error = "cancelled by operator"
+	if p.Phase == PathProbeQueued {
+		// Nothing was started on any node: no listener to stop, no slot to hold.
+		p.Phase, p.UpdatedAt = PathProbeCancelled, now
+		s.st.PathProbes[id] = p
+		return p, s.saveLocked()
+	}
 	if p.Phase != PathProbeStopping {
 		s.queuePathProbeStopLocked(&p, now)
 	}
@@ -461,6 +469,20 @@ func (s *Store) AdvancePathProbes(now time.Time) ([]PathProbeEvent, error) {
 	for _, id := range ids {
 		p := s.st.PathProbes[id]
 		if p.Phase == PathProbeComplete || p.Phase == PathProbeFailed || p.Phase == PathProbeCancelled || p.Current >= len(p.Candidates) {
+			continue
+		}
+		if p.Phase == PathProbeQueued {
+			// A queued probe has no job yet: it waits for a free slot (at most
+			// four probes run at once, e.g. while automatic path discovery is
+			// busy). scheduleQueuedPathProbesLocked starts it below. Treating
+			// the absent job as "missing" failed every probe a user started
+			// during discovery.
+			if now.Sub(p.CreatedAt) > pathProbeQueueTimeout {
+				p.Phase, p.Error, p.UpdatedAt = PathProbeFailed, "still waiting behind other path probes; try again", now
+				s.st.PathProbes[id] = p
+				events = append(events, PathProbeEvent{ProbeID: id, Action: "pathprobe.failed", Detail: p.Error})
+				changed = true
+			}
 			continue
 		}
 		c := &p.Candidates[p.Current]

@@ -8,7 +8,7 @@ import (
 func TestPathProbeRunSpeedSecondsIsOptionalAndBounded(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Second)
 	base := func(extra map[string]string) Job {
-		p := map[string]string{"probe_id": "pp-1", "family": "4", "target": "203.0.113.5:443", "payload_bytes": "65536", "attempts": "3", "trickle_bytes": "16384", "trickle_ms": "1000"}
+		p := map[string]string{"probe_id": "pp-1", "family": "4", "target": "203.0.113.5:443", "payload_bytes": "65536", "attempts": "3", "trickle_bytes": "8192", "trickle_ms": "500"}
 		for k, v := range extra {
 			p[k] = v
 		}

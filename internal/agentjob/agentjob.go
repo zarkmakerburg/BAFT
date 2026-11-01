@@ -296,6 +296,13 @@ func (j Job) Validate() error {
 			return errors.New("public ingress target port must differ from public port")
 		}
 	}
+	if j.Action == ActionPathProbeRun {
+		tb, _ := strconv.Atoi(j.Params["trickle_bytes"])
+		tm, _ := strconv.Atoi(j.Params["trickle_ms"])
+		if !PathProbeTrickleFits(tb, tm) {
+			return errors.New("path probe trickle cannot finish inside the probe connection deadline")
+		}
+	}
 	if j.Action == ActionTunnelPrepareEX || j.Action == ActionTunnelPrepareIR {
 		if endpoint, ok := j.Params["metrics_listen"]; ok {
 			if err := validateTunnelEndpoint(endpoint, true); err != nil {
@@ -307,6 +314,34 @@ func (j Job) Validate() error {
 		return errors.New("invalid job validity window")
 	}
 	return nil
+}
+
+// PathProbeTrickleChunk is the size of each trickle write; the sender pauses
+// trickle_ms between chunks.
+const PathProbeTrickleChunk = 1024
+
+// The trickle BCC requests on every path_probe_run: ~3.5 s of 1 KiB writes.
+// Shared so agent tests exercise exactly what production sends.
+const (
+	PathProbeTrickleBytes = 8192
+	PathProbeTrickleMS    = 500
+)
+
+// MaxPathProbeTricklePause bounds the summed pauses of one trickle flow. The
+// sender's connection deadline is 10 s and the listener's 12 s (both in
+// v0.4.0 agents too); connect, handshake and the final acknowledgement need
+// the remaining time. A trickle whose pauses alone exceed this can never be
+// acknowledged, so its probe could never report FULL_DATA on a healthy path.
+const MaxPathProbeTricklePause = 6 * time.Second
+
+// PathProbeTrickleFits reports whether a trickle of size bytes with pauseMS
+// between 1 KiB chunks can complete inside the probe connection deadlines.
+func PathProbeTrickleFits(size, pauseMS int) bool {
+	if size < 1 || pauseMS < 0 {
+		return false
+	}
+	pauses := (size+PathProbeTrickleChunk-1)/PathProbeTrickleChunk - 1
+	return time.Duration(pauses)*time.Duration(pauseMS)*time.Millisecond <= MaxPathProbeTricklePause
 }
 
 func validTCPPort(raw string) bool {

@@ -317,6 +317,8 @@ func (s *Store) ingressOperationalStateBase(tunnelID string, now time.Time) *Ing
 		// it is merely pending.
 		gateErr := s.ingressEnqueueGateLocked(tunnelID, now)
 		switch {
+		case gateErr == nil && op.RestartRestages > 0:
+			st.Reason = "the IR agent restarted and lost the public port; a fresh signed Apply is being issued"
 		case gateErr == nil:
 			st.Reason = "gate open; enqueue pending"
 		case errors.Is(gateErr, errIngressHostPortUnacknowledged):

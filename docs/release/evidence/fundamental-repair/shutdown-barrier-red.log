@@ -1,0 +1,11 @@
+2026/10/30 16:27:09 baft listener startup: goroutine created configured=127.0.0.1:35807
+2026/10/30 16:27:09 baft listener startup: acquire configured=127.0.0.1:35807
+2026/10/30 16:27:09 baft listener startup: bind success configured=127.0.0.1:35807 actual=127.0.0.1:35807
+2026/10/30 16:27:09 baft listener startup: serve started actual=127.0.0.1:35807
+--- FAIL: TestListenerShutdownWaitsForSessionTeardown (0.10s)
+    recovery_runtime_test.go:82: proxy accepted ProxyConnectionID=1
+    runtime_shutdown_test.go:39: listener Runtime.Run returned while session teardown was held
+    recovery_runtime_test.go:68: proxy CutAll cohort=[]
+FAIL
+FAIL	github.com/zarkmakerburg/baft/tests/integration	0.116s
+FAIL

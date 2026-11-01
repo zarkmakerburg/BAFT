@@ -315,8 +315,10 @@ func (c *Conn) Close() error {
 }
 
 func (c *Conn) closeUnderlying() {
-	c.closeOnce.Do(func() { close(c.closed) })
+	// A graceful Close may own closeOnce while its control-frame write is
+	// blocked. Interrupt raw I/O before waiting for that Once.
 	_ = c.nc.Close()
+	c.closeOnce.Do(func() { close(c.closed) })
 }
 
 // SetDeadline, SetReadDeadline, SetWriteDeadline delegate to the underlying

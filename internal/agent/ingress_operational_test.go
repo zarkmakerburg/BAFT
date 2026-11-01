@@ -156,6 +156,17 @@ func TestOutboundIngressReceiptShapes(t *testing.T) {
 	if validOutboundIngressReceipt(failed) {
 		t.Fatal("failed receipt must declare reconciliation_required")
 	}
+	// After a restart rolled back an applied ingress and released it, the
+	// Apply receipt says so exactly; a Retire can never claim it.
+	lost := base
+	lost.Phase, lost.RollbackStatus = "failed", ingressauthority.RollbackReleasedAfterRestart
+	if !validOutboundIngressReceipt(lost) {
+		t.Fatal("restart-loss Apply receipt rejected")
+	}
+	lost.Action = agentjob.ActionPublicIngressRetire
+	if validOutboundIngressReceipt(lost) {
+		t.Fatal("a Retire receipt may not claim a restart release")
+	}
 	retired := base
 	retired.Action, retired.Phase, retired.FailureCause, retired.RollbackStatus = agentjob.ActionPublicIngressRetire, "retired", "", ""
 	if !validOutboundIngressReceipt(retired) {

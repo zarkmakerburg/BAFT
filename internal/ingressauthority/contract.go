@@ -65,6 +65,13 @@ type ReceiptV1 struct {
 	FailureCause      string               `json:"failure_cause,omitempty"`
 }
 
+// RollbackReleasedAfterRestart marks a failed Apply receipt sent by an Agent
+// whose post-restart reconciliation rolled back a previously applied ingress
+// (listener gone with the old process, owned rule removed by handle, journal
+// retired) and then verifiably released the reservation. BCC may answer it
+// only with a fresh signed Apply at a higher generation (ADR-003 §4.4).
+const RollbackReleasedAfterRestart = "released_after_restart"
+
 // Evidence is inert data. Delta obtains actual observations, Alpha ties them
 // to durable authority, and Beta authenticates the node/transport and exact
 // command/binding before accepting any receipt. A boolean or JSON is not proof.

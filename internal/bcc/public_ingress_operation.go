@@ -34,6 +34,9 @@ type PublicIngressOperation struct {
 	Proof            PublicIngressExpectedProof  `json:"proof"`
 	Status           string                      `json:"status"`
 	CreatedAt        time.Time                   `json:"created_at"`
+	// RestartRestages counts fresh Applies issued because an Agent restart
+	// lost an applied ingress (ADR-003 §4.4); visibility only.
+	RestartRestages int `json:"restart_restages,omitempty"`
 }
 
 // RecordPublicIngressOperationIntent fences a reservation to one generation

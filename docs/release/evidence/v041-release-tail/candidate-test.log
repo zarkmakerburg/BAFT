@@ -1,0 +1,88 @@
+go: downloading github.com/refraction-networking/utls v1.8.2
+go: downloading go.yaml.in/yaml/v3 v3.0.5
+go: downloading golang.org/x/crypto v0.57.0
+go: downloading modernc.org/sqlite v1.60.1
+go: downloading github.com/flynn/noise v1.1.0
+go: downloading github.com/klauspost/compress v1.17.4
+go: downloading modernc.org/libc v1.77.1
+go: downloading modernc.org/memory v1.12.1
+go: downloading github.com/google/uuid v1.6.0
+go: downloading modernc.org/mathutil v1.7.1
+go: downloading github.com/dustin/go-humanize v1.0.1
+go: downloading github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec
+ok  	github.com/zarkmakerburg/baft/cmd/baft	92.869s
+ok  	github.com/zarkmakerburg/baft/cmd/baft-agent	0.040s
+ok  	github.com/zarkmakerburg/baft/cmd/baft-bcc	1.851s
+?   	github.com/zarkmakerburg/baft/cmd/baft-bcc-audit-verify	[no test files]
+?   	github.com/zarkmakerburg/baft/cmd/baft-cluster-keygen	[no test files]
+?   	github.com/zarkmakerburg/baft/cmd/baft-master	[no test files]
+ok  	github.com/zarkmakerburg/baft/cmd/baft-pair	0.308s
+?   	github.com/zarkmakerburg/baft/cmd/baft-release	[no test files]
+?   	github.com/zarkmakerburg/baft/cmd/baft-worker	[no test files]
+ok  	github.com/zarkmakerburg/baft/internal/agent	136.616s
+ok  	github.com/zarkmakerburg/baft/internal/agentjob	0.116s
+ok  	github.com/zarkmakerburg/baft/internal/bcc	428.825s
+ok  	github.com/zarkmakerburg/baft/internal/benchpath	0.006s [no tests to run]
+ok  	github.com/zarkmakerburg/baft/internal/carrier/h2	0.588s
+ok  	github.com/zarkmakerburg/baft/internal/carrier/utlsdial	0.101s
+ok  	github.com/zarkmakerburg/baft/internal/carrier/ws	0.280s
+ok  	github.com/zarkmakerburg/baft/internal/cluster	4.286s
+ok  	github.com/zarkmakerburg/baft/internal/clustersync	0.355s
+ok  	github.com/zarkmakerburg/baft/internal/config	0.064s
+ok  	github.com/zarkmakerburg/baft/internal/dnsfailover	0.073s
+ok  	github.com/zarkmakerburg/baft/internal/failover	0.633s
+ok  	github.com/zarkmakerburg/baft/internal/geoip	0.083s
+ok  	github.com/zarkmakerburg/baft/internal/identity	0.039s
+ok  	github.com/zarkmakerburg/baft/internal/ingressauthority	1.554s
+--- FAIL: TestInstalledCoverageLABSourceProvenanceRejectsNonRootOrWritableFiles (0.01s)
+    coverage_linux_test.go:223: chown /root/baft-ingress-coverage-lab-2725832423/installed-units/foreign.socket: invalid argument
+--- FAIL: TestManagedLABMeasuredExecutionOnlyInPrivateNamespace (0.00s)
+    coverage_linux_test.go:261: readlink /proc/1/ns/net: permission denied
+--- FAIL: TestKernelProcessStartStrict (0.00s)
+    execution_kernel_linux_test.go:18: actual generation unavailable: managed-node ingress inventory coverage incomplete
+--- FAIL: TestManagedExecutionPinRefusesRealLateSourcesLAB (0.00s)
+    execution_pin_arrivals_linux_test.go:24: readlink /proc/1/ns/net: permission denied
+--- FAIL: TestManagedExecutionPinStableAndTamperedLAB (0.00s)
+    execution_pin_linux_test.go:23: readlink /proc/1/ns/net: permission denied
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/ingressinventory	0.227s
+ok  	github.com/zarkmakerburg/baft/internal/ingressmanifest	1.416s
+ok  	github.com/zarkmakerburg/baft/internal/ingressownership	6.167s
+ok  	github.com/zarkmakerburg/baft/internal/ingressunit	0.162s
+?   	github.com/zarkmakerburg/baft/internal/mesh	[no test files]
+ok  	github.com/zarkmakerburg/baft/internal/metrics	0.017s
+ok  	github.com/zarkmakerburg/baft/internal/node	1.502s
+ok  	github.com/zarkmakerburg/baft/internal/protocol	0.019s
+?   	github.com/zarkmakerburg/baft/internal/protocol/legacyv037	[no test files]
+ok  	github.com/zarkmakerburg/baft/internal/publicingress	5.077s
+ok  	github.com/zarkmakerburg/baft/internal/recordshape	0.142s
+ok  	github.com/zarkmakerburg/baft/internal/recovery	1.157s
+ok  	github.com/zarkmakerburg/baft/internal/release	0.144s
+ok  	github.com/zarkmakerburg/baft/internal/resources	0.039s
+ok  	github.com/zarkmakerburg/baft/internal/routes	0.012s
+ok  	github.com/zarkmakerburg/baft/internal/scheduler	0.331s
+ok  	github.com/zarkmakerburg/baft/internal/securityinternal	0.174s
+ok  	github.com/zarkmakerburg/baft/internal/session	1.248s
+ok  	github.com/zarkmakerburg/baft/internal/sshboot	0.054s
+ok  	github.com/zarkmakerburg/baft/internal/sshmigrate	0.019s
+ok  	github.com/zarkmakerburg/baft/internal/telemetry	3.677s
+ok  	github.com/zarkmakerburg/baft/internal/tunnelengine	0.014s
+ok  	github.com/zarkmakerburg/baft/internal/tunnelnode	127.459s
+ok  	github.com/zarkmakerburg/baft/internal/uninstall	46.807s
+ok  	github.com/zarkmakerburg/baft/tests/camouflage	0.015s
+ok  	github.com/zarkmakerburg/baft/tests/correctness	0.007s
+ok  	github.com/zarkmakerburg/baft/tests/docs	0.178s
+ok  	github.com/zarkmakerburg/baft/tests/e2e/operational	15.126s
+?   	github.com/zarkmakerburg/baft/tests/e2e/operational/labdiag	[no test files]
+?   	github.com/zarkmakerburg/baft/tests/e2e/operational/labinit	[no test files]
+?   	github.com/zarkmakerburg/baft/tests/e2e/operational/oplab	[no test files]
+ok  	github.com/zarkmakerburg/baft/tests/e2e/operational/recovery	0.009s
+?   	github.com/zarkmakerburg/baft/tests/e2e/operational/recoverylab	[no test files]
+ok  	github.com/zarkmakerburg/baft/tests/installer	57.393s
+ok  	github.com/zarkmakerburg/baft/tests/integration	124.828s
+ok  	github.com/zarkmakerburg/baft/tests/release	178.730s
+ok  	github.com/zarkmakerburg/baft/tests/release/opgate	0.914s
+ok  	github.com/zarkmakerburg/baft/tests/uninstall	0.732s
+?   	github.com/zarkmakerburg/baft/web	[no test files]
+?   	github.com/zarkmakerburg/baft/web/qa/fixture	[no test files]
+FAIL

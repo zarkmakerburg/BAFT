@@ -1,0 +1,5 @@
+--- FAIL: TestForcedCloseInterruptsBlockedGracefulClose (1.00s)
+    close_race_test.go:41: forced close waited behind a blocked graceful close
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/carrier/ws	1.010s
+FAIL

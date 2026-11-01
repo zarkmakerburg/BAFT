@@ -217,3 +217,54 @@ func TestBlockedIngressReceiptAckReadsNPlusOneBytes(t *testing.T) {
 		})
 	}
 }
+
+// A restart-loss receipt that BCC did not accept (BCC down, network not up
+// at boot) is offered again on later polls until BCC records it, and only
+// that receipt shape is queued.
+func TestRestartLossReceiptIsOfferedAgainUntilAccepted(t *testing.T) {
+	var accept atomic.Bool
+	var posts atomic.Int32
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		posts.Add(1)
+		if !accept.Load() {
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusAccepted)
+		_, _ = io.WriteString(w, `{"recorded":true,"verified":false,"ready_to_apply":false,"reconciliation_pending":true}`)
+	}))
+	defer srv.Close()
+	j := validSignedIngressV1(t)
+	cmd, err := ingressV1Command(j)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lost := ingressauthority.ReceiptV1{SchemaVersion: 1, JobID: cmd.JobID, Action: cmd.Action, Binding: cmd.Binding, Phase: "failed",
+		FailureCause: "operational ingress interrupted by an agent restart", RollbackStatus: ingressauthority.RollbackReleasedAfterRestart}
+	a := &Agent{cfg: Config{BCCURL: srv.URL, NodeID: cmd.Binding.NodeID, Token: "enrolled-token", HTTP: srv.Client()}}
+	if err := a.postOperationalReceipt(context.Background(), cmd, lost); err == nil {
+		t.Fatal("unavailable BCC accepted the receipt")
+	}
+	a.unsentRestartReceipts = append(a.unsentRestartReceipts, pendingIngressReceipt{cmd: cmd, receipt: lost})
+	a.flushRestartReceipts(context.Background())
+	if len(a.unsentRestartReceipts) != 1 || a.unsentRestartReceipts[0].tries != 1 {
+		t.Fatalf("undelivered receipt not kept for the next poll: %+v", a.unsentRestartReceipts)
+	}
+	accept.Store(true)
+	a.flushRestartReceipts(context.Background())
+	if len(a.unsentRestartReceipts) != 0 {
+		t.Fatalf("accepted receipt still queued: %+v", a.unsentRestartReceipts)
+	}
+	before := posts.Load()
+	a.flushRestartReceipts(context.Background())
+	if posts.Load() != before {
+		t.Fatal("an accepted receipt was sent again")
+	}
+	// Bounded: a receipt BCC never accepts is eventually dropped.
+	accept.Store(false)
+	a.unsentRestartReceipts = []pendingIngressReceipt{{cmd: cmd, receipt: lost, tries: maxRestartReceiptTries - 1}}
+	a.flushRestartReceipts(context.Background())
+	if len(a.unsentRestartReceipts) != 0 {
+		t.Fatal("retry is unbounded")
+	}
+}

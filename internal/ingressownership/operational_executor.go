@@ -209,6 +209,12 @@ type RetiredIngressEvidence struct {
 }
 
 func (x *OperationalExecutor) Retire(ctx context.Context, cmd ingressauthority.CommandV1, lease *ingressauthority.Lease) (RetiredIngressEvidence, error) {
+	// A failed receipt delivery can leave a fully retired journal behind a
+	// still-fenced reservation. A fresh held signed Retire must re-prove the
+	// completed removal rather than requiring a listener that was removed.
+	if evidence, completed, err := x.completedRetireRetry(ctx, cmd, lease); completed || err != nil {
+		return evidence, err
+	}
 	if err := x.preflightRetire(ctx, cmd, lease); err != nil {
 		return RetiredIngressEvidence{}, err
 	}

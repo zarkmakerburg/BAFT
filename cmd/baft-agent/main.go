@@ -162,7 +162,9 @@ func run(ctx context.Context, args []string, stderr io.Writer) int {
 	// falls back to the LAB executor or an in-memory firewall.
 	logger := log.New(stderr, "", log.LstdFlags)
 	if op, err := buildIngressOperational(ctx, *nodeID, *stateDir, hostIngressDeps(logger.Printf)); err != nil {
-		logger.Printf("baft-agent: operational ingress disabled (v1 ingress jobs stay BLOCKED): %v", err)
+		// errors.Join separates causes with newlines; keep the whole cause on
+		// one journal line so operators (and `journalctl | grep`) see why.
+		logger.Printf("baft-agent: operational ingress disabled (v1 ingress jobs stay BLOCKED): %s", strings.ReplaceAll(err.Error(), "\n", "; "))
 	} else {
 		cfg.IngressOperational = op
 		logger.Printf("baft-agent: operational ingress provisioned for %s", *nodeID)

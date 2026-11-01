@@ -404,9 +404,9 @@ func collectFromInstalledPath(ctx context.Context, policyPath, expectedNodeID st
 	result.UnknownSources = append(result.UnknownSources, unknown...)
 	if profile.ExecutionProfile == ExecutionProfileHostV1 {
 		// On an ordinary server other services declare ports in their own
-		// configuration. ADR-003 requires Xray/3X-UI inbounds; an unreadable
+		// configuration (Xray/3X-UI, nginx, HAProxy, Docker). An unreadable
 		// present config is unknown, so coverage stays incomplete (refusal).
-		claims, unknownCfg := collectXrayInboundClaims(xrayConfigPaths)
+		claims, unknownCfg := collectHostServiceClaims()
 		result.ConfigClaims = claims
 		result.UnknownSources = append(result.UnknownSources, unknownCfg...)
 	}
@@ -457,7 +457,7 @@ func collectFromInstalledPath(ctx context.Context, policyPath, expectedNodeID st
 	}
 	for _, c := range result.ConfigClaims {
 		if c.Covers(port) {
-			return result, fmt.Errorf("%w: xray inbound %s in %s is configured for port %d", ErrClaimConflict, c.Tag, c.Source, port)
+			return result, fmt.Errorf("%w: %s %s in %s is configured for port %d", ErrClaimConflict, c.Kind, c.Tag, c.Source, port)
 		}
 	}
 	for _, c := range alive {

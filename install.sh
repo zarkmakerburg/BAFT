@@ -441,9 +441,10 @@ Usage:
   sudo bash install.sh --agent-only --bcc-url https://bcc.example.com --node-id ir-1 --enable-host-ingress
       # IR server: also enable safe host mode, so BAFT can open the reviewed
       # public client port itself. Off by default. BAFT refuses ports held by a
-      # live listener, a systemd socket, another BAFT tunnel or an Xray/3X-UI
-      # inbound, and never stops or edits another service; each port also
-      # needs your confirmation in the panel (nginx/haproxy/Docker unchecked)
+      # live listener, a systemd socket, another BAFT tunnel, an Xray/3X-UI
+      # inbound, an nginx listen, an HAProxy bind or a Docker published port,
+      # and never stops or edits another service; each port also needs your
+      # confirmation in the panel (programs started by hand are not visible)
   sudo bash install.sh --bcc-only [--bcc-domain panel.example.com|IP] [--bcc-port N]
       # installs the BAFT panel (Command Center) only; no IR/EX tunnel is created.
       # On a terminal it asks for a domain (or uses this server's IP) and a port,

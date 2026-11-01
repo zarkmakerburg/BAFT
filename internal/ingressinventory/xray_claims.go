@@ -15,6 +15,7 @@ import (
 // an inert observation: BAFT refuses to take such a port, and never edits,
 // stops or restarts the other service (ADR-003 §4.2).
 type ConfigPortClaim struct {
+	Kind   string // e.g. "xray inbound", "nginx listen"
 	Source string // configuration file
 	Tag    string // inbound tag, if any
 	From   uint16 // inclusive port range
@@ -98,7 +99,7 @@ func parseXrayInboundClaims(source string, raw []byte) (claims []ConfigPortClaim
 			continue
 		}
 		for _, r := range ranges {
-			claims = append(claims, ConfigPortClaim{Source: source, Tag: tag, From: r[0], To: r[1]})
+			claims = append(claims, ConfigPortClaim{Kind: "xray inbound", Source: source, Tag: tag, From: r[0], To: r[1]})
 		}
 	}
 	return claims, unknown

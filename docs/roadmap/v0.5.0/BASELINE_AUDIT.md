@@ -318,7 +318,7 @@ Owner decisions (ADR-003 §8): Option B, opt-in at install, mandatory latent-cla
 | same run, leg **manual** (job 124776431296) | **success** (now over verified HTTPS BCC). |
 | `ci` 41280493183 on `2c982c9e`, 41281154613 on `d84ea120` | **success** (includes the BCC acknowledgement-gate tests). |
 | `operational-ingress-v1`, `shared-operational-ingress`, `operational-recovery`, `P0 Public Ingress LAB`, `Delta Ingress Pin LAB`, `BCC UI tests`, `static-analysis` on `2c982c9e` (41280495510, 41280497416, 41280499148, 41280514078, 41280510567, 41280508779, 41280515832) | **success** — the LAB contract is unchanged by the host profile. |
-| Local (Node 22 + Chrome) | JS 167/167; CDP wizard QA 6 runs (en/fa × LAB / manual / host). UI evidence only. |
+| Local (Node 22 + Chrome) | JS 165/165; CDP wizard QA 6 runs (en/fa × LAB / manual / host). UI evidence only. |
 
 Scope of the evidence: one GitHub-hosted VM plays both servers (two agents, one kernel). It is a real installed product path with a real public-address listener, firewall rule and client, **not** a two-host or Iran↔abroad network result.
 
@@ -330,7 +330,7 @@ Scope of the evidence: one GitHub-hosted VM plays both servers (two agents, one 
 ### 13.4 Still open (truthful)
 
 1. Two-host LAB and a real Iran↔abroad run: not done.
-2. nginx/haproxy/Docker detectors: not implemented (named as unchecked in the acknowledgement).
+2. nginx/HAProxy/Docker detectors: implemented after this evidence (unit-tested parsers; covered by the next host-mode e2e run). Hand-run programs remain covered only by the acknowledgement.
 3. Host-mode firewall-drop case (provider/host firewall blocks the port → applied but not Ready): not yet an e2e case.
 4. `TestTopologyCommitDuringRecoveryPrepared` flake (seen once in CI) and the `cmd/baft` `tunnel_live_test.go:244` flake: not root-caused.
 5. Merging v0.5.0 into `main` and any tag/release: owner decision.

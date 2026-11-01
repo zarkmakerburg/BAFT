@@ -50,7 +50,7 @@ func pinInstalledManagedLABExecution(ctx context.Context, path, nodeID string) (
 	}
 	var configClaims []ConfigPortClaim
 	if policy.ExecutionProfile == ExecutionProfileHostV1 {
-		claims, unknown := collectXrayInboundClaims(xrayConfigPaths)
+		claims, unknown := collectHostServiceClaims()
 		if len(unknown) != 0 {
 			return zero, fmt.Errorf("%w: %s", ErrCoverageIncomplete, strings.Join(unknown, "; "))
 		}

@@ -195,7 +195,7 @@ func (s *Store) buildPlanLocked(req TunnelRequest, now time.Time) (Plan, error) 
 		if t.ClientPortAck {
 			gate("public port acknowledgement", "PASS", fmt.Sprintf("operator confirmed no other service on %s is configured to use port %d", ir.ID, t.ClientPort))
 		} else {
-			gate("public port acknowledgement", "FAIL", fmt.Sprintf("%s runs safe host mode: confirm that no other service on it is configured to use port %d. BAFT refuses live listeners, systemd sockets, BAFT tunnels and Xray/3X-UI inbounds itself; nginx, haproxy and Docker are not checked", ir.ID, t.ClientPort))
+			gate("public port acknowledgement", "FAIL", fmt.Sprintf("%s runs safe host mode: confirm that no other service on it is configured to use port %d. BAFT itself refuses ports held by a running program, a systemd socket, another BAFT tunnel, an Xray/3X-UI inbound, an nginx listen, an HAProxy bind or a Docker published port; programs started by hand and other services' own configuration are not checked", ir.ID, t.ClientPort))
 		}
 	}
 	gate("no conflicting change", "PASS", "no unfinished or failed change owns the same BAFT instance or conflicts with its listeners")

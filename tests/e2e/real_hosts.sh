@@ -133,8 +133,12 @@ cleanup() {
       if command -v baft >/dev/null; then baft uninstall --full --delete-tunnel-configs --stop-active-tunnels --yes >$LAB/uninstall.log 2>&1 || tail -n 20 $LAB/uninstall.log; fi
       systemctl disable --now baft-agent 2>/dev/null; true" 2>/dev/null
     on "$h" "rm -f $LAB_CA; update-ca-certificates --fresh >/dev/null 2>&1; rm -rf $LAB; systemctl reset-failed 'baft-realhosts-*' lab-echo 2>/dev/null; true" 2>/dev/null
-    left="$(on "$h" "systemctl list-units --all --no-legend 'baft*' 2>/dev/null | grep -vc baft-uninstall; nft list tables 2>/dev/null | grep -c baftlab; nft list tables 2>/dev/null | grep -c 'inet baft\$'; true" 2>/dev/null | tr '\n' ' ')"
-    log "cleanup on $h: remaining baft units / lab tables / inet baft table: $left"
+    left="$(on "$h" "systemctl daemon-reload 2>/dev/null; systemctl reset-failed 'baft*' 2>/dev/null
+      echo units: \$(systemctl list-unit-files --no-legend 'baft*' 2>/dev/null | awk '{print \$1}' | grep -v baft-uninstall | tr '\n' ' ')
+      echo loaded: \$(systemctl list-units --all --no-legend 'baft*' 2>/dev/null | awk '{print \$1\"(\"\$3\"/\"\$4\")\"}' | grep -v baft-uninstall | tr '\n' ' ')
+      echo nft: \$(nft list tables 2>/dev/null | grep -E 'baftlab|inet baft\$' | tr '\n' ' ')
+      echo files: \$(ls -d /etc/baft* /var/lib/baft* /usr/local/bin/baft* 2>/dev/null | grep -v baft-uninstall | tr '\n' ' ')" 2>/dev/null | tr '\n' ';')"
+    log "cleanup on $h: what is left of BAFT -> $left"
   done
   for p in "${PIDS[@]}"; do kill "$p" 2>/dev/null; done
   [[ -f "$SUMMARY" ]] && { echo "== summary"; cat "$SUMMARY"; }

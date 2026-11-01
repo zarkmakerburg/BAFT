@@ -60,7 +60,7 @@ ssh-keyscan -t ed25519 IR_IP EX_IP   # output -> BAFT_SSH_KNOWN_HOSTS
    - انتخاب خودکار مسیر، Plan بازبینی‌شده با تأیید پورت و Deploy؛
    - Listener و قانون nft متعلق به BAFT، و Ready با probe مستقل BCC؛
    - ترافیک واقعی کلاینت؛
-   - Restart هر دو agent؛
+   - Restart هر دو agent: listener داخل پروسهٔ agent است، پس پورت چند ثانیه بسته می‌شود؛ BCC یک Apply امضاشدهٔ تازه صادر می‌کند و مدت Ready نبودن پورت ثبت می‌شود؛
    - **Firewall Drop**: پورت عمومی مسدود می‌شود و BCC نباید Ready گزارش کند؛
    - قطع ۲۰ ثانیه‌ای مسیر تونل و بازیابی؛
    - **Reboot** سرور ایران (اختیاری با گزینهٔ `reboot`)؛

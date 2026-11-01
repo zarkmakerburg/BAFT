@@ -13,6 +13,15 @@ import (
 // jobs with a held lease and managed executor.
 const IngressCapabilityOperationalV1 = "operational-ingress-v1"
 
+// IngressCapabilityOperationalHostV1 is the ADR-003 safe host mode on an
+// ordinary server. It is a different contract: BCC queues only a tunnel whose
+// reviewed plan carries the operator's per-port acknowledgement.
+const IngressCapabilityOperationalHostV1 = "operational-ingress-host-v1"
+
+// errIngressHostPortUnacknowledged: host-mode IR, reviewed plan without the
+// per-port acknowledgement. Never queued; a re-reviewed plan is required.
+var errIngressHostPortUnacknowledged = errors.New("IR node runs safe host mode and this tunnel's public port was not acknowledged")
+
 // ingressCapabilityMaxAge bounds how old the authenticated poll carrying the
 // capability may be; a silent or restored node is therefore closed.
 const ingressCapabilityMaxAge = 2 * time.Minute
@@ -42,10 +51,17 @@ func (s *Store) ingressEnqueueGateLocked(tunnelID string, now time.Time) error {
 	if n.AgentSeen.IsZero() || n.AgentSeen.After(now.Add(time.Minute)) || now.Sub(n.AgentSeen) > ingressCapabilityMaxAge {
 		return errors.Join(ErrIngressAuthorityUnavailable, errors.New("IR node agent heartbeat is not fresh"))
 	}
-	if !slices.Contains(n.Capabilities, IngressCapabilityOperationalV1) {
-		return errors.Join(ErrIngressAuthorityUnavailable, errors.New("IR node agent does not report "+IngressCapabilityOperationalV1))
+	if slices.Contains(n.Capabilities, IngressCapabilityOperationalV1) {
+		return nil
 	}
-	return nil
+	if slices.Contains(n.Capabilities, IngressCapabilityOperationalHostV1) {
+		t, ok := s.st.Tunnels[tunnelID]
+		if !ok || !t.ClientPortAck || t.ClientPort != op.Spec.PublicPort {
+			return errors.Join(ErrIngressAuthorityUnavailable, errIngressHostPortUnacknowledged)
+		}
+		return nil
+	}
+	return errors.Join(ErrIngressAuthorityUnavailable, errors.New("IR node agent does not report "+IngressCapabilityOperationalV1+" or "+IngressCapabilityOperationalHostV1))
 }
 
 // parseAgentCapabilities strictly validates the capability header values: at

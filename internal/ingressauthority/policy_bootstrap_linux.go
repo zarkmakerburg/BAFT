@@ -21,7 +21,28 @@ import (
 // asserts complete coverage, acquires a mutation lease or changes the host
 // listener/firewall. BCC job parameters cannot supply policy paths or roots.
 func ProvisionInstalledManagedNodePolicy(ctx context.Context, nodeID string) (ingressinventory.InstalledManagedNodePolicyV1, error) {
+	return ProvisionInstalledManagedNodePolicyProfile(ctx, nodeID, "")
+}
+
+// ErrPolicyProfileConflict reports that a DIFFERENT managed-node policy is
+// already installed and cannot be proven unused, so it is not replaced.
+var ErrPolicyProfileConflict = errors.New("a different managed ingress policy is already installed")
+
+// ProvisionInstalledManagedNodePolicyProfile is ProvisionInstalledManagedNodePolicy
+// for an explicit execution profile: "" writes the schema-1 isolated LAB
+// policy, ingressinventory.ExecutionProfileHostV1 the schema-2 safe host mode
+// policy (ADR-003). Only a local root installer action can choose host-v1.
+//
+// The policy is never replaced, with one provable exception: a schema-1 (LAB)
+// policy bound to the host's INIT network namespace may be upgraded to
+// host-v1. The LAB execution scope refuses the init namespace before any
+// effect, so such a policy can never have backed a reservation, rule or
+// listener; replacing it cannot orphan held or recoverable work.
+func ProvisionInstalledManagedNodePolicyProfile(ctx context.Context, nodeID, profile string) (ingressinventory.InstalledManagedNodePolicyV1, error) {
 	var zero ingressinventory.InstalledManagedNodePolicyV1
+	if profile != "" && profile != ingressinventory.ExecutionProfileHostV1 {
+		return zero, ErrBinding
+	}
 	if ctx == nil {
 		return zero, ErrUnverified
 	}
@@ -38,7 +59,11 @@ func ProvisionInstalledManagedNodePolicy(ctx context.Context, nodeID string) (in
 	if err != nil {
 		return zero, errors.Join(ErrUnverified, err)
 	}
-	p := ingressinventory.InstalledManagedNodePolicyV1{SchemaVersion: 1, InventoryVersion: ingressinventory.ManagedCoverageVersion, NodeID: nodeID, Platform: "linux", NetworkNamespace: ns, Transport: "dedicated", Manager: "systemd-socket-v1", SourceRoots: []string{"/etc/systemd/system", "/usr/lib/systemd/system"}}
+	schema := 1
+	if profile == ingressinventory.ExecutionProfileHostV1 {
+		schema = 2
+	}
+	p := ingressinventory.InstalledManagedNodePolicyV1{SchemaVersion: schema, ExecutionProfile: profile, InventoryVersion: ingressinventory.ManagedCoverageVersion, NodeID: nodeID, Platform: "linux", NetworkNamespace: ns, Transport: "dedicated", Manager: "systemd-socket-v1", SourceRoots: []string{"/etc/systemd/system", "/usr/lib/systemd/system"}}
 	raw, err := ingressinventory.MarshalInstalledManagedNodePolicyV1(ctx, p)
 	if err != nil {
 		return zero, errors.Join(ErrUnverified, err)
@@ -54,8 +79,15 @@ func ProvisionInstalledManagedNodePolicy(ctx context.Context, nodeID string) (in
 	if err == nil {
 		return existing, nil
 	}
+	replaceUnusedLAB := false
 	if !errors.Is(err, os.ErrNotExist) {
-		return zero, err
+		if profile != ingressinventory.ExecutionProfileHostV1 || !unusedInitNamespaceLABPolicy(ctx, nodeID, ns) {
+			if errors.Is(err, ErrUnverified) {
+				return zero, errors.Join(ErrPolicyProfileConflict, err)
+			}
+			return zero, err
+		}
+		replaceUnusedLAB = true
 	}
 	if err := ctx.Err(); err != nil {
 		return zero, err
@@ -97,7 +129,16 @@ func ProvisionInstalledManagedNodePolicy(ctx context.Context, nodeID string) (in
 	}
 	// No replace is essential: a competing installer or re-pair must not
 	// replace the inode/identity already used by held or recoverable work.
-	err = unix.Renameat2(directory, temporary, directory, "managed-node.json", unix.RENAME_NOREPLACE)
+	if replaceUnusedLAB {
+		// Re-prove immediately before the swap; a concurrent installer that
+		// changed the file meanwhile makes this fail closed.
+		if !unusedInitNamespaceLABPolicy(ctx, nodeID, ns) {
+			return zero, ErrPolicyProfileConflict
+		}
+		err = unix.Renameat(directory, temporary, directory, "managed-node.json")
+	} else {
+		err = unix.Renameat2(directory, temporary, directory, "managed-node.json", unix.RENAME_NOREPLACE)
+	}
 	created := err == nil
 	if err != nil && !errors.Is(err, unix.EEXIST) {
 		return zero, errors.Join(ErrUnverified, err)
@@ -186,4 +227,16 @@ func readProvisionedPolicy(ctx context.Context, directory int, nodeID, wantedSHA
 		return zero, err
 	}
 	return p, nil
+}
+
+// unusedInitNamespaceLABPolicy reports whether the installed policy is a
+// schema-1 LAB policy for nodeID bound to ns, and ns is the init network
+// namespace (the namespace of PID 1). See ProvisionInstalledManagedNodePolicyProfile.
+func unusedInitNamespaceLABPolicy(ctx context.Context, nodeID, ns string) bool {
+	initNS, err := os.Readlink("/proc/1/ns/net")
+	if err != nil || initNS == "" || initNS != ns {
+		return false
+	}
+	p, err := ingressinventory.LoadInstalledManagedNodePolicy(ctx, nodeID)
+	return err == nil && p.SchemaVersion == 1 && p.ExecutionProfile == "" && p.NetworkNamespace == ns
 }

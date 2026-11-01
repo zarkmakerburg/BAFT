@@ -27,6 +27,11 @@ type IngressOperationalExecutor interface {
 type IngressOperational struct {
 	Store    *ingressauthority.ReservationStore
 	Executor IngressOperationalExecutor
+	// Profile is the installed execution profile ("" = isolated LAB,
+	// ingressinventory.ExecutionProfileHostV1 = ADR-003 host mode). It only
+	// selects which capability token is advertised; Apply re-reads the
+	// protected installed policy itself.
+	Profile string
 }
 
 const ingressCleanupTimeout = 30 * time.Second

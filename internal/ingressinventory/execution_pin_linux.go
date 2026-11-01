@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 // pinInstalledManagedLABExecution permits a path override ONLY for
@@ -21,7 +22,7 @@ func pinInstalledManagedLABExecution(ctx context.Context, path, nodeID string) (
 	if err != nil {
 		return zero, errors.Join(ErrCoverageIncomplete, err)
 	}
-	first, err := measurePinnedLinuxLAB(ctx, policy.NetworkNamespace)
+	first, err := measurePinnedLinuxLAB(ctx, policy.NetworkNamespace, policy.ExecutionProfile)
 	if err != nil {
 		return zero, err
 	}
@@ -47,14 +48,23 @@ func pinInstalledManagedLABExecution(ctx context.Context, path, nodeID string) (
 			return zero, ErrCoverageIncomplete
 		}
 	}
-	second, err := measurePinnedLinuxLAB(ctx, policy.NetworkNamespace)
+	var configClaims []ConfigPortClaim
+	if policy.ExecutionProfile == ExecutionProfileHostV1 {
+		claims, unknown := collectXrayInboundClaims(xrayConfigPaths)
+		if len(unknown) != 0 {
+			return zero, fmt.Errorf("%w: %s", ErrCoverageIncomplete, strings.Join(unknown, "; "))
+		}
+		configClaims = claims
+	}
+	second, err := measurePinnedLinuxLAB(ctx, policy.NetworkNamespace, policy.ExecutionProfile)
 	if err != nil || !first.matches(second) {
 		return zero, ErrCoverageIncomplete
 	}
 	return ManagedLABExecutionPin{
 		Policy: policy, Sources: fingerprints,
-		Stopped: append([]PersistentTCPPortClaim(nil), source.Claims...),
-		LAB:     first,
+		Stopped:      append([]PersistentTCPPortClaim(nil), source.Claims...),
+		LAB:          first,
+		ConfigClaims: configClaims,
 	}, nil
 }
 

@@ -24,6 +24,7 @@ import (
 
 	"github.com/zarkmakerburg/baft/internal/agent"
 	"github.com/zarkmakerburg/baft/internal/ingressauthority"
+	"github.com/zarkmakerburg/baft/internal/ingressinventory"
 	"github.com/zarkmakerburg/baft/internal/release"
 	"github.com/zarkmakerburg/baft/internal/tunnelnode"
 )
@@ -87,6 +88,7 @@ func run(ctx context.Context, args []string, stderr io.Writer) int {
 	serviceUser := fs.String("service-user", "baft", "user the BAFT service runs as")
 	interval := fs.Duration("interval", 30*time.Second, "poll interval")
 	provisionPolicy := fs.Bool("provision-ingress-policy", false, "local root-only managed ingress policy bootstrap; does not enable Apply")
+	ingressProfile := fs.String("ingress-profile", "", "with --provision-ingress-policy: empty = isolated LAB namespace policy; \"host-v1\" = safe host mode on an ordinary server (ADR-003; opt-in, see install.sh --enable-host-ingress)")
 	reconcileMode := fs.String("ingress-reconcile", "auto", "post-restart reconciliation of interrupted operational ingress: auto (finish only with complete kernel/firewall/authority evidence), report (evaluate, write nothing) or off")
 	reconcileOnly := fs.Bool("reconcile-ingress", false, "run the post-restart ingress reconciliation once, print the evidence and exit (1 if anything stays fenced)")
 	once := fs.Bool("once", false, "handle pending jobs once and exit")
@@ -99,12 +101,24 @@ func run(ctx context.Context, args []string, stderr io.Writer) int {
 			fmt.Fprintln(stderr, "baft-agent: --provision-ingress-policy requires --node-id")
 			return 2
 		}
-		p, err := ingressauthority.ProvisionInstalledManagedNodePolicy(ctx, *nodeID)
+		if *ingressProfile != "" && *ingressProfile != ingressinventory.ExecutionProfileHostV1 {
+			fmt.Fprintf(stderr, "baft-agent: --ingress-profile must be empty or %q\n", ingressinventory.ExecutionProfileHostV1)
+			return 2
+		}
+		p, err := ingressauthority.ProvisionInstalledManagedNodePolicyProfile(ctx, *nodeID, *ingressProfile)
 		if err != nil {
+			if errors.Is(err, ingressauthority.ErrPolicyProfileConflict) {
+				fmt.Fprintln(stderr, "baft-agent: ingress policy: a different managed ingress policy is already installed at /etc/baft/ingress/managed-node.json and may back existing public ingress; it was left unchanged")
+				return 1
+			}
 			fmt.Fprintln(stderr, "baft-agent: ingress policy:", err)
 			return 1
 		}
-		fmt.Fprintf(stderr, "baft-agent: installed managed ingress policy for %s at %s; operational Apply remains blocked pending complete coverage and held authority\n", p.NodeID, p.ProfilePath)
+		mode := "isolated LAB"
+		if p.ExecutionProfile == ingressinventory.ExecutionProfileHostV1 {
+			mode = "safe host mode"
+		}
+		fmt.Fprintf(stderr, "baft-agent: installed managed ingress policy (%s) for %s at %s; each public port still needs complete coverage, held authority and, in host mode, the operator's per-port acknowledgement\n", mode, p.NodeID, p.ProfilePath)
 		return 0
 	}
 	if *bccURL == "" || *nodeID == "" {

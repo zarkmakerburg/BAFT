@@ -312,13 +312,17 @@ func (s *Store) ingressOperationalStateBase(tunnelID string, now time.Time) *Ing
 		st.State, st.JobID = "retiring", op.RetireCommand.JobID
 	case op.Dispatch.Phase == ingressPhaseHeld:
 		st.State = "held"
-		// Agents report this capability only where Apply can run (today the
-		// isolated LAB namespace), so on an ordinary server this never clears:
-		// say so instead of implying it is merely pending.
-		st.Reason = "the IR node agent does not report " + IngressCapabilityOperationalV1 +
-			"; automatic public ingress currently runs only in the isolated LAB namespace. The tunnel works: point a public inbound or port forward on the IR at its route listener"
-		if s.ingressEnqueueGateLocked(tunnelID, now) == nil {
+		// Agents report a capability only where Apply can run, so without one
+		// this never clears: say what the operator can do instead of implying
+		// it is merely pending.
+		gateErr := s.ingressEnqueueGateLocked(tunnelID, now)
+		switch {
+		case gateErr == nil:
 			st.Reason = "gate open; enqueue pending"
+		case errors.Is(gateErr, errIngressHostPortUnacknowledged):
+			st.Reason = "the IR server runs safe host mode, but this tunnel's public port was not acknowledged; review the plan again and confirm that no other service uses the port"
+		default:
+			st.Reason = "the IR node agent does not report automatic public ingress. Enable safe host mode on the IR server (install.sh --agent-only --enable-host-ingress), or point a public inbound or port forward on the IR at the tunnel's route listener; the tunnel itself works"
 		}
 	case op.Dispatch.Phase == ingressPhaseExpired || op.Dispatch.Phase == ingressPhaseUncertain:
 		st.State, st.Reason = "blocked", "signed window passed ("+op.Dispatch.Phase+"); operator review required"

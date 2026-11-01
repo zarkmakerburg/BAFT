@@ -23,7 +23,7 @@ func MarshalInstalledManagedNodePolicyV1(ctx context.Context, p InstalledManaged
 	if err != nil {
 		return nil, err
 	}
-	wire := installedPolicyV1{SchemaVersion: p.SchemaVersion, NodeID: p.NodeID, Platform: p.Platform, NetNS: p.NetworkNamespace, Transport: p.Transport, InventoryV1: p.InventoryVersion, Manager: p.Manager, SourceRoots: append([]string(nil), p.SourceRoots...)}
+	wire := installedPolicyV1{SchemaVersion: p.SchemaVersion, NodeID: p.NodeID, Platform: p.Platform, NetNS: p.NetworkNamespace, Transport: p.Transport, InventoryV1: p.InventoryVersion, Manager: p.Manager, SourceRoots: append([]string(nil), p.SourceRoots...), ExecutionProfile: p.ExecutionProfile}
 	raw, err := json.Marshal(wire)
 	if err != nil {
 		return nil, err

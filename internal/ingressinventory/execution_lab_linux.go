@@ -17,6 +17,40 @@ import (
 	"time"
 )
 
+// measureManagedExecution measures the execution scope the installed policy
+// declares: the isolated loopback-only singleton LAB (profile "") or the
+// ADR-003 host profile. The host profile drops only the two properties an
+// ordinary server can never have (non-init network namespace, loopback-only
+// singleton); every host-completeness requirement stays.
+func measureManagedExecution(ctx context.Context, expectedNetNS, profile string) (PrivateLABExecutionEvidence, error) {
+	switch profile {
+	case "":
+		return measurePrivateLinuxLAB(ctx, expectedNetNS)
+	case ExecutionProfileHostV1:
+		return measureHostExecution(ctx, expectedNetNS)
+	}
+	return PrivateLABExecutionEvidence{}, fmt.Errorf("%w: unknown execution profile", ErrCoverageIncomplete)
+}
+
+func measureHostExecution(ctx context.Context, expectedNetNS string) (PrivateLABExecutionEvidence, error) {
+	var e PrivateLABExecutionEvidence
+	if ctx == nil || ctx.Err() != nil {
+		return e, ErrCoverageIncomplete
+	}
+	current, err := namespaceIdentity()
+	if err != nil || current != expectedNetNS {
+		return e, fmt.Errorf("%w: changed Linux network namespace", ErrCoverageIncomplete)
+	}
+	if err := checkHostComplete(); err != nil {
+		return e, err
+	}
+	initNS, err := os.Readlink("/proc/1/ns/net")
+	if err != nil || !strings.HasPrefix(initNS, "net:[") {
+		return e, fmt.Errorf("%w: init network namespace unreadable", ErrCoverageIncomplete)
+	}
+	return PrivateLABExecutionEvidence{CurrentNetNS: current, InitNetNS: initNS, OwnPID: os.Getpid()}, nil
+}
+
 func measurePrivateLinuxLAB(ctx context.Context, expectedNetNS string) (PrivateLABExecutionEvidence, error) {
 	var e PrivateLABExecutionEvidence
 	if ctx == nil || ctx.Err() != nil {
@@ -37,13 +71,14 @@ func measurePrivateLinuxLAB(ctx context.Context, expectedNetNS string) (PrivateL
 	return measureLinuxLABProcesses(ctx, e, current, initNS, iface, entries)
 }
 
-// CheckManagedExecutionScope reports whether this process runs in the only
-// execution scope operational public ingress supports: a privileged,
-// host-complete, isolated loopback-only Linux network namespace. These are
-// static properties of where the agent runs. A host agent in the init network
-// namespace never qualifies, so it must not advertise operational ingress:
-// otherwise BCC queues public ingress that every Apply refuses.
-func CheckManagedExecutionScope(ctx context.Context) error {
+// CheckManagedExecutionScope reports whether this process runs where the
+// installed execution profile lets operational public ingress Apply run:
+// profile "" needs the privileged, host-complete, isolated loopback-only LAB
+// namespace; ExecutionProfileHostV1 needs a privileged, host-complete process
+// on an ordinary server. These are static properties of where the agent runs;
+// an agent that fails them must not advertise operational ingress, otherwise
+// BCC queues public ingress that every Apply refuses.
+func CheckManagedExecutionScope(ctx context.Context, profile string) error {
 	if ctx == nil || ctx.Err() != nil {
 		return ErrCoverageIncomplete
 	}
@@ -51,34 +86,50 @@ func CheckManagedExecutionScope(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("%w: unknown Linux network namespace", ErrCoverageIncomplete)
 	}
-	_, _, err = checkLinuxLABScope(current)
-	return err
+	switch profile {
+	case "":
+		_, _, err = checkLinuxLABScope(current)
+		return err
+	case ExecutionProfileHostV1:
+		return checkHostComplete()
+	}
+	return fmt.Errorf("%w: unknown execution profile", ErrCoverageIncomplete)
 }
 
-// checkLinuxLABScope verifies the static LAB scope and returns the init
-// network namespace and the single interface name.
-func checkLinuxLABScope(current string) (initNS, iface string, err error) {
+// checkHostComplete: privileged root in the host-init PID and user
+// namespaces with real procfs and systemd PID 1, so the process and kernel
+// socket inventory is host-complete.
+func checkHostComplete() error {
 	// PID-private/container /proc can hide other processes sharing this
 	// netns; a singleton observed through that partial table is NOT proof
 	// of exclusive execution. The first supported LAB requires privileged
 	// root in the host-init PID+user namespaces with real procfs/systemd PID1.
 	if os.Geteuid() != 0 {
-		return "", "", fmt.Errorf("%w: root host inventory required", ErrCoverageIncomplete)
+		return fmt.Errorf("%w: root host inventory required", ErrCoverageIncomplete)
 	}
 	var procfs unix.Statfs_t
 	if err := unix.Statfs("/proc", &procfs); err != nil || procfs.Type != unix.PROC_SUPER_MAGIC {
-		return "", "", fmt.Errorf("%w: untrusted procfs", ErrCoverageIncomplete)
+		return fmt.Errorf("%w: untrusted procfs", ErrCoverageIncomplete)
 	}
 	initComm, err := os.ReadFile("/proc/1/comm")
 	if err != nil || strings.TrimSpace(string(initComm)) != "systemd" {
-		return "", "", fmt.Errorf("%w: non-systemd host init", ErrCoverageIncomplete)
+		return fmt.Errorf("%w: non-systemd host init", ErrCoverageIncomplete)
 	}
 	for _, kind := range []string{"pid", "user"} {
 		a, aErr := os.Readlink("/proc/self/ns/" + kind)
 		b, bErr := os.Readlink("/proc/1/ns/" + kind)
 		if aErr != nil || bErr != nil || a != b {
-			return "", "", fmt.Errorf("%w: process inventory is not host-complete (%s namespace)", ErrCoverageIncomplete, kind)
+			return fmt.Errorf("%w: process inventory is not host-complete (%s namespace)", ErrCoverageIncomplete, kind)
 		}
+	}
+	return nil
+}
+
+// checkLinuxLABScope verifies the static LAB scope and returns the init
+// network namespace and the single interface name.
+func checkLinuxLABScope(current string) (initNS, iface string, err error) {
+	if err := checkHostComplete(); err != nil {
+		return "", "", err
 	}
 	initNS, err = os.Readlink("/proc/1/ns/net")
 	if err != nil || initNS == current || !strings.HasPrefix(initNS, "net:[") {

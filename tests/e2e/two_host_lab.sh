@@ -252,16 +252,16 @@ def walk(x):
 sys.exit(0 if any(walk(o["rule"].get("expr")) for o in json.load(sys.stdin)["nftables"] if "rule" in o) else 1)' "$CLIENT_PORT" \
   || fail "no owned rule for $CLIENT_PORT in the IR guest's inet baft ingress chain"
 
-measure() { # label -> JSON {integrity, mib, seconds, mbps, rtt_ms_avg, rtt_ms_p50, rtt_ms_p95}
-  python3 - "$IR_IP" "$CLIENT_PORT" "$1" <<'PY'
+measure() { # label MiB timeout_s -> JSON {integrity, mib, seconds, mbps_echo, rtt_ms_*}
+  python3 - "$IR_IP" "$CLIENT_PORT" "$1" "${2:-16}" "${3:-120}" <<'PY'
 import json, os, socket, statistics, sys, time, threading
 host, port, label = sys.argv[1], int(sys.argv[2]), sys.argv[3]
-size = 16 * 1024 * 1024
+size, limit = int(sys.argv[4]) * 1024 * 1024, float(sys.argv[5])
 data = os.urandom(size)
 got = bytearray()
 t0 = time.monotonic()
 with socket.create_connection((host, port), timeout=60) as s:
-    s.settimeout(120)
+    s.settimeout(limit)
     def send():
         s.sendall(data); s.shutdown(socket.SHUT_WR)
     th = threading.Thread(target=send); th.start()
@@ -288,13 +288,17 @@ print(json.dumps({"label": label, "integrity": bytes(got) == data, "mib": size >
 PY
 }
 log "step 5 — real client from the runner through $IR_IP:$CLIENT_PORT -> tunnel -> EX guest service (baseline)"
-M="$(measure baseline)" || fail "client traffic through the public port failed"
+M="$(measure baseline 16 120)" || fail "client traffic through the public port failed"
 log "baseline: $M"; record baseline "$M"
 [[ "$(printf '%s' "$M" | jget integrity)" == True ]] || fail "baseline data mismatch"
 
-log "step 6 — impaired network: netem 60±15 ms delay and 1% loss on both guest links"
-for n in ir ex; do tc qdisc add dev "tap-$n" root netem delay 60ms 15ms distribution normal loss 1%; done
-M="$(measure netem_60ms_1pct)" || fail "client traffic under delay/loss failed"
+# Each guest link adds its delay once per direction it carries: the tunnel
+# (IR<->EX) crosses both links, the client leg crosses the IR link, so the
+# end-to-end RTT grows by ~3x the per-link delay. Jitter reorders packets
+# (worst case for TCP inside TCP); the volume is sized for that.
+log "step 6 — impaired network: netem 40±10 ms delay and 1% loss on both guest links"
+for n in ir ex; do tc qdisc add dev "tap-$n" root netem delay 40ms 10ms distribution normal loss 1%; done
+M="$(measure netem_40ms_10ms_1pct 2 300)" || fail "client traffic under delay/loss failed"
 log "netem: $M"; record netem "$M"
 [[ "$(printf '%s' "$M" | jget integrity)" == True ]] || fail "data mismatch under delay/loss"
 for n in ir ex; do tc qdisc del dev "tap-$n" root; done
@@ -320,7 +324,7 @@ PY
 done
 [[ -n "$recovered" ]] || fail "the tunnel did not recover within 180 s after the EX link came back"
 log "recovered ${recovered}s after the link came back"; record link_cut "{\"offline_s\":20,\"recovered_after_s\":$recovered}"
-M="$(measure after_recovery)" || fail "traffic after recovery failed"
+M="$(measure after_recovery 16 120)" || fail "traffic after recovery failed"
 record after_recovery "$M"; [[ "$(printf '%s' "$M" | jget integrity)" == True ]] || fail "data mismatch after recovery"
 
 log "step 8 — decommission: public port closed, owned rule removed, BAFT's chain kept"

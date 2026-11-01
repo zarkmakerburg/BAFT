@@ -1,0 +1,65 @@
+name: Two-host LAB
+# The v0.5.0 product path between two KVM guests (separate kernels, systemd,
+# firewalls and IPs) on one runner: BCC on the runner over verified HTTPS,
+# agents installed in each guest from a signed release of this commit, safe
+# host mode on the Iran guest, real client traffic through its public port,
+# measured baseline / delay+loss / link cut and recovery, exact decommission.
+# Not an Iran<->abroad Internet path.
+on:
+  push:
+    branches: ['codex/v0.5.0-**']
+    paths:
+      - 'tests/e2e/two_host_lab.sh'
+      - 'tests/e2e/lib/flow.sh'
+      - '.github/workflows/two-host-lab.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  two-host:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          check-latest: false
+          cache: false
+      - name: Enable KVM and install QEMU
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-system-x86 qemu-utils cloud-image-utils
+          ls -l /dev/kvm
+      - name: Fetch and verify the Ubuntu 24.04 cloud image
+        run: |
+          set -euo pipefail
+          base=https://cloud-images.ubuntu.com/releases/24.04/release
+          img=ubuntu-24.04-server-cloudimg-amd64.img
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$img" "$base/$img"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/SHA256SUMS" "$base/SHA256SUMS"
+          (cd "$RUNNER_TEMP" && grep " \*\?$img\$" SHA256SUMS | sed 's/ \*/  /' | sha256sum -c -)
+      - name: Build a signed release of this commit with throwaway keys
+        run: scripts/release/local_release.sh "$RUNNER_TEMP/rel" v0.0.3-lab
+      - name: Two-host LAB
+        run: |
+          set -o pipefail
+          sudo env GITHUB_ACTIONS=true GITHUB_STEP_SUMMARY="$GITHUB_STEP_SUMMARY" TWO_HOST_SUMMARY_OUT="$RUNNER_TEMP/two-host-summary.json" PATH="$PATH" \
+            tests/e2e/two_host_lab.sh "$RUNNER_TEMP/rel" "$RUNNER_TEMP/ubuntu-24.04-server-cloudimg-amd64.img" 2>&1 | tee "$RUNNER_TEMP/two-host.log"
+      - name: Report the end of the log
+        if: failure()
+        run: |
+          grep -E '^\[two-host\]|FAIL|error|Error|refused|denied' "$RUNNER_TEMP/two-host.log" | tail -n 12 | cut -c1-900 | sed 's/%/%25/g; s/^/::error title=two-host-log::/'
+      - name: Keep the measured summary
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: two-host-lab-summary
+          path: |
+            ${{ runner.temp }}/two-host-summary.json
+            ${{ runner.temp }}/two-host.log
+          if-no-files-found: ignore

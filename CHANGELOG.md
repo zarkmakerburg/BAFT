@@ -4,7 +4,9 @@ All notable changes to BAFT are listed here. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
-### v0.5.0 in development (branch `codex/v0.5.0-foundation-20261031`, not released)
+## [0.5.0] - 2026-11-02
+
+Release notes: [release/notes/v0.5.0.md](release/notes/v0.5.0.md). Real Iran↔abroad evidence: [REAL_HOSTS_LAB.md](docs/roadmap/v0.5.0/REAL_HOSTS_LAB.md) and issue #67.
 
 - **New tunnel, guided and live**: the Command Center's "+ New tunnel" dialog now builds real tunnels in five steps (servers, service, connection test, review, deploy) on BCC's reviewed APIs. It reports "done" only when the tunnel is active and, if an automatic public port was requested, that port is verified; rollbacks are shown as such. It replaces the earlier preview-only wizard. It offers the automatic public Iran port only when the Iran agent reports it can open one; otherwise it says so, requests none, and shows the tunnel's entry address on the Iran server to point a panel inbound at.
 - **Fixed: connection tests could never pass.** Since automatic path discovery (2026-10-07) BCC asked for a 16 KiB trickle at 1 s per KiB, which cannot finish inside the agents' 10 s probe deadline, so no path was ever `FULL_DATA` and auto-select never chose a port. BCC now sends 8 KiB at 500 ms (works with existing v0.4.0 agents), and impossible trickles are refused at signing.
@@ -25,11 +27,15 @@ All notable changes to BAFT are listed here. The format follows [Keep a Changelo
 - **Connection tests no longer show a fixed signature on the wire.** Every probe flow used to start with a plaintext `BAFTP1 <probe id> <size>` header, which a filtering system can recognise and use to find BAFT servers. Agents now advertise `path-probe-tls-v1`; when both ends do, BCC runs the flows inside TLS 1.3: a browser-profile ClientHello (Chrome, via utls) without SNI, and a certificate both agents derive from the probe ID, which only BCC and the two agents know and which is no longer on the wire. Verification stays on (the source trusts only that key). Older agents keep the plaintext flows until upgraded.
 - **Recovery fixes merged** (#292, #293, #294): committed port releases after a crash, a fresh signed Retire after a lost receipt, and the native listener now waits for its handlers and closes hijacked WebSockets on shutdown.
 - **Real-hosts LAB**: a manual workflow (`real-hosts.yml`, repository secrets) runs the whole product path between the owner's Iran and foreign test servers: preflight (read-only), install, connection test, deploy, Ready, real traffic, agent restarts, firewall drop (must not stay Ready), tunnel path cut and recovery, optional reboot, decommission and full cleanup. The same driver is self-tested on the two-host LAB's KVM guests. Guide: [REAL_HOSTS_LAB.md](docs/roadmap/v0.5.0/REAL_HOSTS_LAB.md); acceptance map: [P0_ACCEPTANCE.md](docs/roadmap/v0.5.0/P0_ACCEPTANCE.md).
+- **Shared transport on the real product path**: a tenant joins an existing tunnel's foreign listener through BCC's reviewed plan (`join_existing_tunnel_id`), on the same port, with its own public Iran port and its own target. The real-hosts LAB now checks, between the owner's Iran and foreign servers, that tenant traffic reaches only its own target, that the owner's traffic and one long-lived owner connection continue across the tenant's join and retirement, and that retiring the tenant removes only its port and rule.
+- **Fixed: after a managed tenant was retired, BCC stopped advancing every tunnel.** The adopted tenant-removal receipt was re-checked on every tick and refused, and the background loop gave up before stepping any tunnel: no drift check finished, and no deploy or decommission moved (the owner's decommission was refused). A receipt is now adopted exactly once; an unadoptable receipt is audited once and fails closed for its own tunnel only.
 - Design records: [ADR-001](docs/roadmap/v0.5.0/ADR-001-operation-evidence-and-truthful-readiness.md), [ADR-002 (C-BAFT capability integration)](docs/roadmap/v0.5.0/ADR-002-c-baft-capability-integration.md), [ADR-003 (public ingress on ordinary servers)](docs/roadmap/v0.5.0/ADR-003-real-host-public-ingress.md), [C-BAFT comparative audit](docs/roadmap/v0.5.0/COMPARATIVE_AUDIT.md).
 
-- Read-only ingress preflight now expires from its persisted creation time across queue dispatch, signed payload and acknowledgement; expired dispatch writes a durable security-audit intent. TCP/2053 is governed by resource ownership and OS bind conflicts instead of a blanket port ban. Existing unrelated listeners remain owned by their services.
+## [0.4.0] - 2026-10-30
 
-Development target: **v0.4.0**, draft PR #270. Not released. See [readiness and upgrade gates](docs/release/v0.4.0-readiness.md).
+See [readiness and upgrade gates](docs/release/v0.4.0-readiness.md).
+
+- Read-only ingress preflight now expires from its persisted creation time across queue dispatch, signed payload and acknowledgement; expired dispatch writes a durable security-audit intent. TCP/2053 is governed by resource ownership and OS bind conflicts instead of a blanket port ban. Existing unrelated listeners remain owned by their services.
 
 ### Added
 

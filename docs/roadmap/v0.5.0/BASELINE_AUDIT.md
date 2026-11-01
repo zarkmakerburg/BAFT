@@ -296,3 +296,42 @@ A new e2e, `tests/e2e/guided_flow.sh` (workflow `guided-flow-e2e.yml`, runs on P
 PR [#296](https://github.com/zarkmakerburg/BAFT/pull/296) carries the three P0 fixes, the probe-queue fix, the flake fix and the guided-flow e2e to `main` (without the v0.5.0 wizard); draft, merge only on owner approval.
 2. One-click "expose on Iran" helper that configures the user's own inbound safely (or documents exact 3X-UI steps per version), since that is today's manual step.
 3. Multi-host LAB (two real VMs) for the guided flow and the speed test.
+
+## 13. Stage 5 — safe host mode proven on real installed agents (2026-11-01)
+
+Owner decisions (ADR-003 §8): Option B, opt-in at install, mandatory latent-claim checks = BAFT inventory + systemd sockets + Xray/3X-UI. Owner advisory of 2026-11-01 (C-BAFT adoption): comparative audit in [COMPARATIVE_AUDIT.md](./COMPARATIVE_AUDIT.md).
+
+### 13.1 Implemented
+
+| Commit | Change |
+|---|---|
+| `2c982c9e` | Policy schema 2 `host-v1`; host execution scope; read-only Xray/3X-UI inbound detector (unknown = refusal, part of the execution pin); `--ingress-profile host-v1`; safe LAB→host policy upgrade (only an init-namespace LAB policy, provably unused); `operational-ingress-host-v1`; BCC `client_port_ack` bound into the plan hash, plan gate and enqueue gate. |
+| `d84ea120` | `install.sh --enable-host-ingress`; Quick Tunnel wizard and classic Tunnel Studio acknowledgement (fa/en, reset on port/server change); guided-flow e2e `host` leg. |
+| `68c99721` | **Defect found by the first host run**: the authority guard (`InstalledPolicyIdentityV1.validFor`) accepted only schema 1, so every host-mode Apply was blocked before any effect. Fixed with a regression test. E2E BCC moved to verified HTTPS (agents send receipts only to `https://`). |
+| `c13c4510` | **Defect found by the second host run (also on `main`)**: after decommissioning one independent tunnel, the next tunnel on the same server failed with "sibling instance has no verifiable config" and ended `rollback_failed`. Retired siblings are recognised; rollback/inspect skip the allocation fence. Regression tests reproduce the exact CI error. Sent to `main` as PR [#298](https://github.com/zarkmakerburg/BAFT/pull/298). |
+
+### 13.2 Evidence (exact SHA)
+
+| Evidence | Result |
+|---|---|
+| `guided-flow-e2e` [41282272962](https://github.com/zarkmakerburg/BAFT/actions/runs/41282272962) on `c13c4510`, leg **host** (job 124776431516) | **success**: IR installed with `--enable-host-ingress` reports `operational-ingress-host-v1` (never the LAB token) and a schema-2 `host-v1` policy → signed probe `FULL_DATA` → auto-select → plan **FAILs** its acknowledgement gate without the acknowledgement and passes with it → deploy → the agent applies an owned listener + owned nft rule → BCC's independent probe makes the port **Ready** → **512 KiB echoed through the public port `HOST_IP:18610`**, the tunnel and the EX service → no pairing secret in `/api/jobs` → decommission retires exactly the owned rule (BAFT's chain stays) and closes the port → a second tunnel whose port an Xray inbound is configured for is built, its public ingress is **refused with the detector's reason**, no rule, nothing listening, Xray config untouched → decommissioned. |
+| same run, leg **manual** (job 124776431296) | **success** (now over verified HTTPS BCC). |
+| `ci` 41280493183 on `2c982c9e`, 41281154613 on `d84ea120` | **success** (includes the BCC acknowledgement-gate tests). |
+| `operational-ingress-v1`, `shared-operational-ingress`, `operational-recovery`, `P0 Public Ingress LAB`, `Delta Ingress Pin LAB`, `BCC UI tests`, `static-analysis` on `2c982c9e` (41280495510, 41280497416, 41280499148, 41280514078, 41280510567, 41280508779, 41280515832) | **success** — the LAB contract is unchanged by the host profile. |
+| Local (Node 22 + Chrome) | JS 167/167; CDP wizard QA 6 runs (en/fa × LAB / manual / host). UI evidence only. |
+
+Scope of the evidence: one GitHub-hosted VM plays both servers (two agents, one kernel). It is a real installed product path with a real public-address listener, firewall rule and client, **not** a two-host or Iran↔abroad network result.
+
+### 13.3 Also done in this stage
+
+- PR [#296](https://github.com/zarkmakerburg/BAFT/pull/296) (three P0s + queue fix + flake fix + guided-flow e2e) merged to `main` as `1288648d` on owner authorisation, after all 25 checks were green on its head. One `ci` attempt failed on an unrelated, previously unseen flake (`TestTopologyCommitDuringRecoveryPrepared`; 15/15 local `-race` passes); the rerun passed. Post-merge workflows on `main`: guided flow, ingress v1, shared ingress, recovery, soak, adversary all **success**.
+- `main` merged back into this branch (ancestry only; tree unchanged).
+
+### 13.4 Still open (truthful)
+
+1. Two-host LAB and a real Iran↔abroad run: not done.
+2. nginx/haproxy/Docker detectors: not implemented (named as unchecked in the acknowledgement).
+3. Host-mode firewall-drop case (provider/host firewall blocks the port → applied but not Ready): not yet an e2e case.
+4. `TestTopologyCommitDuringRecoveryPrepared` flake (seen once in CI) and the `cmd/baft` `tunnel_live_test.go:244` flake: not root-caused.
+5. Merging v0.5.0 into `main` and any tag/release: owner decision.
+

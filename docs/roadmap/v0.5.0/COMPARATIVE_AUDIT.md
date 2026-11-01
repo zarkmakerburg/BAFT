@@ -49,7 +49,7 @@ BAFT already has the control-plane half of the contract the advisory asks for: `
 
 ## 5. What this audit changed in the plan
 
-1. Highest-value slice remains **real-host public ingress** (row 4): it is the product gap users hit first, and C-BAFT offers no safer code for it. Implemented on this branch as ADR-003 safe host mode; its host-mode e2e result is pending and will be recorded in BASELINE_AUDIT.
+1. Highest-value slice remains **real-host public ingress** (row 4): it is the product gap users hit first, and C-BAFT offers no safer code for it. Implemented on this branch as ADR-003 safe host mode and proven end to end on installed agents (BASELINE_AUDIT §13).
 2. **No C-BAFT file qualifies for class A today.** The only clean class-A candidate (XOR FEC) has no consumer until a UDP transport exists.
 3. Any UDP transport must not reuse C-BAFT's static-key AEAD (row 5).
 4. Measured comparisons (latency/jitter/loss, CPU/memory) are owed before rows 6/8/9 are adopted; none are claimed here.

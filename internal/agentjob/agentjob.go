@@ -316,6 +316,11 @@ func (j Job) Validate() error {
 	return nil
 }
 
+// PathProbeSpeedMaxBytes caps one path-probe speed flow (path-probe-speed-v1).
+// The source stops at the time budget or this many bytes, whichever comes
+// first; BCC uses the same figure to recognise a flow that hit the cap.
+const PathProbeSpeedMaxBytes = 64 << 20
+
 // PathProbeTrickleChunk is the size of each trickle write; the sender pauses
 // trickle_ms between chunks.
 const PathProbeTrickleChunk = 1024

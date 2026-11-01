@@ -23,7 +23,7 @@ const maxPathProbeBytes = 1 << 20
 // Speed flows (path-probe-speed-v1) stream for a bounded time and are capped
 // so a probe listener can never be used to absorb unbounded traffic.
 const (
-	maxPathProbeSpeedBytes = 64 << 20
+	maxPathProbeSpeedBytes = agentjob.PathProbeSpeedMaxBytes
 	pathProbeSpeedChunk    = 64 << 10
 )
 

@@ -108,6 +108,10 @@ test('gates are ordered FAIL, WARN, PASS',()=>{
 test('throughput appears only when BCC derived it, in Mbps',()=>{
  assert.equal(qt.probeMetrics({connect_rtt_ms:41,attempts:3,ack_successes:3,throughput_kbps:85400}),'41 ms · 3/3 · ≈ 85 Mbps');
  assert.equal(qt.probeMetrics({throughput_kbps:4200}),'≈ 4.2 Mbps');
+ // A speed flow that hit its byte cap on a fast path is a floor, not an estimate.
+ assert.equal(qt.probeMetrics({throughput_kbps:6972000,throughput_at_least:true}),'≥ 6972 Mbps');
+ // Sub-millisecond connects (stored as 0 ms) are shown, not hidden.
+ assert.equal(qt.probeMetrics({connect_successes:3,attempts:3,ack_successes:3}),'<1 ms · 3/3');
  assert.equal(qt.probeMetrics({throughput_kbps:0}),'');
  assert.equal(qt.mbps(10000),'10');
 });

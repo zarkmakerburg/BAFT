@@ -77,6 +77,9 @@ type PathProbeCandidate struct {
 	// count the destination listener confirmed exactly (path-probe-speed-v1).
 	// It is a single-stream TCP figure for the raw path, not tunnel capacity.
 	ThroughputKbps int64 `json:"throughput_kbps,omitempty"`
+	// ThroughputAtLeast: the speed flow reached its byte cap before its time
+	// budget, so ThroughputKbps is a floor (shown as "≥"), not an estimate.
+	ThroughputAtLeast bool `json:"throughput_at_least,omitempty"`
 }
 
 type PathProbe struct {
@@ -150,14 +153,21 @@ func nodeHasFreshCapability(n Node, ok bool, capability string, now time.Time) b
 }
 
 // probeThroughputKbps derives kbit/s from a speed flow only when the listener
-// confirmed exactly the bytes written, enough data moved and enough time
-// passed for the figure to mean something.
-func probeThroughputKbps(sp *probeSpeedEvidence) int64 {
+// confirmed exactly the bytes written and enough data moved for the figure to
+// mean something: at least 500 ms of transfer, or the whole byte cap. A flow
+// that hit the cap first ended early on a fast path; its rate is then a floor
+// (atLeast). Before this, any path faster than ~1 Gbit/s reported no speed at
+// all (two-host LAB run 41285737947: 64 MiB acknowledged in 77 ms -> 0).
+func probeThroughputKbps(sp *probeSpeedEvidence) (kbps int64, atLeast bool) {
 	if sp == nil || !sp.ACK || sp.Error != "" || sp.AckedBytes != sp.BytesWritten ||
-		sp.BytesWritten < 256<<10 || sp.TransferMS < 500 {
-		return 0
+		sp.BytesWritten < 256<<10 || sp.TransferMS < 1 {
+		return 0, false
 	}
-	return sp.BytesWritten * 8 / sp.TransferMS
+	atCap := sp.BytesWritten >= agentjob.PathProbeSpeedMaxBytes
+	if sp.TransferMS < 500 && !atCap {
+		return 0, false
+	}
+	return sp.BytesWritten * 8 / sp.TransferMS, atCap && sp.TransferMS < int64(sp.Seconds)*1000
 }
 
 type probeListenEvidence struct {
@@ -486,7 +496,7 @@ func classifyPathProbeCandidate(c *PathProbeCandidate, run probeRunEvidence, lis
 	}
 	c.Attempts = len(run.Bulk)
 	c.ConnectSpreadMS = connectSpreadMS(run.Bulk)
-	c.ThroughputKbps = probeThroughputKbps(run.Speed)
+	c.ThroughputKbps, c.ThroughputAtLeast = probeThroughputKbps(run.Speed)
 	c.TricklePassed = run.Trickle.ACK
 	c.Received = append([]int64(nil), listen.Received...)
 	allBulk := len(run.Bulk) > 0 && c.ACKSuccesses == len(run.Bulk)

@@ -120,8 +120,9 @@
   function probeMetrics(c) {
     const out = [];
     if (c.connect_rtt_ms) out.push(c.connect_rtt_ms + ' ms' + (c.connect_spread_ms ? ' ±' + c.connect_spread_ms : ''));
+    else if (c.connect_successes) out.push('<1 ms');
     if (c.attempts) out.push((c.ack_successes || 0) + '/' + c.attempts);
-    if (c.throughput_kbps > 0) out.push('≈ ' + mbps(c.throughput_kbps) + ' Mbps');
+    if (c.throughput_kbps > 0) out.push((c.throughput_at_least ? '≥ ' : '≈ ') + mbps(c.throughput_kbps) + ' Mbps');
     return out.join(' · ');
   }
   function mbps(kbps) { const v = Number(kbps) / 1000; return v >= 10 ? String(Math.round(v)) : v.toFixed(1); }

@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/zarkmakerburg/baft/internal/agentjob"
 )
 
 func newPathProbeStore(t *testing.T) *Store {
@@ -389,18 +391,26 @@ func TestNodePathAddressesAreValidatedAndPreserved(t *testing.T) {
 
 func TestPathProbeThroughputNeedsAnExactlyAcknowledgedSpeedFlow(t *testing.T) {
 	ok := &probeSpeedEvidence{Seconds: 5, BytesWritten: 50_000_000, AckedBytes: 50_000_000, TransferMS: 5000, ACK: true}
-	if got := probeThroughputKbps(ok); got != 80_000 {
-		t.Fatalf("50 MB in 5 s = %d kbps, want 80000", got)
+	if got, floor := probeThroughputKbps(ok); got != 80_000 || floor {
+		t.Fatalf("50 MB in 5 s = %d kbps (floor %v), want 80000 estimate", got, floor)
+	}
+	// A fast path hits the byte cap long before the time budget: report the
+	// measured rate as a floor instead of nothing (two-host LAB evidence).
+	capped := &probeSpeedEvidence{Seconds: 5, BytesWritten: agentjob.PathProbeSpeedMaxBytes, AckedBytes: agentjob.PathProbeSpeedMaxBytes, TransferMS: 77, ACK: true}
+	if got, floor := probeThroughputKbps(capped); got != int64(agentjob.PathProbeSpeedMaxBytes)*8/77 || !floor {
+		t.Fatalf("capped flow: %d kbps floor=%v", got, floor)
 	}
 	for name, sp := range map[string]*probeSpeedEvidence{
-		"missing":     nil,
-		"not acked":   {BytesWritten: 50_000_000, AckedBytes: 50_000_000, TransferMS: 5000},
-		"short count": {BytesWritten: 50_000_000, AckedBytes: 49_000_000, TransferMS: 5000, ACK: true},
-		"error":       {BytesWritten: 50_000_000, AckedBytes: 50_000_000, TransferMS: 5000, ACK: true, Error: "reset"},
-		"too little":  {BytesWritten: 100_000, AckedBytes: 100_000, TransferMS: 5000, ACK: true},
-		"too quick":   {BytesWritten: 1_000_000, AckedBytes: 1_000_000, TransferMS: 100, ACK: true},
+		"missing":            nil,
+		"not acked":          {BytesWritten: 50_000_000, AckedBytes: 50_000_000, TransferMS: 5000},
+		"short count":        {BytesWritten: 50_000_000, AckedBytes: 49_000_000, TransferMS: 5000, ACK: true},
+		"error":              {BytesWritten: 50_000_000, AckedBytes: 50_000_000, TransferMS: 5000, ACK: true, Error: "reset"},
+		"too little":         {BytesWritten: 100_000, AckedBytes: 100_000, TransferMS: 5000, ACK: true},
+		"too quick":          {BytesWritten: 1_000_000, AckedBytes: 1_000_000, TransferMS: 100, ACK: true},
+		"zero time":          {Seconds: 5, BytesWritten: agentjob.PathProbeSpeedMaxBytes, AckedBytes: agentjob.PathProbeSpeedMaxBytes, TransferMS: 0, ACK: true},
+		"capped short count": {Seconds: 5, BytesWritten: agentjob.PathProbeSpeedMaxBytes, AckedBytes: agentjob.PathProbeSpeedMaxBytes - 1, TransferMS: 77, ACK: true},
 	} {
-		if got := probeThroughputKbps(sp); got != 0 {
+		if got, _ := probeThroughputKbps(sp); got != 0 {
 			t.Fatalf("%s: throughput %d must not be reported", name, got)
 		}
 	}

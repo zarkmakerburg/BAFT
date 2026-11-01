@@ -26,7 +26,10 @@ const (
 	pathDiscoveryRetryAfter = 5 * time.Minute
 )
 
-var defaultDiscoveryPorts = []int{22, 80, 443, 8443, 9443, 49152}
+// defaultDiscoveryPorts never includes 22: sshd holds it on practically every
+// server and BAFT never uses it for a tunnel, so probing it only produced a
+// guaranteed "port busy" failure on every automatic discovery.
+var defaultDiscoveryPorts = []int{80, 443, 8443, 9443, 49152}
 
 type PathInventory struct {
 	NodeID string   `json:"node_id"`

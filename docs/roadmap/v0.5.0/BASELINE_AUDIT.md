@@ -373,3 +373,18 @@ Test-harness corrections made while building the LAB (not product defects): BCC 
 - Automatic path discovery includes port 22 in its defaults, which sshd holds on practically every server, so every discovery produces a guaranteed `path_probe_listen` failure; BAFT also refuses 22 for tunnels. Remove 22 from the defaults after integration.
 - Post-recovery throughput variance (34–400 Mbit/s across runs) is worth a dedicated recovery-performance look.
 
+## 15. Stage 7 — integrated into `main` (2026-11-01)
+
+| Event | Evidence |
+|---|---|
+| PR [#298](https://github.com/zarkmakerburg/BAFT/pull/298) merged (owner-authorised) | `88de0f44`; 22/22 checks green on head `2a0b95a4` |
+| v0.5.0 → `main` PR [#299](https://github.com/zarkmakerburg/BAFT/pull/299) | **30/30 check runs success on its exact head `7f31d36c`**: full `ci` (unit/integration, install/release/offline/SSH install, uninstall, launch1, agent enroll, BCC install and schema upgrade, installer faults, LAB acceptance, release dry run, third-party licences), `check` + `gosec`, BCC UI `browser`, ingress v1, shared ingress, recovery, `r3`, guided flow manual + host, Two-host LAB (push and pull_request). Two-host LAB on that head: run [41287057999](https://github.com/zarkmakerburg/BAFT/actions/runs/41287057999) — baseline 16 MiB intact ≈ 354 Mbit/s echo, RTT p50 0.9 ms; 40±10 ms + 1 % loss intact, RTT p50 138 ms; traffic flowed immediately after a 20 s link cut; exact decommission. |
+| #299 merged by the owner | merge commit `efebaa8e` (2026-11-01T09:57:41Z) |
+| Post-merge workflows on `main` (`efebaa8e`) | `ci`, Guided tunnel flow E2E, operational ingress v1, shared operational ingress, operational recovery, advanced-adversary, adversary-soak: **success**. Two-host LAB dispatched on `main`: run [41301062884](https://github.com/zarkmakerburg/BAFT/actions/runs/41301062884) (result recorded on Issue #67 when complete). |
+
+Not done and not claimed: any tag/release/deploy; an Iran↔abroad Internet run; host-mode firewall-drop e2e case.
+
+### 15.1 First follow-up after integration (branch `codex/post-v050-followups`)
+
+- Path discovery and the classic manual probe no longer use port 22 by default, and a probe request for 22 is refused with a clear reason (sshd holds it on practically every server and BAFT never tunnels on it, so it only produced a guaranteed "port busy" failure — seen in the two-host LAB journal).
+

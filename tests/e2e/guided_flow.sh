@@ -39,7 +39,11 @@ COMMIT="$(python3 -c 'import json,base64,sys;e=json.load(open(sys.argv[1]));prin
 case "$(uname -m)" in x86_64) ARCH=amd64 ;; aarch64) ARCH=arm64 ;; *) echo "unsupported arch"; exit 1 ;; esac
 WORK="$(mktemp -d)"
 PIDS=()
-BCC=http://127.0.0.1:18300
+# BCC is served over real HTTPS (throwaway CA in the system trust store),
+# exactly like production: agents send authenticated ingress receipts only to
+# a direct https:// BCC origin.
+BCC=https://127.0.0.1:18300
+E2E_CA=/usr/local/share/ca-certificates/baft-guided-e2e.crt
 EX_PORT=18543        # BAFT inter-server port on EX (tested, then auto-selected)
 TARGET_PORT=2543     # EX service destination (echo)
 UNITS=(baft-agent-gfex baft-agent-gfir)
@@ -79,6 +83,7 @@ cleanup() {
   fi
   for p in "${PIDS[@]}"; do kill "$p" 2>/dev/null || true; done
   [[ -f "$WORK/xray-created" ]] && rm -f "$XRAY_CFG" && rmdir /usr/local/etc/xray 2>/dev/null
+  [[ -f "$WORK/ca-installed" ]] && rm -f "$E2E_CA" && update-ca-certificates --fresh >/dev/null 2>&1
   exit "$rc"
 }
 trap cleanup EXIT
@@ -127,14 +132,30 @@ cp "$REL"/dist/* "$WORK/www/$VERSION/"
 cp "$REL/revocations.json" "$WORK/www/"
 (cd "$WORK/www" && exec python3 -m http.server 18301 --bind 127.0.0.1) >"$WORK/www.log" 2>&1 & PIDS+=($!)
 
-log "BCC (the release's own baft-bcc binary)"
+log "BCC TLS: throwaway CA in the system trust store, certificate for 127.0.0.1"
+command -v openssl >/dev/null && command -v update-ca-certificates >/dev/null || fail "openssl and update-ca-certificates are required"
+[[ -e "$E2E_CA" ]] && fail "refusing to overwrite an existing $E2E_CA"
+openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -days 1 -subj "/CN=BAFT guided e2e CA" \
+  -addext "basicConstraints=critical,CA:TRUE" -addext "keyUsage=critical,keyCertSign" \
+  -keyout "$WORK/ca.key" -out "$WORK/ca.crt" >/dev/null 2>&1 || fail "CA generation failed"
+openssl req -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -subj "/CN=127.0.0.1" \
+  -keyout "$WORK/bcc.key" -out "$WORK/bcc.csr" >/dev/null 2>&1 || fail "BCC key generation failed"
+printf 'subjectAltName=IP:127.0.0.1\nextendedKeyUsage=serverAuth\nbasicConstraints=critical,CA:FALSE\n' >"$WORK/bcc.ext"
+openssl x509 -req -in "$WORK/bcc.csr" -CA "$WORK/ca.crt" -CAkey "$WORK/ca.key" -CAcreateserial -days 1 \
+  -extfile "$WORK/bcc.ext" -out "$WORK/bcc.crt" >/dev/null 2>&1 || fail "BCC certificate signing failed"
+chmod 600 "$WORK/bcc.key"
+install -m 0644 "$WORK/ca.crt" "$E2E_CA" && touch "$WORK/ca-installed"
+update-ca-certificates >/dev/null 2>&1 || fail "update-ca-certificates failed"
+
+log "BCC (the release's own baft-bcc binary) on https://127.0.0.1:18300"
 BCC_BIN="$WORK/baft-bcc"; install -m 0755 "$REL/dist/baft-bcc-linux-$ARCH" "$BCC_BIN"
 echo admintok >"$WORK/admin.token"; chmod 600 "$WORK/admin.token"
 "$BCC_BIN" access init --access-file "$WORK/s.json.access.json" >/dev/null
 TOK_EX="$(head -c 24 /dev/urandom | base64 | tr -d '/+=')"; TOK_IR="$(head -c 24 /dev/urandom | base64 | tr -d '/+=')"
 TOK_EX="$TOK_EX" TOK_IR="$TOK_IR" "$BCC_BIN" --admin-token-file "$WORK/admin.token" --state-file "$WORK/s.json" \
-  --listen 127.0.0.1:18300 >"$WORK/bcc.log" 2>&1 & PIDS+=($!)
+  --listen 127.0.0.1:18300 --tls-cert "$WORK/bcc.crt" --tls-key "$WORK/bcc.key" >"$WORK/bcc.log" 2>&1 & PIDS+=($!)
 for _ in $(seq 1 30); do api -o /dev/null "$BCC/api/nodes" 2>/dev/null && break; sleep 1; done
+api -o /dev/null "$BCC/api/nodes" || fail "BCC is not reachable over verified HTTPS: $(tail -n 5 "$WORK/bcc.log" | tr '\n' ' ')"
 JOB_KEY="$("$BCC_BIN" jobkey show --job-key-file "$WORK/s.json.job-key")"
 post /api/nodes '{"ID":"ex-gf","Alias":"EX","Address":"127.0.0.1:22","Role":"foreign","AgentTokenEnv":"TOK_EX"}' >/dev/null
 post /api/nodes "{\"ID\":\"ir-gf\",\"Alias\":\"IR\",\"Address\":\"$HOST_IP:22\",\"Role\":\"worker\",\"AgentTokenEnv\":\"TOK_IR\"}" >/dev/null

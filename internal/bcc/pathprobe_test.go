@@ -138,7 +138,9 @@ func TestPathProbeDetectsRepeatedByteCeiling(t *testing.T) {
 func TestPathProbeOccupiedPortIsSkippedWithoutSourceJob(t *testing.T) {
 	s := newPathProbeStore(t)
 	now := time.Now().UTC()
-	p := startOnePathProbe(t, s, 22)
+	// 2053: an unrelated service already listens there on the destination.
+	// (22 is no longer probed at all: TestPathProbePortsNeverIncludeSSH.)
+	p := startOnePathProbe(t, s, 2053)
 	if err := s.AckJobOutput("dst", "tok-dst", p.JobID, "failed", "path probe listen: bind: address already in use", ""); err != nil {
 		t.Fatal(err)
 	}
@@ -467,5 +469,25 @@ func TestPathProbeRequestsSpeedOnlyWhenBothAgentsAdvertiseIt(t *testing.T) {
 				t.Fatalf("speed_seconds=%q present=%v, want present=%v", got, has, tc.want)
 			}
 		})
+	}
+}
+
+// Port 22 is SSH management on practically every server and never a BAFT
+// tunnel port: probing it only produced a guaranteed "busy" failure on every
+// automatic discovery (two-host LAB journal). It is neither a default nor
+// accepted on request.
+func TestPathProbePortsNeverIncludeSSH(t *testing.T) {
+	for _, p := range defaultDiscoveryPorts {
+		if p == 22 {
+			t.Fatal("automatic discovery probes the SSH port")
+		}
+	}
+	for _, in := range [][]int{{22}, {22, 443}} {
+		if _, err := validateProbePorts(in); err == nil || !strings.Contains(err.Error(), "SSH") {
+			t.Fatalf("%v: want an SSH refusal, got %v", in, err)
+		}
+	}
+	if got, err := validateProbePorts([]int{8443, 443}); err != nil || len(got) != 2 || got[0] != 443 {
+		t.Fatalf("ordinary ports: %v %v", got, err)
 	}
 }

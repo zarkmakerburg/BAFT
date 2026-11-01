@@ -231,6 +231,9 @@ func validateProbePorts(in []int) ([]int, error) {
 		if p < 1 || p > 65535 {
 			return nil, fmt.Errorf("invalid candidate port %d", p)
 		}
+		if p == 22 {
+			return nil, errors.New("port 22 is reserved for SSH management; BAFT never uses it for a tunnel, so it is not tested")
+		}
 		if seen[p] {
 			continue
 		}

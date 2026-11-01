@@ -220,17 +220,26 @@ done
   || fail "connection test across the guests did not prove FULL_DATA: $(printf '%s' "$PROBE" | head -c 1500)"
 record probe "$(printf '%s' "$PROBE" | python3 -c 'import json,sys;c=json.load(sys.stdin)["candidates"][0];print(json.dumps({k:c.get(k) for k in ("port","class","connect_rtt_ms","connect_spread_ms","attempts","ack_successes","throughput_kbps")}))')"
 
-# The agent's own speed evidence for the probe (requested? what was measured?).
+# The agent's own speed evidence for the probe. /api/jobs deliberately wipes
+# job output, so read the run job read-only from BCC's state database.
 RUNJOB="$(printf '%s' "$PROBE" | jget candidates 0 run_job_id)"
-record probe_speed "$(get /api/jobs | python3 -c 'import json,sys
-jid=sys.argv[1]
-for j in json.load(sys.stdin):
-    if j.get("id")!=jid: continue
-    out={"requested": "speed_seconds" in (j.get("params") or {}), "status": j.get("status")}
-    try: out["speed"]=json.loads(j.get("output") or "{}").get("speed")
-    except ValueError: out["output_head"]=(j.get("output") or "")[:300]
-    print(json.dumps(out)); break
-else: print(json.dumps({"run_job": jid, "found": False}))' "$RUNJOB")"
+record probe_speed "$(python3 - "$WORK/s.json" "$RUNJOB" <<'PY'
+import json, sqlite3, sys
+db = sqlite3.connect("file:" + sys.argv[1] + "?mode=ro", uri=True)
+row = db.execute("SELECT doc FROM jobs WHERE id = ?", (sys.argv[2],)).fetchone()
+if not row:
+    print(json.dumps({"run_job": sys.argv[2], "found": False})); sys.exit()
+j = json.loads(row[0])
+out = {"requested": "speed_seconds" in (j.get("params") or {}), "status": j.get("status")}
+try:
+    ev = json.loads(j.get("output") or "{}")
+    out["speed"] = ev.get("speed")
+    out["bulk_connect_ms"] = [f.get("connect_ms") for f in ev.get("bulk") or []]
+except ValueError:
+    out["output_head"] = (j.get("output") or "")[:300]
+print(json.dumps(out))
+PY
+)"
 log "probe speed evidence: $(python3 -c 'import json,sys;print(json.dumps(json.load(open(sys.argv[1])).get("probe_speed")))' "$SUMMARY")"
 
 log "step 2 — evidence-checked auto-select"

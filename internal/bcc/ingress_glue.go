@@ -312,7 +312,11 @@ func (s *Store) ingressOperationalStateBase(tunnelID string, now time.Time) *Ing
 		st.State, st.JobID = "retiring", op.RetireCommand.JobID
 	case op.Dispatch.Phase == ingressPhaseHeld:
 		st.State = "held"
-		st.Reason = "waiting for the IR node agent to report " + IngressCapabilityOperationalV1
+		// Agents report this capability only where Apply can run (today the
+		// isolated LAB namespace), so on an ordinary server this never clears:
+		// say so instead of implying it is merely pending.
+		st.Reason = "the IR node agent does not report " + IngressCapabilityOperationalV1 +
+			"; automatic public ingress currently runs only in the isolated LAB namespace. The tunnel works: point a public inbound or port forward on the IR at its route listener"
 		if s.ingressEnqueueGateLocked(tunnelID, now) == nil {
 			st.Reason = "gate open; enqueue pending"
 		}

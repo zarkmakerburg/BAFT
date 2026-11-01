@@ -40,6 +40,7 @@ func hostIngressDeps(logf func(string, ...any)) ingressDeps {
 			_, err := ingressinventory.LoadInstalledManagedNodePolicy(ctx, nodeID)
 			return err
 		},
+		CheckScope: ingressinventory.CheckManagedExecutionScope,
 		OpenStore: func(stateDir string) (*ingressauthority.ReservationStore, error) {
 			dir, err := privateSubdir(stateDir, "ingress-authority")
 			if err != nil {

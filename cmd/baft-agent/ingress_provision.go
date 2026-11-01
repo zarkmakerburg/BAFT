@@ -15,6 +15,11 @@ import (
 type ingressDeps struct {
 	// LoadPolicy loads and verifies the installed managed node policy for nodeID.
 	LoadPolicy func(ctx context.Context, nodeID string) error
+	// CheckScope verifies the agent runs where operational ingress is
+	// supported at all (the isolated loopback-only LAB namespace). A host
+	// agent in the init namespace fails here, so it never advertises a
+	// capability every Apply would refuse.
+	CheckScope func(ctx context.Context) error
 	// OpenStore opens the private reservation store (0700, owned by euid).
 	OpenStore func(stateDir string) (*ingressauthority.ReservationStore, error)
 	// OpenJournal opens the private durable mutation journal.
@@ -40,12 +45,15 @@ func buildIngressOperational(ctx context.Context, nodeID, stateDir string, d ing
 	if logf == nil {
 		logf = func(string, ...any) {}
 	}
-	if ctx == nil || nodeID == "" || stateDir == "" || d.LoadPolicy == nil || d.OpenStore == nil ||
+	if ctx == nil || nodeID == "" || stateDir == "" || d.LoadPolicy == nil || d.CheckScope == nil || d.OpenStore == nil ||
 		d.OpenJournal == nil || d.RecoverJournal == nil || d.ChainHandle == nil {
 		return nil, errors.New("ingress provisioning is not fully wired")
 	}
 	if err := d.LoadPolicy(ctx, nodeID); err != nil {
 		return nil, fmt.Errorf("installed managed node policy: %w", err)
+	}
+	if err := d.CheckScope(ctx); err != nil {
+		return nil, fmt.Errorf("unsupported execution scope (public ingress automation currently runs only in the isolated LAB namespace): %w", err)
 	}
 	store, err := d.OpenStore(stateDir)
 	if err == nil && store == nil {

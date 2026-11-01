@@ -148,7 +148,11 @@ for _ in $(seq 1 15); do
   sleep 2
 done
 [[ -n "$SEL" ]] || fail "auto-select refused fresh FULL_DATA evidence: $AUTO"
-[[ "$(printf '%s' "$SEL" | jget port)" == "$EX_PORT" ]] || fail "auto-select picked another port: $SEL"
+[[ "$(printf '%s' "$SEL" | jget class)" == FULL_DATA && "$(printf '%s' "$SEL" | jget state)" == PASS ]] || fail "auto-select chose a port without fresh FULL_DATA: $SEL"
+# Like the wizard, use whatever port the evidence check selected: automatic
+# path discovery may have proven another port (e.g. 8443) on the same pair.
+EX_PORT="$(printf '%s' "$SEL" | jget port)"
+log "auto-select chose EX port $EX_PORT"
 
 log "step 3 — reviewed plan, exactly as the wizard builds it"
 REQ="$(python3 - "$SEL" "$EX_PORT" "$CLIENT_PORT" "$TARGET_PORT" <<'PY'

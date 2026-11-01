@@ -196,9 +196,12 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       await dlg.locator('[data-k=ex]').selectOption('qa-ex');
       await dlg.locator('[data-k=next]').click();
       await dlg.locator('[data-k=servicePort]').fill('2096');
-      assert.equal(await dlg.locator('[data-k=next]').isDisabled(),true,'public ingress consent is required');
-      await dlg.locator('[data-k=consent]').click();
-      assert.equal(await dlg.locator('[data-k=consent]').isChecked(),true);
+      // The fixture IR agent does not advertise operational-ingress-v1, so the
+      // wizard must not promise a public port: no consent box, an explicit
+      // note on how to reach the tunnel instead (v0.5.0 truthful readiness).
+      assert.equal(await dlg.locator('[data-k=consent]').count(),0,'no public-port consent without the IR capability');
+      await dlg.locator('[data-k=manualLead]').waitFor({state:'visible'});
+      assert.equal(await dlg.locator('[data-k=next]').isDisabled(),false);
       await dlg.locator('[data-k=next]').click();
       await dlg.locator('[data-k=runTest]').waitFor({state:'visible'});
       assert.equal(await dlg.locator('[data-k=next]').isDisabled(),true,'no tunnel port without test evidence or an explicit choice');

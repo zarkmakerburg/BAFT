@@ -6,16 +6,21 @@
 # install.sh --agent-only from a signed release of this commit, on one
 # throwaway systemd host that plays both servers:
 #
-#   connection test (signed path probe, IR -> EX) -> evidence-checked
-#   auto-select -> reviewed plan with a public client port -> deploy by
-#   plan hash -> tunnel active -> operational public ingress applied and
-#   independently verified by BCC (ingress.ready) -> real client traffic
-#   through the public port, the tunnel and the EX service -> decommission
-#   -> public port closed again -> no pairing secret listed.
+#   install with --provision-ingress-policy -> truthful capability (a host
+#   agent in the init network namespace must NOT advertise
+#   operational-ingress-v1: public ingress Apply supports only the isolated
+#   LAB namespace) -> connection test (signed path probe, IR -> EX, must be
+#   FULL_DATA) -> evidence-checked auto-select -> reviewed plan WITHOUT a
+#   public client port (what the wizard sends when the IR lacks the
+#   capability) -> deploy by plan hash -> tunnel active and "ready" with no
+#   pending ingress -> real client traffic through the tunnel entry on the IR,
+#   the tunnel and the EX service -> no pairing secret listed ->
+#   decommission -> tunnel entry closed again.
 #
-# The IR node is registered with this host's non-loopback address because
-# BCC's ingress observer refuses loopback by design. Nothing here is a
-# multi-host or physical LAB result: both "servers" share one kernel.
+# Automatic public ingress itself is covered by the isolated-namespace LAB
+# workflows (operational-ingress-v1, shared-operational-ingress, P0 LAB).
+# Nothing here is a multi-host or physical LAB result: both "servers" share
+# one kernel.
 #
 #   sudo tests/e2e/guided_flow.sh <release-dir from local_release.sh>
 set -Eeuo pipefail
@@ -29,7 +34,6 @@ WORK="$(mktemp -d)"
 PIDS=()
 BCC=http://127.0.0.1:18300
 EX_PORT=18543        # BAFT inter-server port on EX (tested, then auto-selected)
-CLIENT_PORT=24443    # public client port on IR (operational ingress)
 TARGET_PORT=2543     # EX service destination (echo)
 UNITS=(baft-agent-gfex baft-agent-gfir)
 log() { printf '[guided] %s\n' "$*"; }
@@ -140,14 +144,22 @@ enroll ir "$TOK_IR" 9392 --provision-ingress-policy
 caps() { get /api/nodes | python3 -c 'import json,sys
 for n in json.load(sys.stdin):
     if n.get("ID",n.get("id"))==sys.argv[1]: print(",".join(n.get("capabilities") or []))' "$1"; }
-log "both agents report fresh capabilities; IR must report operational-ingress-v1"
+log "both agents report fresh capabilities; a host IR agent must NOT claim operational-ingress-v1"
 for _ in $(seq 1 60); do
   IRC="$(caps ir-gf)"; EXC="$(caps ex-gf)"
-  [[ ",$IRC," == *",operational-ingress-v1,"* && -n "$EXC" ]] && break
-  sleep 2
+  [[ -n "$IRC" && -n "$EXC" ]] && break
+  sleep 3
 done
 log "IR capabilities: ${IRC:-none}; EX capabilities: ${EXC:-none}"
-[[ ",$IRC," == *",operational-ingress-v1,"* ]] || fail "IR agent never reported operational-ingress-v1 (installed policy / chain / journal not usable): $(journalctl -u baft-agent-gfir -n 20 --no-pager | grep -i ingress | tail -n 5 | tr '\n' ' ')"
+[[ -n "$IRC" && -n "$EXC" ]] || fail "agents never reported capabilities"
+[[ ",$IRC," != *",operational-ingress-v1,"* ]] || fail "host IR agent advertises operational-ingress-v1 although every Apply refuses the init network namespace"
+journalctl -u baft-agent-gfir --no-pager -o cat | grep -q 'unsupported execution scope' \
+  || fail "IR agent did not log why operational ingress is off: $(journalctl -u baft-agent-gfir -n 20 --no-pager -o cat | grep -i ingress | tail -n 3 | tr '\n' ' ')"
+# The policy was provisioned BEFORE the agent started (install.sh order fix):
+# the reason must be the execution scope, not a missing policy file.
+if journalctl -u baft-agent-gfir --no-pager -o cat | grep 'operational ingress disabled' | grep -q 'no such file'; then
+  fail "agent started before install.sh provisioned the ingress policy"
+fi
 
 python3 tests/e2e/echo.py serve "$TARGET_PORT" >"$WORK/target.log" 2>&1 & PIDS+=($!)
 sleep 1
@@ -181,13 +193,13 @@ done
 EX_PORT="$(printf '%s' "$SEL" | jget port)"
 log "auto-select chose EX port $EX_PORT"
 
-log "step 3 — reviewed plan, exactly as the wizard builds it"
-REQ="$(python3 - "$SEL" "$EX_PORT" "$CLIENT_PORT" "$TARGET_PORT" <<'PY'
+log "step 3 — reviewed plan, exactly as the wizard builds it for an IR without automatic public ingress"
+REQ="$(python3 - "$SEL" "$EX_PORT" "$TARGET_PORT" <<'PY'
 import json, sys
 sel = json.loads(sys.argv[1])
 print(json.dumps({
-    "ex_node": "ex-gf", "ir_node": "ir-gf", "port": int(sys.argv[2]), "client_port": int(sys.argv[3]),
-    "target": "127.0.0.1:" + sys.argv[4], "instance_id": "baft-gf-e2e",
+    "ex_node": "ex-gf", "ir_node": "ir-gf", "port": int(sys.argv[2]),
+    "target": "127.0.0.1:" + sys.argv[3], "instance_id": "baft-gf-e2e",
     "route_listen": "127.0.0.1:1444", "ex_metrics_listen": "127.0.0.1:9202", "ir_metrics_listen": "127.0.0.1:9302",
     "auto_select_evidence": sel,
 }, separators=(",", ":")))
@@ -214,21 +226,15 @@ for _ in $(seq 1 120); do
 done
 [[ "$phase" == active ]] || fail "tunnel ended as '$phase'"
 
-log "step 5 — public ingress must be applied and independently verified (ingress.ready)"
-ING=""
-for _ in $(seq 1 120); do
-  ING="$(get "/api/tunnels?id=$T" | jget ingress)"
-  [[ "$(printf '%s' "${ING:-null}" | jget ready)" == True ]] && break
-  case "$(printf '%s' "${ING:-null}" | jget state)" in failed|blocked) break ;; esac
-  sleep 3
-done
-log "ingress: ${ING:-none}"
-[[ "$(printf '%s' "${ING:-null}" | jget ready)" == True ]] || fail "operational public ingress never became ready: ${ING:-no ingress state}"
-nft list table inet baft >"$WORK/nft-applied.txt" 2>&1 || fail "the owned nft table is missing after apply"
-grep -q "$CLIENT_PORT" "$WORK/nft-applied.txt" || fail "no owned firewall rule for client port $CLIENT_PORT"
+log "step 5 — truthful readiness: nothing pending, no public ingress staged"
+TJSON="$(get "/api/tunnels?id=$T")"
+[[ -z "$(printf '%s' "$TJSON" | jget client_port)" ]] || fail "a public client port was planned although none was requested: $TJSON"
+[[ -z "$(printf '%s' "$TJSON" | jget ingress)" ]] || fail "public ingress was staged for a tunnel without a client port: $TJSON"
+ROUTE="$(printf '%s' "$TJSON" | jget route_listen)"
+[[ "$ROUTE" == 127.0.0.1:1444 ]] || fail "unexpected tunnel entry on IR: '$ROUTE'"
 
-log "step 6 — a real client through the public port, the tunnel and the EX service"
-python3 - "$HOST_IP" "$CLIENT_PORT" <<'PY' || fail "client traffic through public ingress failed"
+log "step 6 — a real client through the tunnel entry on the IR, the tunnel and the EX service"
+python3 - "${ROUTE%:*}" "${ROUTE##*:}" <<'PY' || fail "client traffic through the tunnel failed"
 import os, socket, sys, time
 host, port = sys.argv[1], int(sys.argv[2])
 for attempt in range(15):
@@ -252,7 +258,7 @@ PY
 
 if get /api/jobs | grep -qE 'BAFTPAIR1:|BAFTREPLY1:'; then fail "a pairing code is listed by /api/jobs"; fi
 
-log "step 7 — decommission; the public port must close and the owned rule go away"
+log "step 7 — decommission; the tunnel entry must close"
 DPLAN="$(post /api/tunnels/decommission/plan "{\"id\":\"$T\"}")"
 DHASH="$(printf '%s' "$DPLAN" | jget hash)"
 [[ -n "$DHASH" ]] || fail "no decommission plan: $DPLAN"
@@ -265,10 +271,9 @@ done
 [[ "$phase" == decommissioned ]] || fail "decommission ended as '$phase': $(get "/api/tunnels?id=$T" | head -c 2000)"
 closed=0
 for _ in $(seq 1 30); do
-  if ! python3 -c 'import socket,sys;socket.create_connection((sys.argv[1],int(sys.argv[2])),timeout=2)' "$HOST_IP" "$CLIENT_PORT" 2>/dev/null; then closed=1; break; fi
+  if ! python3 -c 'import socket,sys;socket.create_connection((sys.argv[1],int(sys.argv[2])),timeout=2)' "${ROUTE%:*}" "${ROUTE##*:}" 2>/dev/null; then closed=1; break; fi
   sleep 2
 done
-[[ "$closed" == 1 ]] || fail "public port $CLIENT_PORT still accepts connections after decommission: ingress=$(get "/api/tunnels?id=$T" | jget ingress)"
-if nft list table inet baft 2>/dev/null | grep -q "dport $CLIENT_PORT"; then fail "owned firewall rule for $CLIENT_PORT survived decommission"; fi
+[[ "$closed" == 1 ]] || fail "tunnel entry $ROUTE still accepts connections after decommission"
 
-log "PASS: connection test -> auto-select -> plan -> deploy -> verified public ingress -> client traffic -> clean decommission"
+log "PASS: truthful capability -> connection test (FULL_DATA) -> auto-select -> plan -> deploy -> ready -> client traffic -> clean decommission"

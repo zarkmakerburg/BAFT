@@ -13,7 +13,7 @@ fs.mkdirSync(out, { recursive: true });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const CSRF = 'qa-csrf-token';
 
-function mockBCC() {
+function mockBCC(auto) {
   const now = () => new Date().toISOString();
   const log = [];
   let probePolls = 0, tunnelPolls = 0, created = null;
@@ -40,7 +40,7 @@ function mockBCC() {
       if (req.method !== 'GET' && entry.csrf !== CSRF) return send(403, { error: 'csrf' });
       const p = u.pathname.slice(5);
       if (p === 'nodes') return send(200, [
-        { id: 'ir-1', alias: 'Tehran-1', role: 'worker', agent_seen: now() },
+        { id: 'ir-1', alias: 'Tehran-1', role: 'worker', agent_seen: now(), capabilities: auto ? ['carrier-h2', 'operational-ingress-v1'] : ['carrier-h2'] },
         { id: 'ir-2', alias: 'Mashhad', role: 'worker', agent_seen: '2020-01-01T00:00:00Z' },
         { id: 'ex-1', alias: 'Frankfurt', role: 'foreign', agent_seen: now() },
         { id: 'old', role: 'foreign', revoked: true },
@@ -58,11 +58,11 @@ function mockBCC() {
       }
       if (p === 'tunnels/auto-select') return send(200, { selected: { port: 443, carrier_id: 'h2', connect_rtt_ms: 41, source_node: entry.body.ir_node, destination_node: entry.body.ex_node, family: entry.body.family }, rejected: [] });
       if (p === 'tunnels/plan') return send(200, { hash: 'plan-hash-1', ok: true, request: entry.body, gates: [{ name: 'agents fresh', status: 'PASS', detail: 'both agents reported recently' }, { name: 'port 443 free on EX', status: 'PASS', detail: '' }, { name: 'legacy tunnel on IR', status: 'WARN', detail: 'an older tunnel exists; it is kept' }], steps: ['EX: stage config generation 1', 'IR: pair with EX', 'Both: health check, then finalize'], nodes: [] });
-      if (p === 'tunnels' && req.method === 'POST') { created = { id: 't-qa-1', phase: 'preparing_ex', ex_node: entry.body.ex_node, ir_node: entry.body.ir_node, port: entry.body.port, client_port: entry.body.client_port }; return send(202, created); }
+      if (p === 'tunnels' && req.method === 'POST') { created = { id: 't-qa-1', phase: 'preparing_ex', ex_node: entry.body.ex_node, ir_node: entry.body.ir_node, port: entry.body.port, client_port: entry.body.client_port, route_listen: entry.body.route_listen }; return send(202, created); }
       if (p === 'tunnels' && req.method === 'GET') {
         tunnelPolls++;
         const phase = phases[Math.min(tunnelPolls, phases.length - 1)];
-        const ingress = phase === 'active' ? (tunnelPolls >= phases.length - 1 ? { state: 'applied', ready: true } : { state: 'queued', ready: false }) : undefined;
+        const ingress = phase === 'active' && created.client_port ? (tunnelPolls >= phases.length - 1 ? { state: 'applied', ready: true } : { state: 'queued', ready: false }) : undefined;
         return send(200, Object.assign({}, created, { phase, ingress }));
       }
       return send(404, { error: 'unexpected ' + p });
@@ -78,13 +78,13 @@ async function connect(url) {
   return { close: () => ws.close(), send: (method, params = {}) => new Promise((resolve, reject) => { const id = ++serial; pending.set(id, { resolve, reject }); ws.send(JSON.stringify({ id, method, params })); }) };
 }
 
-async function run(lang, width, height, scheme) {
-  const { server, log } = mockBCC();
+async function run(lang, width, height, scheme, auto = true) {
+  const { server, log } = mockBCC(auto);
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   const base = 'http://127.0.0.1:' + server.address().port + '/';
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'qt-chrome-'));
   const chrome = spawn(process.env.CHROME || 'google-chrome', ['--headless=new', '--no-sandbox', '--disable-gpu', '--remote-debugging-port=0', '--user-data-dir=' + dir, '--no-first-run', 'about:blank'], { stdio: 'ignore' });
-  const name = lang + '-' + width + '-' + scheme, shots = [];
+  const name = lang + '-' + width + '-' + scheme + (auto ? '' : '-manual'), shots = [];
   try {
     const portFile = path.join(dir, 'DevToolsActivePort');
     for (let i = 0; i < 100 && !fs.existsSync(portFile); i++) await sleep(100);
@@ -112,11 +112,19 @@ async function run(lang, width, height, scheme) {
     await set('ir', 'ir-1'); await set('ex', 'ex-1'); await shot('1-servers');
     await click('next');
     await until("!!document.querySelector('[data-k=servicePort]')", 'service step');
-    await set('servicePort', '22'); assert.match(await text(), /SSH/);
-    await set('servicePort', '2053'); assert.match(await text(), /already uses|از این پورت استفاده/, 'client port collision with live tunnel on ir-1');
-    await set('servicePort', '2096');
-    assert.equal(await ev("document.querySelector('[data-k=next]').disabled"), true, 'consent required');
-    await click('consent'); await shot('2-service');
+    if (auto) {
+      await set('servicePort', '22'); assert.match(await text(), /SSH/);
+      await set('servicePort', '2053'); assert.match(await text(), /already uses|از این پورت استفاده/, 'client port collision with live tunnel on ir-1');
+      await set('servicePort', '2096');
+      assert.equal(await ev("document.querySelector('[data-k=next]').disabled"), true, 'consent required');
+      await click('consent');
+    } else {
+      await set('servicePort', '2096');
+      assert.equal(await ev("!!document.querySelector('[data-k=consent]')"), false, 'no public-port consent without the IR capability');
+      assert.equal(await ev("!!document.querySelector('[data-k=manualLead]')"), true, 'explains how the tunnel is reached instead');
+      assert.equal(await ev("document.querySelector('[data-k=next]').disabled"), false);
+    }
+    await shot('2-service');
     await click('next');
     await until("!!document.querySelector('[data-k=runTest]')", 'test step');
     assert.equal(await ev("document.querySelector('[data-k=next]').disabled"), true, 'no port without test or manual choice');
@@ -134,18 +142,21 @@ async function run(lang, width, height, scheme) {
     await until("document.querySelectorAll('.qt-gate').length===3", 'plan gates');
     assert.deepEqual(await ev("[...document.querySelectorAll('.qt-gate')].map(g=>g.dataset.status)"), ['WARN', 'PASS', 'PASS'], 'gates ordered FAIL/WARN/PASS');
     assert.match(await text(), /Tehran-1 \(ir-1\)/, 'route shows server names');
+    if (!auto) assert.match(await text(), /127\.0\.0\.1:1445/, 'review shows the tunnel entry on the Iran server');
     await shot('5-review');
     await click('deploy');
-    await until("document.querySelectorAll('.qt-p').length===7", 'progress');
+    const steps = auto ? 7 : 6;
+    await until("document.querySelectorAll('.qt-p').length===" + steps, 'progress');
     await shot('6-deploying');
-    await until("document.querySelectorAll('.qt-p-done').length===7", 'ready', 60000);
-    assert.match(await text(), /every required check passed|همهٔ بررسی‌های لازم موفق/);
+    await until("document.querySelectorAll('.qt-p-done').length===" + steps, 'ready', 60000);
+    assert.match(await text(), auto ? /every required check passed|همهٔ بررسی‌های لازم موفق/ : /127\.0\.0\.1:1445/);
     await shot('7-done');
     const post = p => log.filter(x => x.method === 'POST' && x.path === '/api/' + p);
     assert.ok(log.filter(x => x.method === 'POST').every(x => x.csrf === CSRF), 'every write carries CSRF');
     assert.deepEqual(post('path-probes')[0].body, { source_node: 'ir-1', destination_node: 'ex-1', family: '4', candidate_ports: [443, 2053, 2083, 2087, 2096, 9443] });
     const plan = post('tunnels/plan')[0].body;
-    assert.equal(plan.port, 443); assert.equal(plan.client_port, 2096); assert.equal(plan.target, '127.0.0.1:2096');
+    assert.equal(plan.port, 443); assert.equal(plan.target, '127.0.0.1:2096');
+    if (auto) assert.equal(plan.client_port, 2096); else assert.equal('client_port' in plan, false, 'no public port requested without the IR capability');
     assert.equal(plan.route_listen, '127.0.0.1:1445', 'route listener must skip the live tunnel');
     assert.equal(plan.ex_metrics_listen, '127.0.0.1:9203'); assert.equal(plan.ir_metrics_listen, '127.0.0.1:9303');
     assert.match(plan.instance_id, /^baft-[a-z0-9-]+$/); assert.equal(plan.auto_select_evidence.port, 443);
@@ -161,6 +172,6 @@ async function run(lang, width, height, scheme) {
 
 (async () => {
   const results = [];
-  for (const [lang, w, h, scheme] of [['en', 1280, 900, 'dark'], ['fa', 390, 844, 'light']]) results.push(await run(lang, w, h, scheme));
+  for (const [lang, w, h, scheme, auto] of [['en', 1280, 900, 'dark', true], ['fa', 390, 844, 'light', true], ['en', 1280, 900, 'dark', false], ['fa', 390, 844, 'light', false]]) results.push(await run(lang, w, h, scheme, auto));
   console.log(JSON.stringify(results, null, 1));
 })().catch(e => { console.error(e); process.exit(1); });

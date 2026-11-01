@@ -26,41 +26,75 @@ func measurePrivateLinuxLAB(ctx context.Context, expectedNetNS string) (PrivateL
 	if err != nil || current != expectedNetNS {
 		return e, fmt.Errorf("%w: changed Linux network namespace", ErrCoverageIncomplete)
 	}
-	// PID-private/container /proc can hide other processes sharing this
-	// netns; a singleton observed through that partial table is NOT proof
-	// of exclusive execution. The first supported LAB requires privileged
-	// root in the host-init PID+user namespaces with real procfs/systemd PID1.
-	if os.Geteuid() != 0 {
-		return e, fmt.Errorf("%w: root host inventory required", ErrCoverageIncomplete)
-	}
-	var procfs unix.Statfs_t
-	if err := unix.Statfs("/proc", &procfs); err != nil || procfs.Type != unix.PROC_SUPER_MAGIC {
-		return e, fmt.Errorf("%w: untrusted procfs", ErrCoverageIncomplete)
-	}
-	initComm, err := os.ReadFile("/proc/1/comm")
-	if err != nil || strings.TrimSpace(string(initComm)) != "systemd" {
-		return e, fmt.Errorf("%w: non-systemd host init", ErrCoverageIncomplete)
-	}
-	for _, kind := range []string{"pid", "user"} {
-		a, aErr := os.Readlink("/proc/self/ns/" + kind)
-		b, bErr := os.Readlink("/proc/1/ns/" + kind)
-		if aErr != nil || bErr != nil || a != b {
-			return e, fmt.Errorf("%w: process inventory is not host-complete (%s namespace)", ErrCoverageIncomplete, kind)
-		}
-	}
-	initNS, err := os.Readlink("/proc/1/ns/net")
-	if err != nil || initNS == current || !strings.HasPrefix(initNS, "net:[") {
-		return e, fmt.Errorf("%w: not an isolated non-init network namespace", ErrCoverageIncomplete)
-	}
-	interfaces, err := net.Interfaces()
-	if err != nil || len(interfaces) != 1 || interfaces[0].Name != "lo" ||
-		interfaces[0].Flags&net.FlagLoopback == 0 || interfaces[0].Flags&net.FlagUp == 0 {
-		return e, fmt.Errorf("%w: managed LAB requires loopback-only network namespace", ErrCoverageIncomplete)
+	initNS, iface, err := checkLinuxLABScope(current)
+	if err != nil {
+		return e, err
 	}
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
 		return e, errors.Join(ErrCoverageIncomplete, err)
 	}
+	return measureLinuxLABProcesses(ctx, e, current, initNS, iface, entries)
+}
+
+// CheckManagedExecutionScope reports whether this process runs in the only
+// execution scope operational public ingress supports: a privileged,
+// host-complete, isolated loopback-only Linux network namespace. These are
+// static properties of where the agent runs. A host agent in the init network
+// namespace never qualifies, so it must not advertise operational ingress:
+// otherwise BCC queues public ingress that every Apply refuses.
+func CheckManagedExecutionScope(ctx context.Context) error {
+	if ctx == nil || ctx.Err() != nil {
+		return ErrCoverageIncomplete
+	}
+	current, err := namespaceIdentity()
+	if err != nil {
+		return fmt.Errorf("%w: unknown Linux network namespace", ErrCoverageIncomplete)
+	}
+	_, _, err = checkLinuxLABScope(current)
+	return err
+}
+
+// checkLinuxLABScope verifies the static LAB scope and returns the init
+// network namespace and the single interface name.
+func checkLinuxLABScope(current string) (initNS, iface string, err error) {
+	// PID-private/container /proc can hide other processes sharing this
+	// netns; a singleton observed through that partial table is NOT proof
+	// of exclusive execution. The first supported LAB requires privileged
+	// root in the host-init PID+user namespaces with real procfs/systemd PID1.
+	if os.Geteuid() != 0 {
+		return "", "", fmt.Errorf("%w: root host inventory required", ErrCoverageIncomplete)
+	}
+	var procfs unix.Statfs_t
+	if err := unix.Statfs("/proc", &procfs); err != nil || procfs.Type != unix.PROC_SUPER_MAGIC {
+		return "", "", fmt.Errorf("%w: untrusted procfs", ErrCoverageIncomplete)
+	}
+	initComm, err := os.ReadFile("/proc/1/comm")
+	if err != nil || strings.TrimSpace(string(initComm)) != "systemd" {
+		return "", "", fmt.Errorf("%w: non-systemd host init", ErrCoverageIncomplete)
+	}
+	for _, kind := range []string{"pid", "user"} {
+		a, aErr := os.Readlink("/proc/self/ns/" + kind)
+		b, bErr := os.Readlink("/proc/1/ns/" + kind)
+		if aErr != nil || bErr != nil || a != b {
+			return "", "", fmt.Errorf("%w: process inventory is not host-complete (%s namespace)", ErrCoverageIncomplete, kind)
+		}
+	}
+	initNS, err = os.Readlink("/proc/1/ns/net")
+	if err != nil || initNS == current || !strings.HasPrefix(initNS, "net:[") {
+		return "", "", fmt.Errorf("%w: not an isolated non-init network namespace", ErrCoverageIncomplete)
+	}
+	interfaces, err := net.Interfaces()
+	if err != nil || len(interfaces) != 1 || interfaces[0].Name != "lo" ||
+		interfaces[0].Flags&net.FlagLoopback == 0 || interfaces[0].Flags&net.FlagUp == 0 {
+		return "", "", fmt.Errorf("%w: managed LAB requires loopback-only network namespace", ErrCoverageIncomplete)
+	}
+	return initNS, interfaces[0].Name, nil
+}
+
+// measureLinuxLABProcesses walks /proc for processes sharing the managed
+// network namespace (the dynamic part of the LAB execution evidence).
+func measureLinuxLABProcesses(ctx context.Context, e PrivateLABExecutionEvidence, current, initNS, iface string, entries []os.DirEntry) (PrivateLABExecutionEvidence, error) {
 	pid := os.Getpid()
 	var shared []int
 	for _, entry := range entries {
@@ -113,7 +147,7 @@ func measurePrivateLinuxLAB(ctx context.Context, expectedNetNS string) (PrivateL
 	}
 	e = PrivateLABExecutionEvidence{
 		CurrentNetNS: current, InitNetNS: initNS, OwnPID: pid,
-		Interfaces: []string{interfaces[0].Name}, Processes: shared,
+		Interfaces: []string{iface}, Processes: shared,
 	}
 	return e, nil
 }

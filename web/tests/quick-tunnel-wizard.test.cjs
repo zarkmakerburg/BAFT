@@ -111,3 +111,24 @@ test('throughput appears only when BCC derived it, in Mbps',()=>{
  assert.equal(qt.probeMetrics({throughput_kbps:0}),'');
  assert.equal(qt.mbps(10000),'10');
 });
+
+test('automatic public port only when the Iran agent freshly advertises operational-ingress-v1',()=>{
+ const fresh='2026-10-31T11:58:00Z',stale='2026-10-31T11:50:00Z';
+ assert.equal(qt.INGRESS_CAPABILITY,'operational-ingress-v1');
+ assert.equal(qt.autoIngressAvailable({agent_seen:fresh,capabilities:['carrier-h2','operational-ingress-v1']},now),true);
+ assert.equal(qt.autoIngressAvailable({agent_seen:fresh,capabilities:['carrier-h2']},now),false,'a host agent without the capability');
+ assert.equal(qt.autoIngressAvailable({agent_seen:fresh},now),false);
+ assert.equal(qt.autoIngressAvailable({agent_seen:stale,capabilities:['operational-ingress-v1']},now),false,'a stale report proves nothing');
+ assert.equal(qt.autoIngressAvailable({agent_seen:fresh,revoked:true,capabilities:['operational-ingress-v1']},now),false);
+ const g=qt.splitNodes([{id:'lab',role:'worker',agent_seen:fresh,capabilities:['operational-ingress-v1']},{id:'host',role:'worker',agent_seen:fresh,capabilities:['carrier-h2']}],now);
+ assert.deepEqual(g.iran.map(n=>[n.id,n.autoIngress]),[['host',false],['lab',true]]);
+});
+
+test('plan request omits client_port when no automatic public port is used',()=>{
+ const base={ex:'ex',ir:'ir',port:'443',target:'127.0.0.1:2096',instanceID:'baft-x',internal:{route_listen:'127.0.0.1:1444',ex_metrics_listen:'127.0.0.1:9202',ir_metrics_listen:'127.0.0.1:9302'}};
+ assert.equal(qt.buildRequest({...base,clientPort:'2096'}).client_port,2096);
+ for(const none of ['',undefined,null])assert.equal('client_port' in qt.buildRequest({...base,clientPort:none}),false,'clientPort='+none);
+ // Without a public port the tunnel is "ready" once active: nothing is left pending forever.
+ const p=qt.progress({phase:'active',route_listen:'127.0.0.1:1444'});
+ assert.equal(p.outcome,'ready'); assert.equal(p.ingressState,'none'); assert.equal(p.done,true);
+});

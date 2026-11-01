@@ -35,6 +35,7 @@ func goodDeps(t *testing.T) ingressDeps {
 	t.Helper()
 	return ingressDeps{
 		LoadPolicy: func(context.Context, string) error { return nil },
+		CheckScope: func(context.Context) error { return nil },
 		OpenStore: func(string) (*ingressauthority.ReservationStore, error) {
 			dir := filepath.Join(t.TempDir(), "authority")
 			if err := os.Mkdir(dir, 0o700); err != nil {
@@ -60,7 +61,9 @@ func TestBuildIngressOperationalSuccess(t *testing.T) {
 func TestBuildIngressOperationalFailClosed(t *testing.T) {
 	boom := errors.New("boom")
 	cases := map[string]func(*ingressDeps){
-		"policy": func(d *ingressDeps) { d.LoadPolicy = func(context.Context, string) error { return boom } },
+		"policy":        func(d *ingressDeps) { d.LoadPolicy = func(context.Context, string) error { return boom } },
+		"scope":         func(d *ingressDeps) { d.CheckScope = func(context.Context) error { return boom } },
+		"scope unwired": func(d *ingressDeps) { d.CheckScope = nil },
 		"store err": func(d *ingressDeps) {
 			d.OpenStore = func(string) (*ingressauthority.ReservationStore, error) { return nil, boom }
 		},
@@ -165,5 +168,25 @@ func TestHostWiringFailsClosedWithoutPolicy(t *testing.T) {
 	op, err := buildIngressOperational(context.Background(), "ir-none", t.TempDir(), hostIngressDeps(nil))
 	if err == nil || op != nil {
 		t.Fatalf("host wiring produced executor without policy: %v %v", op, err)
+	}
+}
+
+// A host agent in the init network namespace must never advertise
+// operational ingress: every Apply refuses that scope (guided-flow e2e run
+// 41258881558: capability advertised, Apply failed "not an isolated non-init
+// network namespace", wizard stuck). Inside the isolated LAB the same check
+// may pass, so only the init-namespace case is asserted.
+func TestHostWiringRefusesInitNamespaceScope(t *testing.T) {
+	d := hostIngressDeps(nil)
+	if d.CheckScope == nil {
+		t.Fatal("host wiring lacks the execution-scope check")
+	}
+	self, errSelf := os.Readlink("/proc/self/ns/net")
+	init, errInit := os.Readlink("/proc/1/ns/net")
+	if errSelf != nil || errInit != nil || self != init {
+		t.Skip("not running in a readable init network namespace")
+	}
+	if err := d.CheckScope(context.Background()); err == nil {
+		t.Fatal("init network namespace accepted as an operational ingress scope")
 	}
 }

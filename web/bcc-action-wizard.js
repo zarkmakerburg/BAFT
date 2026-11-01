@@ -28,12 +28,20 @@
   }
   function splitNodes(nodes, now) {
     const usable = (nodes || []).filter(n => n && n.id && !n.revoked);
-    const view = n => ({ id: n.id, name: n.alias || n.id, online: nodeOnline(n, now), role: n.role });
+    const view = n => ({ id: n.id, name: n.alias || n.id, online: nodeOnline(n, now), role: n.role, autoIngress: autoIngressAvailable(n, now) });
     const byOnline = (a, b) => (b.online - a.online) || a.name.localeCompare(b.name);
     return {
       iran: usable.filter(n => IR_ROLES.includes(n.role)).map(view).sort(byOnline),
       foreign: usable.filter(n => n.role === 'foreign').map(view).sort(byOnline),
     };
+  }
+  // Automatic public port (operational ingress) is offered only when the Iran
+  // server's agent advertised operational-ingress-v1 on a fresh poll. Agents
+  // advertise it only where every Apply can actually run; elsewhere the wizard
+  // must not promise a public port it can never open (v0.5.0, ADR-001).
+  const INGRESS_CAPABILITY = 'operational-ingress-v1';
+  function autoIngressAvailable(n, now) {
+    return nodeOnline(n, now) && Array.isArray(n.capabilities) && n.capabilities.includes(INGRESS_CAPABILITY);
   }
   function activeTunnels(tunnels) { return (tunnels || []).filter(t => t && !INACTIVE.includes(t.phase)); }
   function endpointPort(e) { const m = String(e || '').match(/:(\d+)$/); return m ? Number(m[1]) : 0; }
@@ -72,10 +80,11 @@
   }
   function buildRequest(s) {
     const r = {
-      ex_node: s.ex, ir_node: s.ir, port: Number(s.port), client_port: Number(s.clientPort),
+      ex_node: s.ex, ir_node: s.ir, port: Number(s.port),
       target: s.target, instance_id: s.instanceID,
       route_listen: s.internal.route_listen, ex_metrics_listen: s.internal.ex_metrics_listen, ir_metrics_listen: s.internal.ir_metrics_listen,
     };
+    if (s.clientPort !== '' && s.clientPort !== undefined && s.clientPort !== null) r.client_port = Number(s.clientPort);
     const e = s.evidence;
     if (e && e.source_node === s.ir && e.destination_node === s.ex && Number(e.port) === Number(s.port)) r.auto_select_evidence = e;
     return r;
@@ -133,7 +142,7 @@
   }
   function gateOrder(gates) { const rank = { FAIL: 0, WARN: 1, PASS: 2 }; return (gates || []).slice().sort((a, b) => (rank[a.status] ?? 3) - (rank[b.status] ?? 3)); }
 
-  const core = Object.freeze({ AGENT_FRESH_MS, TEST_PORTS, nodeOnline, splitNodes, activeTunnels, endpointPort, validPort, clientPortProblem, candidatePorts, allocateInternal, instanceID, buildRequest, targetFor, validTargetHost, probeRow, probeMetrics, mbps, progress, gateOrder });
+  const core = Object.freeze({ AGENT_FRESH_MS, TEST_PORTS, INGRESS_CAPABILITY, autoIngressAvailable, nodeOnline, splitNodes, activeTunnels, endpointPort, validPort, clientPortProblem, candidatePorts, allocateInternal, instanceID, buildRequest, targetFor, validTargetHost, probeRow, probeMetrics, mbps, progress, gateOrder });
   if (typeof module === 'object' && module.exports) { module.exports = core; return; }
 
   // ---------- browser UI ----------
@@ -164,6 +173,9 @@
       prog: ['Prepare foreign server', 'Pair Iran server', 'Install on both servers', 'Health checks', 'Finalize', 'Tunnel active'], ingress: 'Public port on Iran verified',
       out: { working: 'Building the tunnel. You can close this window; progress continues in BCC.', active: 'Tunnel is active. Waiting for the public port to be opened and verified…', ready: 'Done. The tunnel is active and every required check passed.', partial: 'The tunnel is active, but the public port is not verified: ', failed: 'The tunnel was not built and BAFT rolled back its changes.', attention: 'Rollback did not complete. Open the tunnel list and review it before retrying.', rolling: 'A step failed. BAFT is rolling back its own changes…' },
       finish: 'Close', another: 'Create another',
+      manualLead: 'Automatic public port is not available on this Iran server: its agent does not report it (today BAFT opens public ports only inside its isolated LAB). The tunnel still works — it listens on the Iran server itself, and you point your panel at it.',
+      manualHow: 'After deploy: in your Iran panel (for example a 3X-UI "dokodemo-door" inbound or a port forward), forward the public port users connect to → {p} on the Iran server.',
+      reach: 'Tunnel entry on the Iran server', readyManual: 'Done. The tunnel is active. Point your public inbound on the Iran server to {p}.',
     },
     fa: {
       title: 'تونل جدید', close: 'بستن', back: 'قبلی', next: 'بعدی', steps: ['سرورها', 'سرویس', 'آزمون اتصال', 'بررسی', 'ساخت'],
@@ -190,6 +202,9 @@
       prog: ['آماده‌سازی سرور خارج', 'جفت‌سازی سرور ایران', 'نصب روی هر دو سرور', 'بررسی سلامت', 'نهایی‌سازی', 'تونل فعال'], ingress: 'پورت عمومی ایران تأیید شد',
       out: { working: 'در حال ساخت تونل. می‌توانید این پنجره را ببندید؛ کار در مرکز فرمان ادامه دارد.', active: 'تونل فعال است. در انتظار باز و تأییدشدن پورت عمومی…', ready: 'انجام شد. تونل فعال است و همهٔ بررسی‌های لازم موفق بود.', partial: 'تونل فعال است ولی پورت عمومی تأیید نشده است: ', failed: 'تونل ساخته نشد و BAFT تغییرات خود را برگرداند.', attention: 'برگرداندن کامل نشد. پیش از تلاش دوباره، تونل را در فهرست بررسی کنید.', rolling: 'یکی از مراحل ناموفق بود؛ BAFT در حال برگرداندن تغییرات خود است…' },
       finish: 'بستن', another: 'ساخت تونل دیگر',
+      manualLead: 'باز کردن خودکار پورت عمومی روی این سرور ایران در دسترس نیست: عامل آن چنین توانایی‌ای گزارش نمی‌کند (فعلاً BAFT پورت عمومی را فقط در LAB ایزوله باز می‌کند). تونل همچنان کار می‌کند؛ روی خود سرور ایران گوش می‌دهد و شما پنل را به آن وصل می‌کنید.',
+      manualHow: 'پس از ساخت: در پنل سرور ایران (مثلاً inbound از نوع dokodemo-door در 3X-UI یا یک port forward) پورت عمومی کاربران را به {p} روی همان سرور ایران هدایت کنید.',
+      reach: 'ورودی تونل روی سرور ایران', readyManual: 'انجام شد. تونل فعال است. inbound عمومی سرور ایران را به {p} هدایت کنید.',
     },
   };
   const lang = () => (doc.documentElement.lang === 'fa' ? 'fa' : 'en');
@@ -290,6 +305,7 @@
     const out = {};
     if (!validPort(s.servicePort)) out.service = t('portRange');
     if (!validTargetHost(s.host)) out.host = t('badHost');
+    if (!irAuto()) return out;
     const cp = s.clientSame ? s.servicePort : s.clientPort;
     const p = clientPortProblem(cp, s.tunnels, s.ir);
     if (p) out.client = p === 'ssh' ? t('portSSH') : p === 'taken' ? t('portTaken') : t('portRange');
@@ -302,6 +318,12 @@
   function serviceView() {
     const pr = serviceProblems();
     const host = el('input', { 'data-k': 'host', name: 'host', value: s.host, dir: 'ltr', autocomplete: 'off', spellcheck: 'false', maxlength: '45', 'aria-invalid': pr.host ? 'true' : 'false', oninput: e => { s.host = e.target.value.trim(); s.plan = null; render(); } });
+    const adv = el('details', { class: 'qt-adv' }, el('summary', { text: t('advanced') }), el('label', {}, el('span', { text: t('serviceHost') }), host, el('small', { text: t('hostHelp') }), pr.host ? el('small', { role: 'alert', class: 'qt-err', text: pr.host }) : null));
+    if (!irAuto()) {
+      return el('div', {}, el('p', { class: 'qt-lead', text: t('serviceLead') }),
+        field('servicePort', t('servicePort'), s.servicePort, pr.service, { placeholder: '2096' }), adv,
+        el('p', { class: 'qt-note', role: 'note', 'data-k': 'manualLead', text: t('manualLead') }));
+    }
     return el('div', {}, el('p', { class: 'qt-lead', text: t('serviceLead') }),
       field('servicePort', t('servicePort'), s.servicePort, pr.service, { placeholder: '2096' }),
       el('label', { class: 'qt-check' }, el('input', { type: 'checkbox', 'data-k': 'clientSame', checked: s.clientSame, onchange: e => { s.clientSame = e.target.checked; s.plan = null; render(); } }), el('span', { text: t('sameAsService') })),
@@ -369,7 +391,7 @@
   async function makePlan() {
     if (!s.instanceID) s.instanceID = instanceID(n => root.crypto.getRandomValues(new Uint32Array(n)));
     s.internal = allocateInternal(s.tunnels, s.ex, s.ir);
-    s.target = targetFor(s.host, s.servicePort); s.clientPortFinal = s.clientSame ? s.servicePort : s.clientPort;
+    s.target = targetFor(s.host, s.servicePort); s.clientPortFinal = irAuto() ? (s.clientSame ? s.servicePort : s.clientPort) : '';
     const req = buildRequest({ ex: s.ex, ir: s.ir, port: s.port, clientPort: s.clientPortFinal, target: s.target, instanceID: s.instanceID, internal: s.internal, evidence: s.evidence });
     s.plan = null; s.planReq = null; s.planBusy = true; s.planNote = t('planning'); render();
     const my = seq;
@@ -379,16 +401,20 @@
     if (!r.ok || !r.data) { s.planNote = t('planBad') + ' ' + (r.text || r.status); render(); return; }
     s.plan = r.data; s.planReq = req; s.planNote = s.plan.ok ? t('planOk') : t('planBad'); render();
   }
+  function irAuto() { const n = splitNodes(s.nodes, Date.now()).iran.find(x => x.id === s.ir); return Boolean(n && n.autoIngress); }
   function nodeName(id) { const n = (s.nodes || []).find(x => x.id === id); return n && n.alias ? n.alias + ' (' + id + ')' : id; }
   function reviewView() {
     if (!s.plan && !s.planBusy && !s.planNote) { root.setTimeout(makePlan, 0); }
     const p = s.plan;
     const kv = (k, v) => el('div', { class: 'qt-kv' }, el('span', { text: k }), el('b', { dir: 'ltr', text: v }));
     const sum = el('div', { class: 'qt-summary' }, el('h3', { text: t('summary') }),
-      kv(t('route'), nodeName(s.ir) + ' → ' + nodeName(s.ex)), kv(t('public'), String(s.clientSame ? s.servicePort : s.clientPort)), kv(t('tunnelPort'), String(s.port)), kv(t('service'), targetFor(s.host, s.servicePort)));
+      kv(t('route'), nodeName(s.ir) + ' → ' + nodeName(s.ex)),
+      s.clientPortFinal ? kv(t('public'), String(s.clientPortFinal)) : (s.internal ? kv(t('reach'), s.internal.route_listen) : null),
+      kv(t('tunnelPort'), String(s.port)), kv(t('service'), targetFor(s.host, s.servicePort)));
+    const how = !s.clientPortFinal && s.internal ? el('p', { class: 'qt-note', role: 'note', text: fmt(t('manualHow'), s.internal.route_listen) }) : null;
     const gates = p ? el('div', {}, el('h3', { text: t('gates') }), el('ul', { class: 'qt-gates' }, gateOrder(p.gates).map(g => el('li', { class: 'qt-gate qt-g-' + String(g.status).toLowerCase(), 'data-status': g.status }, el('span', { class: 'qt-badge', text: g.status }), el('span', {}, el('b', { text: g.name }), g.detail ? el('small', { text: g.detail }) : null))))) : null;
     const changes = p && (p.steps || []).length ? el('details', { class: 'qt-adv' }, el('summary', { text: t('changes') }), el('ol', {}, p.steps.map(x => el('li', { text: x })))) : null;
-    return el('div', {}, sum, s.planNote ? el('p', { role: p && !p.ok ? 'alert' : 'status', class: p && p.ok ? 'qt-good' : '', text: s.planNote }) : null, gates, changes, s.deployNote ? el('p', { role: 'alert', text: s.deployNote }) : null);
+    return el('div', {}, sum, how, s.planNote ? el('p', { role: p && !p.ok ? 'alert' : 'status', class: p && p.ok ? 'qt-good' : '', text: s.planNote }) : null, gates, changes, s.deployNote ? el('p', { role: 'alert', text: s.deployNote }) : null);
   }
 
   // ----- deploy & watch -----
@@ -416,7 +442,8 @@
     const pr = progress(s.tunnel);
     const items = t('prog').map((name, i) => el('li', { class: 'qt-p qt-p-' + pr.steps[i], 'data-state': pr.steps[i] }, el('span', { class: 'qt-dot', 'aria-hidden': 'true' }), el('span', { text: name })));
     if (s.tunnel && s.tunnel.client_port) items.push(el('li', { class: 'qt-p qt-p-' + (pr.ingressState === 'verified' ? 'done' : pr.ingressState === 'pending' ? 'now' : pr.ingressState === 'failed' ? 'bad' : 'idle'), 'data-state': pr.ingressState }, el('span', { class: 'qt-dot', 'aria-hidden': 'true' }), el('span', { text: t('ingress') + ' (' + s.tunnel.client_port + ')' })));
-    const msg = t('out')[pr.outcome] + (pr.outcome === 'partial' ? pr.reason : '');
+    const entry = s.tunnel && !s.tunnel.client_port ? (s.tunnel.route_listen || (s.internal && s.internal.route_listen) || '') : '';
+    const msg = pr.outcome === 'ready' && entry ? fmt(t('readyManual'), entry) : t('out')[pr.outcome] + (pr.outcome === 'partial' ? pr.reason : '');
     return el('div', {}, el('p', { class: 'qt-kv' }, el('span', { text: nodeName(s.ir) + ' → ' + nodeName(s.ex) }), el('b', { dir: 'ltr', text: (s.tunnel && s.tunnel.id) || '' })), el('ol', { class: 'qt-progress' }, items),
       el('p', { role: ['failed', 'attention', 'partial'].includes(pr.outcome) ? 'alert' : 'status', class: pr.outcome === 'ready' ? 'qt-good' : '', text: msg }),
       pr.error && pr.outcome !== 'ready' ? el('p', { class: 'qt-err', text: pr.error }) : null);
@@ -424,7 +451,7 @@
 
   function canNext() {
     if (s.step === 0) return Boolean(s.ir && s.ex && s.ir !== s.ex);
-    if (s.step === 1) return Object.keys(serviceProblems()).length === 0 && s.consent;
+    if (s.step === 1) return Object.keys(serviceProblems()).length === 0 && (s.consent || !irAuto());
     if (s.step === 2) return validPort(s.port);
     return false;
   }

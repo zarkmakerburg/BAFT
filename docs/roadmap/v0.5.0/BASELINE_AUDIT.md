@@ -291,6 +291,8 @@ A new e2e, `tests/e2e/guided_flow.sh` (workflow `guided-flow-e2e.yml`, runs on P
 
 ### 12.5 Next executable actions
 
-1. ADR-003: real-host public ingress (init namespace) — coverage model, ownership proof, rollback, and what the agent may claim; then implement behind the same evidence gates.
+1. [ADR-003](./ADR-003-real-host-public-ingress.md) (proposed, awaiting owner decision): host-profile public ingress with bind-exclusive ownership, latent-claim detectors and a plan-bound acknowledgement; then implement behind the same evidence gates.
+
+PR [#296](https://github.com/zarkmakerburg/BAFT/pull/296) carries the three P0 fixes, the probe-queue fix, the flake fix and the guided-flow e2e to `main` (without the v0.5.0 wizard); draft, merge only on owner approval.
 2. One-click "expose on Iran" helper that configures the user's own inbound safely (or documents exact 3X-UI steps per version), since that is today's manual step.
 3. Multi-host LAB (two real VMs) for the guided flow and the speed test.

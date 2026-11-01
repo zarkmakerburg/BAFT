@@ -1,0 +1,33 @@
+name: Guided tunnel flow E2E
+# The v0.5.0 product path on one exact commit: the Quick Tunnel wizard's API
+# sequence (connection test -> auto-select -> reviewed plan with a public
+# client port -> deploy -> verified operational public ingress -> client
+# traffic -> decommission) against a real BCC and two agents installed from a
+# signed release of the commit. One throwaway host plays both servers; this is
+# not a multi-host or physical LAB result.
+on:
+  pull_request:
+  push:
+    branches: ['main', 'qa/**', 'claude/**', 'agent-*/**', 'codex/v0.5.0-**']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  guided-flow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          check-latest: false
+          cache: false
+      - name: Install nftables
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq nftables
+      - name: Build a signed release of this commit with throwaway keys
+        run: scripts/release/local_release.sh "$RUNNER_TEMP/rel" v0.0.2-ci
+      - name: Guided tunnel flow with verified public ingress
+        run: sudo env GITHUB_ACTIONS=true PATH="$PATH" tests/e2e/guided_flow.sh "$RUNNER_TEMP/rel"

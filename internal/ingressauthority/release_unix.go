@@ -51,7 +51,18 @@ type ReleasedV1 struct {
 	LeaseID     string   `json:"lease_id"`
 	PlanSHA256  string   `json:"plan_sha256"`
 	SpentJobs   []string `json:"spent_jobs"`
+	// Cause records which consumed lease the release completed. Empty
+	// (legacy) is treated exactly like a Retire.
+	Cause string `json:"cause,omitempty"`
 }
+
+// Release causes. A release after a verified Retire ends the reviewed
+// approval; a release after an Apply rollback (an Agent restart lost the
+// listener, or a failed Apply was cleaned up) does not.
+const (
+	ReleaseCauseRetire        = "retire"
+	ReleaseCauseApplyRollback = "apply_rollback"
+)
 
 // RetirementEvidenceV1 is what the executor side observed. It is data: the
 // guard still re-derives the lifecycle authority and the socket evidence.
@@ -96,7 +107,8 @@ func loadReleased(root *os.Root) (map[string]ReleasedV1, error) {
 	}
 	for key, r := range out {
 		if key != r.NodeID+"\x00tcp\x00"+fmt.Sprint(r.Port) || r.Generation == 0 || len(r.SpentJobs) > maxReleasedJobs ||
-			!idPattern.MatchString(r.OperationID) || !idPattern.MatchString(r.LeaseID) || !digestPattern.MatchString(r.PlanSHA256) {
+			!idPattern.MatchString(r.OperationID) || !idPattern.MatchString(r.LeaseID) || !digestPattern.MatchString(r.PlanSHA256) ||
+			(r.Cause != "" && r.Cause != ReleaseCauseRetire && r.Cause != ReleaseCauseApplyRollback) {
 			return nil, ErrUnverified
 		}
 		for _, j := range r.SpentJobs {
@@ -146,12 +158,18 @@ func releasedSpent(rel map[string]ReleasedV1, jobID string) bool {
 }
 
 // admitAfterRelease applies the monotonic rule to a NEW binding for a key
-// that was released before: strictly greater generation and fresh identities.
+// that was released before: strictly greater generation and fresh operation
+// and lease identities, always. The reviewed plan must also be fresh after a
+// Retire (or a legacy release): decommission ends that approval. After an
+// Apply rollback the same reviewed plan may be applied again, but only by a
+// new BCC-signed command at a higher generation (ADR-003 §4.4: BCC re-issues
+// it when an Agent restart lost the public port); spent jobs stay spent.
 func admitAfterRelease(r ReleasedV1, b BindingV1) error {
 	if b.Spec.Generation <= r.Generation {
 		return fmt.Errorf("%w: generation %d is not greater than the released generation %d", ErrReserved, b.Spec.Generation, r.Generation)
 	}
-	if b.OperationID == r.OperationID || b.LeaseID == r.LeaseID || b.PlanSHA256 == r.PlanSHA256 {
+	if b.OperationID == r.OperationID || b.LeaseID == r.LeaseID ||
+		(b.PlanSHA256 == r.PlanSHA256 && r.Cause != ReleaseCauseApplyRollback) {
 		return fmt.Errorf("%w: operation, lease and reviewed plan must be fresh after a release", ErrReserved)
 	}
 	return nil
@@ -203,8 +221,13 @@ func (g *PendingGuard) ReleaseVerified(ctx context.Context, ev RetirementEvidenc
 	if err != nil {
 		return refuse("lifecycle: %v", err)
 	}
-	if _, _, err := restartDirection(entry); err != nil {
+	dir, _, err := restartDirection(entry)
+	if err != nil {
 		return refuse("no consumed lease on record: %v", err)
+	}
+	cause := ReleaseCauseRetire
+	if dir == RestartApply {
+		cause = ReleaseCauseApplyRollback
 	}
 	b := g.binding
 	if ev.Port != b.Port || ev.Owner != b.Proof || !ev.JournalRetired || !ev.RuleAbsent {
@@ -244,7 +267,7 @@ func (g *PendingGuard) ReleaseVerified(ctx context.Context, ev RetirementEvidenc
 		return refuse("too many spent jobs to record")
 	}
 	rel[key] = ReleasedV1{NodeID: b.NodeID, Port: b.Port, TunnelID: b.Spec.TunnelID, InstanceID: b.Spec.InstanceID, Generation: b.Spec.Generation,
-		OperationID: b.OperationID, LeaseID: b.LeaseID, PlanSHA256: b.PlanSHA256, SpentJobs: jobs}
+		OperationID: b.OperationID, LeaseID: b.LeaseID, PlanSHA256: b.PlanSHA256, SpentJobs: jobs, Cause: cause}
 	// 1. the tombstone (monotonic fence), 2. the lifecycle entry, 3. the claim.
 	// A crash after 1 or 2 is completed by completeStaleRelease on the next
 	// reservation attempt, from the tombstone alone.

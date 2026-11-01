@@ -491,3 +491,31 @@ func TestPathProbePortsNeverIncludeSSH(t *testing.T) {
 		t.Fatalf("ordinary ports: %v %v", got, err)
 	}
 }
+
+// BAFT_BCC_DISCOVERY_PORTS lets an operator restrict the automatic path
+// discovery; the same rules as any connection test apply.
+func TestDiscoveryPortsSetting(t *testing.T) {
+	got, err := ParseDiscoveryPorts(" 443, 2053,443 ")
+	if err != nil || len(got) != 2 {
+		t.Fatalf("parse: %v %v", got, err)
+	}
+	for _, bad := range []string{"22", "443,22", "x", "0", "70000", ",", "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17"} {
+		if _, err := ParseDiscoveryPorts(bad); err == nil {
+			t.Fatalf("%q accepted", bad)
+		}
+	}
+	s := newGenericDiscoveryStore(t, "A", "B")
+	s.DiscoveryPorts = got
+	d, err := s.StartPathDiscovery(nil, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(d.CandidatePorts) != 2 {
+		t.Fatalf("automatic discovery ignored the configured ports: %v", d.CandidatePorts)
+	}
+	for _, p := range d.CandidatePorts {
+		if p != 443 && p != 2053 {
+			t.Fatalf("automatic discovery used %d", p)
+		}
+	}
+}

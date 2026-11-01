@@ -429,7 +429,7 @@ on ex "set -e; cd $LAB; install -m 0755 dist/baft-bcc-linux-amd64 $LAB/baft-bcc;
   mkdir -p www/$VERSION; cp dist/* www/$VERSION/; cp revocations.json www/
   systemd-run --unit=baft-realhosts-mirror --collect -p WorkingDirectory=$LAB/www python3 -m http.server $MIRROR_PORT --bind $BIND >/dev/null
   systemd-run --unit=baft-realhosts-bcc --collect -p WorkingDirectory=$LAB \
-    --setenv=BAFT_BCC_ALLOWED_LISTEN_IPS=$BIND --setenv=TOK_EX=\$(sed -n 1p tokens) --setenv=TOK_IR=\$(sed -n 2p tokens) \
+    --setenv=BAFT_BCC_ALLOWED_LISTEN_IPS=$BIND --setenv=BAFT_BCC_DISCOVERY_PORTS=$CANDIDATE_PORTS --setenv=TOK_EX=\$(sed -n 1p tokens) --setenv=TOK_IR=\$(sed -n 2p tokens) \
     $LAB/baft-bcc --admin-token-file $LAB/admin.token --state-file $LAB/s.json --listen $BIND:$BCC_PORT \
     --tls-cert $LAB/bcc.crt --tls-key $LAB/bcc.key >/dev/null
   rm -f tokens"
@@ -489,6 +489,9 @@ for _ in $(seq 1 15); do
 done
 [[ -n "$SEL" ]] || fail "auto-select refused fresh evidence"
 EX_PORT="$(printf '%s' "$SEL" | jget port)"; record selected_port "$EX_PORT"
+# BCC's automatic discovery is limited to the LAB candidates
+# (BAFT_BCC_DISCOVERY_PORTS), so no other foreign port may be chosen.
+[[ ",$CANDIDATE_PORTS," == *",$EX_PORT,"* ]] || fail "auto-select chose foreign port $EX_PORT outside the LAB candidates $CANDIDATE_PORTS"
 log "auto-select chose foreign port $EX_PORT"
 
 log "step 3 — reviewed plan with the acknowledged public port $CLIENT_PORT; deploy"

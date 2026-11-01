@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -129,7 +130,30 @@ func inventoryAddresses(n Node, inv PathInventory, family string) []string {
 	return normalizeIPList(raw, family)
 }
 
+// ParseDiscoveryPorts reads BAFT_BCC_DISCOVERY_PORTS: a comma-separated list
+// of the ports the automatic path discovery may test, so an operator can keep
+// BCC away from ports a production server keeps free on purpose. The same
+// rules as any connection test apply (1-16 ports, never 22).
+func ParseDiscoveryPorts(v string) ([]int, error) {
+	var ports []int
+	for _, part := range strings.Split(v, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		p, err := strconv.Atoi(part)
+		if err != nil {
+			return nil, fmt.Errorf("invalid discovery port %q", part)
+		}
+		ports = append(ports, p)
+	}
+	return validateProbePorts(ports)
+}
+
 func (s *Store) StartPathDiscovery(ports []int, now time.Time) (PathDiscovery, error) {
+	if len(ports) == 0 && len(s.DiscoveryPorts) != 0 {
+		ports = append([]int(nil), s.DiscoveryPorts...)
+	}
 	if len(ports) == 0 {
 		ports = append([]int(nil), defaultDiscoveryPorts...)
 	}

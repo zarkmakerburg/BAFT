@@ -89,6 +89,11 @@ func main(){
 		if err!=nil||d<0||(d>0&&d<time.Minute){fmt.Fprintln(os.Stderr,"BAFT_BCC_DRIFT_INTERVAL must be a duration of at least 1m, or 0");os.Exit(2)}
 		store.DriftEvery=d
 	}
+	if v:=strings.TrimSpace(os.Getenv("BAFT_BCC_DISCOVERY_PORTS"));v!=""{
+		ports,err:=bcc.ParseDiscoveryPorts(v)
+		if err!=nil{fmt.Fprintln(os.Stderr,"BAFT_BCC_DISCOVERY_PORTS:",err);os.Exit(2)}
+		store.DiscoveryPorts=ports
+	}
 	app,err:=bcc.NewServer(store,adminToken)
 	if err!=nil{fmt.Fprintln(os.Stderr,"BCC server:",err);os.Exit(1)}
 	app.SetVersion(version)

@@ -112,16 +112,35 @@ else
   log "WARNING: no pinned host keys (SSH_KNOWN_HOSTS); first-use keys are accepted and their fingerprints recorded"
   record host_keys '"first-use"'
 fi
-COMMON=(-i "$WORK/id" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking="$HOSTKEY"
-        -o UserKnownHostsFile="$WORK/known_hosts" -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 -o LogLevel=ERROR)
+BASEOPTS=(-i "$WORK/id" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking="$HOSTKEY"
+        -o UserKnownHostsFile="$WORK/known_hosts" -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 -o LogLevel=ERROR)
+COMMON=("${BASEOPTS[@]}" -o ControlMaster=auto -o ControlPath="$WORK/cm-%C" -o ControlPersist=900)
 SSHO=("${COMMON[@]}" -p "$SSH_PORT"); SCPO=("${COMMON[@]}" -P "$SSH_PORT")
 JUMP=("-o" "ProxyCommand=ssh -i $WORK/id -p $SSH_PORT -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=$HOSTKEY -o UserKnownHostsFile=$WORK/known_hosts -o ConnectTimeout=15 -o LogLevel=ERROR -W %h:%p $SSH_USER@$EX_HOST")
 IR_VIA=()   # set to JUMP when the runner cannot reach the Iran server directly
 SUDO=""; [[ "$SSH_USER" == root ]] || SUDO="sudo -n"
-on() { # ex|ir command... (runs as root)
-  local h="$1"; shift
-  if [[ "$h" == ex ]]; then ssh "${SSHO[@]}" "$SSH_USER@$EX_HOST" "$SUDO bash -c $(printf '%q' "$*")"
-  else ssh "${SSHO[@]}" "${IR_VIA[@]}" "$SSH_USER@$IR_HOST" "$SUDO bash -c $(printf '%q' "$*")"; fi
+# The Iran<->abroad path drops connections now and then (a GitHub runner's
+# second SSH connect to the Iran server timed out right after a first one
+# succeeded). One multiplexed SSH connection per server is reused, and an
+# SSH-level failure (exit 255: no connection, or a dropped one) is retried a
+# few times. Commands never read the runner's stdin; on_in feeds a buffered
+# input to every attempt.
+ssh_try() { # input-file ex|ir command...
+  local in="$1" h="$2" rc=0 i; shift 2
+  local cmd; cmd="$SUDO bash -c $(printf '%q' "$*")"
+  for i in 1 2 3 4; do
+    if [[ "$h" == ex ]]; then ssh "${SSHO[@]}" "$SSH_USER@$EX_HOST" "$cmd" <"$in" && rc=0 || rc=$?
+    else ssh "${SSHO[@]}" "${IR_VIA[@]}" "$SSH_USER@$IR_HOST" "$cmd" <"$in" && rc=0 || rc=$?; fi
+    [[ $rc -eq 255 ]] || return $rc
+    echo "[real-hosts] ssh to the $h server failed (attempt $i); retrying" >&2
+    sleep $((i * 5))
+  done
+  return $rc
+}
+on() { ssh_try /dev/null "$@"; }
+on_in() { # like on, with this function's stdin buffered for every attempt
+  local buf; buf="$(mktemp "$WORK/in.XXXXXX")"; cat >"$buf"
+  ssh_try "$buf" "$@"; local rc=$?; rm -f "$buf"; return $rc
 }
 STAGE="/tmp/baft-real-hosts-stage-$$"
 put() { # ex|ir remote-dir files...  (the login user may not be root: copy to
@@ -226,6 +245,7 @@ cleanup() {
   for p in "${PIDS[@]}"; do kill "$p" 2>/dev/null; done
   [[ -f "$SUMMARY" ]] && { echo "== summary"; cat "$SUMMARY"; }
   [[ -n "${SUMMARY_OUT:-}" ]] && cp "$SUMMARY" "$SUMMARY_OUT" 2>/dev/null
+  ssh "${SSHO[@]}" -O exit "$SSH_USER@$EX_HOST" >/dev/null 2>&1; ssh "${SSHO[@]}" -O exit "$SSH_USER@$IR_HOST" >/dev/null 2>&1
   rm -rf "$WORK"
   if [[ "$PROD_CHANGED" == 1 ]]; then
     [[ "${GITHUB_ACTIONS:-}" == "true" ]] && echo "::error title=production::the production BAFT fingerprint on the foreign server changed; see production_diff in the summary"
@@ -386,7 +406,7 @@ openssl x509 -req -in "$WORK/bcc.csr" -CA "$WORK/ca.crt" -CAkey "$WORK/ca.key" -
 rm -f "$WORK/ca.key"
 # The runner reaches BCC through an SSH forward; curl still verifies the
 # certificate for the public IP against the throwaway CA.
-ssh "${SSHO[@]}" -N -o ExitOnForwardFailure=yes -L "127.0.0.1:$BCC_PORT:$BIND:$BCC_PORT" "$SSH_USER@$EX_HOST" & PIDS+=($!)
+ssh "${BASEOPTS[@]}" -p "$SSH_PORT" -N -o ExitOnForwardFailure=yes -L "127.0.0.1:$BCC_PORT:$BIND:$BCC_PORT" "$SSH_USER@$EX_HOST" & PIDS+=($!)
 export CURL_HOME="$WORK"
 printf 'cacert = "%s"\nconnect-to = "%s:%s:127.0.0.1:%s"\n' "$WORK/ca.crt" "$EX_HOST" "$BCC_PORT" "$BCC_PORT" >"$WORK/.curlrc"
 
@@ -402,8 +422,8 @@ stage() { # host: copy release, CA, helpers; trust the CA; nft present
 log "stage the release on the foreign server; start BCC and the release mirror"
 INSTALLED_EX=1; stage ex
 put ex "$LAB" "$WORK/bcc.crt" "$WORK/bcc.key"
-printf '%s\n%s\n' "$TOK_EX" "$TOK_IR" | on ex "umask 077; cat >$LAB/tokens"
-printf '%s\n' "$TOK_EX" | on ex "umask 077; cat >$LAB/agent.token"
+printf '%s\n%s\n' "$TOK_EX" "$TOK_IR" | on_in ex "umask 077; cat >$LAB/tokens"
+printf '%s\n' "$TOK_EX" | on_in ex "umask 077; cat >$LAB/agent.token"
 on ex "set -e; cd $LAB; install -m 0755 dist/baft-bcc-linux-amd64 $LAB/baft-bcc; echo admintok >admin.token; chmod 600 admin.token bcc.key
   ./baft-bcc access init --access-file $LAB/s.json.access.json >/dev/null
   mkdir -p www/$VERSION; cp dist/* www/$VERSION/; cp revocations.json www/
@@ -427,14 +447,14 @@ install_agent() { # host node flags... ($LAB/agent.token is already in place)
       BAFT_AGENT_RELEASE_BASE_URL=http://$EX_HOST:$MIRROR_PORT BAFT_AGENT_REVOCATIONS_URL=http://$EX_HOST:$MIRROR_PORT/revocations.json \
       BAFT_AGENT_INTERVAL=2s $(ns_env "$h") bash $LAB/install.sh --agent-only --bcc-url '$BCC' --node-id '$node' $* >$LAB/install.log 2>&1 \
       || { tail -n 15 $LAB/install.log; exit 1; }
-    systemctl is-active ${AGENT_UNIT[$h]} >/dev/null" </dev/null || fail "install.sh failed on the $h server"
+    systemctl is-active ${AGENT_UNIT[$h]} >/dev/null" || fail "install.sh failed on the $h server"
   on "$h" "grep -E '^\\[baft-install\\]   ' $LAB/install.log" | sed "s/^/[real-hosts]   $h plan: /" || true
 }
 log "install.sh --agent-only on the foreign server"
 install_agent ex "$EX_NODE" --no-ingress-chain
 log "stage and install on the Iran server (--enable-host-ingress)"
 INSTALLED_IR=1; stage ir
-printf '%s\n' "$TOK_IR" | on ir "umask 077; cat >$LAB/agent.token"
+printf '%s\n' "$TOK_IR" | on_in ir "umask 077; cat >$LAB/agent.token"
 install_agent ir "$IR_NODE" --enable-host-ingress
 for _ in $(seq 1 60); do
   IRC="$(caps "$IR_NODE")"; EXC="$(caps "$EX_NODE")"
@@ -529,7 +549,7 @@ print(json.dumps({"label": label, "integrity": bytes(got) == data, "mib": mib, "
 PY
 measure_from() { # runner|ex label MiB timeout
   if [[ "$1" == runner ]]; then python3 "$WORK/measure.py" "$IR_HOST" "$CLIENT_PORT" "$2" "$3" "$4"
-  else on ex "python3 - '$IR_HOST' '$CLIENT_PORT' '$2' '$3' '$4'" <"$WORK/measure.py"; fi
+  else on_in ex "python3 - '$IR_HOST' '$CLIENT_PORT' '$2' '$3' '$4'" <"$WORK/measure.py"; fi
 }
 log "step 5 — real client traffic through the Iran server's public port (from abroad: the foreign server and the runner)"
 M="$(measure_from ex from_foreign_server 8 300)" || fail "client traffic from the foreign server through the Iran public port failed"

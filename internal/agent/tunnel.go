@@ -104,7 +104,13 @@ func (a *Agent) tunnel(ctx context.Context, j agentjob.Job) (string, string, err
 	t := base
 	if j.Action != agentjob.ActionTunnelDiscover {
 		var err error
-		t, err = base.ForInstance(p["instance_id"], p["metrics_listen"])
+		scope := base.ForInstance
+		if j.Action == agentjob.ActionTunnelRollback || j.Action == agentjob.ActionTunnelInspect {
+			// Nothing is allocated: an unrelated unverifiable sibling must not
+			// turn "nothing to roll back" into rollback_failed.
+			scope = base.ForInstanceNoAllocation
+		}
+		t, err = scope(p["instance_id"], p["metrics_listen"])
 		if err != nil {
 			return "", "", err
 		}

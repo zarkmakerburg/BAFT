@@ -179,6 +179,21 @@ func New(env Env) (*Manager, error) {
 // ownership marker and admin socket are isolated from sibling instances.
 // Empty/default preserves the historical singleton manager.
 func (m *Manager) ForInstance(instance, metricsListen string) (*Manager, error) {
+	return m.forInstance(instance, metricsListen, true)
+}
+
+// ForInstanceNoAllocation scopes a manager to an instance for operations that
+// allocate nothing (rollback of a change, read-only inspection). It applies
+// the same name and metrics-listener validation as ForInstance but skips the
+// sibling metrics-port fence, which exists to protect a NEW allocation. A
+// rollback must not fail because an unrelated sibling is unverifiable: when
+// preparation was refused by that very fence, nothing was created and the
+// rollback has nothing to undo ("nothing to roll back").
+func (m *Manager) ForInstanceNoAllocation(instance, metricsListen string) (*Manager, error) {
+	return m.forInstance(instance, metricsListen, false)
+}
+
+func (m *Manager) forInstance(instance, metricsListen string, fenceSiblings bool) (*Manager, error) {
 	instance = strings.TrimSpace(instance)
 	if instance == "" || instance == "default" {
 		return m, nil
@@ -212,6 +227,9 @@ func (m *Manager) ForInstance(instance, metricsListen string) (*Manager, error) 
 	// independent metrics socket. Unknown or unreadable sibling state fails closed.
 	siblings := filepath.Join(m.ConfigDir, "instances")
 	entries, readErr := os.ReadDir(siblings)
+	if !fenceSiblings {
+		entries, readErr = nil, nil
+	}
 	if readErr != nil && !os.IsNotExist(readErr) {
 		return nil, fmt.Errorf("tunnelnode: cannot inspect sibling instances: %w", readErr)
 	}
@@ -230,7 +248,7 @@ func (m *Manager) ForInstance(instance, metricsListen string) (*Manager, error) 
 			// pairing (its metrics port is held by an exclusive claim, so a
 			// pairing in progress is still fenced). Anything else, including a
 			// bare directory with no state, stays unverifiable and fails closed.
-			if m.uncommittedSibling(entry.Name()) {
+			if m.uncommittedSibling(entry.Name()) || m.retiredSibling(entry.Name()) {
 				continue
 			}
 			return nil, errors.New("tunnelnode: sibling instance has no verifiable config")
@@ -289,6 +307,58 @@ func (m *Manager) uncommittedSibling(name string) bool {
 		return false
 	}
 	return true
+}
+
+// retiredSibling reports whether the named sibling instance was retired by
+// BAFT and holds nothing any more: no config (checked by the caller), unit or
+// ownership marker, and every durable transaction is either prepared, rolled
+// back, or finalized with a COMPLETE retire receipt for that exact tunnel and
+// instance. Retire also released its metrics claim, so it owns no port.
+// Without this, decommissioning one independent instance left a directory
+// that blocked every later instance on the node ("sibling instance has no
+// verifiable config"; guided-flow-e2e host leg, run 41281786914).
+func (m *Manager) retiredSibling(name string) bool {
+	env := m.Env
+	env.Instance = name
+	sib, err := New(env)
+	if err != nil {
+		return false
+	}
+	if _, err := os.Lstat(sib.unitPath()); err == nil {
+		return false
+	}
+	if _, err := os.Lstat(sib.markerPath()); err == nil {
+		return false
+	}
+	entries, err := os.ReadDir(filepath.Join(sib.StateDir, "tunnels"))
+	if err != nil {
+		return false
+	}
+	retired := 0
+	for _, e := range entries {
+		if !e.IsDir() {
+			if e.Name() == "active" || e.Name() == "generation" {
+				continue
+			}
+			return false
+		}
+		t, err := sib.readTxn(e.Name())
+		if err != nil {
+			return false
+		}
+		switch t.Phase {
+		case PhasePrepared, PhaseRolledBack:
+		case PhaseFinalized:
+			st, err := sib.readRetireState(e.Name())
+			if err != nil || st.Phase != "complete" || st.TunnelID != e.Name() || st.Instance != name {
+				return false
+			}
+			retired++
+		default:
+			return false
+		}
+	}
+	return retired > 0
 }
 
 // ---- parameters ----

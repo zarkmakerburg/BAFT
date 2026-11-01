@@ -35,6 +35,8 @@ UNITS=(baft-agent-gfex baft-agent-gfir)
 log() { printf '[guided] %s\n' "$*"; }
 fail() {
   echo "FAIL: $*" >&2
+  # fail can run inside $(...); keep the reason for the parent's ERR trap.
+  [[ -n "${WORK:-}" ]] && printf '%s\n' "$*" >>"$WORK/fail-reason" 2>/dev/null || true
   [[ "${GITHUB_ACTIONS:-}" == "true" ]] && printf '%s\n' "$*" | head -c 3000 | tr '\n' ' ' | sed 's/%/%25/g; s/^/::error title=FAIL::/; s/$/\n/'
   exit 1
 }
@@ -61,10 +63,33 @@ cleanup() {
 }
 trap cleanup EXIT
 # Any unexpected command failure becomes a visible, located annotation.
-trap 'fail "line $LINENO: unexpected failure of: $BASH_COMMAND"' ERR
+trap 'fail "line $LINENO: unexpected failure of: $BASH_COMMAND. $(tail -n 3 "$WORK/fail-reason" 2>/dev/null | tr "\n" " ")"' ERR
 
 api() { curl -fsS -H 'Authorization: Bearer admintok' "$@"; }
-post() { api -H 'Content-Type: application/json' -d "$2" "$BCC$1"; }
+get() { # path -> body. BCC rate-limits /api/ per client address and both
+  # agents share 127.0.0.1 here, so a 429 is waited out, never treated as data.
+  local out code i
+  for i in $(seq 1 20); do
+    out="$(curl -sS -H 'Authorization: Bearer admintok' -w '\n%{http_code}' "$BCC$1")" || { sleep 2; continue; }
+    code="${out##*$'\n'}"; out="${out%$'\n'*}"
+    if [[ "$code" == 429 ]]; then sleep 3; continue; fi
+    [[ "$code" =~ ^2 ]] || fail "GET $1 -> HTTP $code: $(printf '%s' "$out" | head -c 1500)"
+    printf '%s' "$out"; return 0
+  done
+  fail "GET $1: still rate-limited or unreachable after retries"
+}
+post() { # path json -> body; any HTTP error fails with BCC's own reason.
+  # A 429 means BCC did not process the request, so retrying it is safe.
+  local out code i
+  for i in $(seq 1 20); do
+    out="$(curl -sS -H 'Authorization: Bearer admintok' -H 'Content-Type: application/json' -d "$2" -w '\n%{http_code}' "$BCC$1")" || fail "POST $1: curl failed"
+    code="${out##*$'\n'}"; out="${out%$'\n'*}"
+    if [[ "$code" == 429 ]]; then sleep 3; continue; fi
+    [[ "$code" =~ ^2 ]] || fail "POST $1 -> HTTP $code: $(printf '%s' "$out" | head -c 1500)"
+    printf '%s' "$out"; return 0
+  done
+  fail "POST $1: still rate-limited after retries"
+}
 jget() { python3 -c 'import json,sys;d=json.load(sys.stdin)
 for k in sys.argv[1:]:
     d=d[int(k)] if isinstance(d,list) else (d.get(k) if isinstance(d,dict) else None)
@@ -112,7 +137,7 @@ log "install.sh --agent-only: EX plain, IR with the ingress chain and --provisio
 enroll ex "$TOK_EX" 9391 --no-ingress-chain
 enroll ir "$TOK_IR" 9392 --provision-ingress-policy
 
-caps() { api "$BCC/api/nodes" | python3 -c 'import json,sys
+caps() { get /api/nodes | python3 -c 'import json,sys
 for n in json.load(sys.stdin):
     if n.get("ID",n.get("id"))==sys.argv[1]: print(",".join(n.get("capabilities") or []))' "$1"; }
 log "both agents report fresh capabilities; IR must report operational-ingress-v1"
@@ -131,9 +156,9 @@ log "step 1 — connection test: signed path probe IR -> EX on $EX_PORT"
 PROBE="$(post /api/path-probes "{\"source_node\":\"ir-gf\",\"destination_node\":\"ex-gf\",\"family\":\"4\",\"candidate_ports\":[$EX_PORT]}")"
 PID="$(printf '%s' "$PROBE" | jget id)"
 for _ in $(seq 1 90); do
-  PROBE="$(api "$BCC/api/path-probes?id=$PID")"
+  PROBE="$(get "/api/path-probes?id=$PID")"
   case "$(printf '%s' "$PROBE" | jget phase)" in complete|failed|cancelled) break ;; esac
-  sleep 2
+  sleep 3
 done
 printf '%s' "$PROBE" >"$WORK/probe.json"
 CLASS="$(printf '%s' "$PROBE" | jget candidates 0 class)"
@@ -183,19 +208,19 @@ T="$(post /api/tunnels "${REQ%\}},\"plan_hash\":\"$HASH\"}" | jget id)"
 [[ -n "$T" ]] || fail "deploy returned no tunnel id"
 phase=""
 for _ in $(seq 1 120); do
-  phase="$(api "$BCC/api/tunnels?id=$T" | jget phase)"
+  phase="$(get "/api/tunnels?id=$T" | jget phase)"
   case "$phase" in active|rolled_back|rollback_failed|superseded) break ;; esac
-  sleep 2
+  sleep 3
 done
 [[ "$phase" == active ]] || fail "tunnel ended as '$phase'"
 
 log "step 5 — public ingress must be applied and independently verified (ingress.ready)"
 ING=""
 for _ in $(seq 1 120); do
-  ING="$(api "$BCC/api/tunnels?id=$T" | jget ingress)"
+  ING="$(get "/api/tunnels?id=$T" | jget ingress)"
   [[ "$(printf '%s' "${ING:-null}" | jget ready)" == True ]] && break
   case "$(printf '%s' "${ING:-null}" | jget state)" in failed|blocked) break ;; esac
-  sleep 2
+  sleep 3
 done
 log "ingress: ${ING:-none}"
 [[ "$(printf '%s' "${ING:-null}" | jget ready)" == True ]] || fail "operational public ingress never became ready: ${ING:-no ingress state}"
@@ -225,7 +250,7 @@ for attempt in range(15):
 sys.exit(1)
 PY
 
-if api "$BCC/api/jobs" | grep -qE 'BAFTPAIR1:|BAFTREPLY1:'; then fail "a pairing code is listed by /api/jobs"; fi
+if get /api/jobs | grep -qE 'BAFTPAIR1:|BAFTREPLY1:'; then fail "a pairing code is listed by /api/jobs"; fi
 
 log "step 7 — decommission; the public port must close and the owned rule go away"
 DPLAN="$(post /api/tunnels/decommission/plan "{\"id\":\"$T\"}")"
@@ -233,17 +258,17 @@ DHASH="$(printf '%s' "$DPLAN" | jget hash)"
 [[ -n "$DHASH" ]] || fail "no decommission plan: $DPLAN"
 post /api/tunnels/decommission "{\"id\":\"$T\",\"plan_hash\":\"$DHASH\"}" >/dev/null
 for _ in $(seq 1 120); do
-  phase="$(api "$BCC/api/tunnels?id=$T" | jget phase)"
+  phase="$(get "/api/tunnels?id=$T" | jget phase)"
   [[ "$phase" == decommissioned ]] && break
-  sleep 2
+  sleep 3
 done
-[[ "$phase" == decommissioned ]] || fail "decommission ended as '$phase': $(api "$BCC/api/tunnels?id=$T" | head -c 2000)"
+[[ "$phase" == decommissioned ]] || fail "decommission ended as '$phase': $(get "/api/tunnels?id=$T" | head -c 2000)"
 closed=0
 for _ in $(seq 1 30); do
   if ! python3 -c 'import socket,sys;socket.create_connection((sys.argv[1],int(sys.argv[2])),timeout=2)' "$HOST_IP" "$CLIENT_PORT" 2>/dev/null; then closed=1; break; fi
   sleep 2
 done
-[[ "$closed" == 1 ]] || fail "public port $CLIENT_PORT still accepts connections after decommission: ingress=$(api "$BCC/api/tunnels?id=$T" | jget ingress)"
+[[ "$closed" == 1 ]] || fail "public port $CLIENT_PORT still accepts connections after decommission: ingress=$(get "/api/tunnels?id=$T" | jget ingress)"
 if nft list table inet baft 2>/dev/null | grep -q "dport $CLIENT_PORT"; then fail "owned firewall rule for $CLIENT_PORT survived decommission"; fi
 
 log "PASS: connection test -> auto-select -> plan -> deploy -> verified public ingress -> client traffic -> clean decommission"

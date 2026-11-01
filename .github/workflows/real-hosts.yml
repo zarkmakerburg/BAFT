@@ -1,0 +1,104 @@
+name: Real-hosts LAB
+# The v0.5.0 product path between the owner's two REAL test servers (one in
+# Iran, one abroad) over the real Internet path, driven over SSH by
+# tests/e2e/real_hosts.sh. Manual only: it needs the owner's servers.
+#
+# Repository secrets (Settings -> Secrets and variables -> Actions):
+#   BAFT_IR_HOST          public IPv4 of the Iran test server
+#   BAFT_EX_HOST          public IPv4 of the foreign test server
+#   BAFT_SSH_KEY          private SSH key accepted by both servers
+#   BAFT_SSH_USER         optional, default root (others need sudo without password)
+#   BAFT_SSH_PORT         optional, default 22 (same port on both servers)
+#   BAFT_SSH_KNOWN_HOSTS  optional, pins host keys (ssh-keyscan output)
+#
+# mode=preflight changes nothing on the servers. mode=full installs BAFT,
+# runs the scenarios and removes everything again; use TEST servers only.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'preflight (read-only) or full'
+        type: choice
+        options: [preflight, full]
+        default: preflight
+      reboot:
+        description: 'full mode: also reboot the Iran server (reboot persistence)'
+        type: boolean
+        default: false
+      candidate_ports:
+        description: 'foreign ports the connection test may use'
+        type: string
+        default: '443,8443,2053'
+      client_port:
+        description: 'public client port opened on the Iran server'
+        type: string
+        default: '18610'
+      bcc_port:
+        description: 'BCC HTTPS port on the foreign server (must be reachable from the Iran server)'
+        type: string
+        default: '18300'
+permissions:
+  contents: read
+concurrency:
+  # One run at a time against the same pair of servers.
+  group: real-hosts
+  cancel-in-progress: false
+jobs:
+  real-hosts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Check the required secrets
+        env:
+          IR_HOST: ${{ secrets.BAFT_IR_HOST }}
+          EX_HOST: ${{ secrets.BAFT_EX_HOST }}
+          SSH_KEY: ${{ secrets.BAFT_SSH_KEY }}
+        run: |
+          missing=""
+          [[ -n "$IR_HOST" ]] || missing+=" BAFT_IR_HOST"
+          [[ -n "$EX_HOST" ]] || missing+=" BAFT_EX_HOST"
+          [[ -n "$SSH_KEY" ]] || missing+=" BAFT_SSH_KEY"
+          [[ -z "$missing" ]] || { echo "::error title=secrets::missing repository secrets:$missing"; exit 1; }
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        if: inputs.mode == 'full'
+        with:
+          go-version-file: go.mod
+          check-latest: false
+          cache: false
+      - name: Build a signed release of this commit with throwaway keys
+        if: inputs.mode == 'full'
+        run: scripts/release/local_release.sh "$RUNNER_TEMP/rel" v0.0.3-lab
+      - name: Real-hosts LAB (${{ inputs.mode }})
+        env:
+          IR_HOST: ${{ secrets.BAFT_IR_HOST }}
+          EX_HOST: ${{ secrets.BAFT_EX_HOST }}
+          SSH_KEY: ${{ secrets.BAFT_SSH_KEY }}
+          SSH_USER: ${{ secrets.BAFT_SSH_USER }}
+          SSH_PORT: ${{ secrets.BAFT_SSH_PORT }}
+          KNOWN_HOSTS: ${{ secrets.BAFT_SSH_KNOWN_HOSTS }}
+          MODE: ${{ inputs.mode }}
+          REBOOT: ${{ inputs.reboot && '1' || '0' }}
+          CANDIDATE_PORTS: ${{ inputs.candidate_ports }}
+          CLIENT_PORT: ${{ inputs.client_port }}
+          BCC_PORT: ${{ inputs.bcc_port }}
+        run: |
+          set -o pipefail
+          umask 077
+          printf '%s\n' "$SSH_KEY" >"$RUNNER_TEMP/id"
+          [[ -n "$KNOWN_HOSTS" ]] && printf '%s\n' "$KNOWN_HOSTS" >"$RUNNER_TEMP/known_hosts"
+          export SSH_KEY_FILE="$RUNNER_TEMP/id" SSH_USER="${SSH_USER:-root}" SSH_PORT="${SSH_PORT:-22}"
+          export SSH_KNOWN_HOSTS_FILE="${KNOWN_HOSTS:+$RUNNER_TEMP/known_hosts}" REL="$RUNNER_TEMP/rel"
+          export SUMMARY_OUT="$RUNNER_TEMP/real-hosts-summary.json"
+          unset SSH_KEY KNOWN_HOSTS
+          tests/e2e/real_hosts.sh 2>&1 | tee "$RUNNER_TEMP/real-hosts.log"
+      - name: Remove the key from the runner
+        if: always()
+        run: rm -f "$RUNNER_TEMP/id" "$RUNNER_TEMP/known_hosts"
+      - name: Keep the measured summary
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: real-hosts-summary-${{ inputs.mode }}
+          path: ${{ runner.temp }}/real-hosts-summary.json
+          if-no-files-found: ignore

@@ -17,8 +17,16 @@ permissions:
   contents: read
 jobs:
   two-host:
+    # lab: the scenario in two_host_lab.sh (netem, link cut on the bridge).
+    # real-hosts-selftest: the real-servers driver (tests/e2e/real_hosts.sh)
+    # run against the same two guests, including reboot persistence.
+    strategy:
+      fail-fast: false
+      matrix:
+        driver: [lab, real-hosts-selftest]
+    name: two-host (${{ matrix.driver }})
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -46,19 +54,22 @@ jobs:
       - name: Build a signed release of this commit with throwaway keys
         run: scripts/release/local_release.sh "$RUNNER_TEMP/rel" v0.0.3-lab
       - name: Two-host LAB
+        env:
+          DRIVER: ${{ matrix.driver }}
         run: |
           set -o pipefail
-          sudo env GITHUB_ACTIONS=true GITHUB_STEP_SUMMARY="$GITHUB_STEP_SUMMARY" TWO_HOST_SUMMARY_OUT="$RUNNER_TEMP/two-host-summary.json" PATH="$PATH" \
+          selftest=0; [[ "$DRIVER" == real-hosts-selftest ]] && selftest=1
+          sudo env GITHUB_ACTIONS=true GITHUB_STEP_SUMMARY="$GITHUB_STEP_SUMMARY" TWO_HOST_SUMMARY_OUT="$RUNNER_TEMP/two-host-summary.json" REAL_HOSTS_SELFTEST="$selftest" PATH="$PATH" \
             tests/e2e/two_host_lab.sh "$RUNNER_TEMP/rel" "$RUNNER_TEMP/ubuntu-24.04-server-cloudimg-amd64.img" 2>&1 | tee "$RUNNER_TEMP/two-host.log"
       - name: Report the end of the log
         if: failure()
         run: |
-          grep -E '^\[two-host\]|FAIL|error|Error|refused|denied' "$RUNNER_TEMP/two-host.log" | tail -n 12 | cut -c1-900 | sed 's/%/%25/g; s/^/::error title=two-host-log::/'
+          grep -E '^\[(two-host|real-hosts)\]|FAIL|error|Error|refused|denied' "$RUNNER_TEMP/two-host.log" | tail -n 12 | cut -c1-900 | sed 's/%/%25/g; s/^/::error title=two-host-log::/'
       - name: Keep the measured summary
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: two-host-lab-summary
+          name: two-host-lab-summary-${{ matrix.driver }}
           path: |
             ${{ runner.temp }}/two-host-summary.json
             ${{ runner.temp }}/two-host.log

@@ -93,6 +93,11 @@ type Tunnel struct {
 	IRMetricsListen        string `json:"ir_metrics_listen,omitempty"`
 	RecordShaping          bool   `json:"record_shaping,omitempty"`
 
+	// ClientPortAck records the operator's reviewed statement that no other
+	// service on the IR server is configured to use ClientPort (ADR-003 §4.2
+	// item 3). Required before queuing on an IR agent in safe host mode.
+	ClientPortAck bool `json:"client_port_ack,omitempty"`
+
 	PlanHash string           `json:"plan_hash,omitempty"`
 	Evidence []TunnelEvidence `json:"evidence,omitempty"`
 	// ExpectedGen is the generation change the reviewed plan promised each
@@ -181,6 +186,9 @@ type TunnelRequest struct {
 	AutoSelectEvidence *AutoTransportCandidate `json:"auto_select_evidence,omitempty"`
 	// PlanHash, when set, must equal the hash of the plan BCC computes now.
 	PlanHash string `json:"plan_hash,omitempty"`
+	// ClientPortAck: "no other service on this IR server is configured to use
+	// ClientPort". Bound into the plan hash; ignored without ClientPort.
+	ClientPortAck bool `json:"client_port_ack,omitempty"`
 }
 
 // instanceForNode maps a tunnel's per-endpoint instance scope. InstanceID remains
@@ -466,7 +474,7 @@ func (s *Store) resolveTunnelLocked(req TunnelRequest, now time.Time) (Tunnel, N
 	}
 	t := Tunnel{
 		ID: newTunnelID(), InstanceID: strings.TrimSpace(req.InstanceID), IRInstanceID: strings.TrimSpace(req.IRInstanceID), JoinOwnerID: strings.TrimSpace(req.JoinExistingTunnelID), EXNode: req.EXNode, IRNode: req.IRNode,
-		PublicAddress: req.PublicAddress, Port: req.Port, ClientPort: req.ClientPort, Target: req.Target, RouteID: req.RouteID, RouteListen: req.RouteListen,
+		PublicAddress: req.PublicAddress, Port: req.Port, ClientPort: req.ClientPort, ClientPortAck: req.ClientPortAck && req.ClientPort != 0, Target: req.Target, RouteID: req.RouteID, RouteListen: req.RouteListen,
 		EXMetricsListen: req.EXMetricsListen, IRMetricsListen: req.IRMetricsListen, RecordShaping: req.RecordShaping,
 		CreatedAt: now.UTC(), UpdatedAt: now.UTC(),
 	}

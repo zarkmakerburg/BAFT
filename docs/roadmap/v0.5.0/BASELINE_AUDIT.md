@@ -1,0 +1,375 @@
+# BAFT v0.5.0 — Baseline Audit (Stage 0)
+
+**Audit date:** 2026-10-31  
+**Repository:** `zarkmakerburg/BAFT`  
+**Working branch:** `codex/v0.5.0-foundation-20261031`  
+**Scope:** Live GitHub refs, releases, PRs #290/#292–#295, Issue #67, main recursive tree, and targeted source reads.
+
+> This is an evidence-based source/GitHub audit, not a local build or runtime test. The connected Desktop Commander devices were offline. No runtime tests were run during this audit.
+
+## 1. Verified live baseline
+
+| Item | Observed evidence |
+|---|---|
+| Main SHA | `9c32ba369fe2be2c549f2878d1de5dbf092c8f64` |
+| Main commit | Merge v0.4.0 native ingress candidate (#291) |
+| Main tree | `e065727d66ce97a917b9fc64e4e7ec7db9d73e3c` |
+| Main recursive tree | 1,285 entries; response not truncated |
+| Go module / language version | `github.com/zarkmakerburg/baft`, Go `1.27.3` |
+| Latest published release | GitHub Releases API confirms `v0.4.0`, published 2026-10-30T13:14:53Z; draft=false, prerelease=false |
+| Main Actions | Latest returned main run: `static-analysis`, SHA above, completed/success, run 41193394932. This is one workflow, not proof that all required gates passed. |
+| v0.5.0 branch head | `743ad38f5039bd8c5f4dcc5d19e36c2961a86a91` |
+| Branch head commit | `docs(v0.5.0): add canonical autonomous agent handoff`; unsigned per GitHub verification metadata |
+| Working branch runtime diff | No runtime implementation commit is present in the branch history observed here; branch work so far is planning/handoff documentation. |
+
+Links: [main](https://github.com/zarkmakerburg/BAFT/tree/main), [v0.5.0 branch](https://github.com/zarkmakerburg/BAFT/tree/codex/v0.5.0-foundation-20261031), [v0.4.0 release](https://github.com/zarkmakerburg/BAFT/releases/tag/v0.4.0), [latest main static-analysis run](https://github.com/zarkmakerburg/BAFT/actions/runs/41193394932).
+
+## 2. Version-workstream conflict
+
+Draft PR [#295 — docs(v0.4.1): establish execution plan and acceptance gates](https://github.com/zarkmakerburg/BAFT/pull/295) is open against main and has head SHA `95e6f21573b78c8858edfd35356abde9e19f7b21`. The user-directed workstream in this branch is v0.5.0. These are competing next-version plans. This audit preserves the owner's explicit v0.5.0 target and does not merge, rename, or overwrite PR #295. Record the version sequencing decision in Issue #67 before duplicating implementation work.
+
+## 3. Live ingress/lifecycle dependency state
+
+At audit time the following PRs were open drafts:
+
+| PR | Head SHA | Base | Evidence and implication |
+|---|---|---|---|
+| [#292 — recover committed port releases with identity fencing](https://github.com/zarkmakerburg/BAFT/pull/292) | `f300a73204078ad38557b0d4f379a336b807d626` | `main` | Recovery/fencing change remains unmerged; do not treat as main behavior. |
+| [#293 — recover fresh signed Retire after receipt delivery failure](https://github.com/zarkmakerburg/BAFT/pull/293) | `9fc1c355b97547215dbeb0e4490b026ae14e4ccd` | `codex/v041-release-crash-recovery-20261030` | Stacked on #292; its checks and dependencies must be evaluated as a chain. |
+| [#294 — join native listener shutdown and unblock hijacked WebSockets](https://github.com/zarkmakerburg/BAFT/pull/294) | `632d8b16c9607d661e485b3a43a106390ccbcf82` | `main` | Lifecycle/shutdown repair remains unmerged. |
+| [#290 — preserve live authority and shared tenant lifecycle](https://github.com/zarkmakerburg/BAFT/pull/290) | `ced78f509f2acc8b3cc08fb94d1baa97092191c7` | `hq/p0-candidate-20261029` | Stacked candidate; not main behavior. |
+| [#295 — v0.4.1 execution plan](https://github.com/zarkmakerburg/BAFT/pull/295) | `95e6f21573b78c8858edfd35356abde9e19f7b21` | `main` | Competing documentation-only next-version plan. |
+
+[Issue #269](https://github.com/zarkmakerburg/BAFT/issues/269) remains a critical dependency to re-check before any ingress/lease/listener/firewall/recovery runtime work. Issue #67 remains open and is the governance/evidence board. Do not assume historical CI results remain applicable to current heads.
+
+## 4. Main source inventory
+
+The recursive tree contains these actual subsystem roots:
+
+- `internal/bcc/` — control plane, job issuance, ingress policy, Wizard capability/progress.
+- `internal/agent/`, `internal/agentjob/` — agent polling/execution and signed-job validation.
+- `internal/ingressauthority/`, `internal/ingressmanifest/` — ingress authority/lease and manifest/proof.
+- `internal/ingressownership/` — firewall executor, ownership, journal, rollback, reconciliation and tests.
+- `internal/ingressinventory/`, `internal/publicingress/` — ingress inventory and public-ingress path.
+- `internal/recovery/`, `internal/tunnelnode/` — recovery engine and node lifecycle/state.
+- `internal/config/`, `internal/release/`, `internal/uninstall/` — configuration, release verification, uninstall.
+- `cmd/baft/`, `cmd/baft-agent/` — CLI and Agent entrypoints.
+- `web/` — BCC UI and browser tests.
+- `install.sh`, `tests/e2e/`, `.github/workflows/` — installation, E2E and CI.
+
+### Targeted source files inspected at main SHA
+
+- `internal/agent/agent.go`
+- `internal/agentjob/agentjob.go`
+- `internal/agent/ingress_signed_held_admission.go`
+- `internal/agent/public_ingress_v1_command.go`
+- `internal/bcc/jobsign.go`
+- `internal/bcc/ingress_operational_enqueue.go`
+- `internal/bcc/ingress_policy.go`
+- `cmd/baft-agent/ingress_provision.go`
+- `cmd/baft-agent/ingress_reconcile.go`
+- `internal/config/config.go`
+- `docs/release/v040-shared-ingress-acceptance.md`
+
+The source documents a pinned Ed25519 signed-job model, node/action/time/replay checks, a held-ingress admission/lease boundary, operational ingress enqueue, startup reconciliation, ownership/journal machinery, and a shared-ingress acceptance contract. This proves that components exist, not that the entire end-to-end product path is production-ready.
+
+## 5. Subsystem findings
+
+| Subsystem | Evidence | Audit classification | Required next proof |
+|---|---|---|---|
+| BCC control plane | `internal/bcc/`, job signing/enqueue and ingress policy | Implemented but unverified end-to-end | Trace reviewed plan → signed job → Agent receipt → durable UI state. |
+| Agent and job authorization | `internal/agent/`, `internal/agentjob/`, signed held admission | Implemented but unverified on live hosts | Test key pinning, target scope, expiry/replay, denial paths and effect-boundary checks. |
+| Ingress authority/lease | `internal/ingressauthority/`, Agent mint path | Implemented but unverified as a production path | Verify held-lock lifetime, single-use lease, revocation and uncertain-state fencing. |
+| Firewall/ownership | `internal/ingressownership/`, nft backend, operational executor, inventory | Extensive implementation; host/LAB result unknown | Run exact-SHA Linux kernel/namespace tests; prove cross-tenant and system resources survive retirement/rollback. |
+| Journal/recovery | journal/recovery code and tests; startup reconciliation | Extensive implementation; crash matrix not run here | Inject crash at each effect boundary; verify restart reconciliation and durable receipt retry. |
+| Public ingress | manifest, operational enqueue, Agent command mapping | Code exists; release acceptance not established | Real signed enqueue → apply → payload probe → receipt → truthful readiness → retire. |
+| Shared listener/tenant lifecycle | acceptance contract plus open #290 and lifecycle PRs | Main has acceptance contract; related changes remain unmerged | Reconcile dependencies and prove owner survives tenant join/restart/retirement on exact candidate SHA. |
+| Wizard/UI | `web/bcc-action-wizard.js`, `web/bcc-app.js`, `web/bcc-operations-v3.js`, browser tests | UI/tests exist; complete user flow unknown | Run JS/unit/browser matrix; verify capability-backed status, failure clarity, Persian RTL and English LTR. |
+| Installer/upgrade/rollback | `install.sh`, `internal/uninstall/`, E2E scripts | Implemented surfaces; release test result unknown | Verify signed artifact and run install/upgrade/rollback/uninstall in isolated LAB. |
+| Release/CI | published v0.4.0; workflows present | v0.4.0 release verified; v0.5.0 gates unknown | Collect required checks on exact candidate SHA; no inherited green checks. |
+
+## 6. High-priority acceptance gaps and risks
+
+1. Issue #269 and the ingress/lifecycle PR stack must be rechecked before v0.5.0 touches shared listener, lease, firewall, receipt or recovery.
+2. #292, #293 and #294 are unmerged at the audited heads; their code and green checks cannot be attributed to main.
+3. #290 is based on another candidate branch and is not main behavior.
+4. #295 creates a v0.4.1 planning stream in parallel with this owner-directed v0.5.0 stream. Avoid duplicate implementation until Issue #67 resolves sequencing.
+5. A successful static-analysis workflow is not a full acceptance pass. No full local tests or LAB execution occurred in this audit.
+6. Current main CI status beyond the specific Actions run linked above is **unknown** from the inspected evidence.
+
+These are evidence gaps/dependencies, not claims that every listed subsystem is defective.
+
+## 7. Test and action log
+
+- Live branch and release refs: inspected.
+- Open PRs #290, #292–#295: inspected at the listed heads.
+- Issue #67: inspected; open, 1,726 comments at query time.
+- Main recursive tree: inspected (1,285 entries, non-truncated).
+- Targeted source reads: completed as listed above.
+- Local Go tests: **not run**; connected Mac/Desktop Commander devices were offline.
+- UI/browser tests: **not run**.
+- Linux kernel/systemd LAB: **not run**.
+- Runtime code changes: **none** in this audit.
+- Merge/tag/release/deploy: **none**.
+
+No unrun test is reported as passed.
+
+## 8. Next executable sequence
+
+1. Recheck Issue #269, PRs #290/#292/#293/#294, latest heads/checks and the v0.4.1/v0.5.0 sequencing note immediately before runtime changes.
+2. Secure a reachable local checkout/CI execution environment; do not substitute source browsing for tests.
+3. Start with the smallest unresolved P0 that is confirmed against main and has a reproducible failing or missing acceptance test. Prefer completing the dependent lifecycle/reconciliation chain over adding new transport protocols.
+4. On the selected exact SHA, run targeted tests first, then race/vet/relevant integration/UI checks; record commands, exit codes and SHA.
+5. Only then implement the vertical slice: BCC plan → signed job → scoped Agent effect → ownership/journal evidence → real probe → truthful receipt/readiness → rollback/recovery under injected failure.
+6. Keep all changes on the dedicated v0.5.0 branch; no merge/tag/release/deploy without the applicable explicit authorization and acceptance gates.
+
+## 9. Stage 1 — first local execution and first P0 fix (2026-10-31)
+
+### 9.1 Live state re-checked before runtime work
+
+| Ref / item | Observed |
+|---|---|
+| `main` | `9c32ba369fe2be2c549f2878d1de5dbf092c8f64` (unchanged) |
+| v0.5.0 branch head before Stage 1 | `fe063f919f222d131cc88bfc905888322c2d4d02` |
+| PR #292 / #293 / #294 / #295 | still open drafts at the heads listed in §3 |
+| PR #290 | still an open draft, **but its head `ced78f50…` is the same commit that #291 merged into `main`**. Its content is already in `main`; treat #290 as superseded rather than as a pending dependency. (Correction to §3/§6.) |
+| Issue #269 | open, no-go; last comments 2026-10-29 still list shared-transport lifecycle and E2E acceptance as missing. |
+
+### 9.2 Execution environment (honest limits)
+
+- Cloud Linux sandbox, amd64. The pinned toolchain `go1.27.3` could not be downloaded (egress policy denies `proxy.golang.org`/`go.dev`), and building it from source was not permitted. Tests ran with the locally installed **Go 1.25.1** on a scratch copy whose `go.mod` directive was lowered to `go 1.25`; nothing in that scratch change is committed.
+- Dependencies were fetched from the upstream GitHub mirrors at the exact `go.sum` versions. Every module zip and `go.mod` was hashed and **matched its `go.sum` `h1:` line byte-for-byte** before use (x/sys, x/crypto, noise, yaml v3, utls, compress, brotli, sqlite, humanize, uuid, isatty, strftime). `x/sys`, `x/crypto` and `sqlite` declare `go 1.26.0`; their go directive was lowered in the scratch copy only.
+- `modernc.org/libc|mathutil|memory` are only on GitLab (blocked), so **`internal/bcc`, `cmd/baft-bcc*` and every test that imports `internal/bcc` could not be built**. For `internal/agent`, the 8 test files that import `internal/bcc`/`oplab` (or helpers defined in them) were held aside in the scratch copy; the remaining 32 test files ran.
+- No IPv6 `/proc/net/tcp6` and no access to `/proc/1/ns/net` in the sandbox; the Linux-kernel/namespace "LAB" tests fail for that reason, not as product evidence either way.
+
+### 9.3 Baseline result at `fe063f91` (Go 1.25.1, `go test -count=1 ./...`)
+
+- **40 packages ok**: cmd/baft, cmd/baft-agent, cmd/baft-pair, agentjob, benchpath, carrier/h2, carrier/utlsdial, carrier/ws, cluster, clustersync, config, dnsfailover, failover, geoip, identity, ingressauthority, ingressmanifest, ingressunit, metrics, node, protocol, recordshape, recovery, release, resources, routes, scheduler, securityinternal, session, sshboot, sshmigrate, telemetry, tunnelengine, tunnelnode, uninstall, tests/camouflage, tests/correctness, tests/e2e/operational/recovery, tests/installer, tests/release/opgate.
+- **9 setup failures (environment: modernc libc unavailable)**: cmd/baft-bcc, cmd/baft-bcc-audit-verify, internal/agent (full set), internal/bcc, tests/e2e/operational, tests/integration, tests/release, tests/uninstall, web/qa/fixture.
+- **4 test failures, all environment-caused** (`/proc/net/tcp6` missing or `/proc/1/ns/net` denied, plus cascades): internal/ingressinventory, internal/ingressownership (NFT LAB tests), internal/publicingress (forwarder/listener tests), tests/docs.
+- This is **Locally tested (partial, non-pinned toolchain)** evidence only. It is not CI evidence and not a substitute for the Go 1.27.3 gates.
+
+### 9.4 First confirmed P0 defect and fix — ADR-001 §5 secret redaction
+
+Reproduced on `fe063f91` with new tests (both **failed before the fix**):
+
+1. `TestFailedJobACKAndResultAreRedacted` — a failing `health` job whose `baft doctor` output contains the agent bearer token, a PEM private key, a pairing code and URL credentials leaked all of them into `Result.Detail` (logged by `Agent.Run`) and the ACK `Message` stored by BCC.
+2. `TestOperationalReceiptFailureCauseIsRedactedAndDeliverable` — a long executor error in `FailureCause` made the receipt exceed `maxIngressReceiptBytes`; the Agent refused to send it (`operational ingress receipt exceeds bound`), so **BCC received no failure evidence** (ADR-001 §3). The cause was also unredacted.
+
+Fix in commit `1cdef92a3a3bae00f727297516c928a8d0340ec3` (`fix(agent): redact and bound diagnostics at every outbound boundary`): new stdlib-only `internal/redact`; Agent ACK message/output, `Result.Detail` and receipt `FailureCause` (bounded to 1024 bytes) are redacted at the boundary; the support bundle shares the same rule set. Diff: 6 files, +462/−33 (tests included).
+
+After the fix (Go 1.25.1, `-race`): both new tests pass; `internal/redact` (unit + 30 s fuzz, ~119k execs), `cmd/baft`, `internal/agentjob`, `internal/release` pass; `internal/agent` (32 of 40 test files) passes except `TestPublicIngressPreflightAcceptsLinuxTCP6Header` (`/proc/net/tcp6` missing — environment). `go build` of `internal/agent`, `cmd/baft`, `cmd/baft-agent` and `go vet` of the changed packages are clean.
+
+### 9.5 ADR-001 acceptance mapping progress
+
+| ADR-001 case | Status after Stage 1 |
+|---|---|
+| Secrets in errors/receipts/logs redacted | **Agent side implemented + locally tested** (ACK, Result/log, operational receipt). BCC-side defense-in-depth on ingest (`/api/agent/ack` message, receipt `FailureCause` before persist/UI) **not yet implemented** — needs a build environment with `modernc.org/libc`. |
+| Failure evidence must reach BCC | Oversized failure receipts are now deliverable (Agent side). |
+| Wrong key / wrong node / expired / replay / modified digest | Existing tests in `internal/agentjob` and `internal/agent` pass locally (partial set). Note: `agentjob.Verifier` silently skips replay checks when `Seen == nil`; both nil-`Seen` callers (`ingress_operational.go`, `ingress_signed_held_admission.go`) rely on `RunOnce`'s durable claim and the single-use lease mint. Not exploitable as observed, but fail-open by construction — candidate hardening. |
+| Remaining cases (stale lease, lost receipt, partial failure, crash matrix, shared-listener retirement, ownership ambiguity) | Unchanged: need a full Go 1.27.3 + Linux LAB environment and the #292/#293/#294 decisions. |
+
+### 9.6 Next executable actions
+
+1. Run the full suite on the pinned Go 1.27.3 toolchain (CI or a host with module-proxy access) at the new branch head; record exact-SHA results.
+2. Add BCC-side redaction/bounding on ACK and receipt ingest using `internal/redact`, with `internal/bcc` tests.
+3. Harden `agentjob.Verifier` so a nil `Seen` cannot silently disable replay protection (explicit opt-out for callers that hold a durable claim), with tests.
+4. Decide #292/#293/#294 sequencing in Issue #67 before touching lease/listener/recovery code.
+
+## 10. Stage 2 — first exact-SHA CI, a caught regression, and C-BAFT integration (2026-10-31)
+
+Owner direction (2026-10-31): combine C-BAFT's essential capabilities and ease of use with BAFT's BCC into one product on this branch, with full authority to take the necessary steps. Merge/tag/release/deploy remain separate decisions.
+
+### 10.1 CI on the pinned toolchain (GitHub Actions, `ci.yml` via `workflow_dispatch`)
+
+`codex/**` branches do not trigger CI on push, so runs were dispatched manually.
+
+| Run | SHA | Result | Finding |
+|---|---|---|---|
+| [41229286650](https://github.com/zarkmakerburg/BAFT/actions/runs/41229286650) | `e156fd7f` | **failure**: `test`, `e2e-launch1` | Real regression from `1cdef92a`: redacting the ACK **Output** replaced the EX pairing code with `[redacted pairing code]`, so BCC could not issue IR prepare/trust jobs (`tunnel 1 ended as 'preparing_ir'`; rotation flow `pull jobs: HTTP 500`). Not reproducible locally because those tests import `internal/bcc`. |
+| [41229725348](https://github.com/zarkmakerburg/BAFT/actions/runs/41229725348) | `9c32ba36` (main) | **success** (control) | Dispatched to separate flakiness from the regression; every job passed on main, confirming the `e156fd7f` failure was introduced on this branch. |
+| [41230304771](https://github.com/zarkmakerburg/BAFT/actions/runs/41230304771) | `26a86708` | `test` failed **only** on `tests/docs` RTL check | Rotation/tunnel tests pass after `5392b404`. Remaining failure: `EXECUTION_PLAN.fa.md` (from `2b275764`) lacked the canonical RTL wrapper — fixed in `3f51221e`, `tests/docs` passes locally. (Correction to §9.3: the local `tests/docs` failure was this defect, not the sandbox.) |
+| [41230317598](https://github.com/zarkmakerburg/BAFT/actions/runs/41230317598) | `26a86708` | **success** | `BCC UI tests` (JS unit + Playwright/Chromium browser regressions). |
+| [41230590263](https://github.com/zarkmakerburg/BAFT/actions/runs/41230590263) / [41230592672](https://github.com/zarkmakerburg/BAFT/actions/runs/41230592672) | `7b417b2f` | `ci`: `test` failed (same RTL docs defect + one `cmd/baft` `tunnel_live_test.go:244` failure); all e2e incl. `e2e-launch1` passed. UI tests **success** | The `cmd/baft` live-tunnel test did not fail on `26a86708`, `826744cb` or `b8017da4` and `cmd/baft` is untouched by `7b417b2f`; treated as a flaky port-race test (its history has several port-reservation fixes). Not proven flaky — watch it. |
+| [41230762372](https://github.com/zarkmakerburg/BAFT/actions/runs/41230762372) / [41230764756](https://github.com/zarkmakerburg/BAFT/actions/runs/41230764756) | `826744cb` | **success** / **success** | First fully green `ci` (all jobs, Go 1.27.3 toolchain from `go.mod`) and UI run on this branch. |
+| [41230913489](https://github.com/zarkmakerburg/BAFT/actions/runs/41230913489) | `b8017da4` | **success** | Includes BCC-side failure-ACK redaction and `TestAgentFailureACKIsRedactedBeforeStorage`. |
+
+Lesson recorded for the next agent: ACK `Output` is an authenticated one-time channel (pairing/reply codes, rotation plan) and must not be redacted; only failure text and logs are. `TestSucceededACKOutputCarriesPairingCodeUnchanged` guards it.
+
+### 10.2 C-BAFT inventory and decision
+
+C-BAFT (`zarkmakerburg/C-BAFT` `ed57639`) was cloned and inspected: a fork of C-Tunnel by CIAUB (AGPL-3.0 with §7(b) attribution and §7(e) name terms; some files from BackPack), 28 kernel/UDP methods, UDP-Crypt AES-GCM, `rudp-fec`, reverse TCP carrier, one-line `ctunnel://` links with a shared token, a web panel and a Connection Test. Feature-by-feature decisions, licensing obligations and slice order are in [ADR-002](./ADR-002-c-baft-capability-integration.md). No C-BAFT code has been copied.
+
+### 10.3 Implemented in this stage
+
+| Commit | Change | Local evidence |
+|---|---|---|
+| `5392b404` | Keep ACK Output intact; failure text/log redaction kept | `internal/agent` subset (-race) passes; new regression test fails on `1cdef92a`, passes here |
+| `26a86708` | Wizard **Connection Test** (also visible in Aurora's Tunnels page, which mounts the classic studio card): signed path probe IR → EX on the chosen port + common TLS ports, live bilingual/RTL board, only `FULL_DATA` reads as passing, selection via the evidence-checked auto-select, 3 s polling capped at 10 min, cancel, invalidated on server change | `web/tests/connection-test-wizard.test.cjs`; JS suite 168/168; `node --check` of the dashboard script; Chromium screenshots EN/FA at 1000 px and 390 px |
+| `7b417b2f` | Probe evidence adds `attempts` and `connect_spread_ms`; board shows "38 ms ±4 · 3/3 ok". No throughput figure (64 KiB flows incl. connect time would mislead) | classification test in an isolated scratch package (Go 1.25.1); JS suite 169/169 |
+| `3f51221e` | RTL wrapper for `EXECUTION_PLAN.fa.md` | `tests/docs` passes locally |
+| `b8017da4` | BCC redacts **failure** ACK text before storing it (defense in depth for older agents); succeeded messages and Output untouched | `internal/bcc` typechecks/vets with a compile-only sqlite stub; DB-free bcc tests pass locally; DB test green in CI run 41230913489 |
+
+### 10.4 Next executable actions
+
+1. Keep dispatching `ci.yml` and `bcc-v3-ui-tests.yml` per head; watch `cmd/baft` `tunnel_live_test.go:244` for flakiness.
+2. ADR-002 slice: a bounded, signed throughput action (separate from reachability probes) so the board can show a real speed figure.
+3. ADR-002 slice: Aurora wizard parity with the live classic wizard (test → recommend → review → deploy).
+4. Transport-driver contract ADR (WireGuard first candidate) before any kernel/UDP transport from C-BAFT.
+5. `agentjob.Verifier` nil-`Seen` hardening (from §9.6; touches 28 call sites, mostly tests). BCC-side ACK redaction is done (`b8017da4`); receipt `FailureCause` is bounded and redacted Agent-side.
+
+Local-verification tip for the next agent: `internal/bcc` only blank-imports `modernc.org/sqlite`, so a scratch `replace` to an empty stub package lets `go vet ./internal/bcc` and DB-free bcc tests run where modernc's libc is unreachable. Never commit that replace.
+
+## 11. Stage 3 — product: live guided tunnel flow and speed test (2026-10-31)
+
+Owner direction (2026-10-31): full latitude to make the best final product; no attachment to the existing UI. Merge, tag, release and deploy are still left for an explicit owner decision.
+
+### 11.1 Implemented
+
+| Commit | Change |
+|---|---|
+| `033cb4d1` | **Live Quick Tunnel wizard** replaces the preview-only floating wizard (`web/bcc-action-wizard.js`): servers → service → connection test → BCC-reviewed plan → deploy & truthful progress. Uses only existing reviewed APIs with the session CSRF header; deploy needs `plan.ok` and sends `plan_hash` (409 → re-review); "done" requires `active` **and** `ingress.ready`. Internal listeners/instance ID allocated like the classic studio. Signed-out visitors get a sign-in link. |
+| `12e4e3ec` | **Signed throughput flow** `path-probe-speed-v1`: optional `speed_seconds` on `path_probe_run`; agent streams ≤ 5 s / 64 MiB over `BAFTS1`, listener confirms the exact byte count; BCC requests it only when both agents advertise the capability on a fresh poll and derives `throughput_kbps` only from an exactly acknowledged flow (≥ 256 KiB, ≥ 500 ms). Shown as "≈ N Mbps" in both boards. |
+| `809c9299` | fa/en user guide section "Creating a tunnel step by step"; CHANGELOG `[Unreleased]` v0.5.0 entries. |
+| `17e7230b` | "+ New tunnel" on the dashboard map header; header wraps on narrow screens. |
+
+### 11.2 Evidence
+
+| Evidence | Result |
+|---|---|
+| `ci` [41234105961](https://github.com/zarkmakerburg/BAFT/actions/runs/41234105961) on `033cb4d1` | **success** (all jobs) |
+| `ci` [41234926979](https://github.com/zarkmakerburg/BAFT/actions/runs/41234926979) on `12e4e3ec` | **success** (all jobs; includes BCC speed-request gating and agent capability tests that need the real store) |
+| `BCC UI tests` [41234103901](https://github.com/zarkmakerburg/BAFT/actions/runs/41234103901) / [41234929324](https://github.com/zarkmakerburg/BAFT/actions/runs/41234929324) / [41235541122](https://github.com/zarkmakerburg/BAFT/actions/runs/41235541122) on `033cb4d1` / `12e4e3ec` / `17e7230b` | **success**; the Playwright run now opens the live wizard against the real BCC fixture and proves it lists real nodes by role, requires consent and writes nothing before deploy |
+| Local (Node 22, Chrome) `web/qa/quick-tunnel-cdp.cjs` | full walk-through against a scripted mock BCC passes in en/dark 1280 px and fa/light 390 px: request shapes, CSRF on every write, allocation, gate order, truthful completion. UI evidence only — not proof that a tunnel can be built. |
+| Local (Go 1.25.1, -race) | agentjob speed-param bounds; agent speed flow, legacy run, listener refusal matrix; DB-free BCC throughput derivation |
+| JS suite | 174/174 |
+| LAB / real hosts | **not run** |
+
+### 11.3 Next executable actions
+
+1. Real two-host (or namespace LAB) run of the guided flow end to end, including the speed flow across two agents of this build; record whether `ingress.ready` becomes true.
+2. Live traffic per tunnel and edit/decommission inside the new flow (Tunnel Studio still covers them).
+3. Transport-driver contract ADR before any C-BAFT kernel/UDP transport (WireGuard first).
+4. Owner decision on #292/#293/#294 and on merging this branch / cutting v0.5.0 — not done without explicit instruction.
+
+## 12. Stage 4 — the product path proven on real installed agents (2026-11-01)
+
+Owner direction (2026-11-01): all permissions; no attachment to the existing UI; deliver a genuinely usable final product. Merge, tag, release and deploy still need an explicit owner decision because #269 remains no-go (see 12.3).
+
+### 12.1 Method
+
+A new e2e, `tests/e2e/guided_flow.sh` (workflow `guided-flow-e2e.yml`, runs on PRs, `main`, `codex/v0.5.0-**` pushes and dispatch), sends exactly the Quick Tunnel wizard's API sequence to a real `baft-bcc` and two agents installed with `install.sh --agent-only` from a signed release of the commit (IR with `--provision-ingress-policy`). One GitHub runner plays both servers: this is real install/systemd/kernel evidence, **not** a multi-host or physical LAB result. Each failure it found was reproduced, fixed at the root, regression-tested and re-run.
+
+### 12.2 Defects found and fixed (all pre-existing on `main`)
+
+| # | Severity | Defect | Evidence → fix |
+|---|---|---|---|
+| 1 | **P0** | The path-probe trickle (16 KiB at 1 s per KiB ≈ 15 s) could never finish inside the agents' 10 s / 12 s probe deadlines, so **no path could ever be `FULL_DATA`** since automatic discovery landed (`4f45ed6b`, 2026-10-07): path matrix, path graph and auto-select could never recommend a port; the wizard's connection test could never pass. Unit tests used a 10 ms trickle. | Run 41257649066 (loopback classified `HANDSHAKE_ONLY`, 10240/16384 bytes). `e439c4e4`: BCC sends 8 KiB @ 500 ms (compatible with deployed v0.4.0 agents); `agentjob.PathProbeTrickleFits` refuses impossible trickles at signing and on agents; agent test runs the production trickle against the real listener (fails on old params exactly like CI). |
+| 2 | **P0** | `install.sh --agent-only --provision-ingress-policy` started the agent **before** writing the managed-node policy and nft chain; the agent evaluates them once at startup, so operational ingress stayed disabled until a manual restart (a rerun did not help). | Runs 41255411266/41257121528 (`no such file or directory`). `a733f899`: provision first, fingerprint policy+marker, restart a running agent when a rerun changes them; `tests/installer/agent_ingress_order_test.go`. |
+| 3 | **P0 (truthfulness)** | A host agent (init network namespace) advertised `operational-ingress-v1`, BCC staged the wizard's public port, and **every Apply was refused** ("not an isolated non-init network namespace"): by design, operational ingress coverage supports only the isolated loopback-only LAB. The wizard therefore always ended "public port not verified" on real servers although the tunnel worked. | Run 41258881558. `e6d40bcf`: `ingressinventory.CheckManagedExecutionScope` (static part of the LAB scope, extracted unchanged) is a required step before the agent advertises the capability; the agent logs the reason. The wizard offers the public port only when the IR freshly advertises the capability; otherwise it sends no `client_port`, explains how to reach the tunnel (IR entry `127.0.0.1:<route>`, e.g. 3X-UI `dokodemo-door` or a port forward) and finishes "ready". **The safety model itself was not loosened.** |
+| 4 | P1 | A path probe started while four were running (e.g. automatic discovery right after enrollment) was failed at once with "current probe job is missing". | Run 41257388191. `722e2237`: queued probes wait (10 min bound, clear reason); cancelling a queued probe sends no job. |
+| 5 | P1 (ops) | The agent logged only the first line of a joined error, hiding why ingress was disabled. | `fcd9af65`. |
+| 6 | P2 (CI trust) | `TestCrossTenantRouteAccessRefused` flaked on a loopback connect-time RST (reproduced locally: listener bound, no session/listener teardown, immediate retry succeeds). | `f0b415a2`: retry only `ECONNRESET` at connect; 0/100 failures after vs. failing within ~10–60 runs before. |
+
+### 12.3 Evidence (exact SHA)
+
+| Evidence | Result |
+|---|---|
+| `guided-flow-e2e` [41260709953](https://github.com/zarkmakerburg/BAFT/actions/runs/41260709953) on `9825aed5` | **success**: no false capability (reason = execution scope, not a missing policy) → signed probe `FULL_DATA` → auto-select → reviewed plan without `client_port` → deploy → active, nothing pending → 512 KiB echo through the IR tunnel entry, tunnel and EX service → no pairing secret in `/api/jobs` → drift baseline `IN_SYNC` → decommission → entry closed. |
+| `operational-ingress-v1` / `shared-operational-ingress` / `operational-recovery` / `P0 Public Ingress LAB` on `e6d40bcf` (runs 41259801878 / 41259803820 / 41259805803 / 41259808033) | **success**: the scope gate keeps the capability inside the isolated LAB namespace; LAB public ingress apply/retire/recovery still pass. |
+| `BCC UI tests` 41259799673 on `e6d40bcf` | **success** (Playwright asserts the honest path against the real BCC fixture). |
+| `ci` 41257402021 on `a733f899` | **success** (all jobs). `ci` 41259797735 on `e6d40bcf`: see the run; not claimed here until complete. |
+| Dispatched on `c76941ab` (pre-stage head): ingress v1, shared ingress, recovery, P0 LAB, static-analysis, vulncheck, gamma two-node LAB, delta ingress pin | all **success** (runs 41255142910–41255155606). |
+| Local (Node 22 + Chrome) `web/qa/quick-tunnel-cdp.cjs` | automatic and manual paths, en/dark 1280 and fa/light 390: pass. UI evidence only. |
+
+### 12.4 What is still not product-ready (truthful status)
+
+1. **Automatic public ingress on real servers is not available.** It is implemented and LAB-verified only for an isolated loopback-only namespace (`internal/ingressinventory/coverage_linux.go`). Supporting real hosts needs a new, owner-approved coverage/ownership design (ADR) for the init namespace — this is the core of Issue #269 and the reason it stays **no-go**. Until then the product path is: wizard → tunnel → user points a panel inbound/port forward at the IR entry.
+2. Physical multi-host and Iran↔abroad network runs: **not done**.
+3. `cmd/baft` `tunnel_live_test.go:244` flake: suspected port race, not yet reproduced to root cause.
+4. #292/#293/#294 sequencing and merging/tagging v0.5.0: owner decision.
+
+### 12.5 Next executable actions
+
+1. [ADR-003](./ADR-003-real-host-public-ingress.md) (proposed, awaiting owner decision): host-profile public ingress with bind-exclusive ownership, latent-claim detectors and a plan-bound acknowledgement; then implement behind the same evidence gates.
+
+PR [#296](https://github.com/zarkmakerburg/BAFT/pull/296) carries the three P0 fixes, the probe-queue fix, the flake fix and the guided-flow e2e to `main` (without the v0.5.0 wizard); draft, merge only on owner approval.
+2. One-click "expose on Iran" helper that configures the user's own inbound safely (or documents exact 3X-UI steps per version), since that is today's manual step.
+3. Multi-host LAB (two real VMs) for the guided flow and the speed test.
+
+## 13. Stage 5 — safe host mode proven on real installed agents (2026-11-01)
+
+Owner decisions (ADR-003 §8): Option B, opt-in at install, mandatory latent-claim checks = BAFT inventory + systemd sockets + Xray/3X-UI. Owner advisory of 2026-11-01 (C-BAFT adoption): comparative audit in [COMPARATIVE_AUDIT.md](./COMPARATIVE_AUDIT.md).
+
+### 13.1 Implemented
+
+| Commit | Change |
+|---|---|
+| `2c982c9e` | Policy schema 2 `host-v1`; host execution scope; read-only Xray/3X-UI inbound detector (unknown = refusal, part of the execution pin); `--ingress-profile host-v1`; safe LAB→host policy upgrade (only an init-namespace LAB policy, provably unused); `operational-ingress-host-v1`; BCC `client_port_ack` bound into the plan hash, plan gate and enqueue gate. |
+| `d84ea120` | `install.sh --enable-host-ingress`; Quick Tunnel wizard and classic Tunnel Studio acknowledgement (fa/en, reset on port/server change); guided-flow e2e `host` leg. |
+| `68c99721` | **Defect found by the first host run**: the authority guard (`InstalledPolicyIdentityV1.validFor`) accepted only schema 1, so every host-mode Apply was blocked before any effect. Fixed with a regression test. E2E BCC moved to verified HTTPS (agents send receipts only to `https://`). |
+| `c13c4510` | **Defect found by the second host run (also on `main`)**: after decommissioning one independent tunnel, the next tunnel on the same server failed with "sibling instance has no verifiable config" and ended `rollback_failed`. Retired siblings are recognised; rollback/inspect skip the allocation fence. Regression tests reproduce the exact CI error. Sent to `main` as PR [#298](https://github.com/zarkmakerburg/BAFT/pull/298). |
+
+### 13.2 Evidence (exact SHA)
+
+| Evidence | Result |
+|---|---|
+| `guided-flow-e2e` [41282272962](https://github.com/zarkmakerburg/BAFT/actions/runs/41282272962) on `c13c4510`, leg **host** (job 124776431516) | **success**: IR installed with `--enable-host-ingress` reports `operational-ingress-host-v1` (never the LAB token) and a schema-2 `host-v1` policy → signed probe `FULL_DATA` → auto-select → plan **FAILs** its acknowledgement gate without the acknowledgement and passes with it → deploy → the agent applies an owned listener + owned nft rule → BCC's independent probe makes the port **Ready** → **512 KiB echoed through the public port `HOST_IP:18610`**, the tunnel and the EX service → no pairing secret in `/api/jobs` → decommission retires exactly the owned rule (BAFT's chain stays) and closes the port → a second tunnel whose port an Xray inbound is configured for is built, its public ingress is **refused with the detector's reason**, no rule, nothing listening, Xray config untouched → decommissioned. |
+| same run, leg **manual** (job 124776431296) | **success** (now over verified HTTPS BCC). |
+| `ci` 41280493183 on `2c982c9e`, 41281154613 on `d84ea120` | **success** (includes the BCC acknowledgement-gate tests). |
+| `operational-ingress-v1`, `shared-operational-ingress`, `operational-recovery`, `P0 Public Ingress LAB`, `Delta Ingress Pin LAB`, `BCC UI tests`, `static-analysis` on `2c982c9e` (41280495510, 41280497416, 41280499148, 41280514078, 41280510567, 41280508779, 41280515832) | **success** — the LAB contract is unchanged by the host profile. |
+| Local (Node 22 + Chrome) | JS 165/165; CDP wizard QA 6 runs (en/fa × LAB / manual / host). UI evidence only. |
+
+Scope of the evidence: one GitHub-hosted VM plays both servers (two agents, one kernel). It is a real installed product path with a real public-address listener, firewall rule and client, **not** a two-host or Iran↔abroad network result.
+
+### 13.3 Also done in this stage
+
+- PR [#296](https://github.com/zarkmakerburg/BAFT/pull/296) (three P0s + queue fix + flake fix + guided-flow e2e) merged to `main` as `1288648d` on owner authorisation, after all 25 checks were green on its head. One `ci` attempt failed on an unrelated, previously unseen flake (`TestTopologyCommitDuringRecoveryPrepared`; 15/15 local `-race` passes); the rerun passed. Post-merge workflows on `main`: guided flow, ingress v1, shared ingress, recovery, soak, adversary all **success**.
+- `main` merged back into this branch (ancestry only; tree unchanged).
+
+### 13.4 Still open (truthful)
+
+1. Two-host LAB and a real Iran↔abroad run: not done.
+2. nginx/HAProxy/Docker detectors: implemented after this evidence (unit-tested parsers; covered by the next host-mode e2e run). Hand-run programs remain covered only by the acknowledgement.
+3. Host-mode firewall-drop case (provider/host firewall blocks the port → applied but not Ready): not yet an e2e case.
+4. `TestTopologyCommitDuringRecoveryPrepared` flake (seen once in CI) and the `cmd/baft` `tunnel_live_test.go:244` flake: not root-caused.
+5. Merging v0.5.0 into `main` and any tag/release: owner decision.
+
+## 14. Stage 6 — two-host LAB (two KVM guests), 2026-11-01
+
+Owner direction (2026-11-01): finish #298 to exact-SHA CI, then integration and a two-host LAB, no scattered work.
+
+### 14.1 What the LAB is
+
+Workflow **Two-host LAB** (`tests/e2e/two_host_lab.sh`): two Ubuntu 24.04 KVM guests (image verified against Ubuntu's `SHA256SUMS`) on a private bridge of one GitHub runner — **separate kernels** (distinct boot ids recorded), systemd, nftables and IP addresses (IR `10.77.0.10`, EX `10.77.0.20`). BCC runs on the runner over verified HTTPS (throwaway CA in each trust store; non-loopback listen explicitly allowlisted). Each guest installs its agent with `install.sh --agent-only` from a signed release of the exact commit; the IR guest uses `--enable-host-ingress`. The runner plays the user's client. It now runs on every push to the v0.5.0 branch and on every PR into `main`.
+
+Scope: a real two-machine product path over an emulated network on one physical host. **Not** an Iran↔abroad Internet path.
+
+### 14.2 Evidence (exact SHA `626696cd`, run [41286221217](https://github.com/zarkmakerburg/BAFT/actions/runs/41286221217), job 124787953685) — **PASS**
+
+| Step | Result |
+|---|---|
+| Capabilities | IR guest: `operational-ingress-host-v1` (not the LAB token); both: `path-probe-speed-v1`, carriers, `noise-v1` |
+| Connection test IR guest → EX guest (signed) | `FULL_DATA` on 18543, 3/3 connects and ACKs, connect `<1 ms`, speed flow 64 MiB acknowledged exactly in 59 ms → **≥ 9 100 Mbit/s (floor)** |
+| Plan / deploy | acknowledged public port 18610 → active |
+| Public ingress | owned listener + owned rule in the IR guest's `inet baft ingress`; **Ready by BCC's independent probe** of `10.77.0.10:18610` |
+| Client baseline (runner → IR public port → tunnel → EX service) | 16 MiB echo intact, 0.58 s (≈ 230 Mbit/s echo), RTT p50 1.39 ms / p95 1.87 ms |
+| netem 40±10 ms + 1 % loss on both guest links | 2 MiB echo intact, 19.4 s (≈ 0.86 Mbit/s echo; TCP inside TCP with reordering), RTT p50 128.5 ms / p95 196 ms |
+| EX link cut 20 s | traffic recovered **13 s** after the link returned; 16 MiB echo intact afterwards (34 Mbit/s on this run; 400 Mbit/s on run 41284879343 — post-recovery throughput varies) |
+| Decommission | public port closed, owned rule removed, BAFT's chain kept |
+
+Earlier passing runs of the same LAB: 41284879343 on `14e8afbf` (baseline ≈ 400 Mbit/s, recovery 14 s), 41285737947 on `d2a6f2e0`.
+
+### 14.3 Defect the LAB found and fixed
+
+| | Defect | Fix |
+|---|---|---|
+| P1 (truthfulness/UX) | On any path faster than ~1 Gbit/s the connection test showed **no speed**: the agent wrote and the listener acknowledged the full 64 MiB cap in 77 ms, but BCC dropped every sample under 500 ms (run 41285737947). | `169e3c1d`: a flow that moved the whole cap counts and is reported as a floor (`throughput_at_least`, shown "≥ N Mbps"); the cap is one shared constant; sub-ms connects show "<1 ms". The LAB now fails if no speed is reported. |
+
+Test-harness corrections made while building the LAB (not product defects): BCC listen allowlist; impaired-network volume sized for TCP-in-TCP; job output read from BCC's state DB because `/api/jobs` deliberately wipes output.
+
+### 14.4 Noted, deferred (not scattered into this stage)
+
+- Automatic path discovery includes port 22 in its defaults, which sshd holds on practically every server, so every discovery produces a guaranteed `path_probe_listen` failure; BAFT also refuses 22 for tunnels. Remove 22 from the defaults after integration.
+- Post-recovery throughput variance (34–400 Mbit/s across runs) is worth a dedicated recovery-performance look.
+

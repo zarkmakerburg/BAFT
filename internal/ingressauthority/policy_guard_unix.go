@@ -24,8 +24,11 @@ type InstalledPolicyIdentityV1 struct {
 	InventoryVersion int    `json:"inventory_version"`
 }
 
+// validFor accepts the two installed policy schemas the inventory parser
+// accepts: 1 (isolated LAB) and 2 (ADR-003 safe host mode, host-v1). The
+// profile content itself is pinned by ProfileSHA256 and the inode.
 func (p InstalledPolicyIdentityV1) validFor(b BindingV1) bool {
-	return p.NodeID == b.NodeID && p.ProfilePath == ingressinventory.InstalledPolicyPath && digestPattern.MatchString(p.ProfileSHA256) && p.ProfileDevice != 0 && p.ProfileInode != 0 && p.SchemaVersion == 1 && p.InventoryVersion == ingressinventory.ManagedCoverageVersion && strings.HasPrefix(p.NetworkNamespace, "net:[") && strings.HasSuffix(p.NetworkNamespace, "]")
+	return p.NodeID == b.NodeID && p.ProfilePath == ingressinventory.InstalledPolicyPath && digestPattern.MatchString(p.ProfileSHA256) && p.ProfileDevice != 0 && p.ProfileInode != 0 && (p.SchemaVersion == 1 || p.SchemaVersion == 2) && p.InventoryVersion == ingressinventory.ManagedCoverageVersion && strings.HasPrefix(p.NetworkNamespace, "net:[") && strings.HasSuffix(p.NetworkNamespace, "]")
 }
 
 func (g *PendingGuard) checkPolicyPendingLocked(ctx context.Context) error {

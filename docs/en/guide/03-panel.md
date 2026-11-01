@@ -46,6 +46,32 @@ With an outside and an Iran server added, **Tunnels** builds a tunnel between th
 
 The agent on each server only runs a fixed list of signed jobs; it has no shell access.
 
+## Creating a tunnel step by step
+
+On the **Tunnels** page press **+ New tunnel**. A five-step dialog opens; nothing changes on any server until BCC has reviewed the plan:
+
+1. **Servers.** Pick the Iran server (where users connect) and the foreign server (where the service runs). Each server shows whether its agent is online; one that has not reported in the last 5 minutes is flagged.
+2. **Service.** Enter the service port on the foreign server (for 3X-UI, the inbound port). If the Iran server's agent reports the automatic public port capability, the port users connect to on the Iran server defaults to the same number; port 22 and a port another tunnel already uses on that Iran server are refused, and you must explicitly allow BAFT to open it once the tunnel is active. Otherwise the dialog says so plainly and requests no public port (see "When the automatic public port is not available" below).
+3. **Connection test.** Press **Run connection test**. Through signed jobs, BCC asks the foreign server to open a short-lived test listener and the Iran server to send real data to it on several common TLS ports. Green means full data passed, yellow means it connects but data is cut, red means blocked. Connect time, successful attempts and — when both agents support it — an approximate speed in Mbps are shown. The tunnel port is chosen only among ports that passed full data. Under Advanced you can pick a port manually without test evidence.
+4. **Review.** BCC reviews the plan and shows its safety checks as FAIL, WARN and PASS. Deploy stays disabled unless BCC accepts the plan.
+5. **Deploy.** Progress is shown step by step: prepare foreign server, pair Iran server, install, health checks, finalize, active. "Done" appears only when the tunnel is active and, if an automatic public port was requested, that port on the Iran server has been verified independently. If a step fails, BAFT rolls back its own changes and says so.
+
+### Safe host mode: let BAFT open the public port on an ordinary server
+
+By default BAFT opens a public port automatically only inside its isolated LAB. On an ordinary Iran server you can opt in to **safe host mode** by running the installer on that server with `--enable-host-ingress`:
+
+```bash
+sudo bash install.sh --agent-only --bcc-url https://bcc.example.com --node-id ir-1 --enable-host-ingress
+```
+
+The agent then reports `operational-ingress-host-v1`, and the dialog offers the public port again with one extra, required confirmation: that no other service on this Iran server is configured to use that port. Before opening it, BAFT itself refuses a port held by a running program, a systemd socket, another BAFT tunnel, an Xray/3X-UI inbound, an nginx `listen`, an HAProxy `bind` or a Docker published port (their configuration is only read, never changed; a configuration that exists but cannot be read is a refusal). It cannot see programs started by hand or settings other services keep elsewhere; the confirmation covers those. BAFT opens only that port, with its own listener and its own rule in its own firewall chain, and removes exactly those when the tunnel is removed. The port counts as ready only after BCC itself reaches it. The confirmation is part of the reviewed plan: changing the port asks again.
+
+### When the automatic public port is not available
+
+Without safe host mode the Iran agent does not report the capability and logs why (`unsupported execution scope`). The tunnel is still built in full and listens on the Iran server itself; its entry address (for example `127.0.0.1:1444`) is shown in the review step and the final message. To let users connect, point a public port on the Iran server at that address in your panel: for example a 3X-UI `dokodemo-door` inbound on the public port that forwards to `127.0.0.1:1444`, or an equivalent port forward.
+
+You can close the dialog at any time; the build continues in BCC and appears in the tunnel list. The same connection test is also in the Tunnel Studio, which adds shared-listener joins and editing.
+
 More detail: [BCC access](../24-p1c-bcc-access.md), [SSH bootstrap](../26-p1d-ssh-bootstrap.md), [Tunnel builder](../27-p1e-tunnel-builder.md), [Layered health](../30-bcc-layered-health.md).
 
 ## Security tips

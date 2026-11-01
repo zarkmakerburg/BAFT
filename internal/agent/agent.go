@@ -26,6 +26,7 @@ import (
 
 	"github.com/zarkmakerburg/baft/internal/agentjob"
 	"github.com/zarkmakerburg/baft/internal/ingressmanifest"
+	"github.com/zarkmakerburg/baft/internal/redact"
 	"github.com/zarkmakerburg/baft/internal/release"
 	"github.com/zarkmakerburg/baft/internal/sshmigrate"
 	"github.com/zarkmakerburg/baft/internal/tunnelnode"
@@ -376,12 +377,20 @@ func (a *Agent) ack(ctx context.Context, jobID, status, message, output string) 
 	// succeeded job's message is a machine-readable report the agent built
 	// itself (tunnel_discover's is bounded to 48 KiB); cutting it would leave
 	// invalid JSON that BCC rejects as "unreadable".
-	limit := maxFailureMessage
+	//
+	// Failure text is redacted before it is cut (ADR-001 §5): it can echo
+	// subprocess output, URLs or credentials, and BCC stores and displays it.
+	// Redacting first means a secret that straddles the limit cannot leak as a
+	// partial prefix. Output is deliberately NOT redacted: it is the
+	// authenticated one-time channel that carries pairing/reply codes and the
+	// public rotation plan to BCC, is sent only for succeeded jobs, and is
+	// never logged. A succeeded message is the agent's own structured report.
 	if status == "succeeded" {
-		limit = maxSuccessMessage
-	}
-	if len(message) > limit {
-		message = message[:limit]
+		if len(message) > maxSuccessMessage {
+			message = message[:maxSuccessMessage]
+		}
+	} else {
+		message = redact.Diagnostic(message, maxFailureMessage, a.cfg.Token)
 	}
 	if len(output) > maxOutput {
 		output = ""
@@ -443,14 +452,14 @@ func (a *Agent) RunOnce(ctx context.Context) ([]Result, error) {
 		r := Result{JobID: pj.ID}
 		if pj.Signed == nil {
 			r.Status, r.Detail = "refused", "unsigned job"
-			out = append(out, r)
+			out = append(out, a.redactResult(r))
 			_ = a.ack(ctx, pj.ID, "failed", "refused by agent: unsigned job", "")
 			continue
 		}
 		job, err := v.Verify(*pj.Signed, a.cfg.Now())
 		if err != nil {
 			r.Status, r.Detail = "refused", err.Error()
-			out = append(out, r)
+			out = append(out, a.redactResult(r))
 			// Only acknowledge a job ID the signed payload agrees with.
 			if job.JobID == pj.ID && job.NodeID == a.cfg.NodeID {
 				_ = a.ack(ctx, pj.ID, "failed", "refused by agent: "+err.Error(), "")
@@ -462,13 +471,13 @@ func (a *Agent) RunOnce(ctx context.Context) ([]Result, error) {
 		// executed or acknowledged.
 		if pj.ID != job.JobID {
 			r.Status, r.Detail = "refused", "job wrapper ID differs from signed payload"
-			out = append(out, r)
+			out = append(out, a.redactResult(r))
 			continue
 		}
 		r.Action = job.Action
 		if err := a.markSeen(job.JobID); err != nil {
 			r.Status, r.Detail = "refused", "cannot record job: "+err.Error()
-			out = append(out, r)
+			out = append(out, a.redactResult(r))
 			continue
 		}
 		detail, output, err := a.executeFullSigned(ctx, job, pj.Signed)
@@ -484,9 +493,22 @@ func (a *Agent) RunOnce(ctx context.Context) ([]Result, error) {
 				r.Detail += " (ack failed: " + aerr.Error() + "; offered again next poll)"
 			}
 		}
-		out = append(out, r)
+		out = append(out, a.redactResult(r))
 	}
 	return out, nil
+}
+
+// redactDiagnostic removes this Agent's bearer token and known secret shapes
+// from text that leaves the process (ACKs, receipts, logs).
+func (a *Agent) redactDiagnostic(s string) string {
+	return redact.Text(s, a.cfg.Token)
+}
+
+// redactResult keeps secrets out of the Result details that Run logs and
+// callers display.
+func (a *Agent) redactResult(r Result) Result {
+	r.Detail = a.redactDiagnostic(r.Detail)
+	return r
 }
 
 // Run polls BCC until ctx ends.

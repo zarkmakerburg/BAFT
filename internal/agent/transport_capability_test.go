@@ -43,7 +43,7 @@ func TestCapabilityHeaderCarriesInstalledBinaryTransportCapabilities(t *testing.
 	sys := &versionSystem{out: `{"name":"baft","version":"v0.4.0","capabilities":["carrier.h2","carrier.ws","noise.v1","shape.v1","future.cap"]}` + "\n"}
 	a, _ := capAgent(t, sys)
 	got := a.capabilityHeaders(context.Background())[CapabilityHeader]
-	if got != "carrier-h2,carrier-ws,noise-v1,shape-v1" {
+	if got != "carrier-h2,carrier-ws,noise-v1,shape-v1,"+CapabilityPathProbeSpeedV1 {
 		t.Fatalf("header %q: unknown tokens must be dropped and known ones spelled for the header", got)
 	}
 	tokens, err := parseHeaderForTest(got)
@@ -60,13 +60,13 @@ func TestCapabilityHeaderReportsNothingFromAnUnreadableBinary(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			a, _ := capAgent(t, sys)
-			if h := a.capabilityHeaders(context.Background()); h != nil {
-				t.Fatalf("headers %v: nothing may be declared", h)
+			if h := a.capabilityHeaders(context.Background()); h[CapabilityHeader] != CapabilityPathProbeSpeedV1 {
+				t.Fatalf("headers %v: no binary capability may be declared, only the agent-native speed probe", h)
 			}
 		})
 	}
 	a := &Agent{cfg: Config{BinDir: t.TempDir(), System: &versionSystem{out: `{"capabilities":["noise.v1"]}`}}}
-	if h := a.capabilityHeaders(context.Background()); h != nil {
+	if h := a.capabilityHeaders(context.Background()); h[CapabilityHeader] != CapabilityPathProbeSpeedV1 {
 		t.Fatalf("missing binary declared %v", h)
 	}
 }
@@ -87,7 +87,7 @@ func TestTransportCapabilitiesAreCachedUntilTheBinaryChanges(t *testing.T) {
 	}
 	future := time.Now().Add(time.Minute)
 	_ = os.Chtimes(bin, future, future)
-	if got := a.capabilityHeaders(ctx)[CapabilityHeader]; got != "carrier-h2,carrier-ws,noise-v1" || sys.calls != 2 {
+	if got := a.capabilityHeaders(ctx)[CapabilityHeader]; got != "carrier-h2,carrier-ws,noise-v1,"+CapabilityPathProbeSpeedV1 || sys.calls != 2 {
 		t.Fatalf("after a binary swap: header %q calls %d", got, sys.calls)
 	}
 }

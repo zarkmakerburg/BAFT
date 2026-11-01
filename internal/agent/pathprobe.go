@@ -20,6 +20,13 @@ import (
 
 const maxPathProbeBytes = 1 << 20
 
+// Speed flows (path-probe-speed-v1) stream for a bounded time and are capped
+// so a probe listener can never be used to absorb unbounded traffic.
+const (
+	maxPathProbeSpeedBytes = agentjob.PathProbeSpeedMaxBytes
+	pathProbeSpeedChunk    = 64 << 10
+)
+
 type pathProbeListener struct {
 	mu       sync.Mutex
 	ln       net.Listener
@@ -50,6 +57,19 @@ type pathProbeRunEvidence struct {
 	Target  string          `json:"target"`
 	Bulk    []pathProbeFlow `json:"bulk"`
 	Trickle pathProbeFlow   `json:"trickle"`
+	Speed   *pathProbeSpeed `json:"speed,omitempty"`
+}
+
+// pathProbeSpeed is one time-bounded throughput flow. AckedBytes is what the
+// listener says it received; a result counts only when it equals
+// BytesWritten. TransferMS runs from READY until the listener's count arrives.
+type pathProbeSpeed struct {
+	Seconds      int    `json:"seconds"`
+	BytesWritten int64  `json:"bytes_written"`
+	AckedBytes   int64  `json:"acked_bytes"`
+	TransferMS   int64  `json:"transfer_ms"`
+	ACK          bool   `json:"ack"`
+	Error        string `json:"error,omitempty"`
 }
 
 type pathProbeListenEvidence struct {
@@ -229,6 +249,10 @@ func (pl *pathProbeListener) handle(c net.Conn) {
 		return
 	}
 	f := strings.Fields(line)
+	if len(f) == 3 && f[0] == "BAFTS1" && f[1] == pl.probeID {
+		pl.handleSpeed(c, f[2])
+		return
+	}
 	if len(f) != 3 || f[0] != "BAFTP1" || f[1] != pl.probeID {
 		pl.record(0, false, fmt.Errorf("invalid probe header"))
 		return
@@ -250,6 +274,24 @@ func (pl *pathProbeListener) handle(c net.Conn) {
 		return
 	}
 	_, _ = fmt.Fprintf(c, "OK %d %s\n", n, hex.EncodeToString(h.Sum(nil)))
+}
+
+// handleSpeed counts (and discards) at most the announced, capped number of
+// bytes until the sender half-closes, then reports the count. Speed flows are
+// not recorded as integrity evidence; the sender's evidence carries them.
+func (pl *pathProbeListener) handleSpeed(c net.Conn, raw string) {
+	limit, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || limit < 1 || limit > maxPathProbeSpeedBytes {
+		return
+	}
+	if _, err := io.WriteString(c, "READY\n"); err != nil {
+		return
+	}
+	n, err := io.Copy(io.Discard, io.LimitReader(c, limit+1))
+	if err != nil || n > limit {
+		return
+	}
+	_, _ = fmt.Fprintf(c, "OK %d\n", n)
 }
 
 func (a *Agent) pathProbeRun(ctx context.Context, j agentjob.Job) (string, error) {
@@ -286,6 +328,14 @@ func (a *Agent) pathProbeRun(ctx context.Context, j agentjob.Job) (string, error
 		ev.Bulk = append(ev.Bulk, runPathProbeFlow(ctx, network, target, p["probe_id"], payloadBytes, 0))
 	}
 	ev.Trickle = runPathProbeFlow(ctx, network, target, p["probe_id"], trickleBytes, time.Duration(trickleMS)*time.Millisecond)
+	if raw, ok := p["speed_seconds"]; ok {
+		seconds, err := strconv.Atoi(raw)
+		if err != nil || seconds < 1 || seconds > 8 {
+			return "", fmt.Errorf("invalid path-probe speed bounds")
+		}
+		ev.Speed = runPathProbeSpeed(ctx, network, target, p["probe_id"], time.Duration(seconds)*time.Second, maxPathProbeSpeedBytes)
+		ev.Speed.Seconds = seconds
+	}
 	b, err := json.Marshal(ev)
 	if err != nil {
 		return "", err
@@ -369,6 +419,84 @@ func runPathProbeFlow(parent context.Context, network, target, probeID string, s
 		out.Error = err.Error()
 	}
 	out.DurationMS = time.Since(start).Milliseconds()
+	return out
+}
+
+// runPathProbeSpeed streams random data to the probe listener until the time
+// budget or the byte cap is reached, half-closes, and verifies that the
+// listener counted exactly what was written.
+func runPathProbeSpeed(parent context.Context, network, target, probeID string, budget time.Duration, max int64) *pathProbeSpeed {
+	out := &pathProbeSpeed{}
+	ctx, cancel := context.WithTimeout(parent, budget+6*time.Second)
+	defer cancel()
+	d := net.Dialer{Timeout: 3 * time.Second}
+	c, err := d.DialContext(ctx, network, target)
+	if err != nil {
+		out.Error = err.Error()
+		return out
+	}
+	defer c.Close()
+	if dl, ok := ctx.Deadline(); ok {
+		_ = c.SetDeadline(dl)
+	}
+	chunk := make([]byte, pathProbeSpeedChunk)
+	if _, err := rand.Read(chunk); err != nil {
+		out.Error = err.Error()
+		return out
+	}
+	if _, err := fmt.Fprintf(c, "BAFTS1 %s %d\n", probeID, max); err != nil {
+		out.Error = err.Error()
+		return out
+	}
+	if ready, err := readProbeLine(c, 32); err != nil || ready != "READY" {
+		out.Error = "invalid speed readiness acknowledgement"
+		if err != nil {
+			out.Error = err.Error()
+		}
+		return out
+	}
+	start := time.Now()
+	for time.Since(start) < budget && out.BytesWritten < max {
+		if ctx.Err() != nil {
+			out.Error = ctx.Err().Error()
+			break
+		}
+		part := chunk
+		if rest := max - out.BytesWritten; rest < int64(len(part)) {
+			part = part[:rest]
+		}
+		n, err := c.Write(part)
+		out.BytesWritten += int64(n)
+		if err != nil {
+			out.Error = err.Error()
+			break
+		}
+	}
+	if cw, ok := c.(interface{ CloseWrite() error }); ok {
+		_ = cw.CloseWrite()
+	}
+	line, err := readProbeLine(c, 64)
+	out.TransferMS = time.Since(start).Milliseconds()
+	if err != nil {
+		if out.Error == "" {
+			out.Error = err.Error()
+		}
+		return out
+	}
+	f := strings.Fields(line)
+	if len(f) != 2 || f[0] != "OK" {
+		if out.Error == "" {
+			out.Error = "invalid speed acknowledgement"
+		}
+		return out
+	}
+	acked, perr := strconv.ParseInt(f[1], 10, 64)
+	if perr != nil {
+		out.Error = "invalid speed acknowledgement"
+		return out
+	}
+	out.AckedBytes = acked
+	out.ACK = out.Error == "" && acked == out.BytesWritten
 	return out
 }
 

@@ -37,6 +37,8 @@ type installedPolicyV1 struct {
 	InventoryV1   int      `json:"inventory_version"`
 	Manager       string   `json:"manager"`
 	SourceRoots   []string `json:"source_roots"`
+	// Schema 2 only. Schema 1 files never carry it (the LAB contract).
+	ExecutionProfile string `json:"execution_profile,omitempty"`
 }
 
 type installedProfileIdentity struct {
@@ -132,7 +134,7 @@ func parseInstalledPolicy(raw []byte, expectedNodeID string, actualNetNS string)
 			return p, ErrUnsupportedManagedNode
 		}
 		switch key {
-		case "schema_version", "node_id", "platform", "netns", "transport", "inventory_version", "manager", "source_roots":
+		case "schema_version", "node_id", "platform", "netns", "transport", "inventory_version", "manager", "source_roots", "execution_profile":
 		default:
 			return p, ErrUnsupportedManagedNode
 		}
@@ -154,7 +156,15 @@ func parseInstalledPolicy(raw []byte, expectedNodeID string, actualNetNS string)
 	if err := d.Decode(&extra); err != io.EOF {
 		return p, ErrUnsupportedManagedNode
 	}
-	if p.SchemaVersion != 1 || p.InventoryV1 != ManagedCoverageVersion || p.NodeID == "" || p.NodeID != expectedNodeID || p.Platform != "linux" || p.NetNS == "" || p.NetNS != actualNetNS || p.Transport != "dedicated" || p.Manager != "systemd-socket-v1" || len(p.SourceRoots) == 0 || len(p.SourceRoots) > 32 {
+	// Schema 1 = isolated LAB (no profile key); schema 2 = host-v1 only.
+	// Anything else, including a profile key in schema 1, is refused.
+	switch {
+	case p.SchemaVersion == 1 && !seenKeys["execution_profile"]:
+	case p.SchemaVersion == 2 && p.ExecutionProfile == ExecutionProfileHostV1:
+	default:
+		return p, ErrUnsupportedManagedNode
+	}
+	if p.InventoryV1 != ManagedCoverageVersion || p.NodeID == "" || p.NodeID != expectedNodeID || p.Platform != "linux" || p.NetNS == "" || p.NetNS != actualNetNS || p.Transport != "dedicated" || p.Manager != "systemd-socket-v1" || len(p.SourceRoots) == 0 || len(p.SourceRoots) > 32 {
 		return p, ErrUnsupportedManagedNode
 	}
 	seen := map[string]bool{}
@@ -357,6 +367,7 @@ func loadInstalledManagedNodePolicy(ctx context.Context, policyPath, expectedNod
 		Transport:        profile.Transport,
 		Manager:          profile.Manager,
 		SourceRoots:      append([]string(nil), profile.SourceRoots...),
+		ExecutionProfile: profile.ExecutionProfile,
 	}, nil
 }
 
@@ -391,10 +402,18 @@ func collectFromInstalledPath(ctx context.Context, policyPath, expectedNodeID st
 	alive, unknown := liveTCPPort(ctx, port)
 	result.ActiveTCP = alive
 	result.UnknownSources = append(result.UnknownSources, unknown...)
+	if profile.ExecutionProfile == ExecutionProfileHostV1 {
+		// On an ordinary server other services declare ports in their own
+		// configuration (Xray/3X-UI, nginx, HAProxy, Docker). An unreadable
+		// present config is unknown, so coverage stays incomplete (refusal).
+		claims, unknownCfg := collectHostServiceClaims()
+		result.ConfigClaims = claims
+		result.UnknownSources = append(result.UnknownSources, unknownCfg...)
+	}
 	// Runtime/manager coverage is independently measured, not a static
 	// collection of unknown strings or a caller-supplied Boolean. Only an
 	// isolated loopback-only singleton-process Linux LAB is supported.
-	lab, labErr := measurePrivateLinuxLAB(ctx, profile.NetworkNamespace)
+	lab, labErr := measureManagedExecution(ctx, profile.NetworkNamespace, profile.ExecutionProfile)
 	if labErr != nil {
 		result.UnknownSources = append(result.UnknownSources,
 			"unsupported managed execution scope: "+labErr.Error())
@@ -415,7 +434,7 @@ func collectFromInstalledPath(ctx context.Context, policyPath, expectedNodeID st
 		// Inspect PID/namespace/process/mount selection again after source
 		// and kernel observation. Future mutation still requires a held
 		// Alpha lock and independent inode/port verification.
-		labNow, err := measurePrivateLinuxLAB(ctx, profile.NetworkNamespace)
+		labNow, err := measureManagedExecution(ctx, profile.NetworkNamespace, profile.ExecutionProfile)
 		if err != nil || !lab.matches(labNow) {
 			return coverageError(result, "managed LAB execution scope changed during observation")
 		}
@@ -434,6 +453,11 @@ func collectFromInstalledPath(ctx context.Context, policyPath, expectedNodeID st
 	for _, c := range source.Claims {
 		if c.Port == port {
 			return result, fmt.Errorf("%w: stopped/foreign systemd socket %s owns port %d", ErrClaimConflict, c.Unit, port)
+		}
+	}
+	for _, c := range result.ConfigClaims {
+		if c.Covers(port) {
+			return result, fmt.Errorf("%w: %s %s in %s is configured for port %d", ErrClaimConflict, c.Kind, c.Tag, c.Source, port)
 		}
 	}
 	for _, c := range alive {

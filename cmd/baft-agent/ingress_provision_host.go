@@ -36,9 +36,9 @@ func privateSubdir(stateDir, name string) (string, error) {
 
 func hostIngressDeps(logf func(string, ...any)) ingressDeps {
 	return ingressDeps{
-		LoadPolicy: func(ctx context.Context, nodeID string) error {
-			_, err := ingressinventory.LoadInstalledManagedNodePolicy(ctx, nodeID)
-			return err
+		LoadPolicy: func(ctx context.Context, nodeID string) (string, error) {
+			p, err := ingressinventory.LoadInstalledManagedNodePolicy(ctx, nodeID)
+			return p.ExecutionProfile, err
 		},
 		CheckScope: ingressinventory.CheckManagedExecutionScope,
 		OpenStore: func(stateDir string) (*ingressauthority.ReservationStore, error) {

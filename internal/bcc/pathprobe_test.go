@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/zarkmakerburg/baft/internal/agentjob"
 )
 
 func newPathProbeStore(t *testing.T) *Store {
@@ -269,6 +271,31 @@ func TestQueuedPathProbeGivesUpAfterTheQueueTimeout(t *testing.T) {
 	}
 }
 
+func TestPathProbeCandidateReportsAttemptsAndConnectSpread(t *testing.T) {
+	flow := func(ms int64, connected, ack bool) probeFlowEvidence {
+		return probeFlowEvidence{Requested: 65536, BytesWritten: 65536, ConnectMS: ms, Connected: connected, Handshake: connected, ACK: ack}
+	}
+	full := probeFlowEvidence{Requested: 16384, BytesWritten: 16384, Connected: true, Handshake: true, ACK: true}
+	var c PathProbeCandidate
+	classifyPathProbeCandidate(&c, probeRunEvidence{Bulk: []probeFlowEvidence{flow(7, true, true), flow(5, true, true), flow(6, true, true)}, Trickle: full}, probeListenEvidence{})
+	if c.Class != PathFullData || c.Attempts != 3 || c.ACKSuccesses != 3 || c.ConnectRTTMS != 6 || c.ConnectSpreadMS != 1 {
+		t.Fatalf("stable full-data candidate: %+v", c)
+	}
+	c = PathProbeCandidate{}
+	classifyPathProbeCandidate(&c, probeRunEvidence{Bulk: []probeFlowEvidence{flow(10, true, true), flow(90, true, false), flow(0, false, false)}, Trickle: full}, probeListenEvidence{})
+	if c.Class == PathFullData || c.Attempts != 3 || c.ACKSuccesses != 1 || c.ConnectSpreadMS != 40 {
+		t.Fatalf("lossy candidate must not be FULL_DATA and must expose spread over connected flows only: %+v", c)
+	}
+	c = PathProbeCandidate{}
+	classifyPathProbeCandidate(&c, probeRunEvidence{Bulk: []probeFlowEvidence{flow(12, true, true)}}, probeListenEvidence{})
+	if c.Attempts != 1 || c.ConnectSpreadMS != 0 {
+		t.Fatalf("one sample has no spread: %+v", c)
+	}
+	if got := connectSpreadMS(nil); got != 0 {
+		t.Fatalf("empty spread = %d", got)
+	}
+}
+
 func TestPathProbeRecommendationIsDeterministic(t *testing.T) {
 	cs := []PathProbeCandidate{
 		{Port: 8443, Class: PathFullData, ConnectRTTMS: 18},
@@ -359,5 +386,86 @@ func TestNodePathAddressesAreValidatedAndPreserved(t *testing.T) {
 	}
 	if _, err := s.UpsertNode(Node{ID: "bad", Address: "127.0.0.1:22", PathIPv6: "192.0.2.4", Role: "worker"}, "tok"); err == nil {
 		t.Fatal("IPv4 accepted as path_ipv6")
+	}
+}
+
+func TestPathProbeThroughputNeedsAnExactlyAcknowledgedSpeedFlow(t *testing.T) {
+	ok := &probeSpeedEvidence{Seconds: 5, BytesWritten: 50_000_000, AckedBytes: 50_000_000, TransferMS: 5000, ACK: true}
+	if got, floor := probeThroughputKbps(ok); got != 80_000 || floor {
+		t.Fatalf("50 MB in 5 s = %d kbps (floor %v), want 80000 estimate", got, floor)
+	}
+	// A fast path hits the byte cap long before the time budget: report the
+	// measured rate as a floor instead of nothing (two-host LAB evidence).
+	capped := &probeSpeedEvidence{Seconds: 5, BytesWritten: agentjob.PathProbeSpeedMaxBytes, AckedBytes: agentjob.PathProbeSpeedMaxBytes, TransferMS: 77, ACK: true}
+	if got, floor := probeThroughputKbps(capped); got != int64(agentjob.PathProbeSpeedMaxBytes)*8/77 || !floor {
+		t.Fatalf("capped flow: %d kbps floor=%v", got, floor)
+	}
+	for name, sp := range map[string]*probeSpeedEvidence{
+		"missing":            nil,
+		"not acked":          {BytesWritten: 50_000_000, AckedBytes: 50_000_000, TransferMS: 5000},
+		"short count":        {BytesWritten: 50_000_000, AckedBytes: 49_000_000, TransferMS: 5000, ACK: true},
+		"error":              {BytesWritten: 50_000_000, AckedBytes: 50_000_000, TransferMS: 5000, ACK: true, Error: "reset"},
+		"too little":         {BytesWritten: 100_000, AckedBytes: 100_000, TransferMS: 5000, ACK: true},
+		"too quick":          {BytesWritten: 1_000_000, AckedBytes: 1_000_000, TransferMS: 100, ACK: true},
+		"zero time":          {Seconds: 5, BytesWritten: agentjob.PathProbeSpeedMaxBytes, AckedBytes: agentjob.PathProbeSpeedMaxBytes, TransferMS: 0, ACK: true},
+		"capped short count": {Seconds: 5, BytesWritten: agentjob.PathProbeSpeedMaxBytes, AckedBytes: agentjob.PathProbeSpeedMaxBytes - 1, TransferMS: 77, ACK: true},
+	} {
+		if got, _ := probeThroughputKbps(sp); got != 0 {
+			t.Fatalf("%s: throughput %d must not be reported", name, got)
+		}
+	}
+	var c PathProbeCandidate
+	full := probeFlowEvidence{Requested: 65536, BytesWritten: 65536, ConnectMS: 5, Connected: true, Handshake: true, ACK: true}
+	classifyPathProbeCandidate(&c, probeRunEvidence{Bulk: []probeFlowEvidence{full, full, full}, Trickle: full, Speed: ok}, probeListenEvidence{})
+	if c.Class != PathFullData || c.ThroughputKbps != 80_000 {
+		t.Fatalf("classified candidate: %+v", c)
+	}
+}
+
+func TestPathProbeRequestsSpeedOnlyWhenBothAgentsAdvertiseIt(t *testing.T) {
+	speed := []string{pathProbeSpeedCapability}
+	for _, tc := range []struct {
+		name     string
+		src, dst []string
+		want     bool
+	}{
+		{"both agents", speed, speed, true},
+		{"source only", speed, nil, false},
+		{"destination only", nil, speed, false},
+		{"neither", nil, nil, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := newPathProbeStore(t)
+			for _, poll := range []struct {
+				node, token string
+				caps        []string
+			}{{"src", "tok-src", tc.src}, {"dst", "tok-dst", tc.dst}} {
+				if _, err := s.pullJobsReporting(poll.node, poll.token, poll.caps, func([]Job) error { return nil }); err != nil {
+					t.Fatal(err)
+				}
+			}
+			now := time.Now().UTC()
+			p := startOnePathProbe(t, s, 22001)
+			if err := s.AckJobOutput("dst", "tok-dst", p.JobID, "succeeded", "listener ready", ""); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := s.AdvancePathProbes(now.Add(time.Second)); err != nil {
+				t.Fatal(err)
+			}
+			p, _ = s.GetPathProbe(p.ID)
+			var run Job
+			for _, j := range s.ListJobs() {
+				if j.ID == p.JobID {
+					run = j
+				}
+			}
+			if run.Type != "path_probe_run" {
+				t.Fatalf("expected the run job, got %+v", run)
+			}
+			got, has := run.Params["speed_seconds"]
+			if has != tc.want || (has && got != "5") {
+				t.Fatalf("speed_seconds=%q present=%v, want present=%v", got, has, tc.want)
+			}
+		})
 	}
 }

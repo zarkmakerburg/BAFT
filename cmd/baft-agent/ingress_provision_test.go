@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/zarkmakerburg/baft/internal/ingressauthority"
+	"github.com/zarkmakerburg/baft/internal/ingressinventory"
 	"github.com/zarkmakerburg/baft/internal/ingressownership"
 )
 
@@ -34,8 +35,8 @@ func chainJSON(handle int, hook string) []byte {
 func goodDeps(t *testing.T) ingressDeps {
 	t.Helper()
 	return ingressDeps{
-		LoadPolicy: func(context.Context, string) error { return nil },
-		CheckScope: func(context.Context) error { return nil },
+		LoadPolicy: func(context.Context, string) (string, error) { return "", nil },
+		CheckScope: func(context.Context, string) error { return nil },
 		OpenStore: func(string) (*ingressauthority.ReservationStore, error) {
 			dir := filepath.Join(t.TempDir(), "authority")
 			if err := os.Mkdir(dir, 0o700); err != nil {
@@ -61,8 +62,8 @@ func TestBuildIngressOperationalSuccess(t *testing.T) {
 func TestBuildIngressOperationalFailClosed(t *testing.T) {
 	boom := errors.New("boom")
 	cases := map[string]func(*ingressDeps){
-		"policy":        func(d *ingressDeps) { d.LoadPolicy = func(context.Context, string) error { return boom } },
-		"scope":         func(d *ingressDeps) { d.CheckScope = func(context.Context) error { return boom } },
+		"policy":        func(d *ingressDeps) { d.LoadPolicy = func(context.Context, string) (string, error) { return "", boom } },
+		"scope":         func(d *ingressDeps) { d.CheckScope = func(context.Context, string) error { return boom } },
 		"scope unwired": func(d *ingressDeps) { d.CheckScope = nil },
 		"store err": func(d *ingressDeps) {
 			d.OpenStore = func(string) (*ingressauthority.ReservationStore, error) { return nil, boom }
@@ -186,7 +187,33 @@ func TestHostWiringRefusesInitNamespaceScope(t *testing.T) {
 	if errSelf != nil || errInit != nil || self != init {
 		t.Skip("not running in a readable init network namespace")
 	}
-	if err := d.CheckScope(context.Background()); err == nil {
+	if err := d.CheckScope(context.Background(), ""); err == nil {
 		t.Fatal("init network namespace accepted as an operational ingress scope")
+	}
+}
+
+// The installed policy's execution profile selects the scope check and the
+// advertised contract: host-v1 must reach CheckScope and IngressOperational.
+func TestBuildIngressOperationalCarriesHostProfile(t *testing.T) {
+	d := goodDeps(t)
+	d.LoadPolicy = func(context.Context, string) (string, error) { return ingressinventory.ExecutionProfileHostV1, nil }
+	var scoped string
+	d.CheckScope = func(_ context.Context, profile string) error { scoped = profile; return nil }
+	op, err := buildIngressOperational(context.Background(), "n1", "/x", d)
+	if err != nil || op == nil {
+		t.Fatalf("host profile build failed: op=%v err=%v", op, err)
+	}
+	if scoped != ingressinventory.ExecutionProfileHostV1 || op.Profile != ingressinventory.ExecutionProfileHostV1 {
+		t.Fatalf("profile not carried: scope=%q op=%q", scoped, op.Profile)
+	}
+}
+
+// A LAB policy on an ordinary server tells the operator how to enable host mode.
+func TestLABPolicyOutsideLABPointsAtHostMode(t *testing.T) {
+	d := goodDeps(t)
+	d.CheckScope = func(context.Context, string) error { return errors.New("init namespace") }
+	_, err := buildIngressOperational(context.Background(), "n1", "/x", d)
+	if err == nil || !strings.Contains(err.Error(), "--enable-host-ingress") {
+		t.Fatalf("want host-mode hint, got %v", err)
 	}
 }

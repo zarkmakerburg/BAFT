@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"slices"
 	"sort"
 	"strconv"
 	"time"
@@ -113,7 +114,7 @@ func (s *Store) buildPlanLocked(req TunnelRequest, now time.Time) (Plan, error) 
 	peer := net.JoinHostPort(t.PublicAddress, strconv.Itoa(t.Port))
 	p := Plan{
 		Request: TunnelRequest{
-			Engine: req.Engine, InstanceID: t.InstanceID, IRInstanceID: t.IRInstanceID, JoinExistingTunnelID: t.JoinOwnerID, AllowLegacyCoexistence: req.AllowLegacyCoexistence, EXNode: t.EXNode, IRNode: t.IRNode, PublicAddress: t.PublicAddress, Port: t.Port, ClientPort: t.ClientPort, Target: t.Target,
+			Engine: req.Engine, InstanceID: t.InstanceID, IRInstanceID: t.IRInstanceID, JoinExistingTunnelID: t.JoinOwnerID, AllowLegacyCoexistence: req.AllowLegacyCoexistence, EXNode: t.EXNode, IRNode: t.IRNode, PublicAddress: t.PublicAddress, Port: t.Port, ClientPort: t.ClientPort, ClientPortAck: t.ClientPortAck, Target: t.Target,
 			RouteListen: t.RouteListen, RouteID: t.RouteID, EXMetricsListen: t.EXMetricsListen, IRMetricsListen: t.IRMetricsListen,
 			RecordShaping:      t.RecordShaping,
 			AutoSelectEvidence: req.AutoSelectEvidence,
@@ -188,6 +189,15 @@ func (s *Store) buildPlanLocked(req TunnelRequest, now time.Time) (Plan, error) 
 		}
 	}
 	gate("node roles", "PASS", "EX is foreign, IR is worker or master, neither is revoked")
+	if t.ClientPort != 0 && slices.Contains(ir.Capabilities, IngressCapabilityOperationalHostV1) {
+		p.Nodes[1].Changes = append(p.Nodes[1].Changes, fmt.Sprintf(
+			"after activation, safe host mode opens public port %d: an owned listener and an owned rule in BAFT's own firewall chain; nothing else on the server is changed", t.ClientPort))
+		if t.ClientPortAck {
+			gate("public port acknowledgement", "PASS", fmt.Sprintf("operator confirmed no other service on %s is configured to use port %d", ir.ID, t.ClientPort))
+		} else {
+			gate("public port acknowledgement", "FAIL", fmt.Sprintf("%s runs safe host mode: confirm that no other service on it is configured to use port %d. BAFT itself refuses ports held by a running program, a systemd socket, another BAFT tunnel, an Xray/3X-UI inbound, an nginx listen, an HAProxy bind or a Docker published port; programs started by hand and other services' own configuration are not checked", ir.ID, t.ClientPort))
+		}
+	}
 	gate("no conflicting change", "PASS", "no unfinished or failed change owns the same BAFT instance or conflicts with its listeners")
 	gate("parameters", "PASS", "validated with the rules the agents apply: fixed-IP target, loopback route listener, strict patterns")
 	// A reviewed plan must have exactly the same hash when recomputed at

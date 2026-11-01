@@ -42,7 +42,15 @@ type InstalledManagedNodePolicyV1 struct {
 	Transport        string
 	Manager          string
 	SourceRoots      []string
+	// ExecutionProfile is "" (schema 1: the isolated loopback-only LAB) or
+	// ExecutionProfileHostV1 (schema 2: an ordinary server, ADR-003). Only the
+	// local installer writes it; nothing remote can select it.
+	ExecutionProfile string
 }
+
+// ExecutionProfileHostV1 is the ADR-003 safe host mode: bind-exclusive
+// ownership on an ordinary server, refusing known latent claims.
+const ExecutionProfileHostV1 = "host-v1"
 
 // LoadInstalledManagedNodePolicy is the sole exported decoder for Alpha;
 // no caller roots, pathname, JSON or "supported=true" parameters exist.
@@ -123,6 +131,7 @@ type CoverageEvidence struct {
 	Sources           []SourceIdentity
 	Stopped           []PersistentTCPPortClaim
 	ActiveTCP         []ActiveTCPClaim
+	ConfigClaims      []ConfigPortClaim // host profile: other services' configured ports
 	LABExecution      PrivateLABExecutionEvidence
 	UnknownSources    []string
 	SupportedEnvelope bool // policy+platform checks; does NOT imply complete
@@ -147,6 +156,9 @@ type ManagedLABExecutionPin struct {
 	Sources []SourceIdentity
 	Stopped []PersistentTCPPortClaim
 	LAB     PrivateLABExecutionEvidence
+	// Host profile only: other services' configured ports (Xray/3X-UI). A
+	// change between pin and effect is drift, so the effect fails closed.
+	ConfigClaims []ConfigPortClaim
 }
 
 // PinInstalledManagedLABExecution observes the protected fixed-path profile,

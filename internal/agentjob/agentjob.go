@@ -186,6 +186,10 @@ var optionalParamRules = map[string]map[string]*regexp.Regexp{
 	ActionTunnelRetire:         {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
 	ActionTunnelTenantAdd:      {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
 	ActionTunnelTenantRemove:   {"instance_id": instanceIDRe, "metrics_listen": loopbackListenR},
+	// speed_seconds asks the source to also run a bounded, time-limited
+	// throughput flow; BCC sends it only to agents that advertise
+	// path-probe-speed-v1 on both ends.
+	ActionPathProbeRun:         {"speed_seconds": regexp.MustCompile(`^[1-8]$`)},
 	ActionPublicIngressPrepare: {"instance_id": instanceIDRe},
 	ActionPublicIngressCancel:  {"instance_id": instanceIDRe},
 	ActionPublicIngressApply:   {"instance_id": instanceIDRe, "ingress_protocol": regexp.MustCompile("^1$"), "operation_id": tunnelIDRe, "lease_id": tunnelIDRe, "plan_sha256": sha256Re, "config_sha256": sha256Re, "listen_endpoint": endpointRe, "transport": regexp.MustCompile("^dedicated$")},
@@ -311,6 +315,11 @@ func (j Job) Validate() error {
 	}
 	return nil
 }
+
+// PathProbeSpeedMaxBytes caps one path-probe speed flow (path-probe-speed-v1).
+// The source stops at the time budget or this many bytes, whichever comes
+// first; BCC uses the same figure to recognise a flow that hit the cap.
+const PathProbeSpeedMaxBytes = 64 << 20
 
 // PathProbeTrickleChunk is the size of each trickle write; the sender pauses
 // trickle_ms between chunks.

@@ -902,8 +902,14 @@ func (r *Runtime) runListener(ctx context.Context, cfg config.Config) error {
 		handler = carrierh2.HandlerWithRevocation(stream, r.Revocations)
 	}
 
+	lifetime := newListenerLifecycle(ctx, handler)
+	defer lifetime.cancel()
+	// Normal and recovery sessions both inherit this child lifetime, including
+	// when ServeTLS fails before the parent Runtime has canceled its role.
+	ctx = lifetime.ctx
 	srv := &http.Server{
-		Handler: handler, TLSConfig: tlsCfg, ReadHeaderTimeout: 10 * time.Second, MaxHeaderBytes: 16 << 10,
+		Handler: lifetime, TLSConfig: tlsCfg, ReadHeaderTimeout: 10 * time.Second, MaxHeaderBytes: 16 << 10,
+		BaseContext: func(net.Listener) context.Context { return ctx },
 		ErrorLog: log.New(&carrierServerErrorWriter{handshakeErrors: &r.handshakeErrors}, "", 0),
 	}
 	if serveWS && !serveH2 {
@@ -926,7 +932,10 @@ func (r *Runtime) runListener(ctx context.Context, cfg config.Config) error {
 	defer ln.Close()
 
 	done := make(chan error, 1)
+	serveExited := make(chan struct{})
+	defer func() { lifetime.close(srv); <-serveExited }()
 	go func() {
+		defer close(serveExited)
 		r.setListenerStartup(cfg.Server.Listen,func(s *ListenerStartupState){s.ServeStarted=true})
 		log.Printf("baft listener startup: serve started actual=%s",actual)
 		err := srv.ServeTLS(ln, "", "")

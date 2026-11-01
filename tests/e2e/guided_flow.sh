@@ -36,7 +36,8 @@ BCC=http://127.0.0.1:18300
 EX_PORT=18543        # BAFT inter-server port on EX (tested, then auto-selected)
 TARGET_PORT=2543     # EX service destination (echo)
 UNITS=(baft-agent-gfex baft-agent-gfir)
-log() { printf '[guided] %s\n' "$*"; }
+LAST_STEP="start"
+log() { LAST_STEP="$*"; printf '[guided] %s\n' "$*"; }
 fail() {
   echo "FAIL: $*" >&2
   # fail can run inside $(...); keep the reason for the parent's ERR trap.
@@ -47,6 +48,8 @@ fail() {
 cleanup() {
   local rc=$?
   if [[ $rc -ne 0 ]]; then
+    # Always leave one located annotation, whatever path ended the run.
+    [[ "${GITHUB_ACTIONS:-}" == "true" ]] && printf '::error title=exit::rc=%s after step: %s\n' "$rc" "$(printf '%s' "$LAST_STEP" | head -c 300 | sed 's/%/%25/g')" || true
     for f in "$WORK"/*.log; do [[ -f "$f" ]] && { echo "== $f"; tail -n 60 "$f"; }; done
     for u in "${UNITS[@]}"; do echo "== journal $u"; journalctl -u "$u" -n 80 --no-pager 2>/dev/null || true; done
     echo "== tunnels"; curl -fsS -H 'Authorization: Bearer admintok' "$BCC/api/tunnels" 2>/dev/null | head -c 20000 || true

@@ -47,8 +47,13 @@ cleanup() {
     echo; echo "== path probes"; curl -fsS -H 'Authorization: Bearer admintok' "$BCC/api/path-probes" 2>/dev/null | head -c 8000 || true
     echo; echo "== nodes"; curl -fsS -H 'Authorization: Bearer admintok' "$BCC/api/nodes" 2>/dev/null | head -c 8000 || true
     echo; nft list table inet baft 2>/dev/null || true
+    echo "== policy path"; ls -ldn /etc /etc/baft /etc/baft/ingress /etc/baft/ingress/managed-node.json 2>&1 || true
+    echo "== policy"; cat /etc/baft/ingress/managed-node.json 2>&1 | head -c 2000 || true
+    echo; echo "== agent netns"; readlink "/proc/$(systemctl show -p MainPID --value baft-agent-gfir 2>/dev/null)/ns/net" 2>&1 || true; readlink /proc/self/ns/net || true
+    echo "== agent unit sandboxing"; systemctl cat baft-agent-gfir 2>/dev/null | grep -E '^(User|Protect|Private|ReadWrite|ReadOnly|Inaccessible|Capability|NoNewPriv)' || true
     if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
-      journalctl -u baft-agent-gfir --no-pager 2>/dev/null | grep -E 'public_ingress|ingress' | tail -n 6 | cut -c1-1500 | sed 's/%/%25/g; s/^/::error title=ir-ingress::/' || true
+      journalctl -u baft-agent-gfir --no-pager -o cat 2>/dev/null | grep -A3 -E 'operational ingress disabled|public_ingress' | tail -n 8 | cut -c1-1500 | sed 's/%/%25/g; s/^/::error title=ir-ingress::/' || true
+      { ls -ldn /etc/baft /etc/baft/ingress /etc/baft/ingress/managed-node.json 2>&1; systemctl cat baft-agent-gfir 2>/dev/null | grep -E '^(User|Protect|Private|ReadWrite|ReadOnly|Inaccessible|Capability)'; } | head -n 12 | sed 's/%/%25/g; s/^/::error title=ir-policy::/' || true
     fi
   fi
   for p in "${PIDS[@]}"; do kill "$p" 2>/dev/null || true; done

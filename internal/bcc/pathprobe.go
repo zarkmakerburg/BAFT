@@ -37,6 +37,12 @@ const (
 	pathProbeJobTimeout = 90 * time.Second
 	// pathProbeQueueTimeout bounds how long a probe may wait for a free slot.
 	pathProbeQueueTimeout = 10 * time.Minute
+	// The trickle flow (1 KiB writes with a pause between them) must finish
+	// inside the agents' 10 s / 12 s probe connection deadlines. The previous
+	// 16 KiB at 1000 ms needed ~15 s, so it was always cut off at ~10 KiB and
+	// no probe could ever report FULL_DATA. See agentjob.PathProbeTrickleFits.
+	pathProbeTrickleBytes = agentjob.PathProbeTrickleBytes
+	pathProbeTrickleMS    = agentjob.PathProbeTrickleMS
 )
 
 type PathProbeRequest struct {
@@ -306,7 +312,7 @@ func (s *Store) queuePathProbeRunLocked(p *PathProbe, now time.Time) {
 		Params: map[string]string{
 			"probe_id": p.ID, "family": p.Family, "target": target,
 			"payload_bytes": "65536", "attempts": "3",
-			"trickle_bytes": "16384", "trickle_ms": "1000",
+			"trickle_bytes": strconv.Itoa(pathProbeTrickleBytes), "trickle_ms": strconv.Itoa(pathProbeTrickleMS),
 		},
 	})
 	c.RunJobID, p.JobID, p.Phase, p.UpdatedAt = j.ID, j.ID, PathProbeRunning, now

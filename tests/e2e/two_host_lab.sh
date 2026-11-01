@@ -220,6 +220,19 @@ done
   || fail "connection test across the guests did not prove FULL_DATA: $(printf '%s' "$PROBE" | head -c 1500)"
 record probe "$(printf '%s' "$PROBE" | python3 -c 'import json,sys;c=json.load(sys.stdin)["candidates"][0];print(json.dumps({k:c.get(k) for k in ("port","class","connect_rtt_ms","connect_spread_ms","attempts","ack_successes","throughput_kbps")}))')"
 
+# The agent's own speed evidence for the probe (requested? what was measured?).
+RUNJOB="$(printf '%s' "$PROBE" | jget candidates 0 run_job_id)"
+record probe_speed "$(get /api/jobs | python3 -c 'import json,sys
+jid=sys.argv[1]
+for j in json.load(sys.stdin):
+    if j.get("id")!=jid: continue
+    out={"requested": "speed_seconds" in (j.get("params") or {}), "status": j.get("status")}
+    try: out["speed"]=json.loads(j.get("output") or "{}").get("speed")
+    except ValueError: out["output_head"]=(j.get("output") or "")[:300]
+    print(json.dumps(out)); break
+else: print(json.dumps({"run_job": jid, "found": False}))' "$RUNJOB")"
+log "probe speed evidence: $(python3 -c 'import json,sys;print(json.dumps(json.load(open(sys.argv[1])).get("probe_speed")))' "$SUMMARY")"
+
 log "step 2 — evidence-checked auto-select"
 SEL=""
 for _ in $(seq 1 15); do

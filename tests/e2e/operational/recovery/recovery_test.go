@@ -28,6 +28,46 @@ import (
 
 var seq atomic.Int32
 
+// The first Retire really removes its owned listener/rule through a signed,
+// consumed lease. The helper then models failed receipt delivery by retaining
+// the reservation in NEEDS_RECONCILIATION, exactly before ReleaseVerified.
+// A fresh signed Retire must re-prove absence instead of needing a live socket.
+// This is a kernel/executor LAB, not BCC HTTPS receipt-delivery acceptance.
+func TestOperationalRecovery_FreshSignedRetireAfterReceiptFailure(t *testing.T) {
+	l := newLab(t, 54830)
+	keep := l.keep()
+	r := l.run("apply-retire-retry")
+	if r["stage"] != "retry" || r["first_retired"] != true || r["job"] != "retire-retry-2" || r["err"] != "" {
+		t.Fatalf("fresh signed Retire could not finish completed cleanup: %v", r)
+	}
+	l.expectRecovered(keep)
+}
+
+func TestOperationalRecovery_FreshSignedRetireRefusesReboundPort(t *testing.T) {
+	l := newLab(t, 54831)
+	keep := l.keep()
+	r := l.run("apply-retire-retry", "-foreign", "tcp4")
+	if r["stage"] != "retry" || r["first_retired"] != true || r["err"] == "" || r["foreign_alive"] != true {
+		t.Fatalf("fresh signed Retire waived or damaged the replacement listener: %v", r)
+	}
+	if l.rules() != 1 || l.keep() != keep || l.phase() != "retired" || l.fenced() != 1 {
+		t.Fatal("refused retry changed sibling/foreign resources, journal or reservation")
+	}
+}
+
+func TestOperationalRecovery_RetireReceiptRetryRefusesSpentJob(t *testing.T) {
+	l := newLab(t, 54832)
+	l.env = []string{"REPLAY_RETIRED_JOB=1"}
+	keep := l.keep()
+	r := l.run("apply-retire-retry")
+	if r["stage"] != "retry" || r["first_retired"] != true || r["err"] == "" || !strings.Contains(fmt.Sprint(r["err"]), "already minted") {
+		t.Fatalf("receipt retry revived a consumed signed Retire: %v", r)
+	}
+	if l.rules() != 1 || l.keep() != keep || l.phase() != "retired" || l.fenced() != 1 {
+		t.Fatal("spent retry changed host state or released the reservation")
+	}
+}
+
 type lab struct {
 	t    *testing.T
 	ns   string

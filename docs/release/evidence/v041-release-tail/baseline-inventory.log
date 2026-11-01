@@ -1,0 +1,75 @@
+go: downloading golang.org/x/sys v0.48.0
+=== RUN   TestInstalledCoverageLABStopsForeignEvenWithoutSocket
+--- PASS: TestInstalledCoverageLABStopsForeignEvenWithoutSocket (0.01s)
+=== RUN   TestInstalledCoverageLABActiveKernelListenerAndUnknownManager
+--- PASS: TestInstalledCoverageLABActiveKernelListenerAndUnknownManager (0.00s)
+=== RUN   TestInstalledCoverageLABUntrustedOrDriftedPolicyNeverTrusted
+=== RUN   TestInstalledCoverageLABUntrustedOrDriftedPolicyNeverTrusted/wrong-node
+=== RUN   TestInstalledCoverageLABUntrustedOrDriftedPolicyNeverTrusted/wrong-namespace
+=== RUN   TestInstalledCoverageLABUntrustedOrDriftedPolicyNeverTrusted/unknown-field
+=== RUN   TestInstalledCoverageLABUntrustedOrDriftedPolicyNeverTrusted/writable-file
+=== RUN   TestInstalledCoverageLABUntrustedOrDriftedPolicyNeverTrusted/symlink-file
+--- PASS: TestInstalledCoverageLABUntrustedOrDriftedPolicyNeverTrusted (0.01s)
+    --- PASS: TestInstalledCoverageLABUntrustedOrDriftedPolicyNeverTrusted/wrong-node (0.00s)
+    --- PASS: TestInstalledCoverageLABUntrustedOrDriftedPolicyNeverTrusted/wrong-namespace (0.00s)
+    --- PASS: TestInstalledCoverageLABUntrustedOrDriftedPolicyNeverTrusted/unknown-field (0.00s)
+    --- PASS: TestInstalledCoverageLABUntrustedOrDriftedPolicyNeverTrusted/writable-file (0.00s)
+    --- PASS: TestInstalledCoverageLABUntrustedOrDriftedPolicyNeverTrusted/symlink-file (0.00s)
+=== RUN   TestInstalledCoverageLABSourceAndGenerationRefusal
+--- PASS: TestInstalledCoverageLABSourceAndGenerationRefusal (0.00s)
+=== RUN   TestInstalledManagedPublicEntrypointIgnoresCallerRoot
+--- PASS: TestInstalledManagedPublicEntrypointIgnoresCallerRoot (0.00s)
+=== RUN   TestInstalledCoverageLABSourceProvenanceRejectsNonRootOrWritableFiles
+    coverage_linux_test.go:223: chown /root/baft-ingress-coverage-lab-1785965526/installed-units/foreign.socket: invalid argument
+--- FAIL: TestInstalledCoverageLABSourceProvenanceRejectsNonRootOrWritableFiles (0.01s)
+=== RUN   TestManagedLABMeasuredExecutionOnlyInPrivateNamespace
+    coverage_linux_test.go:261: readlink /proc/1/ns/net: permission denied
+--- FAIL: TestManagedLABMeasuredExecutionOnlyInPrivateNamespace (0.00s)
+=== RUN   TestInstalledPolicyRejectsAmbiguousWireKeys
+=== RUN   TestInstalledPolicyRejectsAmbiguousWireKeys/"node_id":"other","node_id":"ir-lab-01"
+=== RUN   TestInstalledPolicyRejectsAmbiguousWireKeys/"schema_version":1
+=== RUN   TestInstalledPolicyRejectsAmbiguousWireKeys/"Node_ID":"ir-lab-01"
+=== RUN   TestInstalledPolicyRejectsAmbiguousWireKeys/"source_roots":["/etc/systemd/system"]
+--- PASS: TestInstalledPolicyRejectsAmbiguousWireKeys (0.00s)
+    --- PASS: TestInstalledPolicyRejectsAmbiguousWireKeys/"node_id":"other","node_id":"ir-lab-01" (0.00s)
+    --- PASS: TestInstalledPolicyRejectsAmbiguousWireKeys/"schema_version":1 (0.00s)
+    --- PASS: TestInstalledPolicyRejectsAmbiguousWireKeys/"Node_ID":"ir-lab-01" (0.00s)
+    --- PASS: TestInstalledPolicyRejectsAmbiguousWireKeys/"source_roots":["/etc/systemd/system"] (0.00s)
+=== RUN   TestKernelProcessStartStrict
+    execution_kernel_linux_test.go:18: actual generation unavailable: managed-node ingress inventory coverage incomplete
+--- FAIL: TestKernelProcessStartStrict (0.00s)
+=== RUN   TestManagedExecutionPinRefusesRealLateSourcesLAB
+    execution_pin_arrivals_linux_test.go:24: readlink /proc/1/ns/net: permission denied
+--- FAIL: TestManagedExecutionPinRefusesRealLateSourcesLAB (0.00s)
+=== RUN   TestManagedExecutionPinStableAndTamperedLAB
+    execution_pin_linux_test.go:23: readlink /proc/1/ns/net: permission denied
+--- FAIL: TestManagedExecutionPinStableAndTamperedLAB (0.00s)
+=== RUN   TestParseListenStreamAbstractUnixSocketIsNotTCPClaimButAmbiguityStaysClosed
+--- PASS: TestParseListenStreamAbstractUnixSocketIsNotTCPClaimButAmbiguityStaysClosed (0.00s)
+=== RUN   TestManagedPolicyEncoderUsesTheInstalledWireContract
+--- PASS: TestManagedPolicyEncoderUsesTheInstalledWireContract (0.00s)
+=== RUN   TestInstalledSourceFingerprintRejectsParseHashDrift
+=== RUN   TestInstalledSourceFingerprintRejectsParseHashDrift/claim
+=== RUN   TestInstalledSourceFingerprintRejectsParseHashDrift/same-claim-bytes
+=== RUN   TestInstalledSourceFingerprintRejectsParseHashDrift/add-unit
+=== RUN   TestInstalledSourceFingerprintRejectsParseHashDrift/add-dropin
+=== RUN   TestInstalledSourceFingerprintRejectsParseHashDrift/remove
+=== RUN   TestInstalledSourceFingerprintRejectsParseHashDrift/replace-file
+=== RUN   TestInstalledSourceFingerprintRejectsParseHashDrift/replace-root
+=== RUN   TestInstalledSourceFingerprintRejectsParseHashDrift/add-empty-dropin
+=== RUN   TestInstalledSourceFingerprintRejectsParseHashDrift/replace-empty-dropin
+--- PASS: TestInstalledSourceFingerprintRejectsParseHashDrift (0.01s)
+    --- PASS: TestInstalledSourceFingerprintRejectsParseHashDrift/claim (0.00s)
+    --- PASS: TestInstalledSourceFingerprintRejectsParseHashDrift/same-claim-bytes (0.00s)
+    --- PASS: TestInstalledSourceFingerprintRejectsParseHashDrift/add-unit (0.00s)
+    --- PASS: TestInstalledSourceFingerprintRejectsParseHashDrift/add-dropin (0.00s)
+    --- PASS: TestInstalledSourceFingerprintRejectsParseHashDrift/remove (0.00s)
+    --- PASS: TestInstalledSourceFingerprintRejectsParseHashDrift/replace-file (0.00s)
+    --- PASS: TestInstalledSourceFingerprintRejectsParseHashDrift/replace-root (0.00s)
+    --- PASS: TestInstalledSourceFingerprintRejectsParseHashDrift/add-empty-dropin (0.00s)
+    --- PASS: TestInstalledSourceFingerprintRejectsParseHashDrift/replace-empty-dropin (0.00s)
+=== RUN   TestProtectedSourceRootDescriptorsAreReleased
+--- PASS: TestProtectedSourceRootDescriptorsAreReleased (0.00s)
+FAIL
+FAIL	github.com/zarkmakerburg/baft/internal/ingressinventory	0.038s
+FAIL

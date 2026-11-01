@@ -99,6 +99,8 @@ type Server struct {
 	loginLim                *loginLimiter
 	hashing                 hashSlots
 	now                     func() time.Time
+	tenantReconcileMu       sync.Mutex
+	tenantReconcileErr      string
 }
 
 func NewServer(store *Store, adminToken string) (*Server, error) {

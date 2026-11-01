@@ -1231,10 +1231,10 @@ func (s *Store) advanceRollbackLocked(t *Tunnel, now time.Time) *TunnelEvent {
 
 // AdvanceTunnels steps tunnels and records final outcomes in the audit log.
 func (s *Server) AdvanceTunnels() {
-	if err := s.store.ReconcileSharedTenantMutationAcks(s.now()); err != nil {
-		_, _ = s.audit.Append(AuditEntry{Timestamp: s.now().UTC(), Actor: "bcc", Action: "tunnel.shared_tenant.reconcile", Target: "cluster", Outcome: "failure", Details: map[string]any{"error": err.Error()}})
-		return
-	}
+	// A tenant receipt BCC cannot adopt is audited once per distinct error;
+	// it must not stop every other tunnel, drift check and decommission.
+	// The tunnel it belongs to keeps its old baseline and fails closed.
+	s.reportTenantReconcile(s.store.ReconcileSharedTenantMutationAcks(s.now()))
 	if devs, err := s.store.AdvanceDiscovery(s.now()); err == nil {
 		s.auditDiscovery(devs)
 	}
@@ -1262,6 +1262,20 @@ func (s *Server) AdvanceTunnels() {
 			Timestamp: s.now().UTC(), Actor: "bcc", Action: e.Action, Target: e.TunnelID, Outcome: outcome,
 			Details: map[string]any{"detail": e.Detail},
 		})
+	}
+}
+
+func (s *Server) reportTenantReconcile(err error) {
+	msg := ""
+	if err != nil {
+		msg = err.Error()
+	}
+	s.tenantReconcileMu.Lock()
+	changed := msg != s.tenantReconcileErr
+	s.tenantReconcileErr = msg
+	s.tenantReconcileMu.Unlock()
+	if err != nil && changed {
+		_, _ = s.audit.Append(AuditEntry{Timestamp: s.now().UTC(), Actor: "bcc", Action: "tunnel.shared_tenant.reconcile", Target: "cluster", Outcome: "failure", Details: map[string]any{"error": msg}})
 	}
 }
 

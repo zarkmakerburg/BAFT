@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -131,98 +132,121 @@ func validSHA256Digest(v string) bool {
 // ReconcileSharedTenantMutationAcks adopts the authenticated agent's receipt
 // only when it matches the exact pre-change digests BCC issued and the node's
 // expected next generation. It is idempotent, so a failed BCC write can retry.
+//
+// A receipt is adopted exactly once. Adoption clears the job's Output, as
+// every other tunnel step does, so a receipt that the decommission state
+// machine or an earlier pass already adopted is history, not a pending change.
+// A receipt that BCC cannot adopt is reported, but it never stops the
+// reconciliation of other jobs: the affected tunnel keeps its old baseline and
+// its next drift check fails closed for that tunnel alone.
 func (s *Store) ReconcileSharedTenantMutationAcks(now time.Time) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	for _, job := range s.st.Jobs {
-		if job.Type != agentjob.ActionTunnelTenantAdd && job.Type != agentjob.ActionTunnelTenantRemove {
+	ids := make([]string, 0)
+	for id, job := range s.st.Jobs {
+		if (job.Type == agentjob.ActionTunnelTenantAdd || job.Type == agentjob.ActionTunnelTenantRemove) &&
+			job.Status == "succeeded" && job.Output != "" {
+			ids = append(ids, id)
+		}
+	}
+	sort.Strings(ids)
+	var errs []error
+	for _, id := range ids {
+		if err := s.reconcileSharedTenantMutationAckLocked(s.st.Jobs[id], now); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
+}
+
+func (s *Store) reconcileSharedTenantMutationAckLocked(job Job, now time.Time) error {
+	p := job.Params
+	tunnelID := p["tunnel_id"]
+	t, ok := s.st.Tunnels[tunnelID]
+	if !ok {
+		return fmt.Errorf("tenant mutation job %s refers to a missing tunnel", job.ID)
+	}
+	if job.Type == agentjob.ActionTunnelTenantRemove && t.JoinOwnerID != "" && t.Phase != TunnelActive {
+		return nil // the decommission state machine verifies and adopts this receipt
+	}
+	if t.Phase != TunnelActive {
+		// Nothing on a tunnel that no longer runs can take this baseline.
+		return nil
+	}
+	var ev tunnelnode.TenantMutationEvidence
+	if err := json.Unmarshal([]byte(job.Output), &ev); err != nil {
+		return fmt.Errorf("tenant mutation job %s has invalid receipt: %w", job.ID, err)
+	}
+	digests := t.Digests[t.EXNode]
+	if t.ObservedGen[t.EXNode] >= ev.Generation {
+		// Already adopted (or superseded by a later verified generation of
+		// the same physical listener): history, not a pending change.
+		return nil
+	}
+	wantOperation := "add"
+	if job.Type == agentjob.ActionTunnelTenantRemove {
+		wantOperation = "remove"
+	}
+	if ev.ID != p["mutation_id"] || ev.Operation != wantOperation || ev.NodeID != p["node_id"] || ev.OwnerTunnelID != p["owner_tunnel_id"] ||
+		ev.BeforeConfigSHA != p["config_sha256"] || ev.BeforeUnitSHA != p["unit_sha256"] || ev.BeforeMarkerSHA != p["marker_sha256"] ||
+		!validSHA256Digest(ev.AfterConfigSHA) || !validSHA256Digest(ev.AfterUnitSHA) || !validSHA256Digest(ev.AfterMarkerSHA) {
+		return fmt.Errorf("tenant mutation job %s receipt does not match the signed request", job.ID)
+	}
+	if digests.Config != ev.BeforeConfigSHA || digests.Unit != ev.BeforeUnitSHA || digests.Marker != ev.BeforeMarkerSHA {
+		return fmt.Errorf("tenant mutation job %s pre-change digests no longer match BCC state", job.ID)
+	}
+	if t.ObservedGen[t.EXNode]+1 != ev.Generation {
+		return fmt.Errorf("tenant mutation job %s generation is not the expected next generation", job.ID)
+	}
+	before, err := cloneState(s.st)
+	if err != nil {
+		return err
+	}
+	job.Output = ""
+	s.st.Jobs[job.ID] = job
+	// A shared listener has one physical ownership baseline. Keep the owner
+	// and every active tenant's view synchronized after the generation moves.
+	for id, sibling := range s.st.Tunnels {
+		if sibling.EXNode != t.EXNode || (id != ev.OwnerTunnelID && sibling.JoinOwnerID != ev.OwnerTunnelID) {
 			continue
 		}
-		if job.Status != "succeeded" {
+		if sibling.Phase != TunnelActive && id != tunnelID {
 			continue
 		}
-		var ev tunnelnode.TenantMutationEvidence
-		if err := json.Unmarshal([]byte(job.Output), &ev); err != nil {
-			return fmt.Errorf("tenant mutation job %s has invalid receipt: %w", job.ID, err)
+		if sibling.Digests == nil {
+			sibling.Digests = map[string]NodeDigests{}
 		}
-		p := job.Params
-		tunnelID := p["tunnel_id"]
-		t, ok := s.st.Tunnels[tunnelID]
-		if !ok {
-			return fmt.Errorf("tenant mutation job %s refers to a missing tunnel", job.ID)
+		if sibling.ObservedGen == nil {
+			sibling.ObservedGen = map[string]int{}
 		}
-		if job.Type == agentjob.ActionTunnelTenantRemove && t.JoinOwnerID != "" && t.Phase != TunnelActive {
-			continue // the decommission state machine verifies and adopts this receipt
+		sibling.Digests[t.EXNode] = NodeDigests{Config: ev.AfterConfigSHA, Unit: ev.AfterUnitSHA, Marker: ev.AfterMarkerSHA}
+		sibling.ObservedGen[t.EXNode] = ev.Generation
+		if sibling.ExpectedGen == nil {
+			sibling.ExpectedGen = map[string]GenExpect{}
 		}
-		if t.Phase != TunnelActive {
-			return fmt.Errorf("tenant mutation job %s refers to a non-active tunnel", job.ID)
+		sibling.ExpectedGen[t.EXNode] = GenExpect{From: ev.Generation - 1, To: ev.Generation}
+		sibling.UpdatedAt = now.UTC()
+		if id == tunnelID {
+			sibling.Evidence = append(sibling.Evidence, TunnelEvidence{
+				Step: "shared_tenant_" + wantOperation, Node: t.EXNode, At: now.UTC(), OK: true,
+				Detail: fmt.Sprintf("authenticated tenant mutation committed at generation %d", ev.Generation),
+			})
 		}
-		digests := t.Digests[t.EXNode]
-		if digests.Config == ev.AfterConfigSHA && digests.Marker == ev.AfterMarkerSHA &&
-			t.ObservedGen[t.EXNode] == ev.Generation {
-			continue // already reconciled
+		s.st.Tunnels[id] = sibling
+	}
+	n := s.st.Nodes[t.EXNode]
+	if t.InstanceID == "" {
+		n.AppliedGeneration = ev.Generation
+	} else {
+		if n.AppliedGenerations == nil {
+			n.AppliedGenerations = map[string]int{}
 		}
-		wantOperation := "add"
-		if job.Type == agentjob.ActionTunnelTenantRemove {
-			wantOperation = "remove"
-		}
-		if ev.ID != p["mutation_id"] || ev.Operation != wantOperation || ev.NodeID != p["node_id"] || ev.OwnerTunnelID != p["owner_tunnel_id"] ||
-			ev.BeforeConfigSHA != p["config_sha256"] || ev.BeforeUnitSHA != p["unit_sha256"] || ev.BeforeMarkerSHA != p["marker_sha256"] ||
-			!validSHA256Digest(ev.AfterConfigSHA) || !validSHA256Digest(ev.AfterUnitSHA) || !validSHA256Digest(ev.AfterMarkerSHA) {
-			return fmt.Errorf("tenant mutation job %s receipt does not match the signed request", job.ID)
-		}
-		if digests.Config != ev.BeforeConfigSHA || digests.Unit != ev.BeforeUnitSHA || digests.Marker != ev.BeforeMarkerSHA {
-			return fmt.Errorf("tenant mutation job %s pre-change digests no longer match BCC state", job.ID)
-		}
-		if t.ObservedGen[t.EXNode]+1 != ev.Generation {
-			return fmt.Errorf("tenant mutation job %s generation is not the expected next generation", job.ID)
-		}
-		before, err := cloneState(s.st)
-		if err != nil {
-			return err
-		}
-		// A shared listener has one physical ownership baseline. Keep the owner
-		// and every active tenant's view synchronized after the generation moves.
-		for id, sibling := range s.st.Tunnels {
-			if sibling.EXNode != t.EXNode || (id != ev.OwnerTunnelID && sibling.JoinOwnerID != ev.OwnerTunnelID) {
-				continue
-			}
-			if sibling.Phase != TunnelActive && id != tunnelID {
-				continue
-			}
-			if sibling.Digests == nil {
-				sibling.Digests = map[string]NodeDigests{}
-			}
-			if sibling.ObservedGen == nil {
-				sibling.ObservedGen = map[string]int{}
-			}
-			sibling.Digests[t.EXNode] = NodeDigests{Config: ev.AfterConfigSHA, Unit: ev.AfterUnitSHA, Marker: ev.AfterMarkerSHA}
-			sibling.ObservedGen[t.EXNode] = ev.Generation
-			if sibling.ExpectedGen == nil { sibling.ExpectedGen = map[string]GenExpect{} }
-			sibling.ExpectedGen[t.EXNode] = GenExpect{From: ev.Generation - 1, To: ev.Generation}
-			sibling.UpdatedAt = now.UTC()
-			if id == tunnelID {
-				sibling.Evidence = append(sibling.Evidence, TunnelEvidence{
-					Step: "shared_tenant_" + wantOperation, Node: t.EXNode, At: now.UTC(), OK: true,
-					Detail: fmt.Sprintf("authenticated tenant mutation committed at generation %d", ev.Generation),
-				})
-			}
-			s.st.Tunnels[id] = sibling
-		}
-		n := s.st.Nodes[t.EXNode]
-		if t.InstanceID == "" {
-			n.AppliedGeneration = ev.Generation
-		} else {
-			if n.AppliedGenerations == nil {
-				n.AppliedGenerations = map[string]int{}
-			}
-			n.AppliedGenerations[t.InstanceID] = ev.Generation
-		}
-		s.st.Nodes[t.EXNode] = n
-		if err := s.saveLocked(); err != nil {
-			s.st = before
-			return err
-		}
+		n.AppliedGenerations[t.InstanceID] = ev.Generation
+	}
+	s.st.Nodes[t.EXNode] = n
+	if err := s.saveLocked(); err != nil {
+		s.st = before
+		return err
 	}
 	return nil
 }

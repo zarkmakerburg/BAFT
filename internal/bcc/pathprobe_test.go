@@ -192,6 +192,83 @@ func TestPathProbeUsesOnlyEnrolledNodeAddressesAndPersists(t *testing.T) {
 	}
 }
 
+// A probe started while four probes are already active (for example while
+// automatic path discovery runs right after two nodes enroll) is queued with
+// no job. It must wait for a slot, not fail as "current probe job is missing"
+// (guided-flow e2e run 41257388191).
+func TestQueuedPathProbeWaitsForASlotInsteadOfFailing(t *testing.T) {
+	s := newPathProbeStore(t)
+	now := time.Now().UTC()
+	var active []PathProbe
+	for i := 0; i < 4; i++ {
+		active = append(active, startOnePathProbe(t, s, 22101+i))
+	}
+	queued := startOnePathProbe(t, s, 22199)
+	if queued.Phase != PathProbeQueued || queued.JobID != "" {
+		t.Fatalf("fifth probe should wait in the queue: %+v", queued)
+	}
+	if _, err := s.AdvancePathProbes(now.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := s.GetPathProbe(queued.ID); got.Phase != PathProbeQueued || got.Error != "" {
+		t.Fatalf("queued probe was failed instead of waiting: %+v", got)
+	}
+	// Free one slot: the queued probe must then be scheduled.
+	s.mu.Lock()
+	done := s.st.PathProbes[active[0].ID]
+	done.Phase = PathProbeComplete
+	s.st.PathProbes[done.ID] = done
+	s.mu.Unlock()
+	if _, err := s.AdvancePathProbes(now.Add(3 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := s.GetPathProbe(queued.ID)
+	if got.Phase == PathProbeFailed || got.Phase == PathProbeQueued || got.JobID == "" {
+		t.Fatalf("queued probe was not scheduled once a slot freed: %+v", got)
+	}
+}
+
+func TestCancellingAQueuedPathProbeStartsNothing(t *testing.T) {
+	s := newPathProbeStore(t)
+	now := time.Now().UTC()
+	for i := 0; i < 4; i++ {
+		startOnePathProbe(t, s, 22301+i)
+	}
+	queued := startOnePathProbe(t, s, 22399)
+	jobsBefore := len(s.ListJobs())
+	got, err := s.CancelPathProbe(queued.ID, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Phase != PathProbeCancelled || got.JobID != "" {
+		t.Fatalf("cancelled queued probe: %+v", got)
+	}
+	if n := len(s.ListJobs()); n != jobsBefore {
+		t.Fatalf("cancelling a queued probe queued %d agent jobs", n-jobsBefore)
+	}
+}
+
+func TestQueuedPathProbeGivesUpAfterTheQueueTimeout(t *testing.T) {
+	s := newPathProbeStore(t)
+	now := time.Now().UTC()
+	for i := 0; i < 4; i++ {
+		startOnePathProbe(t, s, 22201+i)
+	}
+	queued := startOnePathProbe(t, s, 22299)
+	s.mu.Lock()
+	p := s.st.PathProbes[queued.ID]
+	p.CreatedAt = now.Add(-pathProbeQueueTimeout - time.Minute)
+	s.st.PathProbes[queued.ID] = p
+	s.mu.Unlock()
+	if _, err := s.AdvancePathProbes(now); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := s.GetPathProbe(queued.ID)
+	if got.Phase != PathProbeFailed || !strings.Contains(got.Error, "waiting behind other path probes") {
+		t.Fatalf("stale queued probe must fail with a clear reason: %+v", got)
+	}
+}
+
 func TestPathProbeCandidateReportsAttemptsAndConnectSpread(t *testing.T) {
 	flow := func(ms int64, connected, ack bool) probeFlowEvidence {
 		return probeFlowEvidence{Requested: 65536, BytesWritten: 65536, ConnectMS: ms, Connected: connected, Handshake: connected, ACK: ack}

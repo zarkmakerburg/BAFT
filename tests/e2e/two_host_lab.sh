@@ -171,7 +171,8 @@ BCC_BIN="$WORK/baft-bcc"; install -m 0755 "$REL/dist/baft-bcc-linux-$ARCH" "$BCC
 echo admintok >"$WORK/admin.token"; chmod 600 "$WORK/admin.token"
 "$BCC_BIN" access init --access-file "$WORK/s.json.access.json" >/dev/null
 TOK_EX="$(head -c 24 /dev/urandom | base64 | tr -d '/+=')"; TOK_IR="$(head -c 24 /dev/urandom | base64 | tr -d '/+=')"
-TOK_EX="$TOK_EX" TOK_IR="$TOK_IR" "$BCC_BIN" --admin-token-file "$WORK/admin.token" --state-file "$WORK/s.json" \
+# A non-loopback BCC listener must be explicitly allowlisted (production rule).
+BAFT_BCC_ALLOWED_LISTEN_IPS="$HOST_IP" TOK_EX="$TOK_EX" TOK_IR="$TOK_IR" "$BCC_BIN" --admin-token-file "$WORK/admin.token" --state-file "$WORK/s.json" \
   --listen "$HOST_IP:18300" --tls-cert "$WORK/bcc.crt" --tls-key "$WORK/bcc.key" >"$WORK/bcc.log" 2>&1 & PIDS+=($!)
 for _ in $(seq 1 30); do api -o /dev/null "$BCC/api/nodes" 2>/dev/null && break; sleep 1; done
 api -o /dev/null "$BCC/api/nodes" || fail "BCC is not reachable over verified HTTPS"

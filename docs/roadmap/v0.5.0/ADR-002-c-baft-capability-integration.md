@@ -63,3 +63,9 @@ BAFT and C-BAFT are both AGPL-3.0. Slice 1 copies **no C-BAFT source code**; it 
 3. Live guided wizard replacing the preview — **done** (`033cb4d1`, dashboard entry `17e7230b`).
 4. Transport-driver contract ADR; WireGuard as first kernel transport candidate, with ownership + rollback.
 5. PMTU probe and UDP transports only after (4) and a crypto review.
+
+## Status update (2026-11-01)
+
+- The connection test, attempt/spread metrics and the signed speed flow are now proven end to end on real installed agents (`guided-flow-e2e`), after fixing a pre-existing probe defect that made `FULL_DATA` impossible.
+- C-BAFT's "users connect to an Iran port" convenience maps to BAFT's operational public ingress, which is still LAB-only; on real hosts the wizard now states this and shows the tunnel entry to point a panel inbound at. A real-host ingress design (ADR-003) is the next prerequisite before more C-BAFT transports are worth adding.
+

@@ -13,7 +13,9 @@
 
 > These are historical checkpoints, not a claim about live status. Verify current GitHub state, branch head, main, open PRs/issues and CI before acting.
 
-**Latest recorded progress (2026-10-31, Stage 3):** live guided Quick Tunnel wizard (replaces the preview), signed `path-probe-speed-v1` throughput flow, user guide and CHANGELOG — all green in exact-SHA CI; see [BASELINE_AUDIT.md §11](./BASELINE_AUDIT.md#11-stage-3--product-live-guided-tunnel-flow-and-speed-test-2026-10-31).
+**Latest recorded progress (2026-11-01, Stage 4):** the wizard's exact API sequence now passes end to end on real agents installed from a signed release (`guided-flow-e2e`, run 41260709953). It found and fixed three P0s that also affect `main`: connection tests could never reach `FULL_DATA` (trickle longer than the probe deadline), the installer started the agent before provisioning ingress policy/chain, and host agents advertised public ingress that every Apply refuses. Automatic public ingress on real servers remains LAB-only (#269 no-go) — see [BASELINE_AUDIT.md §12](./BASELINE_AUDIT.md#12-stage-4--the-product-path-proven-on-real-installed-agents-2026-11-01).
+
+**Stage 3 (2026-10-31):** live guided Quick Tunnel wizard (replaces the preview), signed `path-probe-speed-v1` throughput flow, user guide and CHANGELOG — all green in exact-SHA CI; see [BASELINE_AUDIT.md §11](./BASELINE_AUDIT.md#11-stage-3--product-live-guided-tunnel-flow-and-speed-test-2026-10-31).
 
 **Stage 2 (2026-10-31):** first exact-SHA CI on the pinned toolchain caught and fixed a pairing regression; C-BAFT was inventoried and [ADR-002](./ADR-002-c-baft-capability-integration.md) records what is adopted, adapted, deferred or rejected; the wizard now has an on-demand Connection Test. Details, run links and next actions: [BASELINE_AUDIT.md §10](./BASELINE_AUDIT.md#10-stage-2--first-exact-sha-ci-a-caught-regression-and-c-baft-integration-2026-10-31). CI does not run on push for `codex/**`; dispatch `ci.yml` and `bcc-v3-ui-tests.yml` manually.
 

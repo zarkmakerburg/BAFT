@@ -251,3 +251,46 @@ Owner direction (2026-10-31): full latitude to make the best final product; no a
 2. Live traffic per tunnel and edit/decommission inside the new flow (Tunnel Studio still covers them).
 3. Transport-driver contract ADR before any C-BAFT kernel/UDP transport (WireGuard first).
 4. Owner decision on #292/#293/#294 and on merging this branch / cutting v0.5.0 — not done without explicit instruction.
+
+## 12. Stage 4 — the product path proven on real installed agents (2026-11-01)
+
+Owner direction (2026-11-01): all permissions; no attachment to the existing UI; deliver a genuinely usable final product. Merge, tag, release and deploy still need an explicit owner decision because #269 remains no-go (see 12.3).
+
+### 12.1 Method
+
+A new e2e, `tests/e2e/guided_flow.sh` (workflow `guided-flow-e2e.yml`, runs on PRs, `main`, `codex/v0.5.0-**` pushes and dispatch), sends exactly the Quick Tunnel wizard's API sequence to a real `baft-bcc` and two agents installed with `install.sh --agent-only` from a signed release of the commit (IR with `--provision-ingress-policy`). One GitHub runner plays both servers: this is real install/systemd/kernel evidence, **not** a multi-host or physical LAB result. Each failure it found was reproduced, fixed at the root, regression-tested and re-run.
+
+### 12.2 Defects found and fixed (all pre-existing on `main`)
+
+| # | Severity | Defect | Evidence → fix |
+|---|---|---|---|
+| 1 | **P0** | The path-probe trickle (16 KiB at 1 s per KiB ≈ 15 s) could never finish inside the agents' 10 s / 12 s probe deadlines, so **no path could ever be `FULL_DATA`** since automatic discovery landed (`4f45ed6b`, 2026-10-07): path matrix, path graph and auto-select could never recommend a port; the wizard's connection test could never pass. Unit tests used a 10 ms trickle. | Run 41257649066 (loopback classified `HANDSHAKE_ONLY`, 10240/16384 bytes). `e439c4e4`: BCC sends 8 KiB @ 500 ms (compatible with deployed v0.4.0 agents); `agentjob.PathProbeTrickleFits` refuses impossible trickles at signing and on agents; agent test runs the production trickle against the real listener (fails on old params exactly like CI). |
+| 2 | **P0** | `install.sh --agent-only --provision-ingress-policy` started the agent **before** writing the managed-node policy and nft chain; the agent evaluates them once at startup, so operational ingress stayed disabled until a manual restart (a rerun did not help). | Runs 41255411266/41257121528 (`no such file or directory`). `a733f899`: provision first, fingerprint policy+marker, restart a running agent when a rerun changes them; `tests/installer/agent_ingress_order_test.go`. |
+| 3 | **P0 (truthfulness)** | A host agent (init network namespace) advertised `operational-ingress-v1`, BCC staged the wizard's public port, and **every Apply was refused** ("not an isolated non-init network namespace"): by design, operational ingress coverage supports only the isolated loopback-only LAB. The wizard therefore always ended "public port not verified" on real servers although the tunnel worked. | Run 41258881558. `e6d40bcf`: `ingressinventory.CheckManagedExecutionScope` (static part of the LAB scope, extracted unchanged) is a required step before the agent advertises the capability; the agent logs the reason. The wizard offers the public port only when the IR freshly advertises the capability; otherwise it sends no `client_port`, explains how to reach the tunnel (IR entry `127.0.0.1:<route>`, e.g. 3X-UI `dokodemo-door` or a port forward) and finishes "ready". **The safety model itself was not loosened.** |
+| 4 | P1 | A path probe started while four were running (e.g. automatic discovery right after enrollment) was failed at once with "current probe job is missing". | Run 41257388191. `722e2237`: queued probes wait (10 min bound, clear reason); cancelling a queued probe sends no job. |
+| 5 | P1 (ops) | The agent logged only the first line of a joined error, hiding why ingress was disabled. | `fcd9af65`. |
+| 6 | P2 (CI trust) | `TestCrossTenantRouteAccessRefused` flaked on a loopback connect-time RST (reproduced locally: listener bound, no session/listener teardown, immediate retry succeeds). | `f0b415a2`: retry only `ECONNRESET` at connect; 0/100 failures after vs. failing within ~10–60 runs before. |
+
+### 12.3 Evidence (exact SHA)
+
+| Evidence | Result |
+|---|---|
+| `guided-flow-e2e` [41260709953](https://github.com/zarkmakerburg/BAFT/actions/runs/41260709953) on `9825aed5` | **success**: no false capability (reason = execution scope, not a missing policy) → signed probe `FULL_DATA` → auto-select → reviewed plan without `client_port` → deploy → active, nothing pending → 512 KiB echo through the IR tunnel entry, tunnel and EX service → no pairing secret in `/api/jobs` → drift baseline `IN_SYNC` → decommission → entry closed. |
+| `operational-ingress-v1` / `shared-operational-ingress` / `operational-recovery` / `P0 Public Ingress LAB` on `e6d40bcf` (runs 41259801878 / 41259803820 / 41259805803 / 41259808033) | **success**: the scope gate keeps the capability inside the isolated LAB namespace; LAB public ingress apply/retire/recovery still pass. |
+| `BCC UI tests` 41259799673 on `e6d40bcf` | **success** (Playwright asserts the honest path against the real BCC fixture). |
+| `ci` 41257402021 on `a733f899` | **success** (all jobs). `ci` 41259797735 on `e6d40bcf`: see the run; not claimed here until complete. |
+| Dispatched on `c76941ab` (pre-stage head): ingress v1, shared ingress, recovery, P0 LAB, static-analysis, vulncheck, gamma two-node LAB, delta ingress pin | all **success** (runs 41255142910–41255155606). |
+| Local (Node 22 + Chrome) `web/qa/quick-tunnel-cdp.cjs` | automatic and manual paths, en/dark 1280 and fa/light 390: pass. UI evidence only. |
+
+### 12.4 What is still not product-ready (truthful status)
+
+1. **Automatic public ingress on real servers is not available.** It is implemented and LAB-verified only for an isolated loopback-only namespace (`internal/ingressinventory/coverage_linux.go`). Supporting real hosts needs a new, owner-approved coverage/ownership design (ADR) for the init namespace — this is the core of Issue #269 and the reason it stays **no-go**. Until then the product path is: wizard → tunnel → user points a panel inbound/port forward at the IR entry.
+2. Physical multi-host and Iran↔abroad network runs: **not done**.
+3. `cmd/baft` `tunnel_live_test.go:244` flake: suspected port race, not yet reproduced to root cause.
+4. #292/#293/#294 sequencing and merging/tagging v0.5.0: owner decision.
+
+### 12.5 Next executable actions
+
+1. ADR-003: real-host public ingress (init namespace) — coverage model, ownership proof, rollback, and what the agent may claim; then implement behind the same evidence gates.
+2. One-click "expose on Iran" helper that configures the user's own inbound safely (or documents exact 3X-UI steps per version), since that is today's manual step.
+3. Multi-host LAB (two real VMs) for the guided flow and the speed test.

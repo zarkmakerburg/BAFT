@@ -262,13 +262,40 @@ PY
 if get /api/jobs | grep -qE 'BAFTPAIR1:|BAFTREPLY1:'; then fail "a pairing code is listed by /api/jobs"; fi
 
 log "step 7 — decommission; the tunnel entry must close"
-DPLAN="$(post /api/tunnels/decommission/plan "{\"id\":\"$T\"}")"
+# Like launch1.sh for scoped instances: the reviewed decommission needs the
+# initial automatic drift inspection finished and a fresh IN_SYNC baseline.
+pending=1
+for _ in $(seq 1 40); do
+  pending="$(get "/api/tunnels?id=$T" | python3 -c 'import json,sys;print(len(json.load(sys.stdin).get("drift_jobs") or []))')"
+  [[ "$pending" == 0 ]] && break
+  sleep 3
+done
+[[ "$pending" == 0 ]] || fail "initial drift inspection never finished"
+for _ in $(seq 1 10); do
+  code="$(curl -sS -o /dev/null -w '%{http_code}' -X POST -H 'Authorization: Bearer admintok' "$BCC/api/tunnels/drift?id=$T")"
+  [[ "$code" == 429 ]] && { sleep 3; continue; }
+  [[ "$code" =~ ^2 ]] || fail "drift check request -> HTTP $code"
+  break
+done
+drift=""
+for _ in $(seq 1 40); do
+  out="$(get "/api/tunnels?id=$T" | python3 -c 'import json,sys;d=json.load(sys.stdin);print(len(d.get("drift_jobs") or []),(d.get("drift") or {}).get("state",""))')"
+  [[ "${out%% *}" == 0 && -n "${out#* }" ]] && { drift="${out#* }"; break; }
+  sleep 3
+done
+[[ "$drift" == IN_SYNC ]] || fail "tunnel is not IN_SYNC before decommission: '$drift'"
+DPLAN=""
+for _ in $(seq 1 20); do
+  DPLAN="$(post /api/tunnels/decommission/plan "{\"id\":\"$T\"}")"
+  [[ "$(printf '%s' "$DPLAN" | jget ok)" == True ]] && break
+  sleep 3
+done
+[[ "$(printf '%s' "$DPLAN" | jget ok)" == True ]] || fail "decommission plan stays blocked: $(printf '%s' "$DPLAN" | head -c 1500)"
 DHASH="$(printf '%s' "$DPLAN" | jget hash)"
-[[ -n "$DHASH" ]] || fail "no decommission plan: $DPLAN"
 post /api/tunnels/decommission "{\"id\":\"$T\",\"plan_hash\":\"$DHASH\"}" >/dev/null
 for _ in $(seq 1 120); do
   phase="$(get "/api/tunnels?id=$T" | jget phase)"
-  [[ "$phase" == decommissioned ]] && break
+  [[ "$phase" == decommissioned || "$phase" == decommission_failed ]] && break
   sleep 3
 done
 [[ "$phase" == decommissioned ]] || fail "decommission ended as '$phase': $(get "/api/tunnels?id=$T" | head -c 2000)"

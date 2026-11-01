@@ -61,8 +61,13 @@ NS=rhlab
 NS_PATHS="/opt/baft-$NS /etc/baft-$NS /var/lib/baft-$NS /etc/baft-agent-$NS /var/lib/baft-agent-$NS"
 NS_UNITS="baft-$NS baft-agent-$NS baft-$NS-recover baft-$NS-ingress-chain baft-$NS-echo"
 # Loopback ports the LAB tunnel uses on each server (route, metrics, echo).
-LOOPBACK_PORTS="1444,9202,9302,9391,$((2543))"
+LOOPBACK_PORTS="1444,1445,9202,9302,9303,9391,2543,2544"
+CLIENT_PORT2=$((CLIENT_PORT + 1))   # the shared tenant's public port on the Iran server
+TARGET_PORT2=2544                   # the shared tenant's own service on the foreign server
 declare -A HOSTMODE=([ir]=clean [ex]=clean) AGENT_UNIT=([ir]=baft-agent [ex]=baft-agent)
+# 1 unless preflight saw no 'inet baft' nft table on that host (then the
+# table is this run's and cleanup may delete it).
+declare -A NFT_BAFT_BEFORE=([ir]=1 [ex]=1)
 ns_env() { # extra installer environment for a coexisting host
   [[ "${HOSTMODE[$1]}" == coexist ]] || return 0
   printf '%s ' BAFT_PREFIX=/opt/baft-$NS BAFT_CONFIG_DIR=/etc/baft-$NS BAFT_STATE_DIR=/var/lib/baft-$NS \
@@ -164,7 +169,7 @@ cleanup_coexist() {
   # other new baft unit is reported and left alone.
   local labunits="" u
   for u in $units; do [[ "$u" == *"-$NS"* || "$u" == *"-$NS-"* ]] && labunits+="$u " || log "cleanup on $h: left alone (not a LAB name): $u"; done
-  on "$h" "for u in baft-$NS-echo baft-realhosts-bcc baft-realhosts-mirror $labunits; do systemctl stop \"\${u%.service}\" 2>/dev/null; systemctl disable \"\${u%.service}\" 2>/dev/null; done
+  on "$h" "for u in baft-$NS-echo baft-$NS-echo2 baft-$NS-stream baft-realhosts-bcc baft-realhosts-mirror $labunits; do systemctl stop \"\${u%.service}\" 2>/dev/null; systemctl disable \"\${u%.service}\" 2>/dev/null; done
     for u in $labunits; do rm -f /etc/systemd/system/\$u /etc/systemd/system/*.wants/\$u; done
     systemctl daemon-reload; systemctl reset-failed 'baft-$NS*' 'baft-realhosts-*' 2>/dev/null
     rm -rf $NS_PATHS $LAB; rm -f $LAB_CA; update-ca-certificates >/dev/null 2>&1; true" 2>/dev/null
@@ -228,13 +233,17 @@ cleanup() {
       continue
     fi
     log "cleanup: full uninstall of BAFT on $h"
-    on "$h" "systemctl stop baft-$NS-echo baft-realhosts-bcc baft-realhosts-mirror 2>/dev/null
+    on "$h" "systemctl stop baft-$NS-echo baft-$NS-echo2 baft-$NS-stream baft-realhosts-bcc baft-realhosts-mirror 2>/dev/null
       if command -v baft >/dev/null; then baft uninstall --full --delete-tunnel-configs --delete-certificates --delete-backups --delete-audit --stop-active-tunnels --yes >$LAB/uninstall.log 2>&1 || tail -n 20 $LAB/uninstall.log; fi
       systemctl disable --now ${AGENT_UNIT[$h]} 2>/dev/null
       for u in \$(systemctl list-units --all --plain --no-legend 'baft*' 2>/dev/null | awk '{print \$1}' | grep -v baft-uninstall); do systemctl stop \"\$u\" 2>/dev/null; done
-      echo uninstaller-left: \$(ls -d $BAFT_PATHS 2>/dev/null | tr '\n' ' ')
-      rm -rf $BAFT_PATHS; systemctl daemon-reload; true" 2>/dev/null
-    on "$h" "rm -f $LAB_CA; update-ca-certificates >/dev/null 2>&1; rm -rf $LAB; systemctl reset-failed 'baft-realhosts-*' baft-$NS-echo 2>/dev/null; true" 2>/dev/null
+      echo uninstaller-left: \$(ls -d $BAFT_PATHS 2>/dev/null | tr '\n' ' ') \$(ls /etc/systemd/system | grep -E '^baft.*\\.service\$' | tr '\n' ' ')
+      rm -rf $BAFT_PATHS
+      # This host had no BAFT unit at preflight: every baft unit file is this run's.
+      for u in \$(ls /etc/systemd/system | grep -E '^baft.*\\.service\$'); do systemctl stop \"\$u\" 2>/dev/null; systemctl disable \"\$u\" 2>/dev/null; rm -f /etc/systemd/system/\$u /etc/systemd/system/*.wants/\$u; done
+      $( [[ "${NFT_BAFT_BEFORE[$h]:-1}" == 0 ]] && echo "nft delete table inet baft 2>/dev/null;" )
+      systemctl daemon-reload; true" 2>/dev/null
+    on "$h" "rm -f $LAB_CA; update-ca-certificates >/dev/null 2>&1; rm -rf $LAB; systemctl reset-failed 'baft-realhosts-*' baft-$NS-echo baft-$NS-echo2 baft-$NS-stream 2>/dev/null; true" 2>/dev/null
     left="$(on "$h" "systemctl daemon-reload 2>/dev/null; systemctl reset-failed 'baft*' 2>/dev/null
       echo units: \$(systemctl list-unit-files --no-legend 'baft*' 2>/dev/null | awk '{print \$1}' | grep -v baft-uninstall | tr '\n' ' ')
       echo loaded: \$(systemctl list-units --all --plain --no-legend 'baft*' 2>/dev/null | awk '{print \$1\"(\"\$3\"/\"\$4\")\"}' | grep -v baft-uninstall | tr '\n' ' ')
@@ -273,7 +282,7 @@ if [[ "$HOSTKEY" == accept-new ]]; then
 fi
 
 facts() { # host -> JSON of read-only facts
-  on "$1" "PORTS='$CANDIDATE_PORTS,$CLIENT_PORT,$BCC_PORT,$MIRROR_PORT,$LOOPBACK_PORTS' python3 - <<'PY'
+  on "$1" "PORTS='$CANDIDATE_PORTS,$CLIENT_PORT,$((CLIENT_PORT + 1)),$BCC_PORT,$MIRROR_PORT,$LOOPBACK_PORTS' python3 - <<'PY'
 import json, os, re, shutil, subprocess
 def sh(c):
     try: return subprocess.run(c, shell=True, capture_output=True, text=True, timeout=20).stdout.strip()
@@ -292,6 +301,7 @@ print(json.dumps({
   'mem_mib': int(open('/proc/meminfo').read().split()[1]) // 1024,
   'nft': bool(shutil.which('nft')), 'python3': True,
   'baft_installed': bool(sh('systemctl list-unit-files --no-legend \"baft*\" 2>/dev/null | grep -v baft-uninstall')) or bool(sh('ls -d $BAFT_PATHS 2>/dev/null')),
+  'nft_baft_table': bool(sh('nft list table inet baft 2>/dev/null')),
   'lab_namespace_present': sh('ls -d $NS_PATHS 2>/dev/null; for u in $NS_UNITS; do [ -e /etc/systemd/system/\$u.service ] && echo \$u; done; true'),
   'planned_ports_busy': busy,
   'services': {k: bool(sh(c)) for k, c in {
@@ -304,6 +314,8 @@ PY"
 FEX="$(facts ex)" || fail "could not read the foreign server's facts"
 FIR="$(facts ir)" || fail "could not read the Iran server's facts"
 record ex_facts "$FEX"; record ir_facts "$FIR"
+[[ "$(printf '%s' "$FIR" | jget nft_baft_table)" == False ]] && NFT_BAFT_BEFORE[ir]=0
+[[ "$(printf '%s' "$FEX" | jget nft_baft_table)" == False ]] && NFT_BAFT_BEFORE[ex]=0
 log "foreign: $(printf '%s' "$FEX" | python3 -c 'import json,sys;d=json.load(sys.stdin);print(d["os"],d["kernel"],d["arch"],"busy:",list(d["planned_ports_busy"]),"services:",[k for k,v in d["services"].items() if v])')"
 log "iran:    $(printf '%s' "$FIR" | python3 -c 'import json,sys;d=json.load(sys.stdin);print(d["os"],d["kernel"],d["arch"],"busy:",list(d["planned_ports_busy"]),"services:",[k for k,v in d["services"].items() if v])')"
 
@@ -355,7 +367,7 @@ record candidate_ports "{\"used\":\"$CANDIDATE_PORTS\",\"dropped_busy_on_foreign
 for p in $BCC_PORT $MIRROR_PORT ${LOOPBACK_PORTS//,/ }; do
   [[ "$EXBUSY" != *" $p "* ]] || fail "port $p is in use on the foreign server; pass other LAB ports"
 done
-for p in $CLIENT_PORT ${LOOPBACK_PORTS//,/ }; do
+for p in $CLIENT_PORT $CLIENT_PORT2 ${LOOPBACK_PORTS//,/ }; do
   [[ "$IRBUSY" != *" $p "* ]] || fail "port $p is in use on the Iran server; pass another client port"
 done
 # Fingerprint of everything BAFT outside the LAB namespace on a coexisting
@@ -503,10 +515,10 @@ REQ="$(make_req "$CLIENT_PORT" 1 baft-real-1 127.0.0.1:1444 127.0.0.1:9202 127.0
 HASH="$(plan_ok "$REQ" | jget hash)"
 TUNNEL="$(deploy_active "$REQ" "$HASH")"; T="$TUNNEL"
 
-ready_within() { # seconds -> 0 when BCC's own probe reports Ready
-  local end=$(( $(date +%s) + $1 )) rd
+ready_within() { # seconds [tunnel] -> 0 when BCC's own probe reports Ready
+  local end=$(( $(date +%s) + $1 )) rd tid="${2:-$T}"
   while (( $(date +%s) < end )); do
-    rd="$(get "/api/ingress/readiness?tunnel_id=$T")"
+    rd="$(get "/api/ingress/readiness?tunnel_id=$tid")"
     [[ "$(printf '%s' "$rd" | jget ready)" == True ]] && return 0
     sleep 3
   done
@@ -530,6 +542,10 @@ on ir "nft list chain inet baft ingress" | grep -Eq "dport $CLIENT_PORT( |$)" ||
 cat >"$WORK/measure.py" <<'PY'
 import json, os, socket, statistics, sys, time, threading
 host, port, label, mib, limit = sys.argv[1], int(sys.argv[2]), sys.argv[3], int(sys.argv[4]), float(sys.argv[5])
+# xor=1: the target answers every byte XOR 0x5A (the shared tenant's own
+# service), which proves the flow reached that target and not another one.
+xor = len(sys.argv) > 6 and sys.argv[6] == "1"
+def expect(b): return bytes(x ^ 0x5A for x in b) if xor else b
 data = os.urandom(mib * 1024 * 1024); got = bytearray(); t0 = time.monotonic()
 with socket.create_connection((host, port), timeout=60) as s:
     s.settimeout(limit)
@@ -548,15 +564,17 @@ with socket.create_connection((host, port), timeout=30) as s:
     for i in range(40):
         msg = b"%08d" % i; t = time.monotonic(); s.sendall(msg); r = b""
         while len(r) < len(msg): r += s.recv(64)
+        if r != expect(msg): raise SystemExit("wrong reply on the RTT flow: %r" % r)
         rtts.append((time.monotonic() - t) * 1000)
 rtts.sort()
-print(json.dumps({"label": label, "integrity": bytes(got) == data, "mib": mib, "seconds": round(secs, 3),
+print(json.dumps({"label": label, "integrity": bytes(got) == expect(data), "mib": mib, "seconds": round(secs, 3),
     "mbps_echo": round(len(data) * 8 / secs / 1e6, 2), "rtt_ms_p50": round(rtts[len(rtts)//2], 1),
     "rtt_ms_p95": round(rtts[int(len(rtts)*0.95)-1], 1), "rtt_ms_max": round(rtts[-1], 1)}))
 PY
-measure_from() { # runner|ex label MiB timeout
-  if [[ "$1" == runner ]]; then python3 "$WORK/measure.py" "$IR_HOST" "$CLIENT_PORT" "$2" "$3" "$4"
-  else on_in ex "python3 - '$IR_HOST' '$CLIENT_PORT' '$2' '$3' '$4'" <"$WORK/measure.py"; fi
+measure_from() { # runner|ex label MiB timeout [client-port] [xor]
+  local port="${5:-$CLIENT_PORT}" xor="${6:-0}"
+  if [[ "$1" == runner ]]; then python3 "$WORK/measure.py" "$IR_HOST" "$port" "$2" "$3" "$4" "$xor"
+  else on_in ex "python3 - '$IR_HOST' '$port' '$2' '$3' '$4' '$xor'" <"$WORK/measure.py"; fi
 }
 log "step 5 — real client traffic through the Iran server's public port (from abroad: the foreign server and the runner)"
 M="$(measure_from ex from_foreign_server 8 300)" || fail "client traffic from the foreign server through the Iran public port failed"
@@ -564,6 +582,108 @@ log "from the foreign server: $M"; record traffic_from_foreign_server "$M"
 [[ "$(printf '%s' "$M" | jget integrity)" == True ]] || fail "data mismatch through the real path"
 if M="$(measure_from runner from_runner 8 300 2>/dev/null)"; then record traffic_from_runner "$M"; log "from the runner: $M"
 else record traffic_from_runner '"unreachable from the runner (not required)"'; fi
+
+# ------------------------------------------------- shared transport tenant --
+# Issue #269 / advisor stage 2: a second logical tunnel joins the owner's
+# physical EX listener (BCC-managed shared transport, no new foreign port),
+# with its own Iran public port and its own target service. A long-lived
+# client flow on the owner's port runs through the tenant's whole lifecycle
+# and must survive it on one TCP connection without a byte lost.
+log "step 5b — shared transport: a tenant joins the owner's EX listener on port $EX_PORT"
+cat >"$WORK/xorecho.py" <<'PY'
+import socket, socketserver, sys
+class H(socketserver.BaseRequestHandler):
+    def handle(self):
+        while True:
+            b = self.request.recv(65536)
+            if not b: break
+            self.request.sendall(bytes(x ^ 0x5A for x in b))
+        self.request.shutdown(socket.SHUT_WR)
+class S(socketserver.ThreadingTCPServer):
+    allow_reuse_address = True; daemon_threads = True
+S(("127.0.0.1", int(sys.argv[1])), H).serve_forever()
+PY
+cat >"$WORK/stream.py" <<'PY'
+# One TCP connection, 32 KiB every 100 ms, each chunk's echo verified, until
+# the stop file appears (or a hard limit). Writes the verdict as JSON.
+import hashlib, json, os, socket, sys, time
+host, port, stop, out, limit = sys.argv[1], int(sys.argv[2]), sys.argv[3], sys.argv[4], float(sys.argv[5])
+res = {"connected": False, "chunks": 0, "bytes": 0, "integrity": True, "error": "", "max_echo_ms": 0.0}
+t0 = time.monotonic()
+try:
+    s = socket.create_connection((host, port), timeout=30); s.settimeout(60); res["connected"] = True
+    while not os.path.exists(stop) and time.monotonic() - t0 < limit:
+        chunk = os.urandom(32768); t = time.monotonic(); s.sendall(chunk); got = b""
+        while len(got) < len(chunk):
+            b = s.recv(65536)
+            if not b: raise ConnectionError("connection closed by the path")
+            got += b
+        res["max_echo_ms"] = max(res["max_echo_ms"], round((time.monotonic() - t) * 1000, 1))
+        if got != chunk: res["integrity"] = False; break
+        res["chunks"] += 1; res["bytes"] += len(chunk); time.sleep(0.1)
+    s.close()
+except Exception as e:
+    res["error"] = "%s: %s" % (type(e).__name__, e)
+res["seconds"] = round(time.monotonic() - t0, 1)
+open(out + ".tmp", "w").write(json.dumps(res)); os.replace(out + ".tmp", out)
+PY
+put ex "$LAB" "$WORK/xorecho.py" "$WORK/stream.py"
+on ex "systemd-run --unit=baft-$NS-echo2 --collect python3 $LAB/xorecho.py $TARGET_PORT2 >/dev/null
+  rm -f $LAB/stream.stop $LAB/stream.json
+  systemd-run --unit=baft-$NS-stream --collect python3 $LAB/stream.py '$IR_HOST' '$CLIENT_PORT' $LAB/stream.stop $LAB/stream.json 900 >/dev/null"
+sleep 5
+on ex "test ! -e $LAB/stream.json" || fail "the owner's long-lived flow ended before the tenant joined: $(on ex "cat $LAB/stream.json")"
+REQB="$(EX_NODE="$EX_NODE" IR_NODE="$IR_NODE" python3 - "$T" "$EX_PORT" "$TARGET_PORT2" "$CLIENT_PORT2" <<'PY'
+import json, os, sys
+owner, port, target, client = sys.argv[1:5]
+print(json.dumps({"ex_node": os.environ["EX_NODE"], "ir_node": os.environ["IR_NODE"], "join_existing_tunnel_id": owner,
+    "port": int(port), "target": "127.0.0.1:" + target, "instance_id": "baft-real-1",
+    "route_listen": "127.0.0.1:1445", "ex_metrics_listen": "127.0.0.1:9202", "ir_metrics_listen": "127.0.0.1:9303",
+    "client_port": int(client), "client_port_ack": True}, separators=(",", ":")))
+PY
+)"
+HASHB="$(plan_ok "$REQB" | jget hash)"
+TB="$(deploy_active "$REQB" "$HASHB")"; record shared_tenant "\"$TB\""
+TB_VIEW="$(get "/api/tunnels?id=$TB")"
+[[ "$(printf '%s' "$TB_VIEW" | jget join_owner_id)" == "$T" && "$(printf '%s' "$TB_VIEW" | jget port)" == "$EX_PORT" ]] \
+  || fail "the tenant is not on the owner's EX listener: $(printf '%s' "$TB_VIEW" | head -c 800)"
+st=""; for _ in $(seq 1 60); do st="$(ingress_state "$TB")"; case "${st%% *}" in applied|failed|blocked) break ;; esac; sleep 3; done
+[[ "${st%% *}" == applied ]] || fail "the tenant's public ingress did not apply: $st"
+ready_within 90 "$TB" || fail "BCC did not verify the tenant's public port $CLIENT_PORT2"
+M="$(measure_from ex shared_tenant 4 300 "$CLIENT_PORT2" 1)" || fail "traffic through the tenant's public port failed"
+log "tenant: $M"; record shared_tenant_traffic "$M"
+[[ "$(printf '%s' "$M" | jget integrity)" == True ]] || fail "the tenant's traffic did not reach its own target (XOR service)"
+M="$(measure_from ex owner_while_tenant_active 2 300)" || fail "owner traffic failed while the tenant was active"
+[[ "$(printf '%s' "$M" | jget integrity)" == True ]] || fail "owner traffic reached the wrong target while the tenant was active"
+record owner_while_tenant_active "$M"
+# Isolation across tenants: the owner's port never answers like the tenant's
+# target, and the tenant's never like the owner's (checked above by integrity
+# against the expected transform on each port).
+
+log "step 5c — retire the tenant; the owner's listener and its live flow must not notice"
+decommission "$TB"
+on ex "ss -Htln | grep -q ':$EX_PORT '" || fail "the owner's EX listener disappeared with the tenant"
+# Checked from the foreign server: the runner may not reach the Iran server at
+# all, which would make a "closed" verdict from there meaningless.
+on_in ex "python3 - '$IR_HOST' '$CLIENT_PORT2'" <<'PY' || fail "the tenant's public port still accepts connections after its retirement"
+import socket, sys, time
+for _ in range(30):
+    try: socket.create_connection((sys.argv[1], int(sys.argv[2])), timeout=3).close()
+    except OSError: sys.exit(0)
+    time.sleep(2)
+sys.exit(1)
+PY
+if on ir "nft list chain inet baft ingress" | grep -Eq "dport $CLIENT_PORT2( |$)"; then fail "the tenant's owned rule survived its retirement"; fi
+on ex "touch $LAB/stream.stop"
+for _ in $(seq 1 60); do on ex "test -s $LAB/stream.json" && break; sleep 2; done
+SR="$(on ex "cat $LAB/stream.json")" || fail "the owner's long-lived flow left no verdict"
+log "owner's long-lived flow across the tenant's join and retirement: $SR"; record owner_flow_across_tenant_lifecycle "$SR"
+printf '%s' "$SR" | python3 -c 'import json,sys;d=json.load(sys.stdin);sys.exit(0 if d["connected"] and d["integrity"] and not d["error"] and d["chunks"] >= 50 else 1)' \
+  || fail "the owner's live flow was disturbed by the tenant's join or retirement: $SR"
+ready_within 60 || fail "the owner is not Ready after the tenant's retirement"
+M="$(measure_from ex owner_after_tenant_retired 2 300)" && [[ "$(printf '%s' "$M" | jget integrity)" == True ]] || fail "owner traffic failed after the tenant's retirement"
+record owner_after_tenant_retired "$M"
+on ex "systemctl stop baft-$NS-echo2 2>/dev/null; true"
 
 log "step 6 — agent restarts must not disturb the live tunnel or its public port"
 ingress_job() { get "/api/tunnels?id=$T" | python3 -c 'import json,sys;print((json.load(sys.stdin).get("ingress") or {}).get("job_id",""))'; }

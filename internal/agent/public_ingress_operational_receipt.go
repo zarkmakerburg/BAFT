@@ -72,7 +72,9 @@ func validOutboundIngressReceipt(r ingressauthority.ReceiptV1) bool {
 	case "blocked":
 		return !r.OwnershipVerified && r.FailureCause != "" && r.RollbackStatus == "not_attempted" && noEvidence
 	case "failed":
-		return !r.OwnershipVerified && r.FailureCause != "" && r.RollbackStatus == "reconciliation_required" && noEvidence
+		return !r.OwnershipVerified && r.FailureCause != "" && noEvidence &&
+			(r.RollbackStatus == "reconciliation_required" ||
+				(r.RollbackStatus == ingressauthority.RollbackReleasedAfterRestart && r.Action == agentjob.ActionPublicIngressApply))
 	case "applied":
 		return r.Action == agentjob.ActionPublicIngressApply && r.OwnershipVerified && r.FailureCause == "" && r.RollbackStatus == "" &&
 			r.ListenerEvidence.Endpoint == r.Binding.ListenEndpoint && r.ListenerEvidence.SocketIdentity != "" &&

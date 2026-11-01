@@ -83,7 +83,11 @@ type Agent struct {
 	// BCC restarting). They are sent again on the next poll so a finished
 	// step does not wait for BCC's step timeout. Memory only: an output may
 	// be a one-time secret.
-	unacked                    []pendingAck
+	unacked []pendingAck
+	// unsentRestartReceipts holds restart-loss receipts BCC has not
+	// accepted yet (network not up at boot, BCC restarting). Offered again
+	// on every poll so a lost public port is re-issued without an operator.
+	unsentRestartReceipts      []pendingIngressReceipt
 	lastComponentReportAttempt time.Time
 	lastComponentReportError   string
 	// policyProvisioned reports whether this host has a loadable trusted
@@ -442,6 +446,7 @@ func (a *Agent) RunOnce(ctx context.Context) ([]Result, error) {
 	// endpoint is unavailable during a rolling BCC upgrade.
 	a.maybeSendComponentReport(ctx)
 	a.flushAcks(ctx)
+	a.flushRestartReceipts(ctx)
 	jobs, err := a.pull(ctx)
 	if err != nil {
 		return nil, err

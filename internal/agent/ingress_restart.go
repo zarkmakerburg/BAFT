@@ -131,30 +131,38 @@ func (a *Agent) reconcileOne(ctx context.Context, store *ingressauthority.Reserv
 		res.Reason += "; lifecycle state not recorded: " + err.Error()
 		return res
 	}
-	res.Receipt = a.postRestartReceipt(ctx, auth, report)
 	// A completion that satisfies the same evidence as a verified Retire
 	// (journal retired, rule read back absent, port empty) releases the port.
+	// Release first, so the receipt can say exactly whether the port is free
+	// for a fresh signed Apply (ADR-003 §4.4): BCC re-issues only after an
+	// Apply rollback whose reservation this Agent has verifiably released.
+	released := false
 	if report.Outcome != ingressownership.OutcomeNoEffects {
 		ev := ingressauthority.RetirementEvidenceV1{Port: b.Port, Owner: b.Proof,
 			JournalRetired: report.JournalPhase == ingressownership.PhaseRetired, RuleAbsent: true}
 		if err := guard.ReleaseVerified(ctx, ev); err != nil {
 			res.Reason += "; reservation stays fenced: " + err.Error()
 		} else {
+			released = true
 			res.Reason += "; reservation released"
 		}
 	}
+	res.Receipt = a.postRestartReceipt(ctx, auth, report, released)
 	return res
 }
 
 // postRestartReceipt fits the outcome into an existing receipt shape or says
 // that BCC stays unaware.
-func (a *Agent) postRestartReceipt(ctx context.Context, auth *ingressauthority.RestartAuthority, report ingressownership.RestartReport) string {
+func (a *Agent) postRestartReceipt(ctx context.Context, auth *ingressauthority.RestartAuthority, report ingressownership.RestartReport, released bool) string {
 	cmd := auth.Command()
 	var receipt ingressauthority.ReceiptV1
 	switch {
 	case auth.Direction() == ingressauthority.RestartRetire &&
 		(report.Outcome == ingressownership.OutcomeRetired || report.Outcome == ingressownership.OutcomeAlreadyRetired):
 		receipt = ingressauthority.ReceiptV1{SchemaVersion: 1, JobID: cmd.JobID, Action: cmd.Action, Binding: cmd.Binding, Phase: "retired"}
+	case auth.Direction() == ingressauthority.RestartApply && report.Outcome == ingressownership.OutcomeRolledBack && released:
+		receipt = ingressauthority.ReceiptV1{SchemaVersion: 1, JobID: cmd.JobID, Action: cmd.Action, Binding: cmd.Binding, Phase: "failed",
+			FailureCause: "operational ingress interrupted by an agent restart; the owned rule was removed after kernel evidence and the reservation was released", RollbackStatus: ingressauthority.RollbackReleasedAfterRestart}
 	case auth.Direction() == ingressauthority.RestartApply && report.Outcome == ingressownership.OutcomeRolledBack:
 		receipt = ingressauthority.ReceiptV1{SchemaVersion: 1, JobID: cmd.JobID, Action: cmd.Action, Binding: cmd.Binding, Phase: "failed",
 			FailureCause: "operational ingress interrupted by an agent restart; the owned rule was removed after kernel evidence (reservation stays fenced)", RollbackStatus: "reconciliation_required"}
@@ -162,7 +170,47 @@ func (a *Agent) postRestartReceipt(ctx context.Context, auth *ingressauthority.R
 		return "not-posted: no existing receipt shape fits outcome " + string(report.Outcome)
 	}
 	if err := a.postOperationalReceipt(ctx, cmd, receipt); err != nil {
+		if receipt.RollbackStatus == ingressauthority.RollbackReleasedAfterRestart {
+			a.mu.Lock()
+			a.unsentRestartReceipts = append(a.unsentRestartReceipts, pendingIngressReceipt{cmd: cmd, receipt: receipt})
+			a.mu.Unlock()
+			return "not-posted (offered again every poll): " + err.Error()
+		}
 		return "not-posted: " + err.Error()
 	}
 	return "posted"
+}
+
+// pendingIngressReceipt is a restart-loss receipt BCC has not accepted yet.
+type pendingIngressReceipt struct {
+	cmd     ingressauthority.CommandV1
+	receipt ingressauthority.ReceiptV1
+	tries   int
+}
+
+// maxRestartReceiptTries bounds how often one restart-loss receipt is offered
+// again (once per poll).
+const maxRestartReceiptTries = 300
+
+// flushRestartReceipts offers every unaccepted restart-loss receipt again.
+// Memory only: a further restart before delivery finds nothing left to
+// reconcile, so that case still needs an operator (documented limitation).
+func (a *Agent) flushRestartReceipts(ctx context.Context) {
+	a.mu.Lock()
+	pending := a.unsentRestartReceipts
+	a.unsentRestartReceipts = nil
+	a.mu.Unlock()
+	var keep []pendingIngressReceipt
+	for _, p := range pending {
+		if err := a.postOperationalReceipt(ctx, p.cmd, p.receipt); err != nil {
+			if p.tries++; p.tries < maxRestartReceiptTries {
+				keep = append(keep, p)
+			}
+		}
+	}
+	if len(keep) > 0 {
+		a.mu.Lock()
+		a.unsentRestartReceipts = append(keep, a.unsentRestartReceipts...)
+		a.mu.Unlock()
+	}
 }

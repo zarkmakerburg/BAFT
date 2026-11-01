@@ -394,8 +394,19 @@ if M="$(measure_from runner from_runner 8 300 2>/dev/null)"; then record traffic
 else record traffic_from_runner '"unreachable from the runner (not required)"'; fi
 
 log "step 6 — agent restarts must not disturb the live tunnel or its public port"
+ingress_job() { get "/api/tunnels?id=$T" | python3 -c 'import json,sys;print((json.load(sys.stdin).get("ingress") or {}).get("job_id",""))'; }
+J0="$(ingress_job)"; t0=$(date +%s)
 on ir "systemctl restart baft-agent"; on ex "systemctl restart baft-agent"
+# The listener lives in the Agent process, so a restart closes the public
+# port; the Agent rolls it back with evidence and BCC re-issues a fresh
+# signed Apply (ADR-003 §4.4). Wait for that new Apply (BCC's readiness
+# cache could otherwise still answer for the old listener), then for Ready,
+# and record how long the public port was not Ready.
+restaged=false
+for _ in $(seq 1 40); do [[ "$(ingress_job)" != "$J0" ]] && { restaged=true; break; }; sleep 3; done
+[[ "$restaged" == true ]] || sleep 12
 ready_within 120 || fail "not Ready again after agent restarts"
+record agent_restart "{\"restaged\":$restaged,\"ready_again_after_s\":$(( $(date +%s) - t0 ))}"
 M="$(measure_from ex after_agent_restart 2 300)" && [[ "$(printf '%s' "$M" | jget integrity)" == True ]] || fail "traffic failed after agent restarts"
 record after_agent_restart "$M"
 

@@ -123,6 +123,11 @@ func (s *Store) RecordIngressAgentReceipt(receipt ingressauthority.ReceiptV1, to
 		if reflect.DeepEqual(*op.Receipt, receipt) {
 			return nil
 		}
+		// The only receipt that may follow an applied one for the same
+		// command: an Agent restart lost the ingress and released it.
+		if isRestartLossReceipt(op, receipt) {
+			return s.restageIngressAfterRestartLossLocked(op, receipt, now)
+		}
 		return errors.New("conflicting ingress receipt replay")
 	}
 	if now.IsZero() || now.Before(cmd.IssuedAt) || !now.Before(cmd.ExpiresAt) {

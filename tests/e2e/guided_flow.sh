@@ -60,6 +60,8 @@ cleanup() {
   exit "$rc"
 }
 trap cleanup EXIT
+# Any unexpected command failure becomes a visible, located annotation.
+trap 'fail "line $LINENO: unexpected failure of: $BASH_COMMAND"' ERR
 
 api() { curl -fsS -H 'Authorization: Bearer admintok' "$@"; }
 post() { api -H 'Content-Type: application/json' -d "$2" "$BCC$1"; }

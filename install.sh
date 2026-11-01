@@ -2957,6 +2957,16 @@ install_ingress_chain() {
   fi
 }
 
+# What the agent reads at startup to enable operational ingress: the installed
+# managed-node policy bytes and our chain ownership marker. Any change means a
+# running agent must be restarted to pick it up. Prints nothing secret.
+ingress_prereq_fingerprint() {
+  local policy="${BAFT_INGRESS_POLICY_FILE:-/etc/baft/ingress/managed-node.json}"
+  { sha256sum -- "$policy" 2>/dev/null || echo "no-policy"
+    if [[ -f "$BAFT_INGRESS_MARKER" ]]; then sha256sum -- "$BAFT_INGRESS_MARKER" 2>/dev/null; else echo "no-marker"; fi
+  } | sha256sum | cut -d' ' -f1
+}
+
 # Local root-only policy bootstrap; runs only when explicitly requested.
 provision_ingress_policy() {
   [[ "$PROVISION_INGRESS_POLICY" == 1 ]] || return 0
@@ -2988,15 +2998,28 @@ install_agent() {
     install -m 0644 -o root -g root "$AGENT_UNIT_TMP" "$AGENT_UNIT_FILE"
     systemctl daemon-reload
   fi
+  # The agent decides ONCE, at startup, whether operational public ingress is
+  # usable (installed policy + owned nft chain + journal). Provision both
+  # BEFORE the agent starts; otherwise a fresh --provision-ingress-policy
+  # install leaves public ingress disabled until someone restarts the agent.
+  local ingress_before ingress_after
+  ingress_before="$(ingress_prereq_fingerprint)"
+  install_recover_unit
+  install_ingress_chain
+  provision_ingress_policy
+  ingress_after="$(ingress_prereq_fingerprint)"
+  # A rerun that only added the chain/policy must still restart a running
+  # agent so it re-evaluates them.
+  if [[ "$ingress_before" != "$ingress_after" && "$DO_RESTART" == 0 && "$DO_START" == 0 ]] && svc_active "$BAFT_AGENT_UNIT.service"; then
+    DO_RESTART=1
+    ok "managed ingress prerequisites changed; restarting $BAFT_AGENT_UNIT so it re-evaluates them"
+  fi
   if [[ "$DO_RESTART" == 1 || "$DO_START" == 1 ]]; then TOUCHED_SERVICE=1; fi
   if [[ "$DO_RESTART" == 1 ]]; then systemctl restart "$BAFT_AGENT_UNIT.service"
   elif [[ "$DO_START" == 1 ]]; then systemctl start "$BAFT_AGENT_UNIT.service"; fi
   if [[ "$DO_RESTART" == 1 || "$DO_START" == 1 ]]; then
     wait_active "$BAFT_AGENT_UNIT.service" 20 || die "verify: $BAFT_AGENT_UNIT.service is not running"
   fi
-  install_recover_unit
-  install_ingress_chain
-  provision_ingress_policy
   finalize_apply
   if [[ "$PLAN_CHANGES" == 0 ]]; then ok "baft-agent is already enrolled as $BAFT_NODE_ID; nothing was changed"
   else ok "baft-agent enrolled as $BAFT_NODE_ID with $BAFT_BCC_URL; add tunnels from BCC"; fi

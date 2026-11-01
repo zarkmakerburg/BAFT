@@ -138,7 +138,9 @@ func TestPathProbeDetectsRepeatedByteCeiling(t *testing.T) {
 func TestPathProbeOccupiedPortIsSkippedWithoutSourceJob(t *testing.T) {
 	s := newPathProbeStore(t)
 	now := time.Now().UTC()
-	p := startOnePathProbe(t, s, 22)
+	// 2053: an unrelated service already listens there on the destination.
+	// (22 is no longer probed at all: TestPathProbePortsNeverIncludeSSH.)
+	p := startOnePathProbe(t, s, 2053)
 	if err := s.AckJobOutput("dst", "tok-dst", p.JobID, "failed", "path probe listen: bind: address already in use", ""); err != nil {
 		t.Fatal(err)
 	}

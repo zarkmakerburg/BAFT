@@ -4,6 +4,8 @@ All notable changes to BAFT are listed here. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+- **Architecture proposal — Hybrid Application Gateway (ADR-004):** document a domestic-isolated BAFT server with a Starlink-connected Edge, authenticated application relay, strict egress controls and a 16-case LAB acceptance matrix. Design only; no relay runtime or production network changes are claimed.
+
 ### v0.5.0 in development (branch `codex/v0.5.0-foundation-20261031`, not released)
 
 - **New tunnel, guided and live**: the Command Center's "+ New tunnel" dialog now builds real tunnels in five steps (servers, service, connection test, review, deploy) on BCC's reviewed APIs. It reports "done" only when the tunnel is active and, if an automatic public port was requested, that port is verified; rollbacks are shown as such. It replaces the earlier preview-only wizard. It offers the automatic public Iran port only when the Iran agent reports it can open one; otherwise it says so, requests none, and shows the tunnel's entry address on the Iran server to point a panel inbound at.

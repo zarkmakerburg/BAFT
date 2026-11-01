@@ -1,6 +1,6 @@
 # ADR-003: Operational public ingress on ordinary servers (host profile)
 
-- **Status:** Accepted by the owner on 2026-11-01 (decisions in §8); implementation in progress
+- **Status:** Accepted by the owner on 2026-11-01 (decisions in §8); implemented on the v0.5.0 branch (§9)
 - **Date:** 2026-11-01
 - **Scope:** Agent public-ingress Apply/Retire on an Iran (IR) server that runs in the host's init network namespace; BCC capability gating, review and readiness; installer opt-in
 - **Related:** [ADR-001](./ADR-001-operation-evidence-and-truthful-readiness.md), [ADR-002](./ADR-002-c-baft-capability-integration.md), [BASELINE_AUDIT §12](./BASELINE_AUDIT.md#12-stage-4--the-product-path-proven-on-real-installed-agents-2026-11-01), Issue #269
@@ -102,4 +102,18 @@ Each result must be tied to an exact commit SHA and labelled unit / container / 
 1. **Option B accepted** — safe host mode with bind-exclusive ownership, latent-claim refusal and a plan-bound per-port acknowledgement, including its documented residual risk.
 2. **Opt-in at install time** — off by default; enabled only by the local installer option (`--enable-host-ingress`) on the IR server.
 3. **Mandatory latent-claim checks for v0.5.0:** BAFT's own inventory and systemd socket units (always) **plus Xray / 3X-UI inbounds** (read-only). nginx/haproxy and Docker detectors are not required for v0.5.0; until they exist, the acknowledgement text must name them as unchecked.
+
+## 9. Implementation (v0.5.0 branch)
+
+| Slice (§6) | Status | Where |
+|---|---|---|
+| 1. Policy schema 2 (`execution_profile: host-v1`), installer opt-in, capability token, BCC gating | done (`2c982c9e`, `d84ea120`) | `internal/ingressinventory/coverage_linux.go`, `internal/ingressauthority/policy_bootstrap_linux.go`, `cmd/baft-agent` (`--ingress-profile host-v1`), `install.sh --enable-host-ingress`, `internal/agent/ingress_capability.go`, `internal/bcc/ingress_enqueue_gate.go` |
+| 2. Latent-claim detectors | done for the v0.5.0 mandatory set: live listeners (v4/v6), systemd sockets, BAFT inventory (BCC), **Xray/3X-UI inbounds** (read-only; present-but-unreadable = refusal; part of the execution pin). nginx/haproxy/Docker: not implemented; named as unchecked in the acknowledgement. | `internal/ingressinventory/xray_claims.go` |
+| 3. Plan-bound acknowledgement | done: `client_port_ack` in `TunnelRequest`/`Tunnel`, bound into the plan hash; plan gate FAIL without it on a host-mode IR; enqueue gate refuses unacknowledged tunnels; Quick Tunnel wizard and classic Tunnel Studio checkboxes (fa/en), reset on any port/server change. | `internal/bcc/plan.go`, `web/bcc-action-wizard.js`, `internal/bcc/dashboard.go` |
+| 4. Host-profile executor | reuses the existing owned listener + owned nft rule + journal/lease machinery; only the execution-scope measurement differs (no single-process/loopback-only requirement; host-complete checks kept). | `internal/ingressinventory/execution_lab_linux.go` |
+| 5. Guided-flow e2e on the host profile | `guided-flow-e2e` matrix leg `host` added; exact-SHA result **pending** (recorded in BASELINE_AUDIT once the run completes). Firewall-drop case and two-VM run: not done. | `tests/e2e/guided_flow.sh` (`GF_MODE=host`) |
+
+Upgrade rule: an existing schema-1 (LAB) policy is replaced by host-v1 only when it is bound to the host's init network namespace, where the LAB scope refuses every Apply, so it can never have backed a reservation, rule or listener. Any other differing policy is left unchanged and the installer stops with a clear message.
+
+Known limits: a port that another service declares only in a configuration BAFT does not read (nginx, haproxy, Docker, hand-run daemons) is covered by the operator's acknowledgement, not by a detector; Xray inbounds that exist only in the 3X-UI database and are not in the running Xray configuration are not seen.
 

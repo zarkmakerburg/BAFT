@@ -56,9 +56,19 @@ On the **Tunnels** page press **+ New tunnel**. A five-step dialog opens; nothin
 4. **Review.** BCC reviews the plan and shows its safety checks as FAIL, WARN and PASS. Deploy stays disabled unless BCC accepts the plan.
 5. **Deploy.** Progress is shown step by step: prepare foreign server, pair Iran server, install, health checks, finalize, active. "Done" appears only when the tunnel is active and, if an automatic public port was requested, that port on the Iran server has been verified independently. If a step fails, BAFT rolls back its own changes and says so.
 
+### Safe host mode: let BAFT open the public port on an ordinary server
+
+By default BAFT opens a public port automatically only inside its isolated LAB. On an ordinary Iran server you can opt in to **safe host mode** by running the installer on that server with `--enable-host-ingress`:
+
+```bash
+sudo bash install.sh --agent-only --bcc-url https://bcc.example.com --node-id ir-1 --enable-host-ingress
+```
+
+The agent then reports `operational-ingress-host-v1`, and the dialog offers the public port again with one extra, required confirmation: that no other service on this Iran server is configured to use that port. Before opening it, BAFT itself refuses a port held by a running program, a systemd socket, another BAFT tunnel or an Xray/3X-UI inbound (read from its configuration, never changed). It cannot check nginx, haproxy or Docker; the confirmation covers those. BAFT opens only that port, with its own listener and its own rule in its own firewall chain, and removes exactly those when the tunnel is removed. The port counts as ready only after BCC itself reaches it. The confirmation is part of the reviewed plan: changing the port asks again.
+
 ### When the automatic public port is not available
 
-In this version BAFT opens a public port automatically only inside its isolated LAB. On a normal server the Iran agent does not report that capability and logs why (`unsupported execution scope`). The tunnel is still built in full and listens on the Iran server itself; its entry address (for example `127.0.0.1:1444`) is shown in the review step and the final message. To let users connect, point a public port on the Iran server at that address in your panel: for example a 3X-UI `dokodemo-door` inbound on the public port that forwards to `127.0.0.1:1444`, or an equivalent port forward.
+Without safe host mode the Iran agent does not report the capability and logs why (`unsupported execution scope`). The tunnel is still built in full and listens on the Iran server itself; its entry address (for example `127.0.0.1:1444`) is shown in the review step and the final message. To let users connect, point a public port on the Iran server at that address in your panel: for example a 3X-UI `dokodemo-door` inbound on the public port that forwards to `127.0.0.1:1444`, or an equivalent port forward.
 
 You can close the dialog at any time; the build continues in BCC and appears in the tunnel list. The same connection test is also in the Tunnel Studio, which adds shared-listener joins and editing.
 

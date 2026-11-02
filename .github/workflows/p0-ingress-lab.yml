@@ -6,6 +6,7 @@ on:
       - 'internal/ingressauthority/**'
       - 'internal/ingressinventory/**'
       - 'cmd/baft-agent/**'
+      - 'internal/cli/agentcmd/**'
       - 'tests/e2e/managed_ingress_policy_lab.sh'
       - 'internal/ingressmanifest/**'
       - 'internal/publicingress/**'

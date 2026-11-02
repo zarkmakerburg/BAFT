@@ -41,6 +41,9 @@ func (hostSystem) Run(ctx context.Context, name string, args ...string) (string,
 	return strings.TrimSpace(string(out)), err
 }
 
+// version is set at release build time (-X main.version).
+var version = "dev"
+
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -220,7 +223,7 @@ func run(ctx context.Context, args []string, stderr io.Writer) int {
 		}
 		return 0
 	}
-	logger.Printf("baft-agent %s polling %s every %s", *nodeID, *bccURL, *interval)
+	logger.Printf("baft-agent %s (%s) polling %s every %s", *nodeID, version, *bccURL, *interval)
 	a.Run(ctx, *interval, logger.Printf)
 	return 0
 }

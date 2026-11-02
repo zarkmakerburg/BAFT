@@ -146,6 +146,11 @@ PLAN_ONLY=0
 PLAN_JSON=0
 ASSUME_YES="${BAFT_ASSUME_YES:-0}"
 RE_PAIR=0
+# --update (or a plain rerun on a host that already runs BAFT): update every
+# BAFT component installed here, in one run. MODE_FLAG records any option that
+# asks for something other than an update (a role, pairing, panel settings).
+UPDATE=0
+MODE_FLAG=0
 CLEANUP=()
 APPLYING=0
 cleanup(){
@@ -452,8 +457,16 @@ Usage:
       # Without a domain/IP it listens on loopback 127.0.0.1:8080 as before.
       # Afterwards, "sudo baft-panel" opens a small management menu.
 
+  sudo bash install.sh --update [--version vX.Y.Z] [--plan] [--yes]
+      # updates everything BAFT installed on this server in one run: the panel,
+      # the agent and a CLI tunnel, with the settings each was installed with.
+      # A plain rerun on a server that already runs BAFT does the same.
+
 Options:
   --version vX.Y.Z    install this signed release (default: the latest)
+  --update            update every BAFT component installed on this server
+                      (panel first, then agent, then tunnel); each keeps its own
+                      plan, signature check and automatic rollback
   --allow-downgrade   accept a release older than the one installed
   --from-source       build from BAFT_REPO_URL at BAFT_REF (development only)
   --plan              inspect this server and show what a run would do, then stop.
@@ -541,6 +554,14 @@ command later); the EX then writes its config and starts.
 EOF
 }
 
+for _arg in "$@"; do
+  case "$_arg" in
+    --version|--offline|--allow-downgrade|--from-source|--plan|--dry-run|--yes|-y|--update|-h|--help) ;;
+    --*) MODE_FLAG=1 ;;
+  esac
+done
+[[ -z "$PAIRING_CODE$REPLY_CODE$PUBLIC_ADDR$IR_SSH" ]] || MODE_FLAG=1
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --role) ROLE="${2:-}"; shift 2 ;;
@@ -566,6 +587,7 @@ while [[ $# -gt 0 ]]; do
     --json) PLAN_JSON=1; shift ;;
     --yes|-y) ASSUME_YES=1; shift ;;
     --re-pair) RE_PAIR=1; shift ;;
+    --update) UPDATE=1; shift ;;
     --agent-only) AGENT_ONLY=1; shift ;;
     --no-ingress-chain) INGRESS_CHAIN=0; shift ;;
     --provision-ingress-policy) PROVISION_INGRESS_POLICY=1; shift ;;
@@ -1611,6 +1633,8 @@ bcc_host_kind() {
 # --bcc-domain/--bcc-port). An existing panel keeps its address on a rerun.
 bcc_ask_access() {
   local ip def kind host
+  # An update keeps the panel where it is; it never asks for a new address.
+  [[ -z "${BAFT_UPDATE_STEP:-}" ]] || return 0
   if [[ -z "$BAFT_BCC_DOMAIN" ]]; then
     [[ "$BCC_MANAGED" == 0 && "$BCC_LISTEN_EXPLICIT" == 0 && "$BCC_TLS_EXPLICIT" == 0 && "$ASK_TTY" == 1 && "$PLAN_ONLY" != 1 ]] || return 0
     ip="$(bcc_public_ip)"
@@ -1867,7 +1891,7 @@ PY
 # Root, OS and architecture are checked before any question is asked, so
 # nobody answers prompts on a host the installer would refuse anyway.
 # --plan skips them: it needs no root and changes nothing.
-[[ "$PLAN_JSON" == 1 ]] || show_logo
+[[ "$PLAN_JSON" == 1 || -n "${BAFT_UPDATE_STEP:-}" ]] || show_logo
 if [[ "$PLAN_ONLY" != "1" ]]; then
   phase "Preflight" "root, system, architecture and options"
   [[ "$BAFT_INSTALL_FROM" == "release" || "$BAFT_INSTALL_FROM" == "source" ]] || die "BAFT_INSTALL_FROM must be release or source"
@@ -1889,6 +1913,149 @@ if [[ "$PLAN_ONLY" != "1" ]]; then
     arm64) GOARCH="arm64" ;;
     *) die "supported architectures: amd64, arm64" ;;
   esac
+fi
+
+# ---- one update for everything BAFT installed on this host ----
+# The panel (BCC), the agent and a tunnel installed by the CLI are separate
+# programs with separate plans, but updating them is one job: --update (or a
+# plain rerun on a host that already runs BAFT) finds what is installed and
+# runs this installer once per component with the settings it was installed
+# with, in a safe order: the panel first (it only uses a capability once an
+# agent reports it), then the agent, then a CLI tunnel. Each step keeps its
+# own plan, signature check and automatic rollback; no secret, config, pairing
+# or tunnel is created, rotated or removed. A tunnel BCC deployed belongs to
+# BCC: on an agent host its binaries are updated with the agent.
+update_unit_arg() { # unit-file flag
+  [[ -f "$1" ]] || return 0
+  sed -n 's/^ExecStart=//p' "$1" | head -n1 | awk -v f="--$2" '{for(i=1;i<NF;i++) if($i==f){print $(i+1); exit}}'
+}
+update_unit_has() { # unit-file flag
+  [[ -f "$1" ]] && sed -n 's/^ExecStart=//p' "$1" | head -n1 | grep -Eq -- "(^| )--$2( |$)"
+}
+UPDATE_COMPONENTS=()
+detect_installed_components() {
+  UPDATE_COMPONENTS=()
+  [[ -f "$BAFT_BCC_UNIT_FILE" ]] && UPDATE_COMPONENTS+=(panel)
+  [[ -f "$AGENT_UNIT_FILE" ]] && UPDATE_COMPONENTS+=(agent)
+  if [[ -f "$CONFIG" && ! -f "$AGENT_UNIT_FILE" ]]; then
+    if grep -q '"server"[[:space:]]*:' "$CONFIG" 2>/dev/null; then UPDATE_COMPONENTS+=(ex)
+    elif grep -q '"remote_route"[[:space:]]*:' "$CONFIG" 2>/dev/null; then UPDATE_COMPONENTS+=(ir)
+    else die "$CONFIG exists but its role (EX or IR) is not recognisable; update it with --role ex or --role ir"; fi
+  fi
+}
+update_component_label() {
+  case "$1" in
+    panel) printf 'panel (BAFT Command Center, %s)' "$BAFT_BCC_SERVICE.service" ;;
+    agent) printf 'agent (%s.service, with the baft and baft-pair binaries)' "$BAFT_AGENT_UNIT" ;;
+    ex) printf 'tunnel, outside Iran (EX, %s.service)' "$BAFT_SERVICE" ;;
+    ir) printf 'tunnel, inside Iran (IR, %s.service)' "$BAFT_SERVICE" ;;
+  esac
+}
+update_installed_version() {
+  sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$BAFT_RELEASE_STATE" 2>/dev/null | head -n1
+}
+run_update_step() { # component installer-path
+  local comp="$1" src="$2" v
+  local args=() envs=(BAFT_UPDATE_STEP="$comp")
+  case "$comp" in
+    panel)
+      grep -q '^# baft-managed: true' "$BAFT_BCC_UNIT_FILE" 2>/dev/null && grep -q '^# baft-component: bcc' "$BAFT_BCC_UNIT_FILE" 2>/dev/null ||
+        die "$BAFT_BCC_UNIT_FILE was not written by this installer, so its address and certificate cannot be kept automatically; update the panel with --bcc-only and its --bcc-* options"
+      args=(--bcc-only) ;;
+    agent)
+      local url node
+      url="$(update_unit_arg "$AGENT_UNIT_FILE" bcc-url)"
+      node="$(update_unit_arg "$AGENT_UNIT_FILE" node-id)"
+      [[ -n "$url" && -n "$node" ]] || die "cannot read the panel URL and node id from $AGENT_UNIT_FILE; update the agent with --agent-only --bcc-url ... --node-id ..."
+      [[ -r "$BAFT_AGENT_DIR/token" && -r "$BAFT_AGENT_DIR/bcc-job.pub" ]] ||
+        die "the agent token or pinned job key is missing in $BAFT_AGENT_DIR; update the agent with --agent-only and its enrollment values"
+      args=(--agent-only --bcc-url "$url" --node-id "$node")
+      [[ -f "$BAFT_INGRESS_UNIT_FILE" ]] || args+=(--no-ingress-chain)
+      envs+=(BAFT_AGENT_TOKEN_FILE="$BAFT_AGENT_DIR/token" BAFT_BCC_JOB_KEY="$(cat -- "$BAFT_AGENT_DIR/bcc-job.pub")")
+      update_unit_has "$AGENT_UNIT_FILE" allow-insecure-http && envs+=(BAFT_AGENT_ALLOW_HTTP=1)
+      v="$(update_unit_arg "$AGENT_UNIT_FILE" interval)"; [[ -z "$v" ]] || envs+=(BAFT_AGENT_INTERVAL="$v")
+      v="$(update_unit_arg "$AGENT_UNIT_FILE" metrics-listen)"; [[ -z "$v" ]] || envs+=(BAFT_METRICS_LISTEN="$v")
+      v="$(update_unit_arg "$AGENT_UNIT_FILE" release-base-url)"; [[ -z "$v" ]] || envs+=(BAFT_AGENT_RELEASE_BASE_URL="$v")
+      v="$(update_unit_arg "$AGENT_UNIT_FILE" revocations-url)"; [[ -z "$v" ]] || envs+=(BAFT_AGENT_REVOCATIONS_URL="$v")
+      ;;
+    ex) args=(--role ex --no-panel) ;;
+    ir) args=(--role ir) ;;
+  esac
+  [[ -z "$BAFT_VERSION" ]] || args+=(--version "$BAFT_VERSION")
+  [[ "$BAFT_ALLOW_DOWNGRADE" != 1 ]] || args+=(--allow-downgrade)
+  [[ "$BAFT_INSTALL_FROM" != source ]] || args+=(--from-source)
+  [[ -z "$BAFT_OFFLINE_DIR" ]] || args+=(--offline "$BAFT_OFFLINE_DIR")
+  [[ "$PLAN_ONLY" != 1 ]] || args+=(--plan)
+  [[ "$ASSUME_YES" != 1 ]] || args+=(--yes)
+  if [[ -n "$ASK_FD" ]]; then
+    env "${envs[@]}" bash "$src" "${args[@]}" <&"$ASK_FD"
+  else
+    env "${envs[@]}" bash "$src" "${args[@]}" </dev/null
+  fi
+}
+run_update() {
+  local src self="${BASH_SOURCE[0]:-}" comp done_list=() a=""
+  [[ "$PLAN_JSON" != 1 ]] || die "--update --plan prints one plan per component; drop --json, or run --plan --json per component (--bcc-only, --agent-only, --role)"
+  [[ "$MODE_FLAG" == 0 ]] || die "--update takes only --version, --offline, --allow-downgrade, --from-source, --plan and --yes; it reuses the settings each component was installed with"
+  detect_installed_components
+  [[ "${#UPDATE_COMPONENTS[@]}" -gt 0 ]] || die "nothing to update: BAFT is not installed on this server (run the installer without --update)"
+  phase "Update" "every BAFT component on this server, one after another"
+  for comp in "${UPDATE_COMPONENTS[@]}"; do log "found: $(update_component_label "$comp")"; done
+  [[ -z "$(update_installed_version)" ]] || log "installed signed release: $(update_installed_version)"
+  log "target: ${BAFT_VERSION:-the latest signed release}${BAFT_OFFLINE_DIR:+ (offline bundle $BAFT_OFFLINE_DIR)}"
+  if [[ "$PLAN_ONLY" != 1 && "$ASSUME_YES" != 1 ]]; then
+    ask a "$(ui_ask_prompt "Update these ${#UPDATE_COMPONENTS[@]} component(s)? Each one shows its plan and rolls back by itself on failure" "[Y/n]")" ||
+      die "no answer; pass --yes to update without asking"
+    [[ "$a" != n && "$a" != N && "$a" != no ]] || { log "nothing was changed"; exit 0; }
+    ASSUME_YES=1
+  fi
+  src="$(mktemp)"; CLEANUP+=("$src")
+  if [[ -n "$self" && -r "$self" ]]; then
+    cp -- "$self" "$src"
+  else
+    curl -fsSL --retry 3 "${BAFT_INSTALL_URL:-https://raw.githubusercontent.com/${BAFT_GITHUB_REPO}/${BAFT_REF}/install.sh}" -o "$src" ||
+      die "could not fetch the installer for the update steps"
+  fi
+  for comp in "${UPDATE_COMPONENTS[@]}"; do
+    phase "Update: $comp" "$(update_component_label "$comp")"
+    log "updating $(update_component_label "$comp")"
+    if ! run_update_step "$comp" "$src"; then
+      die "the $comp update failed and rolled itself back${done_list[*]:+; already updated: $(printf '%s ' "${done_list[@]}")}. Nothing else was changed; rerun --update after fixing the cause"
+    fi
+    done_list+=("$comp")
+    # Every later component gets the same release, even if a newer one is
+    # published while this runs.
+    if [[ "$PLAN_ONLY" != 1 && -z "$BAFT_VERSION" && -z "$BAFT_OFFLINE_DIR" && "$BAFT_INSTALL_FROM" == release ]]; then
+      BAFT_VERSION="$(update_installed_version)"
+    fi
+  done
+  if [[ "$PLAN_ONLY" == 1 ]]; then
+    ok "plans shown for: $(printf '%s ' "${done_list[@]}")- nothing was changed"
+  else
+    ok "updated: $(printf '%s ' "${done_list[@]}")(signed release $(update_installed_version))"
+    if [[ -f "$AGENT_UNIT_FILE" ]]; then
+      log "tunnels deployed by the panel keep running; each picks up the new baft binary when it next restarts"
+    fi
+  fi
+  exit 0
+}
+
+if [[ "$UPDATE" == 1 ]]; then
+  run_update
+elif [[ "$MODE_FLAG" == 0 && -z "${BAFT_UPDATE_STEP:-}" ]]; then
+  # A plain rerun on a server that already runs BAFT updates it instead of
+  # asking what the server is for. On a terminal, "n" goes back to that question.
+  detect_installed_components
+  if [[ "${#UPDATE_COMPONENTS[@]}" -gt 0 ]]; then
+    if [[ "$ASK_TTY" == 1 && "$PLAN_ONLY" != 1 && "$ASSUME_YES" != 1 ]]; then
+      for _c in "${UPDATE_COMPONENTS[@]}"; do log "already installed here: $(update_component_label "$_c")"; done
+      _a=""
+      ask _a "$(ui_ask_prompt "Update BAFT on this server? (n: install something else instead)" "[Y/n]")" || true
+      if [[ "$_a" != n && "$_a" != N && "$_a" != no ]]; then ASSUME_YES=1; run_update; fi
+    else
+      run_update
+    fi
+  fi
 fi
 
 # One install command for everything: without --role, --bcc-only or
@@ -3458,13 +3625,13 @@ do_renew() {
   [[ -x "$ACME_HOME/acme.sh" ]] || { echo "  no Let's Encrypt certificate here; use option 6"; return 1; }
   "$ACME_HOME/acme.sh" --cron --home "$ACME_HOME" --force && echo "  renewed"
 }
-do_update() { bash "$INSTALLER" --bcc-only; }
+do_update() { bash "$INSTALLER" --update; }
 
 menu() {
   printf '\n  %s◆%s %sBAFT panel%s  %s%s%s\n\n' "$G$B" "$R" "$B" "$R" "$M" "$(state)" "$R"
   printf '   %s1%s  status\n   %s2%s  show panel link and username\n   %s3%s  new login (link, username, password)\n' "$G" "$R" "$G" "$R" "$G" "$R"
   printf '   %s4%s  restart panel\n   %s5%s  panel logs\n   %s6%s  set domain / get SSL\n   %s7%s  renew SSL now\n' "$G" "$R" "$G" "$R" "$G" "$R" "$G" "$R"
-  printf '   %s8%s  update panel to the latest release\n   %s9%s  network: BBR, speed and route tests\n   %s0%s  exit\n\n' "$G" "$R" "$G" "$R" "$G" "$R"
+  printf '   %s8%s  update BAFT on this server (panel, agent, tunnel)\n   %s9%s  network: BBR, speed and route tests\n   %s0%s  exit\n\n' "$G" "$R" "$G" "$R" "$G" "$R"
   local c
   baft_menu_read c "1:status" "2:panel link" "3:new login" "4:restart" "5:logs" "6:SSL" "7:renew SSL" "8:update" "9:network" "0:exit" || return 0
   echo

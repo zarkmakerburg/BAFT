@@ -4,6 +4,10 @@ All notable changes to BAFT are listed here. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+- **One update for the whole server.** `install.sh --update`, or simply running the installer again on a server that already runs BAFT, now updates every BAFT program installed there in one run: the panel first, then the agent, then a tunnel installed from the command line. Each keeps the settings it was installed with (the agent's panel address, node id, token and job key are read back instead of asked again), its own plan, signature check and automatic rollback; nothing is re-paired, rotated or removed. Before, each program needed its own command, and updating the outside server's tunnel skipped a panel on the same server. `baft-panel update` now does the same.
+- **The Update Center now updates the agent too.** A signed update job used to replace only `baft` and `baft-pair`, so most agent fixes never reached servers updated from the panel. From v0.5.1 on, the agent also replaces itself: it restarts into the new version only after the panel has the result, and a systemd timer armed before the swap puts the previous agent back if the new one has not reconnected within 3 minutes. Agents older than v0.5.1 need one `install.sh --update` to get this.
+- **Fixed: an Update Center job failed on servers whose tunnels the panel deployed.** It restarted a `baft` service that such servers do not have, and rolled back. It now updates the binaries; running tunnels use them from their next restart.
+
 ## [0.5.0] - 2026-11-02
 
 Release notes: [release/notes/v0.5.0.md](release/notes/v0.5.0.md). Real Iran↔abroad evidence: [REAL_HOSTS_LAB.md](docs/roadmap/v0.5.0/REAL_HOSTS_LAB.md) and issue #67.

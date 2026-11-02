@@ -8,7 +8,7 @@ Status: implemented (`internal/bcc/updatecenter*.go`, `web/bcc-updatecenter.js`)
 |---|---|---|
 | Signed manifest, key cert, root-signed revocations, `VerifyDir`, `CompareVersions`, `TrustState` (no downgrade / re-tag) | `internal/release` | Import verification (same code and rules; see "What BCC verifies") |
 | Component digest reports, operator-confirmed platform, `TrustedNodeArtifactName`, `CompareVerifiedComponentDigest` | `internal/bcc/component_report*`, `node_platform*`, `node_version*` | Installed version of each node (never an agent-claimed version) |
-| `update_baft vX.Y.Z` signed agent job: pulls the release itself, `VerifyDir` against its pinned root, keeps `.prev`, swaps, restarts, rolls back if not active, advances trust state only on success | `internal/agentjob`, `internal/agent`, `POST /api/deploy` | The upgrade executor. It replaces `baft` and `baft-pair` only, not `baft-agent` or `baft-bcc` |
+| `update_baft vX.Y.Z` signed agent job: pulls the release itself, `VerifyDir` against its pinned root, keeps `.prev`, swaps, restarts, rolls back if not active, advances trust state only on success | `internal/agentjob`, `internal/agent`, `POST /api/deploy` | The upgrade executor. It replaces `baft` and `baft-pair`; an agent from v0.5.1 on also replaces itself behind an external rollback guard (see "Agent self-update"). It never replaces `baft-bcc` |
 | Verified installer: `--offline DIR`, `--plan`, `--allow-downgrade`, backups, health check, automatic rollback, `release-state.json` | `install.sh`, `scripts/release/offline_bundle.sh` | Rollback, and any upgrade the agent job does not cover |
 | Encrypted backup (schema 4), SQLite migrations (schema 15), restore with anti-rollback merges | `backup.go`, `statedb.go`, `restore_*.go` | Persistence of imports (now schema 16 / backup 5) |
 | `baft` terminal menu `Update (planned)` | `cmd/baft/menu.go` | Now read-only guidance |
@@ -50,8 +50,20 @@ Updates page: root pin and floor, revocation sequence/expiry, latest verified re
 
 ## What it does not do
 
-It does not update BCC itself, does not replace `baft-agent`/`baft-bcc` on nodes through the agent job, does not hold binaries, does not run a rollback, does not push anything to a node, does not fetch from the network, and never trusts an agent-reported version. A node without an operator-confirmed platform or a fresh report stays `unknown` and its plan is blocked.
+It does not update BCC itself (the panel server is updated with `install.sh --update`), does not replace `baft-bcc` on nodes through the agent job, does not hold binaries, does not run a rollback, does not push anything to a node, does not fetch from the network, and never trusts an agent-reported version. A node without an operator-confirmed platform or a fresh report stays `unknown` and its plan is blocked.
 
 ## Backup, restore, schema
 
 SQLite migration 16 (`update_center`) and backup schema 5. A backup with a header older than 5 may not carry Update Center state. Restore merges instead of overwriting (`mergeUpdateCenter`): releases are unioned and the higher revocation sequence wins, so a restore can neither forget an import nor un-revoke a key. Downgrading to a build without schema 16/backup 5 needs a verified pre-upgrade snapshot (KNOWN-LIMITATIONS).
+
+## Agent self-update (v0.5.1)
+
+An agent running as a systemd service (its unit is read from its own cgroup; `--self-update=false` turns this off) also replaces `baft-agent` in an `update_baft` job:
+
+1. The verified `baft-agent-linux-<arch>` is staged next to the binary and the current one is kept as `baft-agent.prev`.
+2. Before the swap, the agent writes a marker (`<state-dir>/agent-update.json`: version, commit, SHA-256 of the new binary) and arms a one-shot `systemd-run` timer (default 3 minutes, `--self-update-guard`). When it fires and the marker still exists, it moves `baft-agent.prev` back and restarts the agent. If the timer cannot be armed, the agent binary is not touched and the job says so.
+3. The agent restarts into the new binary only after BCC has the job's result.
+4. The new agent removes the marker after its first authenticated poll, and only if its own executable matches the marker's SHA-256, so the previous agent can never disarm the guard.
+
+The job's result therefore means "installed and restarting"; whether the new agent stayed is visible in its component report and in its journal ("now running baft-agent vX.Y.Z"). A server whose tunnels BCC deployed as instances has no `baft` service to restart; the job then updates the binaries without restarting anything, and running tunnels use the new binary from their next restart. Agents before v0.5.1 do not replace themselves; update them once with `install.sh --update`.
+

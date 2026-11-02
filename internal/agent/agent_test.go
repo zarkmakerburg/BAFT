@@ -21,16 +21,21 @@ import (
 const testCommit = "4545a784cb6c043ac1f97f88c810c422144d7823"
 
 type fakeSystem struct {
-	mu     sync.Mutex
-	calls  []string
-	active []string // successive is-active answers; last repeats
-	doctor string
+	mu        sync.Mutex
+	calls     []string
+	active    []string // successive is-active answers; last repeats
+	doctor    string
+	loadState string           // answer to `systemctl show -p LoadState`; "" by default
+	runErr    map[string]error // Run of a binary (by base name) fails with this
 }
 
 func (f *fakeSystem) Systemctl(_ context.Context, args ...string) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls = append(f.calls, strings.Join(args, " "))
+	if args[0] == "show" {
+		return f.loadState, nil
+	}
 	if args[0] == "is-active" {
 		if len(f.active) == 0 {
 			return "active", nil
@@ -48,6 +53,9 @@ func (f *fakeSystem) Run(_ context.Context, name string, args ...string) (string
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls = append(f.calls, filepath.Base(name)+" "+strings.Join(args, " "))
+	if err := f.runErr[filepath.Base(name)]; err != nil {
+		return "boom", err
+	}
 	if filepath.Base(name) == "baft-pair" && len(args) > 0 {
 		arg := func(flag string) string {
 			for i := 0; i+1 < len(args); i++ {

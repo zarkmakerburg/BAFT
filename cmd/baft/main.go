@@ -30,6 +30,9 @@ type versionInfo struct {
 }
 
 func main() {
+	if code, ok := multiCall(os.Args[0], os.Args[1:]); ok {
+		os.Exit(code)
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	args := os.Args[1:]
@@ -248,4 +251,7 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w, "  baft logs [--service baft] [-n 100] [-f]")
 	fmt.Fprintln(w, "  baft support-bundle [--out file.tar.gz] [-n 500]   # secret-safe diagnostics archive")
 	fmt.Fprintln(w, "  baft uninstall [--preview [--json]] [--binaries|--agent|--bcc|--services|--full] [--delete-...] [--yes]")
+	fmt.Fprintln(w, "  baft agent --bcc-url URL --node-id ID [flags]   # the BCC agent (also runs as baft-agent)")
+	fmt.Fprintln(w, "  baft panel --admin-token-file FILE [flags]       # the Command Center (also runs as baft-bcc)")
+	fmt.Fprintln(w, "  baft pair <keygen|pki|ex-code|ir-apply|ex-accept> ...   # pairing (also runs as baft-pair)")
 }

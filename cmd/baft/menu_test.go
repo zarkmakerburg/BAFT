@@ -248,7 +248,7 @@ func TestUpdateMenuIsReadOnlyGuidance(t *testing.T) {
 	before := len(r.commands)
 	r.run(t, monoCaps, "11\n\n0\n")
 	o := r.out.String()
-	for _, want := range []string{"This menu never updates anything", "Update Center", "install.sh --offline . --plan", "--allow-downgrade", "Nothing was changed."} {
+	for _, want := range []string{"This menu never updates anything", "Update Center", "install.sh --update --offline . --plan", "install.sh) --update", "--allow-downgrade", "Nothing was changed."} {
 		if !strings.Contains(o, want) {
 			t.Errorf("update guidance lacks %q:\n%s", want, o)
 		}

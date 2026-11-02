@@ -22,7 +22,7 @@ keys="$out/keys"
 tool="$out/baft-release"
 
 go build -o "$tool" ./cmd/baft-release
-scripts/release/build.sh "$version" "$out/dist" >/dev/null
+scripts/release/build.sh "$version" "$out/dist" | sed "s#^.*/dist/##"
 if [[ -n "${BAFT_LOCAL_RELEASE_ROOT:-}" && -f "$BAFT_LOCAL_RELEASE_ROOT/root.key" ]]; then
   mkdir -p "$keys"
   cp "$BAFT_LOCAL_RELEASE_ROOT/root.key" "$BAFT_LOCAL_RELEASE_ROOT/root.pub" "$keys/"

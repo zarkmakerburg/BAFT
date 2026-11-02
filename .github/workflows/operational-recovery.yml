@@ -44,11 +44,11 @@ jobs:
       - name: Unit and regression tests (race)
         run: |
           set -euo pipefail
-          go vet ./internal/tunnelnode ./internal/ingressauthority ./internal/ingressownership ./internal/agent ./cmd/baft ./cmd/baft-agent ./tests/e2e/operational/...
+          go vet ./internal/tunnelnode ./internal/ingressauthority ./internal/ingressownership ./internal/agent ./cmd/baft ./internal/cli/agentcmd ./tests/e2e/operational/...
           go test -race -count=1 -timeout=15m ./internal/tunnelnode -run 'TestBootRecovery|TestInterruptedCommit'
           go test -race -count=1 -timeout=15m ./internal/ingressauthority -run 'TestRestart|TestSpentRetire|TestMayResume'
           go test -race -count=1 -timeout=15m ./internal/ingressownership -run 'TestRestart'
-          go test -race -count=1 -timeout=15m ./cmd/baft-agent
+          go test -race -count=1 -timeout=15m ./internal/cli/agentcmd
           go test -race -count=1 -timeout=15m ./cmd/baft -run 'TestRecoverBoot|TestInstallerRecoverUnit'
       - name: Run restart-recovery LAB (separate processes, kill -9)
         run: |

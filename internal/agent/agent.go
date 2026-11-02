@@ -62,6 +62,14 @@ type Config struct {
 	Arch           string            // defaults to runtime.GOARCH
 	// SSHMigration sshmigrate.Config
 
+	// AgentUnit is this agent's own systemd unit (e.g. "baft-agent"). When
+	// set, update_baft also replaces baft-agent, guarded from outside the
+	// agent (see selfupdate.go); empty keeps the agent binary unchanged.
+	AgentUnit string
+	// AgentUpdateGuard is how long a self-updated agent has to reconnect to
+	// BCC before systemd puts the previous agent back (default 3 minutes).
+	AgentUpdateGuard time.Duration
+
 	// SettleTime is how long the service must stay active after an update.
 	SettleTime time.Duration
 
@@ -98,6 +106,12 @@ type Agent struct {
 	capsMu           sync.Mutex
 	transportCapsKey string
 	transportCaps    []string
+	// restartAfterAck: a self-update installed a new baft-agent; restart
+	// into it once every result has reached BCC.
+	restartAfterAck     bool
+	selfUpdateConfirmed string
+	// selfDigest returns this process's executable SHA-256 (tests replace it).
+	selfDigest func() (string, error)
 }
 
 type pendingAck struct {
@@ -451,6 +465,7 @@ func (a *Agent) RunOnce(ctx context.Context) ([]Result, error) {
 	if err != nil {
 		return nil, err
 	}
+	a.confirmAgentSelfUpdate()
 	v := agentjob.Verifier{BCCKey: a.cfg.BCCJobKey, NodeID: a.cfg.NodeID, Seen: a.isSeen}
 	var out []Result
 	for _, pj := range jobs {
@@ -527,6 +542,20 @@ func (a *Agent) Run(ctx context.Context, interval time.Duration, logf func(strin
 		}
 		for _, r := range results {
 			logf("agent: job %s %s: %s %s", r.JobID, r.Action, r.Status, r.Detail)
+		}
+		if v := a.SelfUpdateConfirmed(); v != "" {
+			logf("agent: now running baft-agent %s; the rollback guard is disarmed", v)
+		}
+		if a.RestartRequested() {
+			logf("agent: restarting into the updated baft-agent")
+			if err := a.restartIntoUpdate(ctx); err != nil {
+				logf("agent: could not restart into the updated baft-agent (%v); it runs at the next restart, and the guard restores the previous one if this agent does not come back", err)
+				a.mu.Lock()
+				a.restartAfterAck = false
+				a.mu.Unlock()
+			} else {
+				return
+			}
 		}
 		select {
 		case <-ctx.Done():
@@ -614,6 +643,9 @@ func (a *Agent) update(ctx context.Context, version string) (string, error) {
 	}
 	bins := map[string]string{"baft": "baft-linux-" + a.cfg.Arch, "baft-pair": "baft-pair-linux-" + a.cfg.Arch}
 	artifacts := []string{bins["baft"], bins["baft-pair"]}
+	if a.cfg.AgentUnit != "" {
+		artifacts = append(artifacts, a.agentSelfUpdateArtifact())
+	}
 	base := strings.TrimRight(a.cfg.ReleaseBaseURL, "/") + "/" + url.PathEscape(version) + "/"
 	for _, f := range append([]string{release.ManifestFile, release.CertFile, release.SumsFile}, artifacts...) {
 		if err := a.download(ctx, base+f, filepath.Join(dir, f)); err != nil {
@@ -670,12 +702,23 @@ func (a *Agent) update(ctx context.Context, version string) (string, error) {
 		}
 		swapped = append(swapped, n)
 	}
+	// A server whose tunnels BCC deployed as instances has no service of
+	// this name: there is nothing to restart, and running tunnels pick up
+	// the new binary at their next restart.
+	if load, _ := a.cfg.System.Systemctl(ctx, "show", "-p", "LoadState", "--value", a.cfg.Service); load == "not-found" {
+		if err := release.WriteState(a.cfg.ReleaseState, state.Advance(verified, a.cfg.Now())); err != nil {
+			return "", fmt.Errorf("installed %s but could not record it: %w", version, err)
+		}
+		msg := fmt.Sprintf("updated to %s (commit %.12s); previous binaries kept as .prev; no %s service here, running tunnels use the new binary from their next restart", verified.Version, verified.Commit, a.cfg.Service)
+		return msg + a.selfUpdateNote(ctx, dir, verified), nil
+	}
 	if _, err := a.cfg.System.Systemctl(ctx, "restart", a.cfg.Service); err == nil {
 		if _, err = a.waitActive(ctx); err == nil {
 			if err := release.WriteState(a.cfg.ReleaseState, state.Advance(verified, a.cfg.Now())); err != nil {
 				return "", fmt.Errorf("installed %s but could not record it: %w", version, err)
 			}
-			return fmt.Sprintf("updated to %s (commit %.12s); previous binaries kept as .prev", verified.Version, verified.Commit), nil
+			msg := fmt.Sprintf("updated to %s (commit %.12s); previous binaries kept as .prev", verified.Version, verified.Commit)
+			return msg + a.selfUpdateNote(ctx, dir, verified), nil
 		}
 	}
 	rollback()

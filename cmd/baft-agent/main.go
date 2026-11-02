@@ -93,6 +93,8 @@ func run(ctx context.Context, args []string, stderr io.Writer) int {
 	reconcileOnly := fs.Bool("reconcile-ingress", false, "run the post-restart ingress reconciliation once, print the evidence and exit (1 if anything stays fenced)")
 	once := fs.Bool("once", false, "handle pending jobs once and exit")
 	allowHTTP := fs.Bool("allow-insecure-http", false, "allow a plain-HTTP BCC URL (testing only)")
+	selfUpdateGuard := fs.Duration("self-update-guard", 0, "how long a self-updated agent has to reconnect to BCC before the previous agent is restored (default 3m)")
+	selfUpdate := fs.Bool("self-update", true, "let signed update_baft jobs also replace this agent; a systemd timer restores the previous agent if the new one does not reconnect to BCC")
 	if err := fs.Parse(args); err != nil || fs.NArg() != 0 {
 		return 2
 	}
@@ -183,6 +185,14 @@ func run(ctx context.Context, args []string, stderr io.Writer) int {
 		cfg.IngressOperational = op
 		logger.Printf("baft-agent: operational ingress provisioned for %s", *nodeID)
 	}
+	if *selfUpdate && !*once {
+		if unit := ownSystemdUnit("/proc/self/cgroup"); unit != "" {
+			cfg.AgentUnit = unit
+			cfg.AgentUpdateGuard = *selfUpdateGuard
+		} else {
+			logger.Printf("baft-agent: not running as a systemd service; update_baft jobs leave baft-agent unchanged")
+		}
+	}
 	a, err := agent.New(cfg)
 	if err != nil {
 		fmt.Fprintln(stderr, "baft-agent:", err)
@@ -213,4 +223,24 @@ func run(ctx context.Context, args []string, stderr io.Writer) int {
 	logger.Printf("baft-agent %s polling %s every %s", *nodeID, *bccURL, *interval)
 	a.Run(ctx, *interval, logger.Printf)
 	return 0
+}
+
+// ownSystemdUnit returns the systemd service this process runs in (from its
+// cgroup, e.g. "baft-agent"), or "" outside a service.
+func ownSystemdUnit(cgroupFile string) string {
+	b, err := os.ReadFile(cgroupFile)
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(strings.TrimSpace(string(b)), "\n") {
+		parts := strings.SplitN(line, ":", 3)
+		if len(parts) != 3 {
+			continue
+		}
+		base := filepath.Base(parts[2])
+		if strings.HasSuffix(base, ".service") && len(base) > len(".service") {
+			return strings.TrimSuffix(base, ".service")
+		}
+	}
+	return ""
 }

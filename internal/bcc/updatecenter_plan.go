@@ -205,7 +205,7 @@ func fillUpdateSteps(p *UpdatePlan, target UpdateRelease, row *UpdateNodeRow) {
 		p.Steps = append(p.Steps,
 			st("agent_job_sign", "BCC signs one update_baft job for "+p.NodeID+" asking for "+p.ToVersion+". Nothing is pushed: the agent pulls the job."),
 			st("agent_job_verify", "The agent downloads "+p.ToVersion+" from its own configured release base URL and verifies it with release.VerifyDir against its pinned release root, the current revocation list and its install trust state (no downgrade, no re-tag). A release that does not verify changes nothing."),
-			st("agent_job_swap", "baft and baft-pair are replaced and the service is restarted; the previous binaries are kept as .prev. baft-agent and baft-bcc are not replaced by this job."),
+			st("agent_job_swap", "baft and baft-pair are replaced and the service is restarted; the previous binaries are kept as .prev. An agent from v0.5.1 on also replaces itself and goes back to the previous agent by itself if the new one does not reconnect within 3 minutes. baft-bcc is not replaced by this job: update the panel server with install.sh --update."),
 			st("agent_job_health", "If the service is not active after the settle time, the agent restores the .prev binaries, restarts, reports the job as failed, and does not advance its trust state."),
 		)
 		p.Rollback = append(p.Rollback,

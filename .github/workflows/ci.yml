@@ -273,6 +273,28 @@ jobs:
       - name: Update panel and agent from one signed release to the next
         run: sudo env GITHUB_ACTIONS=true "PATH=$PATH" tests/e2e/install_update.sh "$RUNNER_TEMP/relA" "$RUNNER_TEMP/relB"
 
+  e2e-agent-self-update:
+    # Update Center path: a signed update_baft job replaces the agent itself.
+    # A dead update (BCC gone before the new agent reconnects) is rolled back
+    # by the external systemd guard; a healthy one stays.
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          check-latest: false
+          cache: false
+      - name: Build two signed releases under one throwaway root
+        run: |
+          BAFT_LOCAL_RELEASE_ROOT="$RUNNER_TEMP/root" scripts/release/local_release.sh "$RUNNER_TEMP/relA" v0.0.1-self
+          BAFT_LOCAL_RELEASE_ROOT="$RUNNER_TEMP/root" scripts/release/local_release.sh "$RUNNER_TEMP/relB" v0.0.2-self
+      - name: Self-update the agent through a signed job, with rollback
+        run: sudo env GITHUB_ACTIONS=true "PATH=$PATH" tests/e2e/agent_self_update.sh "$RUNNER_TEMP/relA" "$RUNNER_TEMP/relB"
+
   e2e-bcc-schema-upgrade:
     # Real released v0.2.0 binary creates schema 5; current binary migrates it,
     # old binary refuses schema 12, and current binary retains both writes.

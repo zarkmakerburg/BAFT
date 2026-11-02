@@ -1,4 +1,4 @@
-package main
+package bcccmd
 
 import (
 	"encoding/json"

@@ -1,4 +1,4 @@
-package main
+package bcccmd
 
 import (
 	"crypto/ed25519"

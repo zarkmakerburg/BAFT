@@ -15,6 +15,11 @@ commit=$(git rev-parse HEAD)
 
 scripts/release/build.sh "$version" "$work/a" >/dev/null
 scripts/release/build.sh "$version" "$work/b" >/dev/null
+echo "artifact sizes (release build):"
+for artifact in "$work/a"/*; do
+  bytes=$(wc -c < "$artifact" | tr -d '[:space:]')
+  printf '%s %s bytes\n' "$(basename "$artifact")" "$bytes"
+done
 if ! diff <(cd "$work/a" && sha256sum *) <(cd "$work/b" && sha256sum *); then
   echo "dry_run: builds are not reproducible" >&2
   exit 1

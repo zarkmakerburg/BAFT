@@ -1,6 +1,6 @@
 # BAFT Adversarial Resilience & Intrusion Report
 
-**Verdict: ✅ PASS** · generated 2026-11-06 11:30 UTC · commit `2c8e14efdeca` · profile `bounded`
+**Verdict: ✅ PASS** · generated 2026-11-07 10:41 UTC · commit `2c8e14efdeca` · profile `bounded`
 
 This report is produced automatically by the periodic resilience tester (`tests/adversary/`). It launches a real BAFT EX/IR pair on loopback and, acting as a censor / DoS attacker and as an on-path intruder, tries to break or penetrate it with real traffic. All scenarios are loopback only and never target any third-party host.
 
@@ -10,9 +10,9 @@ This report is produced automatically by the periodic resilience tester (`tests/
 |---|---|---|---|---|---|---|---|
 | connflood | ✅ | ok | 20 | 19 | 14 | 14 | — |
 | garbage | ✅ | ok | 20 | 19 | 14 | 14 | — |
-| slowloris | ✅ | ok | 21 | 21 | 14 | 14 | — |
-| probe | ✅ | ok | 23 | 21 | 14 | 14 | — |
-| manyflows | ✅ | ok | 24 | 22 | 206 | 206 | — |
+| slowloris | ✅ | ok | 22 | 20 | 14 | 14 | — |
+| probe | ✅ | ok | 20 | 21 | 14 | 14 | — |
+| manyflows | ✅ | ok | 25 | 23 | 184 | 184 | — |
 
 ## 2. Intrusion / penetration attempts
 

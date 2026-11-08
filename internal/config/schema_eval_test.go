@@ -1,6 +1,7 @@
 package config
 
 import (
+	"strings"
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
@@ -143,7 +144,9 @@ func TestSchemaAndValidateAgree(t *testing.T) {
 		{"telemetry unknown key", "ir", func(d doc) { d["telemetry"] = doc{"enabled": false, "token": "x"} }, false},
 		{"revocation on listener", "ex", func(d doc) { d["revocation"] = doc{"file": "/etc/baft/revoked.yaml"} }, true},
 		{"revocation relative path", "ex", func(d doc) { d["revocation"] = doc{"file": "revoked.yaml"} }, false},
-		{"revocation on dialer", "ir", func(d doc) { d["revocation"] = doc{"file": "/etc/baft/revoked.yaml"} }, false},
+		{"revocation on dialer", "ir", func(d doc) { d["revocation"] = doc{"file": "/etc/baft/revoked.yaml"} }, true},
+		{"peer certificate pin valid", "ir", func(d doc) { d["peer"].(doc)["certificate_sha256"] = strings.Repeat("ab", 32) }, true},
+		{"peer certificate pin short", "ir", func(d doc) { d["peer"].(doc)["certificate_sha256"] = "abcd" }, false},
 		{"noise pinned listener", "ex", func(d doc) { d["noise"] = doc{"key_file": "/etc/baft/noise-key.json", "peer_public_key": key(1)} }, true},
 		{"noise pinned listener with two identities", "ex", func(d doc) {
 			d["noise"] = doc{"key_file": "/etc/baft/noise-key.json", "peer_public_key": key(1)}

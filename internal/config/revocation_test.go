@@ -67,5 +67,9 @@ func TestRevocationConfigValidation(t *testing.T) {
 	ir, err := LoadFile("../../configs/example-ir.yaml")
 	if err != nil { t.Fatal(err) }
 	ir.Revocation = &Revocation{File: "/etc/baft/revoked.yaml"}
-	if err := Validate(ir); err == nil { t.Fatal("dialer accepted a revocation section it does not enforce") }
+	if err := Validate(ir); err != nil { t.Fatalf("dialer revocation rejected: %v", err) }
+	ir.Peer.CertificateSHA256 = "zz"
+	if err := Validate(ir); err == nil { t.Fatal("bad peer.certificate_sha256 accepted") }
+	ir.Peer.CertificateSHA256 = strings.Repeat("ab", 32)
+	if err := Validate(ir); err != nil { t.Fatalf("valid pin rejected: %v", err) }
 }

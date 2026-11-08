@@ -1,6 +1,6 @@
 # BAFT Adversarial Resilience & Intrusion Report
 
-**Verdict: ✅ PASS** · generated 2026-11-07 10:41 UTC · commit `2c8e14efdeca` · profile `bounded`
+**Verdict: ✅ PASS** · generated 2026-11-08 10:46 UTC · commit `2c8e14efdeca` · profile `bounded`
 
 This report is produced automatically by the periodic resilience tester (`tests/adversary/`). It launches a real BAFT EX/IR pair on loopback and, acting as a censor / DoS attacker and as an on-path intruder, tries to break or penetrate it with real traffic. All scenarios are loopback only and never target any third-party host.
 
@@ -10,9 +10,9 @@ This report is produced automatically by the periodic resilience tester (`tests/
 |---|---|---|---|---|---|---|---|
 | connflood | ✅ | ok | 20 | 19 | 14 | 14 | — |
 | garbage | ✅ | ok | 20 | 19 | 14 | 14 | — |
-| slowloris | ✅ | ok | 22 | 20 | 14 | 14 | — |
-| probe | ✅ | ok | 20 | 21 | 14 | 14 | — |
-| manyflows | ✅ | ok | 25 | 23 | 184 | 184 | — |
+| slowloris | ✅ | ok | 20 | 20 | 14 | 14 | — |
+| probe | ✅ | ok | 21 | 22 | 14 | 14 | — |
+| manyflows | ✅ | ok | 24 | 22 | 195 | 195 | — |
 
 ## 2. Intrusion / penetration attempts
 
@@ -35,7 +35,7 @@ go version go1.27.3 linux/amd64
 Linux runnervm7aw5e 7.0.0-1017-azure #17~24.04.1-Ubuntu SMP PREEMPT Thu Sep 24 18:46:57 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
 baseline rss: ex=19MB ir=19MB limit=512MB fd_limit=1024
 probe fingerprints (evidence): {'http_get': (352, False), 'random_256': (103, True), 'empty': (0, False), 'baft_hello_prefix': (0, False)}
-probe deterministic: identical input gave the same response (103, True)
+probe deterministic: identical input gave the same response (0, False)
 ```
 
 ---

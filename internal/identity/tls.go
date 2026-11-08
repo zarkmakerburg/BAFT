@@ -1,8 +1,11 @@
 package identity
 
 import (
+	"crypto/sha256"
+	"crypto/subtle"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -53,6 +56,50 @@ func ClientTLS(ca *x509.CertPool, cert tls.Certificate, serverName string) (*tls
 		NextProtos:         []string{"h2"},
 		ClientSessionCache: nil,
 	}, nil
+}
+
+// RevocationChecker is the part of a RevocationSet a dialer needs.
+type RevocationChecker interface {
+	IsRevoked(identity, serial, fingerprint string) bool
+}
+
+// ApplyServerChecks makes a dialer refuse a listener certificate that is
+// revoked, or that differs from an optional exact pin. It runs after the chain
+// has been verified against the CA, on every handshake including recovery
+// redials. pinSHA256 is the lowercase hex SHA-256 of the DER certificate, or
+// empty for no pin. Revocation is checked against the same list format that
+// listeners use; an established carrier is not cancelled, only new handshakes
+// are refused.
+func ApplyServerChecks(cfg *tls.Config, revocations RevocationChecker, pinSHA256 string) error {
+	var pin []byte
+	if pinSHA256 != "" {
+		b, err := hex.DecodeString(pinSHA256)
+		if err != nil || len(b) != sha256.Size {
+			return errors.New("peer certificate pin must be 64 hex characters")
+		}
+		pin = b
+	}
+	cfg.VerifyConnection = func(cs tls.ConnectionState) error {
+		if len(cs.VerifiedChains) == 0 || len(cs.PeerCertificates) == 0 {
+			return errors.New("server certificate was not verified")
+		}
+		leaf := cs.PeerCertificates[0]
+		sum := sha256.Sum256(leaf.Raw)
+		if pin != nil && subtle.ConstantTimeCompare(sum[:], pin) != 1 {
+			return errors.New("server certificate does not match the pinned fingerprint")
+		}
+		if revocations != nil {
+			id := ""
+			if len(leaf.URIs) == 1 {
+				id = leaf.URIs[0].String()
+			}
+			if revocations.IsRevoked(id, leaf.SerialNumber.Text(16), hex.EncodeToString(sum[:])) {
+				return errors.New("server certificate is revoked")
+			}
+		}
+		return nil
+	}
+	return nil
 }
 
 func ServerTLS(ca *x509.CertPool, cert tls.Certificate, allowedURIs map[string]struct{}) (*tls.Config, error) {

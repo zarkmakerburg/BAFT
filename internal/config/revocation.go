@@ -11,9 +11,10 @@ import (
 	"strings"
 )
 
-// Revocation points a listener at an operator-maintained revocation list.
-// Only listeners enforce revocation, because only they authenticate the
-// peer of every carrier.
+// Revocation points a node at an operator-maintained revocation list.
+// Listeners refuse revoked client certificates; dialers refuse a revoked
+// listener certificate on every new handshake (established carriers are only
+// cancelled on listeners).
 type Revocation struct {
 	File string `json:"file"`
 }
@@ -33,8 +34,8 @@ func validateRevocation(c Config) error {
 	if c.Revocation == nil {
 		return nil
 	}
-	if c.Node.Role != "listener" {
-		return errors.New("revocation is only enforced by listeners")
+	if c.Node.Role != "listener" && c.Node.Role != "dialer" {
+		return errors.New("revocation requires a listener or dialer role")
 	}
 	if c.Revocation.File == "" || !filepath.IsAbs(c.Revocation.File) {
 		return errors.New("revocation.file must be an absolute path")

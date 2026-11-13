@@ -7,6 +7,7 @@
 - Version plan: [EXECUTION_PLAN.fa.md](./EXECUTION_PLAN.fa.md)
 - Baseline audit (Stage 0, live evidence): [BASELINE_AUDIT.md](./BASELINE_AUDIT.md)
 - First architecture contract: [ADR-001 — operation evidence and truthful readiness](./ADR-001-operation-evidence-and-truthful-readiness.md)
+- Hybrid Application Gateway agent instructions: [AGENT_HYBRID_GATEWAY_EXECUTION.md](./AGENT_HYBRID_GATEWAY_EXECUTION.md) — mandatory execution sequence, isolation/security invariants, 16 acceptance gates and no-production-change rules.
 - Working branch recorded at handoff: `codex/v0.5.0-foundation-20261031`
 - Base SHA recorded at branch creation: `9c32ba369fe2be2c549f2878d1de5dbf092c8f64`
 - Plan commit recorded: `2b2757641943f79ce93a39a2e6589f6734b0c246`
@@ -20,6 +21,14 @@
 **Stage 2 (2026-10-31):** first exact-SHA CI on the pinned toolchain caught and fixed a pairing regression; C-BAFT was inventoried and [ADR-002](./ADR-002-c-baft-capability-integration.md) records what is adopted, adapted, deferred or rejected; the wizard now has an on-demand Connection Test. Details, run links and next actions: [BASELINE_AUDIT.md §10](./BASELINE_AUDIT.md#10-stage-2--first-exact-sha-ci-a-caught-regression-and-c-baft-integration-2026-10-31). CI does not run on push for `codex/**`; dispatch `ci.yml` and `bcc-v3-ui-tests.yml` manually.
 
 **Stage 1 (2026-10-31):** first local test execution and the first P0 fix (ADR-001 §5 secret redaction at Agent ACK/log/receipt boundaries, plus deliverable bounded failure receipts) — commit `1cdef92a3a3bae00f727297516c928a8d0340ec3`. Environment limits, exact results and the next four actions are in [BASELINE_AUDIT.md §9](./BASELINE_AUDIT.md#9-stage-1--first-local-execution-and-first-p0-fix-2026-10-31). Start there; do not repeat the Stage 0/1 discovery.
+
+## Current architecture work — Hybrid Application Gateway (2026-11-01)
+
+- Architecture contract: [ADR-004](./ADR-004-hybrid-application-gateway.md).
+- Agent execution contract: [AGENT_HYBRID_GATEWAY_EXECUTION.md](./AGENT_HYBRID_GATEWAY_EXECUTION.md).
+- Tracking PR: [#297](https://github.com/zarkmakerburg/BAFT/pull/297). Verify its live state and head SHA before acting.
+- Scope is a domestic-isolated BAFT server plus a separately enrolled Starlink-connected Edge. First slice is a narrowly allowlisted HTTPS application relay, not a general proxy or routed gateway.
+- Current state at the time of writing: architecture and agent instructions are documentation only. Relay runtime, physical Starlink connectivity and isolation LAB are not proven. Follow HAG-0 onward; do not claim tests that have not run.
 
 ## 1. One-line mission
 

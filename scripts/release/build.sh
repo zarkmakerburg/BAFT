@@ -37,6 +37,7 @@ for arch in "${arches[@]}"; do
     CGO_ENABLED=0 GOOS=linux GOARCH="$arch" \
       go build -trimpath -buildvcs=false -ldflags="$ldflags" \
       -o "$out/$bin-linux-$arch" "./cmd/$bin"
-    echo "$out/$bin-linux-$arch"
+    bytes=$(wc -c < "$out/$bin-linux-$arch" | tr -d '[:space:]')
+    echo "$out/$bin-linux-$arch ($bytes bytes)"
   done
 done

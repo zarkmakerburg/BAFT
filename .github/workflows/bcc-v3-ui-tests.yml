@@ -5,6 +5,7 @@ on:
       - 'web/**'
       - 'internal/bcc/**'
       - 'cmd/baft-bcc/**'
+      - 'internal/cli/bcccmd/**'
       - 'go.mod'
       - 'go.sum'
       - '.github/workflows/bcc-v3-ui-tests.yml'

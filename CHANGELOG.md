@@ -4,6 +4,8 @@ All notable changes to BAFT are listed here. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+- **Dialers can enforce revocation and pin the listener certificate.** `revocation.file` is now accepted on dialers (same list format as on listeners): a revoked listener certificate (identity, serial or SHA-256) is refused on every new handshake, including recovery redials. New optional `peer.certificate_sha256` pins the listener's exact leaf certificate. Established carriers are not cancelled on a dialer; only new handshakes are refused. Config schema and tests updated.
+
 ## [0.5.0] - 2026-11-02
 
 Release notes: [release/notes/v0.5.0.md](release/notes/v0.5.0.md). Real Iran↔abroad evidence: [REAL_HOSTS_LAB.md](docs/roadmap/v0.5.0/REAL_HOSTS_LAB.md) and issue #67.

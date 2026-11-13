@@ -1065,6 +1065,9 @@ func (r *Runtime) runDialer(ctx context.Context, cfg config.Config) error {
 	if err != nil {
 		return err
 	}
+	if err := identity.ApplyServerChecks(tlsCfg, r.Revocations, cfg.Peer.CertificateSHA256); err != nil {
+		return err
+	}
 	if cfg.Noise != nil {
 		tlsCfg.Certificates = nil
 	}

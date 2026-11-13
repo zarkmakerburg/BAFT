@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -38,6 +40,9 @@ type Peer struct {
 	Address            string `json:"address"`
 	ServerName         string `json:"server_name"`
 	AllowedIdentity    string `json:"allowed_identity"`
+	// CertificateSHA256 optionally pins the listener's exact leaf certificate
+	// (lowercase or uppercase hex SHA-256 of the DER bytes).
+	CertificateSHA256  string `json:"certificate_sha256,omitempty"`
 	// Fallback* optionally describe a distinct network path for
 	// Transport.Fallback. Empty values inherit the primary peer/TLS values.
 	FallbackAddress    string `json:"fallback_address,omitempty"`
@@ -328,6 +333,11 @@ func Validate(c Config) error {
 		}
 		if _, _, err := net.SplitHostPort(c.Peer.Address); err != nil {
 			return fmt.Errorf("peer.address: %w", err)
+		}
+		if p := c.Peer.CertificateSHA256; p != "" {
+			if b, err := hex.DecodeString(p); err != nil || len(b) != sha256.Size {
+				return errors.New("peer.certificate_sha256 must be 64 hex characters")
+			}
 		}
 		fallbackPeerSet := c.Peer.FallbackAddress != "" || c.Peer.FallbackServerName != "" || c.Peer.FallbackCAFile != ""
 		if fallbackPeerSet && c.Transport.Fallback == "" {

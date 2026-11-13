@@ -81,6 +81,24 @@ chmod 0755 "$stage/$name/install.sh" "$stage/$name"/release/baft-*
 
 out=$(cd "$out" && pwd)
 epoch=${SOURCE_DATE_EPOCH:-0}
-(cd "$stage" && tar --sort=name --owner=0 --group=0 --numeric-owner --mtime="@$epoch" -cf - "$name") | gzip -n -9 > "$out/$name.tar.gz"
+
+# GNU tar provides the deterministic archive options used by the release
+# format. macOS ships bsdtar as `tar`, which does not support --sort=name.
+# Prefer Homebrew's `gtar` when present; otherwise use `tar` only after a
+# capability probe. BAFT_TAR is an explicit override for controlled builds.
+tar_bin=${BAFT_TAR:-}
+if [[ -z "$tar_bin" ]]; then
+  if command -v gtar >/dev/null 2>&1; then
+    tar_bin=$(command -v gtar)
+  else
+    tar_bin=$(command -v tar || true)
+  fi
+fi
+if [[ -z "$tar_bin" ]] || ! "$tar_bin" --sort=name --owner=0 --group=0 --numeric-owner --mtime="@$epoch" -cf /dev/null -T /dev/null >/dev/null 2>&1; then
+  echo "offline_bundle: GNU tar with --sort=name is required; install it (on macOS: brew install gnu-tar, then use gtar) or set BAFT_TAR to its path" >&2
+  exit 1
+fi
+
+(cd "$stage" && "$tar_bin" --sort=name --owner=0 --group=0 --numeric-owner --mtime="@$epoch" -cf - "$name") | gzip -n -9 > "$out/$name.tar.gz"
 (cd "$out" && sha256sum "$name.tar.gz" > "$name.tar.gz.sha256")
 echo "$out/$name.tar.gz"

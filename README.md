@@ -41,6 +41,8 @@ On the **outside** server (Debian/Ubuntu, as root):
 bash <(curl -Ls https://raw.githubusercontent.com/zarkmakerburg/baft/main/install.sh)
 ```
 
+**Installer source:** this one-line command downloads `install.sh` from the moving `main` branch; it is not pinned to the v0.5.0 release and may run installer code newer than that release. For production, use the latest signed published release.
+
 Choose **1 (Outside Iran)** and answer the questions. Full walkthrough: [Install guide](docs/en/guide/01-install.md).
 
 ## Use with x-ui in 4 steps

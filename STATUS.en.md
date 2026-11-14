@@ -37,7 +37,20 @@ These are hosted GitHub Actions results. The Two-host LAB workflow is not a real
 
 ## Historical engineering detail
 
-The sections below preserve prior qualification evidence and design history. Their dates, SHAs and workflow IDs are historical and must not be read as current-main evidence unless they explicitly match the snapshot above.
+The sections below preserve selected prior qualification evidence and design history; they are not a complete archive. The Step 5.7 qualification baseline is reproduced immediately below. Its date, SHA and workflow IDs are historical and must not be read as current-main evidence.
+
+## P0-I — Step 5.7 final qualification (2026-10-03)
+
+Exact qualification baseline on `main`:
+
+- SHA: `29125392566021a286af20ff8f3a4907c28dbee8`
+- PR #60: merged; logical-session cancellation-cause instrumentation retained and the temporary diagnostic workflow removed.
+- Full CI on this SHA: **PASS**, including unit/integration, race detector, vet, and protocol fuzz smoke.
+- Stage-C soak on this SHA: **PASS**.
+- Step 5.7 Recovery Soak: **PASS in 5 independent attempts on the same SHA**.
+- Each Recovery Soak covers unresolved Class-A exact transactions, hard Class-A live-data recut, Class-B fresh epoch, ambiguous replay contract, Topology × ECRL authority isolation, HTTP handler lifecycle, P0-C lifetime/race, exact-rebind lifecycle, FD/resource lifetime, multi-flow replacement, distributed finalization/replay/FIN matrix, and concurrent Flow churn + race.
+
+Engineering result: the recent rare Class-A evidence gap did not reproduce on this baseline and current qualification is green. This records a **Step 5.7 freeze candidate**; formal ACCEPT/FREEZE remains an HQ governance decision.
 
 ## Stage B evidence
 

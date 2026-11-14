@@ -23,7 +23,7 @@ Completed/integrated:
 
 Remaining:
 - [x] stabilize slow-receiver liveness gate with TWRL
-- [ ] longer slow-receiver/soak tests
+- [x] longer slow-receiver/soak tests — Stage-C soak on the current main SHA: [run 43472903062](https://github.com/zarkmakerburg/BAFT/actions/runs/43472903062) PASS
 - [x] multi-Shard shared-budget exhaustion/reuse gate
 - [x] privacy-bounded conservation metrics
 - [ ] close Stage C after the independent Stage-C soak workflow passes without OOM/race/deadlock

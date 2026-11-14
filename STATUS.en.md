@@ -50,7 +50,7 @@ Exact qualification baseline on `main`:
 - Step 5.7 Recovery Soak: **PASS in 5 independent attempts on the same SHA**.
 - Each Recovery Soak covers unresolved Class-A exact transactions, hard Class-A live-data recut, Class-B fresh epoch, ambiguous replay contract, Topology × ECRL authority isolation, HTTP handler lifecycle, P0-C lifetime/race, exact-rebind lifecycle, FD/resource lifetime, multi-flow replacement, distributed finalization/replay/FIN matrix, and concurrent Flow churn + race.
 
-Engineering result: the recent rare Class-A evidence gap did not reproduce on this baseline and current qualification is green. This records a **Step 5.7 freeze candidate**; formal ACCEPT/FREEZE remains an HQ governance decision.
+Engineering result: the recent rare Class-A evidence gap did not reproduce on this baseline and the qualification on this baseline was green. This records a **Step 5.7 freeze candidate**; formal ACCEPT/FREEZE remains an HQ governance decision.
 
 Scope remains limited to **same-process live-session carrier replacement**. This historical qualification does not establish process-restart resume, machine-reboot resume, durable ECRL session snapshots, or production readiness.
 
@@ -70,7 +70,7 @@ The active DATA scheduler is now PADL (Pressure-Aged Deficit Leasing), with clas
 
 Shared multi-Shard allocator exhaustion/reuse and conservation snapshots pass in CI run `36341666646`. Privacy-bounded conservation metrics pass in CI run `36341810504`.
 
-### Stage-C soak — current status
+### Stage-C soak — status at that historical point
 
 The dedicated `stagec-soak` workflow repeats real multi-Flow and slow-receiver transfers 25 times and runs 5 rounds under the race detector.
 
@@ -79,7 +79,7 @@ Evidence:
 - historical pass after the fixes: run `36342627897` — **PASS**.
 - code-head evidence before the documentation commit: run `36519987991` on `6fcf41631dc963af6f9c124f245a3ce7a47bc2fe` — **PASS**, including the repeated soak and race sample.
 
-The current Stage C gate is therefore green, but this is not a public benchmark, a real pilot, or a production-readiness claim.
+The Stage C gate was green at that historical point, but this is not a public benchmark, a real pilot, or a production-readiness claim.
 
 ## Not complete
 

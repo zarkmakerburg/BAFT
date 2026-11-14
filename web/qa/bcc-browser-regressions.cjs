@@ -229,9 +229,12 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       assert.equal(await page.locator('.baw-dialog').count(),0,'the wizard closes before navigation');
       assert.equal(await page.locator('#addServer').count(),1,'the destination exposes the add-server action');
       const overviewURL=f.base+'api/overview?window=24h';
-      const emptyOverview=await page.evaluate(async url=>{const r=await fetch(url);const value=await r.json();value.nodes=[];return value},overviewURL);
+      // Reuse the already-loaded observation and refresh the real app in-place.
+      // A full reload repeats every bootstrap API call in all eight profiles
+      // and can exhaust the fixture's intentionally unchanged rate limit.
+      const emptyOverview=await page.evaluate(()=>({...overview,nodes:[]}));
       await page.route(overviewURL,r=>r.fulfill({json:emptyOverview}));
-      await page.reload({waitUntil:'domcontentloaded'});
+      await page.evaluate(()=>refresh());
       const emptyAction=page.locator('#serverTable .empty [data-server-empty-add]');
       await emptyAction.waitFor({state:'visible'});
       assert.equal(await emptyAction.getAttribute('type'),'button');

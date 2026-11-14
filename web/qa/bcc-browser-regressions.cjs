@@ -188,6 +188,10 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       await page.locator('#main [data-baw-open]').click();
       const dlg=page.locator('.baw-dialog');
       await dlg.locator('[data-k=ir]').waitFor({state:'visible'});
+      assert.equal(await page.evaluate(()=>Boolean(document.activeElement.closest('.baw-dialog'))),true,'initial focus must remain inside the dialog after inventory loads');
+      const first=dlg.locator('.baw-close');
+      await first.focus();await page.keyboard.press('Shift+Tab');
+      assert.equal(await page.evaluate(()=>Boolean(document.activeElement.closest('.baw-dialog'))),true,'Shift+Tab must wrap inside the dialog');
       const ir=await dlg.locator('[data-k=ir] option').evaluateAll(o=>o.map(x=>x.value));
       const ex=await dlg.locator('[data-k=ex] option').evaluateAll(o=>o.map(x=>x.value));
       assert.ok(ir.includes('qa-ir')&&!ir.includes('qa-ex'),'Iran list must hold worker/master nodes only');
@@ -224,8 +228,18 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       await page.waitForFunction(()=>document.querySelector('#main')?.dataset.route==='servers');
       assert.equal(await page.locator('.baw-dialog').count(),0,'the wizard closes before navigation');
       assert.equal(await page.locator('#addServer').count(),1,'the destination exposes the add-server action');
+      const overviewURL=f.base+'api/overview?window=24h';
+      const emptyOverview=await page.evaluate(async url=>{const r=await fetch(url);const value=await r.json();value.nodes=[];return value},overviewURL);
+      await page.route(overviewURL,r=>r.fulfill({json:emptyOverview}));
+      await page.reload({waitUntil:'domcontentloaded'});
+      const emptyAction=page.locator('#serverTable .empty [data-server-empty-add]');
+      await emptyAction.waitFor({state:'visible'});
+      assert.equal(await emptyAction.getAttribute('type'),'button');
+      await emptyAction.click();
+      await page.waitForFunction(()=>document.activeElement?.id==='bsAlias','', {timeout:10000});
+      assert.equal(await page.locator('[data-tool=ssh]').evaluate(d=>d.open),true,'empty-state action opens SSH enrollment');
       assert.equal(apiRequests.filter(x=>x.method!=='GET').length,before,'opening and leaving the empty wizard performs no writes');
-      await page.unroute(f.base+'api/nodes');
+      await page.unroute(overviewURL);await page.unroute(f.base+'api/nodes');
     });
     await check('shared listener Join is explicit and plans only the new tenant',async()=>{
       const tunnels=f.base+'api/tunnels',planEndpoint=f.base+'api/tunnels/plan';

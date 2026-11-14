@@ -280,8 +280,8 @@
     const keep = act ? act.getAttribute('data-k') : null;
     let caret = null; try { if (act && typeof act.selectionStart === 'number') caret = [act.selectionStart, act.selectionEnd]; } catch (e) { caret = null; }
     const d = box.firstElementChild; d.replaceChildren(); d.setAttribute('dir', doc.documentElement.dir || 'auto');
-    const head = el('h2', { class: 'baw-title', id: 'baw-heading', text: t('title') + ' — ' + t('steps')[s.step] });
-    d.append(el('header', { class: 'baw-header' }, head, el('button', { type: 'button', class: 'baw-close', text: t('close'), onclick: close })));
+    const head = el('h2', { class: 'baw-title', id: 'baw-heading', tabindex: '-1', 'data-k': 'heading', text: t('title') + ' — ' + t('steps')[s.step] });
+    d.append(el('header', { class: 'baw-header' }, head, el('button', { type: 'button', class: 'baw-close', 'data-k': 'close', text: t('close'), onclick: close })));
     const prog = el('ol', { class: 'baw-progress qt-steps', 'aria-label': t('title') });
     t('steps').forEach((name, i) => prog.append(el('li', { 'aria-current': i === s.step ? 'step' : null, 'data-complete': i < s.step ? 'true' : null }, el('span', { class: 'qt-dot', 'aria-hidden': 'true' }), el('span', { class: 'qt-step-name', text: name }))));
     d.append(prog);
@@ -513,7 +513,7 @@
     box.append(dialog); doc.body.append(box);
     box.addEventListener('click', e => { if (e.target === box) close(); });
     doc.addEventListener('keydown', onKey); doc.addEventListener('focusin', onFocus);
-    render(); const f = focusables()[0]; if (f) f.focus();
+    render(); const heading = box.querySelector('[data-k=heading]'); if (heading) heading.focus();
     if (live()) load();
   }
   root.BAFTActionWizard = Object.freeze({ open, close, isOpen: () => Boolean(box), version: '2.0-live' });

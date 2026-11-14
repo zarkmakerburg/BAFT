@@ -90,6 +90,8 @@ See [Project status](STATUS.en.md), [Development plan](PLAN.en.md), [Known limit
 
 
 
+## Documentation
+
 - **[User guide](docs/en/guide/README.md)**: [install](docs/en/guide/01-install.md), [x-ui](docs/en/guide/02-use-with-x-ui.md), [panel](docs/en/guide/03-panel.md), [network and BBR](docs/en/guide/04-network-and-bbr.md), [update, backup, uninstall](docs/en/guide/05-update-backup-uninstall.md), [troubleshooting](docs/en/guide/06-troubleshooting.md), [FAQ](docs/en/guide/07-faq.md)
 - [Technical documentation](docs/en/README.md) and [engineering notes](docs/en/40-engineering-notes.md) (architecture, protocol, stages, CI evidence)
 - [Changelog](CHANGELOG.md) · [Known limitations](KNOWN-LIMITATIONS.en.md) · [Project status](STATUS.en.md)

@@ -29,7 +29,7 @@ Goal: a new operator can sign in and create the first tunnel through a safe, und
 
 - **A — contract/spike:** TLS/H2 ADRs, protocol vectors, config schema, full-duplex mTLS Carrier. Completed for its scope.
 - **B — secure vertical slice:** fixed Routes, Flow protocol, identity/authorization, revocation, CLI, and COR-01. Completed for its defined scope.
-- **C — resources/multi-Flow:** global allocator, receive/replay reservation, DRR, bounded control queue, multi-Flow/multi-Shard, slow-receiver/no-OOM gates. In progress.
+- **C — resources/multi-Flow:** global allocator, receive/replay reservation, DRR, bounded control queue, multi-Flow/multi-Shard and slow-receiver/no-OOM gates are integrated. The recorded [Stage-C CI soak passed](https://github.com/zarkmakerburg/BAFT/actions/runs/43472903062) (about 2m 11s; a bounded CI soak, not long-duration endurance). Formal Stage-C closure remains open pending independent soak-evidence review and an explicit owner/HQ acceptance decision.
 - **D — precise resume:** session/boot/epoch fencing, snapshots, replay, tombstones, duplicate-free Carrier replacement.
 - **D2 — endpoint/relay:** bounded preconfigured direct/relay endpoint selection after core resume.
 - **E — performance:** reproducible benchmarks, profiling, baseline comparison, raw evidence.

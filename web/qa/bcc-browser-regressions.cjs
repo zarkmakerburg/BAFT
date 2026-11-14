@@ -125,7 +125,8 @@ async function runProfile(browser,[name,viewport,lang,theme]){
     await check('public access boundary',async()=>{
       assert.equal(await page.evaluate(()=>Boolean(window.BAFT_UI.operationsHTML||window.BAFT_UI.csrf)),false);
       assert.equal(await page.locator('.ops-card').count(),0);
-      for(const control of ['#baw-open','[data-lang=fa]','[data-lang=en]','[data-go=signin]']){
+      assert.equal(await page.locator('#public #baw-open').count(),0,'tunnel creation must not be offered before sign-in');
+      for(const control of ['[data-lang=fa]','[data-lang=en]','[data-go=signin]']){
         const item=page.locator('#public '+control).first();assert.equal(await item.isVisible(),true,'public control '+control+' must remain visible');
         const box=await item.boundingBox();assert.ok(box&&box.x>=-1&&box.x+box.width<=viewport.width+1,'public control '+control+' must fit viewport');
       }

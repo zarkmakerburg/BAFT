@@ -23,10 +23,10 @@ Completed/integrated:
 
 Remaining:
 - [x] stabilize slow-receiver liveness gate with TWRL
-- [x] longer slow-receiver/soak tests — Stage-C soak on the current main SHA: [run 43472903062](https://github.com/zarkmakerburg/BAFT/actions/runs/43472903062) PASS
+- [x] repeated real-path slow-receiver/Stage-C soak in CI — [run 43472903062](https://github.com/zarkmakerburg/BAFT/actions/runs/43472903062) PASS (the recorded job ran for about 2m 11s; this is a bounded CI soak, not a long-duration endurance test)
 - [x] multi-Shard shared-budget exhaustion/reuse gate
 - [x] privacy-bounded conservation metrics
-- [ ] close Stage C after the independent Stage-C soak workflow passes without OOM/race/deadlock
+- [ ] close Stage C after reviewing the independent soak evidence and recording an explicit acceptance decision; the CI workflow has passed, but the owner/HQ acceptance gate remains open
 
 ## Stage D
 Boot/session/epoch fencing, snapshots, replay, tombstones, duplicate-free Carrier replacement, state-machine fuzz, and recovery correctness gates.

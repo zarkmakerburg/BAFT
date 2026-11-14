@@ -54,6 +54,8 @@ Baseline دقیق qualification روی `main`:
 
 نتیجه مهندسی: شکاف evidence مربوط به failure نادر Class-A اخیر روی این baseline بازتولید نشد و qualification آن baseline سبز بود. این بخش **Step 5.7 freeze candidate** را ثبت می‌کند؛ تصمیم رسمی ACCEPT/FREEZE طبق governance متعلق به HQ است.
 
+دامنه همچنان به **تعویض Carrier نشست زنده در همان process** محدود است. این qualification تاریخی، ادامهٔ نشست پس از restart فرایند، reboot ماشین، snapshot پایدار ECRL یا production readiness را اثبات نمی‌کند.
+
 ## Stage A
 
 موارد پیاده و آزموده‌شده:

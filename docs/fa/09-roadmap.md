@@ -72,7 +72,7 @@
 - metrics لازم؛
 - receiver کند بدون OOM.
 
-**وضعیت:** در حال اجرا و تثبیت. بخش‌های اصلی وارد data path شده‌اند، اما slow-receiver gate هنوز کامل سبز نیست.
+**وضعیت:** پیاده‌سازی و gateهای اصلی در CI یکپارچه شده‌اند. Stage-C soak ثبت‌شده [PASS](https://github.com/zarkmakerburg/BAFT/actions/runs/43472903062) است (حدود ۲ دقیقه و ۱۱ ثانیه؛ soak محدود CI، نه آزمون endurance طولانی). بستن رسمی Stage C همچنان باز است و به بررسی شواهد soak مستقل و تصمیم صریح پذیرش مالک/HQ نیاز دارد.
 
 ## Stage D — resume دقیق
 

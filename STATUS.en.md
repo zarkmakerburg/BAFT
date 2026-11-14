@@ -66,7 +66,7 @@ The global receive/replay allocator, replay release on ACK, memory/credit backpr
 
 The historical slow-receiver failure triggered the TWRL redesign. TWRL now separates Accepted, Delivered, and Credit watermarks and passes the slow-receiver gate, race detector, and 1 GiB COR-01.
 
-The active DATA scheduler is now PADL (Pressure-Aged Deficit Leasing), with classic DRR retained as a comparison baseline. Consolidated CI run `36341912070` and COR-01 run `36341912044` both pass on the PADL path.
+At that historical point, the active DATA scheduler was PADL (Pressure-Aged Deficit Leasing), with classic DRR retained as a comparison baseline. Consolidated CI run `36341912070` and COR-01 run `36341912044` both passed on the PADL path.
 
 Shared multi-Shard allocator exhaustion/reuse and conservation snapshots pass in CI run `36341666646`. Privacy-bounded conservation metrics pass in CI run `36341810504`.
 

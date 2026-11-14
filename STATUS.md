@@ -133,7 +133,7 @@ COR-01 روی همین commit در run `36340860568` نیز **PASS** شد.
 
 ### PADL، چند Shard و conservation observability
 
-مسیر فعال DATA از DRR ساده به **PADL (Pressure-Aged Deficit Leasing)** ارتقا یافته است. PADL accounting بایتی DRR را حفظ می‌کند، اما انتخاب Flow واجدشرایط را با replay-memory debt و aging ضد-starvation ترکیب می‌کند. DRR کلاسیک در مخزن به‌عنوان baseline مقایسه‌ای باقی مانده است.
+در آن مقطع تاریخی، مسیر فعال DATA از DRR ساده به **PADL (Pressure-Aged Deficit Leasing)** ارتقا یافته بود. PADL accounting بایتی DRR را حفظ می‌کرد، اما انتخاب Flow واجدشرایط را با replay-memory debt و aging ضد-starvation ترکیب می‌کرد. DRR کلاسیک در مخزن به‌عنوان baseline مقایسه‌ای باقی مانده بود.
 
 روی commit `fc64ef6b...`:
 - CI run `36341912070`: **PASS**

@@ -2,6 +2,31 @@
 
 Each Stage has deliverables and an evidence gate.
 
+## Parallel UX-0 track — first-time, non-technical users (P0)
+
+Goal: a new operator can sign in and create the first tunnel through a safe, understandable in-panel flow, without reading engineering documentation or running shell commands. This track runs alongside protocol/engine stages and is a prerequisite for broadening the general-user experience.
+
+### P0 — remove dead ends and complete first use
+
+- [ ] **Empty wizard recovery:** when either the Iran or foreign server role is missing, show one clear “Go to Servers” action, close the wizard, and navigate directly to server enrollment. Initial implementation is in the UX PR; final acceptance requires CI and browser evidence.
+- [ ] **Unambiguous entry:** the public page offers product information and sign-in only; tunnel creation is available only after authentication inside BCC. Keep the public product page separate from the private console entry.
+- [ ] **First-run guide:** show the sequence: sign in → add foreign server → add Iran server → verify both are online → create tunnel → confirm the outcome. Explain prerequisites, waiting states and the next action at each step.
+- [ ] **Plain language:** keep internal terms such as ECRL, DRR, Carrier, Epoch, Shard and engine names out of the normal user path; expose them only under technical details with a short explanation.
+- [ ] **Actionable states:** empty, loading, error, offline, stale, partial and unknown states each need a clear explanation and next action. UNKNOWN or stale data must never be presented as healthy.
+- [ ] **Understandable failure/recovery:** preview impact before changes; after failure, show rollback outcome, what did/did not change, and the safe next step. Retry is enabled only when operation state is known.
+- [ ] **Progressive disclosure:** keep common settings in the main path and technical options under Advanced. Explain defaults; auto-selection may use only verified capabilities.
+- [ ] **Accessibility and mobile:** run real-browser checks for Persian RTL and English LTR, mobile/desktop widths, keyboard/focus, 200% zoom, reduced motion, contrast and readable text sizes.
+
+### UX-0 acceptance criteria
+
+1. No primary path ends in a dead end when a server, data point or permission is missing.
+2. A first-time user can create the first tunnel using in-panel guidance; shell access and engineering docs are not required for the normal path.
+3. Before deployment, the plan and its changes are understandable and reviewable; required consent is never bypassed.
+4. Success is reported only from BCC-confirmed state; partial, stale or unknown outcomes remain explicit.
+5. All primary flows are tested in a real browser across both languages and target viewport sizes; DOM or preview checks alone are not acceptance.
+
+**Execution order:** fix dead ends and first-run guidance (P0), simplify dashboard/status language (P1), then visual polish and customization (P2). This track does not replace or bypass the security/correctness gates in Stages A–H.
+
 - **A — contract/spike:** TLS/H2 ADRs, protocol vectors, config schema, full-duplex mTLS Carrier. Completed for its scope.
 - **B — secure vertical slice:** fixed Routes, Flow protocol, identity/authorization, revocation, CLI, and COR-01. Completed for its defined scope.
 - **C — resources/multi-Flow:** global allocator, receive/replay reservation, DRR, bounded control queue, multi-Flow/multi-Shard, slow-receiver/no-OOM gates. In progress.

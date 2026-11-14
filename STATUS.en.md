@@ -1,17 +1,43 @@
 # Project Status
 
-> Persian: [STATUS.md](STATUS.md)  
-> Report date: 2026-10-03
+> Persian: [STATUS.md](STATUS.md)
+> Report date: 2026-11-14
 
-Repository: `zarkmakerburg/baft`, branch `main`. Current qualification baseline: `29125392566021a286af20ff8f3a4907c28dbee8`.
+## Current snapshot — exact main SHA
 
-## Summary
+- Repository: `zarkmakerburg/BAFT`
+- Branch: `main` (protected)
+- Exact HEAD: [`d4348c2ace51e56469b10aee2806f3ad4869c8fa`](https://github.com/zarkmakerburg/BAFT/commit/d4348c2ace51e56469b10aee2806f3ad4869c8fa)
+- Latest published release: [v0.5.0](https://github.com/zarkmakerburg/BAFT/releases/tag/v0.5.0), published 2026-11-02.
+- The current main commit contains post-v0.5.0 work listed under `[Unreleased]` in `CHANGELOG.md`; v0.5.1 is not a published release.
 
-- Stage A: complete for its defined scope.
-- Stage B: complete for the defined secure vertical slice.
-- Stage C: the current multi-Flow/slow-receiver soak gate is green; this does not mean a public benchmark or production readiness.
-- Stage D: same-process ECRL recovery through Step 5.7 is implemented and tested, but Stage D is not complete or production-ready; process-restart/machine-reboot resume and durable ECRL session snapshots remain unimplemented.
+### Exact-SHA hosted evidence
 
+The following nine workflow runs are completed with `success` on the exact HEAD above:
+
+- [ci](https://github.com/zarkmakerburg/BAFT/actions/runs/43472903251): SUCCESS
+- [operational recovery](https://github.com/zarkmakerburg/BAFT/actions/runs/43472903271): SUCCESS
+- [operational ingress v1](https://github.com/zarkmakerburg/BAFT/actions/runs/43472903102): SUCCESS
+- [shared operational ingress](https://github.com/zarkmakerburg/BAFT/actions/runs/43472903312): SUCCESS
+- [Two-host LAB](https://github.com/zarkmakerburg/BAFT/actions/runs/43472903017): SUCCESS
+- [stagec-soak](https://github.com/zarkmakerburg/BAFT/actions/runs/43472903062): SUCCESS
+- [advanced-adversary](https://github.com/zarkmakerburg/BAFT/actions/runs/43472903026): SUCCESS
+- [Guided tunnel flow E2E](https://github.com/zarkmakerburg/BAFT/actions/runs/43472903373): SUCCESS
+- [Step 5.7 recovery soak](https://github.com/zarkmakerburg/BAFT/actions/runs/43472903463): SUCCESS
+
+These are hosted GitHub Actions results. The Two-host LAB workflow is not a real-world field pilot. The repository has additional workflow definitions; this list does not assert that every workflow has run or passed on this SHA. No production-readiness or scaled field-pilot claim follows from these results.
+
+### Current product gates
+
+- **P0 / Issue #269:** OPEN. Full acceptance for public ingress, safe shared transport, wizard simplification, rollback, recovery and the end-to-end acceptance matrix remains incomplete.
+- **Ingress integration candidate / PR #278:** OPEN and Draft, head `231bbf622f40bbd2dce96b2a54cd18271131fd39`. The latest adversarial review recorded unresolved P0 fencing gaps: listener Apply/Retire/rollback effects are not serialized under the held lease lock; numeric-port ownership is not freshly checked immediately before listener effects; restart Remove has a guard-close race. Details: [HQ board review](https://github.com/zarkmakerburg/BAFT/issues/67#issuecomment-6861034383). These findings concern the candidate branch and must not be represented as a merged-main defect without a separate main-branch verification.
+- **Stage C:** the dedicated soak workflow passed on this exact main SHA. The plan's formal Stage-C closure item remains open pending explicit acceptance.
+- **Stage D / ECRL:** only same-process live-session carrier replacement is implemented and tested. Process-restart resume, machine-reboot resume and durable session snapshots are not implemented.
+- **Release:** v0.5.0 is the latest public release. The main-head changes under `[Unreleased]` are not a published or signed v0.5.1 release.
+
+## Historical engineering detail
+
+The sections below preserve selected prior qualification evidence and design history; they are not a complete archive. The Step 5.7 qualification baseline is reproduced immediately below. Its date, SHA and workflow IDs are historical and must not be read as current-main evidence.
 
 ## P0-I — Step 5.7 final qualification (2026-10-03)
 
@@ -24,9 +50,9 @@ Exact qualification baseline on `main`:
 - Step 5.7 Recovery Soak: **PASS in 5 independent attempts on the same SHA**.
 - Each Recovery Soak covers unresolved Class-A exact transactions, hard Class-A live-data recut, Class-B fresh epoch, ambiguous replay contract, Topology × ECRL authority isolation, HTTP handler lifecycle, P0-C lifetime/race, exact-rebind lifecycle, FD/resource lifetime, multi-flow replacement, distributed finalization/replay/FIN matrix, and concurrent Flow churn + race.
 
-Engineering result: the recent rare Class-A evidence gap did not reproduce on this baseline and current qualification is green. This records a **Step 5.7 freeze candidate**; formal ACCEPT/FREEZE remains an HQ governance decision.
+Engineering result: the recent rare Class-A evidence gap did not reproduce on this baseline and the qualification on this baseline was green. This records a **Step 5.7 freeze candidate**; formal ACCEPT/FREEZE remains an HQ governance decision.
 
-Scope remains limited to **same-process live-session carrier replacement**. This does not add claims for process-restart resume, machine-reboot resume, durable session snapshots, or production readiness.
+Scope remains limited to **same-process live-session carrier replacement**. This historical qualification does not establish process-restart resume, machine-reboot resume, durable ECRL session snapshots, or production readiness.
 
 ## Stage B evidence
 
@@ -40,11 +66,11 @@ The global receive/replay allocator, replay release on ACK, memory/credit backpr
 
 The historical slow-receiver failure triggered the TWRL redesign. TWRL now separates Accepted, Delivered, and Credit watermarks and passes the slow-receiver gate, race detector, and 1 GiB COR-01.
 
-The active DATA scheduler is now PADL (Pressure-Aged Deficit Leasing), with classic DRR retained as a comparison baseline. Consolidated CI run `36341912070` and COR-01 run `36341912044` both pass on the PADL path.
+At that historical point, the active DATA scheduler was PADL (Pressure-Aged Deficit Leasing), with classic DRR retained as a comparison baseline. Consolidated CI run `36341912070` and COR-01 run `36341912044` both passed on the PADL path.
 
 Shared multi-Shard allocator exhaustion/reuse and conservation snapshots pass in CI run `36341666646`. Privacy-bounded conservation metrics pass in CI run `36341810504`.
 
-### Stage-C soak — current status
+### Stage-C soak — status at that historical point
 
 The dedicated `stagec-soak` workflow repeats real multi-Flow and slow-receiver transfers 25 times and runs 5 rounds under the race detector.
 
@@ -53,7 +79,7 @@ Evidence:
 - historical pass after the fixes: run `36342627897` — **PASS**.
 - code-head evidence before the documentation commit: run `36519987991` on `6fcf41631dc963af6f9c124f245a3ce7a47bc2fe` — **PASS**, including the repeated soak and race sample.
 
-The current Stage C gate is therefore green, but this is not a public benchmark, a real pilot, or a production-readiness claim.
+The Stage C gate was green at that historical point, but this is not a public benchmark, a real pilot, or a production-readiness claim.
 
 ## Not complete
 

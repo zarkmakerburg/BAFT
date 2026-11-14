@@ -41,6 +41,8 @@ On the **outside** server (Debian/Ubuntu, as root):
 bash <(curl -Ls https://raw.githubusercontent.com/zarkmakerburg/baft/main/install.sh)
 ```
 
+**Installer source:** this one-line command downloads `install.sh` from the moving `main` branch; it is not pinned to the v0.5.0 release and may run installer code newer than that release. For production, use the latest signed published release.
+
 Choose **1 (Outside Iran)** and answer the questions. Full walkthrough: [Install guide](docs/en/guide/01-install.md).
 
 ## Use with x-ui in 4 steps
@@ -70,21 +72,27 @@ Details: [Use with x-ui](docs/en/guide/02-use-with-x-ui.md).
 | `baft doctor` / `baft version` | every server | health check / installed version |
 | `journalctl -u baft -f` | every server | live tunnel logs |
 
-## Development status and code organization
+## Current release and development status
 
-**Next planned release: v0.4.0** — this is a development target, **not a published release**. For production installs, use the latest published release; the installer command above targets the default branch, not the development branch.
+**Latest published release: [v0.5.0](https://github.com/zarkmakerburg/BAFT/releases/tag/v0.5.0)** (published 2026-11-02). The current `main` head is [`d4348c2ace51`](https://github.com/zarkmakerburg/BAFT/commit/d4348c2ace51e56469b10aee2806f3ad4869c8fa) and contains post-v0.5.0 changes listed under **[Unreleased](CHANGELOG.md)**, including unified server updates, agent self-update and dialer-side revocation/certificate pinning. These changes are **not a published release**. For production installs, use the latest signed published release until a newer release is formally published.
 
-- [P0 implementation and acceptance gates](docs/design/p0-oneclick-ingress-269.md) — installer safety, BCC TLS, public ingress, network diagnostics and Linux menu accessibility.
-- [Draft v0.4.0 integration PR](https://github.com/zarkmakerburg/BAFT/pull/270) and [HQ progress log](https://github.com/zarkmakerburg/BAFT/issues/67) — review and CI evidence, not release approval.
-- `install.sh`: installation, generated `baft-panel` and `baft-net` management tools.
-- `internal/bcc/`: BCC backend, including pure public-ingress planning and reservation checks. **Planning does not provision a public listener or firewall rule.**
-- `web/`: BCC browser UI and preview-only Aurora wizard components.
-- `tests/installer/`: installer contract tests; static checks are not a substitute for VM and live-path validation.
-- `docs/design/`: proposed P0 work and engineering decisions, not proof that each feature has shipped.
+**P0 status:** [Issue #269](https://github.com/zarkmakerburg/BAFT/issues/269) remains open. v0.5.0 includes a guided tunnel flow, opt-in public ingress and shared-transport tenant operations, but the complete P0 acceptance is not closed. In particular, do not infer that general-purpose `multiplex-v1` is implemented or supported. The current ingress integration candidate [PR #278](https://github.com/zarkmakerburg/BAFT/pull/278) is still a draft and has unresolved fencing findings recorded in the [HQ board](https://github.com/zarkmakerburg/BAFT/issues/67#issuecomment-6861034383).
 
-**Known development gaps:** The generated `baft-panel` and `baft-net` menus and the Linux Go console support Up/Down arrows, Tab/Shift+Tab and numbered choices, with plain input fallback; the complete command catalog and localization still need completion. Signed read-only public-ingress preflight is available, but agent apply/reconcile, fully reversible adaptive network profiles, and the v0.4.0 end-to-end release gates remain under development. Aurora is intended to complement the existing BCC, not replace it. Existing 3X-UI subscriptions and services remain externally owned.
+**Engineering status:** Stage A/B are complete for their defined scopes. The Stage-C soak workflow passed on the current `main` SHA (see [run 43472903062](https://github.com/zarkmakerburg/BAFT/actions/runs/43472903062)); formal Stage-C closure remains an explicit acceptance decision. Stage D is partial: ECRL supports same-process live-session carrier replacement, but process-restart resume, machine-reboot resume and durable session snapshots are not implemented. BAFT is not declared production-ready and the current `main` SHA is not evidence of a scaled field pilot.
 
-See the [v0.4.0 readiness matrix and upgrade gates](docs/release/v0.4.0-readiness.md) for tested changes and remaining blockers.
+The nine GitHub Actions runs listed in [STATUS](STATUS.en.md) completed successfully on the exact current `main` SHA. This is not a claim that every workflow in the repository has run or passed on that SHA.
+
+- `install.sh`: installation, update and generated `baft-panel` / `baft-net` management tools.
+- `internal/bcc/`: BCC backend, reviewed tunnel plans, public-ingress policy and operational coordination.
+- `web/`: BCC browser UI, including the guided tunnel flow.
+- `tests/installer/` and `tests/e2e/`: installer contracts and hosted end-to-end workflows.
+- `docs/design/` and `docs/roadmap/`: design decisions, implementation plans and acceptance gates; a design document alone is not evidence of shipped behavior.
+
+**Compatibility and ownership:** Aurora is intended to complement the existing BCC, not replace it. Existing 3X-UI subscriptions and services remain externally owned; BAFT does not take ownership of or replace them.
+
+See [P0 implementation and acceptance gates](docs/design/p0-oneclick-ingress-269.md), [Project status](STATUS.en.md), [Development plan](PLAN.en.md), [Known limitations](KNOWN-LIMITATIONS.en.md) and the [changelog](CHANGELOG.md).
+
+
 
 ## Documentation
 

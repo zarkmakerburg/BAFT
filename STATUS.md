@@ -2,37 +2,44 @@
 
 # وضعیت پروژه
 
-> نسخه انگلیسی: [STATUS.en.md](STATUS.en.md)  
-> تاریخ این گزارش: 2026-10-03
+> نسخه انگلیسی: [STATUS.en.md](STATUS.en.md)
+> تاریخ گزارش: 2026-11-14
 
-## مخزن
+## نمای فعلی — SHA دقیق main
 
-- مخزن: `zarkmakerburg/baft`
-- شاخه اصلی: `main`
-- baseline زنده qualification: `29125392566021a286af20ff8f3a4907c28dbee8`
+- مخزن: `zarkmakerburg/BAFT`
+- شاخه: `main` (محافظت‌شده)
+- HEAD دقیق: [`d4348c2ace51e56469b10aee2806f3ad4869c8fa`](https://github.com/zarkmakerburg/BAFT/commit/d4348c2ace51e56469b10aee2806f3ad4869c8fa)
+- آخرین نسخهٔ عمومی منتشرشده: [v0.5.0](https://github.com/zarkmakerburg/BAFT/releases/tag/v0.5.0)، منتشرشده در ۲۰۲۶-۱۱-۰۲.
+- commit فعلی main تغییرهای پس از v0.5.0 را در بخش `[Unreleased]` فایل `CHANGELOG.md` دارد؛ v0.5.1 هنوز نسخهٔ منتشرشده نیست.
 
-## خلاصه
+### شواهد میزبانی‌شده روی همین SHA
 
-- **Stage A:** کامل برای scope تعریف‌شده.
-- **Stage B:** کامل برای secure vertical slice تعریف‌شده.
-- **Stage C:** گیت فعلی multi-Flow/slow-receiver soak سبز است؛ این به معنی benchmark عمومی یا production-ready بودن نیست.
-- **Stage D:** بخش same-process ECRL تا Step 5.7 وارد Runtime شده و تست شده است، اما Stage D کامل یا production-ready اعلام نشده است؛ process-restart/machine-reboot resume و snapshot پایدار ECRL همچنان پیاده نشده‌اند.
+نه اجرای زیر از GitHub Actions با وضعیت `success` و روی همین HEAD دقیق تکمیل شده‌اند:
 
+- [ci](https://github.com/zarkmakerburg/BAFT/actions/runs/43472903251): SUCCESS
+- [operational recovery](https://github.com/zarkmakerburg/BAFT/actions/runs/43472903271): SUCCESS
+- [operational ingress v1](https://github.com/zarkmakerburg/BAFT/actions/runs/43472903102): SUCCESS
+- [shared operational ingress](https://github.com/zarkmakerburg/BAFT/actions/runs/43472903312): SUCCESS
+- [Two-host LAB](https://github.com/zarkmakerburg/BAFT/actions/runs/43472903017): SUCCESS
+- [stagec-soak](https://github.com/zarkmakerburg/BAFT/actions/runs/43472903062): SUCCESS
+- [advanced-adversary](https://github.com/zarkmakerburg/BAFT/actions/runs/43472903026): SUCCESS
+- [Guided tunnel flow E2E](https://github.com/zarkmakerburg/BAFT/actions/runs/43472903373): SUCCESS
+- [Step 5.7 recovery soak](https://github.com/zarkmakerburg/BAFT/actions/runs/43472903463): SUCCESS
 
-## P0-I — qualification نهایی Step 5.7 (2026-10-03)
+این‌ها نتایج GitHub Actions هستند. workflow با عنوان Two-host LAB معادل پایلوت میدانی روی سرورهای واقعی نیست. مخزن workflowهای دیگری هم دارد؛ این فهرست ادعا نمی‌کند که همهٔ workflowها روی این SHA اجرا یا سبز شده‌اند. از این نتایج به‌تنهایی نمی‌توان Production-ready بودن یا پایلوت میدانی در مقیاس را نتیجه گرفت.
 
-Baseline دقیق qualification روی `main`:
+### گیت‌های فعلی محصول
 
-- SHA: `29125392566021a286af20ff8f3a4907c28dbee8`
-- PR #60: merge شده؛ instrumentation علت cancellation برای logical Session حفظ شده و workflow تشخیصی موقت حذف شده است.
-- Full CI روی همین SHA: **PASS**؛ شامل unit/integration، race detector، vet و protocol fuzz smoke.
-- Stage-C soak روی همین SHA: **PASS**.
-- Step 5.7 Recovery Soak: **PASS در 5 attempt مستقل روی همین SHA**.
-- هر Recovery Soak شامل Class-A unresolved exact transaction، hard Class-A live-data recut، Class-B fresh epoch، ambiguous replay contract، Topology × ECRL authority isolation، HTTP handler lifecycle، P0-C lifetime/race، exact-rebind lifecycle، FD/resource lifetime، multi-flow replacement، distributed finalization/replay/FIN matrix و concurrent Flow churn + race بوده است.
+- **P0 / Issue #269:** باز است. پذیرش کامل Public Ingress، Shared Transport امن، ساده‌سازی Wizard، rollback، recovery و ماتریس end-to-end هنوز کامل نشده است.
+- **نامزد یکپارچه‌سازی Ingress / PR #278:** باز و Draft، با head برابر `231bbf622f40bbd2dce96b2a54cd18271131fd39`. آخرین بازبینی adversarial سه شکاف P0 را ثبت کرده است: اثرهای Apply/Retire/rollback مربوط به Listener زیر قفل Lease نگه داشته نمی‌شوند؛ مالکیت عددی پورت درست پیش از اثر Listener دوباره بررسی نمی‌شود؛ و Remove در مسیر restart در برابر بسته‌شدن Guard رقابت دارد. جزئیات: [بازبینی در برد HQ](https://github.com/zarkmakerburg/BAFT/issues/67#issuecomment-6861034383). این یافته‌ها مربوط به شاخهٔ نامزد هستند؛ بدون بررسی جداگانه نباید آن‌ها را نقص تأییدشدهٔ main معرفی کرد.
+- **Stage C:** workflow مستقل soak روی همین SHA دقیق main موفق شده است. مورد بستن رسمی Stage C در برنامه همچنان باز است و به پذیرش صریح نیاز دارد.
+- **Stage D / ECRL:** فقط تعویض Carrier نشست زنده در همان process پیاده‌سازی و آزموده شده است. ادامهٔ نشست پس از restart فرایند، reboot ماشین و snapshot پایدار نشست پیاده نشده‌اند.
+- **انتشار:** آخرین نسخهٔ عمومی v0.5.0 است. تغییرهای main زیر عنوان `[Unreleased]` هنوز انتشار امضاشدهٔ v0.5.1 نیستند.
 
-نتیجه مهندسی: شکاف evidence مربوط به failure نادر Class-A اخیر روی این baseline بازتولید نشد و qualification فعلی سبز است. این بخش **Step 5.7 freeze candidate** را ثبت می‌کند؛ تصمیم رسمی ACCEPT/FREEZE طبق governance متعلق به HQ است.
+## جزئیات مهندسی تاریخی
 
-Scope همچنان محدود به **same-process live-session carrier replacement** است و هیچ ادعایی درباره process-restart resume، machine-reboot resume، durable session snapshot یا production readiness اضافه نمی‌کند.
+بخش‌های بعدی شواهد qualification و تاریخچهٔ طراحی قبلی را حفظ می‌کنند. تاریخ، SHA و شناسهٔ workflow آن‌ها تاریخی است و نباید به‌عنوان شواهد main فعلی تلقی شود، مگر آن‌که صریحاً با snapshot بالا یکسان باشد.
 
 ## Stage A
 

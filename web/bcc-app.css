@@ -494,3 +494,10 @@ html[lang="fa"] .tn-en,html:not([lang="fa"]) .tn-fa{display:none!important}
 .uc-confirm{max-width:420px}
 .uc-body{display:grid;gap:16px}
 @media (max-width:520px){.upd-badge span{display:none}}
+
+/* Bilingual static help (e.g. SSH enrollment guide): show only the active language. */
+html[lang=fa] [data-ui-lang=en],html:not([lang=fa]) [data-ui-lang=fa]{display:none!important}
+.bs-guide{margin-top:12px;border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+.bs-guide summary{cursor:pointer;font-weight:600}
+.bs-guide ul{margin:8px 0;padding-inline-start:20px;line-height:1.7}
+.bs-guide code{overflow-wrap:anywhere}

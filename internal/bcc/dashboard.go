@@ -78,6 +78,8 @@ html[lang="fa"] .tn-en,html:not([lang="fa"]) .tn-fa{display:none!important}
 @media(max-width:620px){.tnWizardSteps{display:flex;overflow:auto;gap:7px;padding:0 0 8px}.tnWizardSteps span[data-tn-nav]{min-width:92px;flex:none}.tnFields{grid-template-columns:1fr}.tnWizardControls button{flex:1}.tlCatalog{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}}
 @media(prefers-reduced-motion:reduce){.tlTile{transition:none}.tlTile:hover{transform:none}}
 
+html[lang=fa] [data-ui-lang=en],html:not([lang=fa]) [data-ui-lang=fa]{display:none!important}
+.bs-guide{margin-top:12px;border:1px solid #263147;border-radius:12px;padding:10px 14px}.bs-guide summary{cursor:pointer;font-weight:600}.bs-guide ul{margin:8px 0;padding-inline-start:20px;line-height:1.6}.bs-guide a{color:#7fb2ff}
 </style></head>
 <body><div class="wrap">
 <div class="top"><div><h1>BAFT Command Center</h1><div class="muted">Operational monitoring, finance & hardening · Step 5.4</div></div><button class="alt" onclick="setToken()">Admin Token</button></div>
@@ -99,6 +101,24 @@ html[lang="fa"] .tn-en,html:not([lang="fa"]) .tn-fa{display:none!important}
 
 <div class="card"><b>Add a server over SSH</b>
 <div class="muted" style="margin-top:6px">Enter the server's SSH details and press Connect and install. BCC connects, remembers the server's SSH key from this first connection and installs the BAFT agent. The SSH password or key is sent once over this connection and is never stored or logged.</div>
+<details class="bs-guide" id="bsGuide" open><summary><span data-ui-lang="en">Before you start: what you need</span><span data-ui-lang="fa" dir="rtl">پیش از شروع: چه چیزهایی لازم است</span></summary>
+<div data-ui-lang="en"><ul>
+<li><strong>Two servers (VPS):</strong> one outside Iran (<em>foreign, EX</em>: traffic leaves to the internet here) and one inside Iran (<em>Iran, IR</em>: users connect here). Add the foreign server first, then the Iran server. For an Iran server choose <em>worker</em>; <em>master</em> is also an Iran role and is only needed if you were told to use it.</li>
+<li><strong>Host or IP:</strong> the server's public IPv4 address from your hosting provider's control panel or welcome email.</li>
+<li><strong>SSH port:</strong> usually 22. Your provider shows it if it was changed.</li>
+<li><strong>SSH user:</strong> usually <code>root</code>. Another user works only if it has passwordless <code>sudo</code>.</li>
+<li><strong>Password or key:</strong> the root password from the provider, or an SSH private key (open "Use an SSH key" below). It is used once for the install and is not saved.</li>
+<li><strong>Example (not a real server):</strong> name <code>Germany 1</code>, role foreign (EX), host <code>203.0.113.10</code>, port <code>22</code>, user <code>root</code>.</li>
+</ul><a href="https://github.com/zarkmakerburg/BAFT/blob/main/docs/en/26-p1d-ssh-bootstrap.md" target="_blank" rel="noopener noreferrer">Server setup guide</a></div>
+<div data-ui-lang="fa" dir="rtl"><ul>
+<li><strong>دو سرور (VPS):</strong> یکی خارج از ایران (<em>خارجی، EX</em>: ترافیک از اینجا به اینترنت می‌رود) و یکی داخل ایران (<em>ایران، IR</em>: کاربران به اینجا وصل می‌شوند). اول سرور خارجی را اضافه کنید، بعد سرور ایران را. برای سرور ایران گزینه <em>ایران (IR)</em> یعنی worker را انتخاب کنید؛ <em>مرکز (IR)</em> هم نقش سرور ایران است و فقط وقتی لازم است که به شما گفته شده باشد.</li>
+<li><strong>میزبان یا IP:</strong> آدرس IPv4 عمومی سرور، از پنل یا ایمیل خوش‌آمد شرکت میزبانی.</li>
+<li><strong>پورت SSH:</strong> معمولاً 22. اگر تغییر کرده باشد، شرکت میزبانی آن را نشان می‌دهد.</li>
+<li><strong>کاربر SSH:</strong> معمولاً <code>root</code>. کاربر دیگر فقط وقتی کار می‌کند که <code>sudo</code> بدون رمز داشته باشد.</li>
+<li><strong>رمز یا کلید:</strong> رمز root که شرکت میزبانی داده، یا کلید خصوصی SSH (بخش «کلید SSH» پایین را باز کنید). فقط یک بار برای نصب استفاده می‌شود و ذخیره نمی‌شود.</li>
+<li><strong>نمونه (سرور واقعی نیست):</strong> نام <code>Germany 1</code>، نقش خارجی (EX)، میزبان <code dir="ltr">203.0.113.10</code>، پورت <code>22</code>، کاربر <code>root</code>.</li>
+</ul><a href="https://github.com/zarkmakerburg/BAFT/blob/main/docs/fa/26-p1d-ssh-bootstrap.md" target="_blank" rel="noopener noreferrer">راهنمای راه‌اندازی سرور</a></div>
+</details>
 <div class="grid" style="margin-top:12px">
 <input id="bsAlias" placeholder="server name (e.g. Germany 1)"><select id="bsRole"><option value="foreign">foreign (EX)</option><option value="worker">worker (IR)</option><option value="master">master (IR)</option></select>
 <input id="bsHost" placeholder="host or IP"><input id="bsPort" placeholder="ssh port" value="22"><input id="bsUser" placeholder="ssh user" value="root"><input id="bsPass" type="password" autocomplete="off" placeholder="ssh password">

@@ -246,6 +246,12 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       // bcc-operations-v3.js prefixes every operational card id with ops_.
       await page.waitForFunction(()=>document.activeElement?.id==='ops_bsAlias');
       assert.equal(await page.locator('[data-tool=ssh]').evaluate(d=>d.open),true,'empty-state action opens SSH enrollment');
+      // UX-0.1: the enrollment guide is open and shows only the active language.
+      const guide=await page.locator('#ops_bsGuide').evaluate(d=>{const fa=document.documentElement.lang==='fa',shown=[...d.querySelectorAll('[data-ui-lang]')].filter(n=>n.offsetParent!==null||n.getClientRects().length).map(n=>n.dataset.uiLang);return{open:d.open,fa,shown:[...new Set(shown)],text:d.innerText,overflow:d.scrollWidth>d.clientWidth+1}});
+      assert.equal(guide.open,true,'the SSH enrollment guide is open for a first-time user');
+      assert.deepEqual(guide.shown,[guide.fa?'fa':'en'],'only the active language of the guide is visible');
+      assert.match(guide.text,/203\.0\.113\.10/,'the guide shows a documentation-only example address');
+      assert.equal(guide.overflow,false,'the guide does not overflow horizontally');
       assert.equal(apiRequests.filter(x=>x.method!=='GET').length,before,'opening and leaving the empty wizard performs no writes');
       }finally{
         // Restore the real inventory in the app too; the next checks must not

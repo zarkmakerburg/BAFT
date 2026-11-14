@@ -44,10 +44,10 @@
 - [x] control priority + data anti-starvation burst cap
 - [x] multi-Flow integration test
 - [x] تثبیت slow-receiver liveness gate با TWRL و تست deterministic
-- [x] تست طولانی slow receiver / soak — Stage-C soak روی main SHA فعلی: [run 43472903062](https://github.com/zarkmakerburg/BAFT/actions/runs/43472903062) PASS
+- [x] اجرای تکرارشوندهٔ real-path slow receiver / Stage-C soak در CI — [run 43472903062](https://github.com/zarkmakerburg/BAFT/actions/runs/43472903062) PASS (مدت ثبت‌شدهٔ job حدود ۲ دقیقه و ۱۱ ثانیه است؛ این یک soak محدود CI است، نه آزمون endurance طولانی‌مدت)
 - [x] تست فشار چند Shard با memory budget مشترک و reuse بدون leak
 - [x] conservation metrics برای allocator/Flow بدون label حساس و پرکاردینالیتی
-- [ ] بستن Stage C بعد از PASS شدن workflow مستقل Stage-C soak بدون OOM/race/deadlock
+- [ ] بستن Stage C پس از بررسی شواهد soak مستقل و ثبت تصمیم صریح پذیرش؛ workflow مربوطه موفق شده، اما گیت پذیرش مالک/HQ همچنان باز است
 
 ## Stage D — resume دقیق
 

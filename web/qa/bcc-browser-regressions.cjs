@@ -210,6 +210,22 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       await page.keyboard.press('Escape');
       assert.equal(await page.evaluate(()=>window.BAFTActionWizard.isOpen()),false);
     });
+    await check('empty Quick Tunnel inventory gives a direct path to add servers',async()=>{
+      await page.route(f.base+'api/nodes',r=>r.fulfill({json:[]}));
+      await nav('tunnels');
+      const before=apiRequests.filter(x=>x.method!=='GET').length;
+      await page.locator('#main [data-baw-open]').click();
+      const dlg=page.locator('.baw-dialog');
+      await dlg.locator('[data-k=addServers]').waitFor({state:'visible'});
+      assert.equal(await dlg.locator('[data-k=addServers]').count(),1,'one clear action is shown even when both roles are missing');
+      assert.equal(await dlg.locator('[data-k=next]').isDisabled(),true,'the wizard cannot advance without both server roles');
+      await dlg.locator('[data-k=addServers]').click();
+      await page.waitForFunction(()=>document.querySelector('#main')?.dataset.route==='servers');
+      assert.equal(await page.locator('.baw-dialog').count(),0,'the wizard closes before navigation');
+      assert.equal(await page.locator('#addServer').count(),1,'the destination exposes the add-server action');
+      assert.equal(apiRequests.filter(x=>x.method!=='GET').length,before,'opening and leaving the empty wizard performs no writes');
+      await page.unroute(f.base+'api/nodes');
+    });
     await check('shared listener Join is explicit and plans only the new tenant',async()=>{
       const tunnels=f.base+'api/tunnels',planEndpoint=f.base+'api/tunnels/plan';
       const owner={id:'qa-owner',phase:'active',ex_node:'qa-ex',ir_node:'qa-ir-owner',instance_id:'qa-shared',public_address:'203.0.113.20',port:8443,target:'127.0.0.1:2443',route_listen:'127.0.0.1:1443',route_id:'service-main',ex_metrics_listen:'127.0.0.1:9202',ir_metrics_listen:'127.0.0.1:9302',record_shaping:false};

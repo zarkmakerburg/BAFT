@@ -232,7 +232,8 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       // Reuse the already-loaded observation and refresh the real app in-place.
       // A full reload repeats every bootstrap API call in all eight profiles
       // and can exhaust the fixture's intentionally unchanged rate limit.
-      const emptyOverview=await page.evaluate(()=>({...overview,nodes:[]}));
+      const currentOverview=await (await ctx.request.get(overviewURL)).json();
+      const emptyOverview={...currentOverview,nodes:[]};
       await page.route(overviewURL,r=>r.fulfill({json:emptyOverview}));
       await page.evaluate(()=>refresh());
       const emptyAction=page.locator('#serverTable .empty [data-server-empty-add]');

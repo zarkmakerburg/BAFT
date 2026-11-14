@@ -86,7 +86,9 @@ The nine GitHub Actions runs listed in [STATUS](STATUS.en.md) completed successf
 - `tests/installer/` and `tests/e2e/`: installer contracts and hosted end-to-end workflows.
 - `docs/design/` and `docs/roadmap/`: design decisions, implementation plans and acceptance gates; a design document alone is not evidence of shipped behavior.
 
-See [Project status](STATUS.en.md), [Development plan](PLAN.en.md), [Known limitations](KNOWN-LIMITATIONS.en.md) and the [changelog](CHANGELOG.md).
+**Compatibility and ownership:** Aurora is intended to complement the existing BCC, not replace it. Existing 3X-UI subscriptions and services remain externally owned; BAFT does not take ownership of or replace them.
+
+See [P0 implementation and acceptance gates](docs/design/p0-oneclick-ingress-269.md), [Project status](STATUS.en.md), [Development plan](PLAN.en.md), [Known limitations](KNOWN-LIMITATIONS.en.md) and the [changelog](CHANGELOG.md).
 
 
 

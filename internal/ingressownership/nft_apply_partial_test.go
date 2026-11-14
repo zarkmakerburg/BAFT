@@ -120,11 +120,16 @@ func TestNFTLabApplyPartialAddRollbackRefusesUnverifiedResources(t *testing.T) {
 					t.Fatalf("unverified deletion: %s", command)
 				}
 			}
-			ln, err := net.Listen("tcp4", spec.Config.Listen)
-			if err != nil {
-				t.Fatalf("failed apply left listener: %v", err)
+			// Runtime.Retire waits for Serve to exit and removes the exact owned
+			// session only after closing its listener. Do not re-bind the released
+			// ephemeral port here: another concurrently running package test may
+			// legitimately acquire that OS-selected port between release and bind.
+			tx.Runtime.mu.Lock()
+			_, stillOwned := tx.Runtime.sessions[spec.Config.Listen]
+			tx.Runtime.mu.Unlock()
+			if stillOwned {
+				t.Fatal("failed apply retained its runtime listener")
 			}
-			_ = ln.Close()
 		})
 	}
 }

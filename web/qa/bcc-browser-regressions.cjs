@@ -125,7 +125,8 @@ async function runProfile(browser,[name,viewport,lang,theme]){
     await check('public access boundary',async()=>{
       assert.equal(await page.evaluate(()=>Boolean(window.BAFT_UI.operationsHTML||window.BAFT_UI.csrf)),false);
       assert.equal(await page.locator('.ops-card').count(),0);
-      for(const control of ['#baw-open','[data-lang=fa]','[data-lang=en]','[data-go=signin]']){
+      assert.equal(await page.locator('#public #baw-open').count(),0,'tunnel creation must not be offered before sign-in');
+      for(const control of ['[data-lang=fa]','[data-lang=en]','[data-go=signin]']){
         const item=page.locator('#public '+control).first();assert.equal(await item.isVisible(),true,'public control '+control+' must remain visible');
         const box=await item.boundingBox();assert.ok(box&&box.x>=-1&&box.x+box.width<=viewport.width+1,'public control '+control+' must fit viewport');
       }
@@ -187,6 +188,10 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       await page.locator('#main [data-baw-open]').click();
       const dlg=page.locator('.baw-dialog');
       await dlg.locator('[data-k=ir]').waitFor({state:'visible'});
+      assert.equal(await page.evaluate(()=>Boolean(document.activeElement.closest('.baw-dialog'))),true,'initial focus must remain inside the dialog after inventory loads');
+      const first=dlg.locator('.baw-close');
+      await first.focus();await page.keyboard.press('Shift+Tab');
+      assert.equal(await page.evaluate(()=>Boolean(document.activeElement.closest('.baw-dialog'))),true,'Shift+Tab must wrap inside the dialog');
       const ir=await dlg.locator('[data-k=ir] option').evaluateAll(o=>o.map(x=>x.value));
       const ex=await dlg.locator('[data-k=ex] option').evaluateAll(o=>o.map(x=>x.value));
       assert.ok(ir.includes('qa-ir')&&!ir.includes('qa-ex'),'Iran list must hold worker/master nodes only');
@@ -209,6 +214,45 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       await shot('quick-tunnel');
       await page.keyboard.press('Escape');
       assert.equal(await page.evaluate(()=>window.BAFTActionWizard.isOpen()),false);
+    });
+    await check('empty Quick Tunnel inventory gives a direct path to add servers',async()=>{
+      const nodesURL=f.base+'api/nodes',overviewURL=f.base+'api/overview?window=24h';
+      // Always drop the empty-inventory mocks, even when an assertion fails,
+      // so later checks observe the fixture's real nodes.
+      try{
+      await page.route(nodesURL,r=>r.fulfill({json:[]}));
+      await nav('tunnels');
+      const before=apiRequests.filter(x=>x.method!=='GET').length;
+      await page.locator('#main [data-baw-open]').click();
+      const dlg=page.locator('.baw-dialog');
+      await dlg.locator('[data-k=addServers]').waitFor({state:'visible'});
+      assert.equal(await dlg.locator('[data-k=addServers]').count(),1,'one clear action is shown even when both roles are missing');
+      assert.equal(await dlg.locator('[data-k=next]').isDisabled(),true,'the wizard cannot advance without both server roles');
+      await dlg.locator('[data-k=addServers]').click();
+      await page.waitForFunction(()=>document.querySelector('#main')?.dataset.route==='servers');
+      assert.equal(await page.locator('.baw-dialog').count(),0,'the wizard closes before navigation');
+      assert.equal(await page.locator('#addServer').count(),1,'the destination exposes the add-server action');
+      // Reuse the already-loaded observation and refresh the real app in-place.
+      // A full reload repeats every bootstrap API call in all eight profiles
+      // and can exhaust the fixture's intentionally unchanged rate limit.
+      const currentOverview=await (await ctx.request.get(overviewURL)).json();
+      const emptyOverview={...currentOverview,nodes:[]};
+      await page.route(overviewURL,r=>r.fulfill({json:emptyOverview}));
+      await page.evaluate(()=>window.dispatchEvent(new Event('baft:tunnels-changed')));
+      const emptyAction=page.locator('#serverTable .empty [data-server-empty-add]');
+      await emptyAction.waitFor({state:'visible'});
+      assert.equal(await emptyAction.getAttribute('type'),'button');
+      await emptyAction.click();
+      // bcc-operations-v3.js prefixes every operational card id with ops_.
+      await page.waitForFunction(()=>document.activeElement?.id==='ops_bsAlias');
+      assert.equal(await page.locator('[data-tool=ssh]').evaluate(d=>d.open),true,'empty-state action opens SSH enrollment');
+      assert.equal(apiRequests.filter(x=>x.method!=='GET').length,before,'opening and leaving the empty wizard performs no writes');
+      }finally{
+        // Restore the real inventory in the app too; the next checks must not
+        // depend on this check's outcome.
+        await page.unroute(overviewURL);await page.unroute(nodesURL);
+        await page.evaluate(()=>window.dispatchEvent(new Event('baft:tunnels-changed')));
+      }
     });
     await check('shared listener Join is explicit and plans only the new tenant',async()=>{
       const tunnels=f.base+'api/tunnels',planEndpoint=f.base+'api/tunnels/plan';

@@ -2,9 +2,45 @@
 
 Each Stage has deliverables and an evidence gate.
 
+## Parallel UX-0 track — first-time, non-technical users (P0)
+
+Goal: a new operator can sign in and create the first tunnel through a safe, understandable in-panel flow, without reading engineering documentation or running shell commands. This track runs alongside protocol/engine stages and is a prerequisite for broadening the general-user experience.
+
+### P0 — remove dead ends and complete first use
+
+- [ ] **Empty wizard recovery:** when either the Iran or foreign server role is missing, show one clear “Go to Servers” action, close the wizard, and navigate directly to server enrollment. Initial implementation is in the UX PR; final acceptance requires CI and browser evidence.
+- [ ] **Unambiguous entry:** the public page offers product information and sign-in only; tunnel creation is available only after authentication inside BCC. Keep the public product page separate from the private console entry.
+- [ ] **First-run guide:** show the sequence: sign in → add foreign server → add Iran server → verify both are online → create tunnel → confirm the outcome. Explain prerequisites, waiting states and the next action at each step.
+- [ ] **Plain language:** keep internal terms such as ECRL, DRR, Carrier, Epoch, Shard and engine names out of the normal user path; expose them only under technical details with a short explanation.
+- [ ] **Actionable states:** empty, loading, error, offline, stale, partial and unknown states each need a clear explanation and next action. UNKNOWN or stale data must never be presented as healthy.
+- [ ] **Understandable failure/recovery:** preview impact before changes; after failure, show rollback outcome, what did/did not change, and the safe next step. Retry is enabled only when operation state is known.
+- [ ] **Progressive disclosure:** keep common settings in the main path and technical options under Advanced. Explain defaults; auto-selection may use only verified capabilities.
+- [ ] **Accessibility and mobile:** run real-browser checks for Persian RTL and English LTR, mobile/desktop widths, keyboard/focus, 200% zoom, reduced motion, contrast and readable text sizes.
+
+### UX-0 acceptance criteria
+
+1. No primary path ends in a dead end when a server, data point or permission is missing.
+2. A first-time user can create the first tunnel using in-panel guidance; shell access and engineering docs are not required for the normal path.
+3. Before deployment, the plan and its changes are understandable and reviewable; required consent is never bypassed.
+4. Success is reported only from BCC-confirmed state; partial, stale or unknown outcomes remain explicit.
+5. All primary flows are tested in a real browser across both languages and target viewport sizes; DOM or preview checks alone are not acceptance.
+
+**Execution order:** fix dead ends and first-run guidance (P0), simplify dashboard/status language (P1), then visual polish and customization (P2). This track does not replace or bypass the security/correctness gates in Stages A–H.
+
+### Execution slices from the independent UX audit
+
+1. **This PR gate — empty-state recovery and accessibility:** keep initial focus inside the Wizard after inventory loading; give the Servers empty state a visible action that opens enrollment; cover both in real-browser regression tests. The final SHA must also have a successful latest required CI attempt and be mergeable under GitHub policy.
+2. **UX-0.1 — enroll the first server (P0):** explain above the SSH form what VPSs are needed (one foreign and one Iran server), where to find host/IP, SSH port, username and authentication method, include a safe example, explain EX/IR/master roles, and link to the install guide. Never place real credentials in examples or logs.
+3. **UX-0.2 — one tunnel-creation path (P0):** make the Tunnels page a tunnel list plus one primary create action; hide/collapse unavailable engine cards and the legacy studio from the normal path, and foreground only the supported workflow.
+4. **UX-0.3 — reliable Persian localization (P0):** user-visible Go/API strings must have localization keys or valid Persian fields; remove long English engineering sentences from primary pages and keep raw server responses under technical details only.
+5. **UX-0.4 — recover from failure (P0):** failed/partial/attention outcomes need a plain-language summary and a direct “Diagnose” action that opens diagnostics for the affected tunnel; retry is enabled only when operation state is known.
+6. **UX-0.5 — trust, mobile and accessibility (P1):** review progressive navigation, the mobile public page, version stamping, error copy and placeholders, focus in every dialog, contrast and 200% zoom.
+
+**UX-0 exit gate:** at least five testers without SSH experience, given two test servers and only in-panel guidance, complete sign-in through verified tunnel creation in Persian and English at 390 px and 1280 px within 20 minutes; no terminal failure is left without a recovery action. Until this gate passes, BAFT is not considered ready for public release to non-technical users.
+
 - **A — contract/spike:** TLS/H2 ADRs, protocol vectors, config schema, full-duplex mTLS Carrier. Completed for its scope.
 - **B — secure vertical slice:** fixed Routes, Flow protocol, identity/authorization, revocation, CLI, and COR-01. Completed for its defined scope.
-- **C — resources/multi-Flow:** global allocator, receive/replay reservation, DRR, bounded control queue, multi-Flow/multi-Shard, slow-receiver/no-OOM gates. In progress.
+- **C — resources/multi-Flow:** global allocator, receive/replay reservation, DRR, bounded control queue, multi-Flow/multi-Shard and slow-receiver/no-OOM gates are integrated. The recorded [Stage-C CI soak passed](https://github.com/zarkmakerburg/BAFT/actions/runs/43472903062) (about 2m 11s; a bounded CI soak, not long-duration endurance). Formal Stage-C closure remains open pending independent soak-evidence review and an explicit owner/HQ acceptance decision.
 - **D — precise resume:** session/boot/epoch fencing, snapshots, replay, tombstones, duplicate-free Carrier replacement.
 - **D2 — endpoint/relay:** bounded preconfigured direct/relay endpoint selection after core resume.
 - **E — performance:** reproducible benchmarks, profiling, baseline comparison, raw evidence.

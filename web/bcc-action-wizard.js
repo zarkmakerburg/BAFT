@@ -166,7 +166,7 @@
       loading: 'Loading servers…', loadFail: 'Could not load servers from BCC: ',
       serversLead: 'Users connect to the Iran server; BAFT carries their traffic securely to the foreign server.',
       iran: 'Iran server (users connect here)', foreign: 'Foreign server (service runs here)', choose: 'Choose…',
-      online: 'online', offline: 'agent offline', noIran: 'No Iran server is enrolled yet. Add one under Servers.', noForeign: 'No foreign server is enrolled yet. Add one under Servers.',
+      online: 'online', offline: 'agent offline', noIran: 'No Iran server is enrolled yet. Add one under Servers.', noForeign: 'No foreign server is enrolled yet. Add one under Servers.', addServersHelp: 'To create a tunnel, add one Iran server and one foreign server first.', addServersCta: 'Go to Servers',
       offlineWarn: 'This server\'s agent has not reported in the last 5 minutes. Jobs will wait until it is back.', samePair: 'Choose two different servers.',
       serviceLead: 'Which service on the foreign server should users reach? For 3X-UI this is the inbound port.',
       servicePort: 'Service port on the foreign server', clientPort: 'Port users connect to on the Iran server', sameAsService: 'Same as the service port (recommended)',
@@ -197,7 +197,7 @@
       loading: 'در حال دریافت فهرست سرورها…', loadFail: 'فهرست سرورها از مرکز فرمان دریافت نشد: ',
       serversLead: 'کاربران به سرور ایران وصل می‌شوند و BAFT ترافیکشان را امن به سرور خارج می‌رساند.',
       iran: 'سرور ایران (محل اتصال کاربران)', foreign: 'سرور خارج (محل اجرای سرویس)', choose: 'انتخاب کنید…',
-      online: 'آنلاین', offline: 'عامل آفلاین', noIran: 'هنوز سرور ایرانی ثبت نشده است. از بخش سرورها اضافه کنید.', noForeign: 'هنوز سرور خارجی ثبت نشده است. از بخش سرورها اضافه کنید.',
+      online: 'آنلاین', offline: 'عامل آفلاین', noIran: 'هنوز سرور ایرانی ثبت نشده است. از بخش سرورها اضافه کنید.', noForeign: 'هنوز سرور خارجی ثبت نشده است. از بخش سرورها اضافه کنید.', addServersHelp: 'برای ساخت تونل، ابتدا یک سرور ایران و یک سرور خارج به بخش سرورها اضافه کنید.', addServersCta: 'رفتن به بخش سرورها',
       offlineWarn: 'عامل این سرور در ۵ دقیقهٔ گذشته گزارش نداده است. کارها تا بازگشت آن منتظر می‌مانند.', samePair: 'دو سرور متفاوت انتخاب کنید.',
       serviceLead: 'کاربران باید به کدام سرویس روی سرور خارج برسند؟ در 3X-UI همان پورت inbound است.',
       servicePort: 'پورت سرویس روی سرور خارج', clientPort: 'پورتی که کاربران روی سرور ایران به آن وصل می‌شوند', sameAsService: 'برابر پورت سرویس (پیشنهادی)',
@@ -280,8 +280,8 @@
     const keep = act ? act.getAttribute('data-k') : null;
     let caret = null; try { if (act && typeof act.selectionStart === 'number') caret = [act.selectionStart, act.selectionEnd]; } catch (e) { caret = null; }
     const d = box.firstElementChild; d.replaceChildren(); d.setAttribute('dir', doc.documentElement.dir || 'auto');
-    const head = el('h2', { class: 'baw-title', id: 'baw-heading', text: t('title') + ' — ' + t('steps')[s.step] });
-    d.append(el('header', { class: 'baw-header' }, head, el('button', { type: 'button', class: 'baw-close', text: t('close'), onclick: close })));
+    const head = el('h2', { class: 'baw-title', id: 'baw-heading', tabindex: '-1', 'data-k': 'heading', text: t('title') + ' — ' + t('steps')[s.step] });
+    d.append(el('header', { class: 'baw-header' }, head, el('button', { type: 'button', class: 'baw-close', 'data-k': 'close', text: t('close'), onclick: close })));
     const prog = el('ol', { class: 'baw-progress qt-steps', 'aria-label': t('title') });
     t('steps').forEach((name, i) => prog.append(el('li', { 'aria-current': i === s.step ? 'step' : null, 'data-complete': i < s.step ? 'true' : null }, el('span', { class: 'qt-dot', 'aria-hidden': 'true' }), el('span', { class: 'qt-step-name', text: name }))));
     d.append(prog);
@@ -312,9 +312,13 @@
   function serversView() {
     const g = splitNodes(s.nodes, Date.now());
     const same = s.ir && s.ex && s.ir === s.ex;
+    const missingRole = !g.iran.length || !g.foreign.length;
     return el('div', {}, el('p', { class: 'qt-lead', text: t('serversLead') }),
       el('div', { class: 'qt-route', 'aria-hidden': 'true', dir: 'ltr' }, el('span', { text: '👥' }), el('span', { text: '→' }), el('span', { text: '🇮🇷 IR' }), el('span', { class: 'qt-lock', text: '🔒 BAFT' }), el('span', { text: '🌍 EX' }), el('span', { text: '→' }), el('span', { text: '⚙︎' })),
       nodeSelect('ir', g.iran, t('iran'), t('noIran')), nodeSelect('ex', g.foreign, t('foreign'), t('noForeign')),
+      missingRole ? el('div', { class: 'qt-empty-action' },
+        el('p', { class: 'qt-lead', text: t('addServersHelp') }),
+        el('button', { type: 'button', class: 'qt-primary', 'data-k': 'addServers', onclick: () => { close(); root.location.hash = '#servers'; }, text: t('addServersCta') })) : null,
       same ? el('p', { role: 'alert', text: t('samePair') }) : null);
   }
   function serviceProblems() {
@@ -509,7 +513,7 @@
     box.append(dialog); doc.body.append(box);
     box.addEventListener('click', e => { if (e.target === box) close(); });
     doc.addEventListener('keydown', onKey); doc.addEventListener('focusin', onFocus);
-    render(); const f = focusables()[0]; if (f) f.focus();
+    render(); const heading = box.querySelector('[data-k=heading]'); if (heading) heading.focus();
     if (live()) load();
   }
   root.BAFTActionWizard = Object.freeze({ open, close, isOpen: () => Boolean(box), version: '2.0-live' });

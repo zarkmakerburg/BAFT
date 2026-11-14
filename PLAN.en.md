@@ -2,6 +2,14 @@
 
 > Persian: [PLAN.md](PLAN.md)
 
+## Parallel UX-0 — non-technical first-time user priority
+
+Detailed roadmap and acceptance gates: [UX-0 roadmap](docs/en/09-roadmap.md#parallel-ux-0-track--first-time-non-technical-users-p0).
+
+This track takes priority before expanding complex features to general users: remove the empty-wizard dead end, make sign-in and first use clear, guide the first tunnel, use plain language, provide actionable states and understandable recovery, and validate real mobile/RTL/LTR browser behavior. The initial empty-state navigation and removal of the pre-auth tunnel-creation CTA are under review in the UX PR; they are not accepted until CI and browser evidence pass.
+
+The independent UX audit confirms that empty-wizard recovery and removal of the pre-auth creation CTA are sound, but server enrollment still lacks the guidance a non-technical user needs. This PR's gate therefore includes focus retention after inventory loading and an action in the Servers empty state. Next P0 slices are: guide users through obtaining and enrolling both VPSs and explain SSH fields; reduce Tunnels to one creation path; complete Persian localization for Go/API strings; and add direct recovery from failure. Detailed sequencing and exit criteria are recorded in the UX-0 roadmap. BAFT is not considered ready for public non-technical users until the five-tester usability gate passes.
+
 ## Stage A
 Completed: repository contract, Go pin, BAFT/1 codec/vectors, strict configuration, test PKI, full-duplex H2+mTLS/cancellation, independent Shard transports, and pinned-toolchain CI.
 

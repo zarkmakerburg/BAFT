@@ -15,7 +15,7 @@ const app=fs.readFileSync(path.join(web,'bcc-app.js'),'utf8');
 test('wizard assets and launchers are wired',()=>{
  assert.match(html,/bcc-action-wizard\.css/);
  assert.match(html,/bcc-action-wizard\.js/);
- assert.match(html,/id="baw-open"/);
+ assert.doesNotMatch(html,/id="baw-open"/,'public visitors must sign in before tunnel creation');
  assert.match(js,/root\.BAFTActionWizard = Object\.freeze\(/);
  assert.match(js,/launch\.addEventListener\('click', open\)/);
  assert.match(js,/closest\('\[data-baw-open\]'\)/);

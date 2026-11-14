@@ -253,6 +253,11 @@ async function runProfile(browser,[name,viewport,lang,theme]){
         await page.unroute(overviewURL);await page.unroute(nodesURL);
         await page.evaluate(()=>window.dispatchEvent(new Event('baft:tunnels-changed')));
       }
+      // The app returns to its normal state: real servers replace the empty
+      // state and the destination page is still usable.
+      await page.waitForFunction(()=>!document.querySelector('#serverTable .empty [data-server-empty-add]')&&document.querySelector('#serverTable select[data-country="qa-ex"]'));
+      assert.equal(await page.locator('#serverTable .empty').count(),0,'real inventory replaces the empty state');
+      assert.equal(await page.locator('#addServer').count(),1,'the add-server action remains available');
     });
     await check('shared listener Join is explicit and plans only the new tenant',async()=>{
       const tunnels=f.base+'api/tunnels',planEndpoint=f.base+'api/tunnels/plan';

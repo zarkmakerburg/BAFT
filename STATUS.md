@@ -145,7 +145,7 @@ COR-01 روی همین commit در run `36340860568` نیز **PASS** شد.
 
 Conservation Telemetry و metrics روی loopback نیز پیاده شده‌اند. metrics به‌صورت aggregate رابطه‌های A-D، C-D، replay outstanding و invariant violations را بدون peer/route/target/stream label حساس منتشر می‌کنند. CI run `36341810504` برای این مسیر **PASS** است.
 
-### Stage-C soak — وضعیت فعلی
+### Stage-C soak — وضعیت در همان مقطع تاریخی
 
 workflow مستقل `stagec-soak`، multi-Flow و slow-receiver واقعی را ۲۵ بار تکرار و ۵ دور زیر race detector اجرا می‌کند.
 
@@ -154,7 +154,7 @@ workflow مستقل `stagec-soak`، multi-Flow و slow-receiver واقعی را 
 - pass تاریخی پس از اصلاحات: run `36342627897` — **PASS**.
 - شواهد code-head پیش از commit مستندات: run `36519987991` روی `6fcf41631dc963af6f9c124f245a3ce7a47bc2fe` — **PASS** شامل repeated soak و race sample.
 
-در نتیجه گیت فعلی Stage C سبز است، اما این نتیجه benchmark عمومی، پایلوت واقعی یا ادعای production-ready بودن نیست.
+در نتیجه گیت Stage C در همان مقطع تاریخی سبز بود؛ این نتیجه benchmark عمومی، پایلوت واقعی یا ادعای production-ready بودن نیست.
 
 ## Stage D و بعد
 

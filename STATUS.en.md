@@ -52,6 +52,8 @@ Exact qualification baseline on `main`:
 
 Engineering result: the recent rare Class-A evidence gap did not reproduce on this baseline and current qualification is green. This records a **Step 5.7 freeze candidate**; formal ACCEPT/FREEZE remains an HQ governance decision.
 
+Scope remains limited to **same-process live-session carrier replacement**. This historical qualification does not establish process-restart resume, machine-reboot resume, durable ECRL session snapshots, or production readiness.
+
 ## Stage B evidence
 
 Implemented/tested behavior includes new-session HELLO/HELLO_ACK/READY, fixed authorized Routes, Flow control frames, half-close, fixed RESET codes, mTLS identity/authorization, active peer revocation, strict YAML configuration, production CLI path, and end-to-end TCP→BAFT/H2+mTLS→TCP transfer.

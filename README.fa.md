@@ -54,6 +54,7 @@
 برای جزئیات ببینید: [وضعیت پروژه](STATUS.md)، [برنامهٔ توسعه](PLAN.md)، [محدودیت‌های شناخته‌شده](KNOWN-LIMITATIONS.md) و [تغییرات نسخه‌ها](CHANGELOG.md).
 
 
+## نصب
 
 روی سرور **خارج** (Debian یا Ubuntu، با دسترسی root):
 
@@ -66,8 +67,6 @@ bash <(curl -Ls https://raw.githubusercontent.com/zarkmakerburg/baft/main/instal
 </div>
 
 گزینهٔ **۱ (خارج از ایران)** را بزنید و به پرسش‌ها جواب دهید. راهنمای کامل: [نصب](docs/fa/guide/01-install.md).
-
-## نصب
 
 ## استفاده با x-ui در ۴ قدم
 

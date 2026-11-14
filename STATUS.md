@@ -39,7 +39,20 @@
 
 ## جزئیات مهندسی تاریخی
 
-بخش‌های بعدی شواهد qualification و تاریخچهٔ طراحی قبلی را حفظ می‌کنند. تاریخ، SHA و شناسهٔ workflow آن‌ها تاریخی است و نباید به‌عنوان شواهد main فعلی تلقی شود، مگر آن‌که صریحاً با snapshot بالا یکسان باشد.
+بخش‌های بعدی بخشی از شواهد qualification و تاریخچهٔ طراحی قبلی را حفظ می‌کنند و آرشیو کامل نیستند. baseline مربوط به qualification مرحلهٔ 5.7 در ادامه بازنشر شده است. تاریخ، SHA و شناسه‌های workflow آن تاریخی‌اند و نباید به‌عنوان شواهد main فعلی تلقی شوند.
+
+## P0-I — qualification نهایی Step 5.7 (2026-10-03)
+
+Baseline دقیق qualification روی `main`:
+
+- SHA: `29125392566021a286af20ff8f3a4907c28dbee8`
+- PR #60: merge شده؛ instrumentation علت cancellation برای logical Session حفظ شده و workflow تشخیصی موقت حذف شده است.
+- Full CI روی همین SHA: **PASS**؛ شامل unit/integration، race detector، vet و protocol fuzz smoke.
+- Stage-C soak روی همین SHA: **PASS**.
+- Step 5.7 Recovery Soak: **PASS در 5 attempt مستقل روی همین SHA**.
+- هر Recovery Soak شامل Class-A unresolved exact transaction، hard Class-A live-data recut، Class-B fresh epoch، ambiguous replay contract، Topology × ECRL authority isolation، HTTP handler lifecycle، P0-C lifetime/race، exact-rebind lifecycle، FD/resource lifetime، multi-flow replacement، distributed finalization/replay/FIN matrix و concurrent Flow churn + race بوده است.
+
+نتیجه مهندسی: شکاف evidence مربوط به failure نادر Class-A اخیر روی این baseline بازتولید نشد و qualification آن baseline سبز بود. این بخش **Step 5.7 freeze candidate** را ثبت می‌کند؛ تصمیم رسمی ACCEPT/FREEZE طبق governance متعلق به HQ است.
 
 ## Stage A
 

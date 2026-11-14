@@ -235,7 +235,7 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       const currentOverview=await (await ctx.request.get(overviewURL)).json();
       const emptyOverview={...currentOverview,nodes:[]};
       await page.route(overviewURL,r=>r.fulfill({json:emptyOverview}));
-      await page.evaluate(()=>refresh());
+      await page.evaluate(()=>window.dispatchEvent(new Event('baft:tunnels-changed')));
       const emptyAction=page.locator('#serverTable .empty [data-server-empty-add]');
       await emptyAction.waitFor({state:'visible'});
       assert.equal(await emptyAction.getAttribute('type'),'button');

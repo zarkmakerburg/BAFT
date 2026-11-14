@@ -279,7 +279,7 @@ async function serversView(main){main.insertAdjacentHTML('beforeend',pageHead('s
   const stack=main.querySelector('.stack');stack.append(tool('ssh',['plus','gold'],'tSsh','tSshSub',false),tool('manual',['servers','blue'],'tManual','tManualSub',false),tool('migrate',['key','amber'],'tMigrate','tMigrateSub',false));
   $('addServer').addEventListener('click',openSSHEnrollment);
   if(live)api('nodes').then(list=>{nodeDetail=Object.fromEntries((Array.isArray(list)?list:[]).map(n=>[n.id,n]));paintServers()}).catch(()=>{});paintServers()}
-function openSSHEnrollment(){const d=document.querySelector('[data-tool=ssh]');if(!d)return;d.open=true;d.scrollIntoView({behavior:'smooth',block:'start'});requestAnimationFrame(()=>{const first=d.querySelector('#bsAlias');if(first)first.focus();else d.querySelector(':scope > summary')?.focus()})}
+function openSSHEnrollment(){const d=document.querySelector('[data-tool=ssh]');if(!d)return;d.open=true;d.scrollIntoView({behavior:'smooth',block:'start'});requestAnimationFrame(()=>{const first=d.querySelector('#ops_bsAlias');if(first)first.focus();else d.querySelector(':scope > summary')?.focus()})}
 function paintServers(){const host=$('serverTable');if(!host)return;const nodes=overview?.nodes||[];
   if(!overview){host.innerHTML='<div class="empty">'+esc(loadState==='error'?t('error'):t('loading'))+'</div>';return}
   if(!nodes.length){host.innerHTML='<div class="empty"><b>'+esc(t('noServers'))+'</b><button type="button" class="btn gold small" data-server-empty-add>'+svg('plus')+esc(t('addServer'))+'</button></div>';host.querySelector('[data-server-empty-add]')?.addEventListener('click',openSSHEnrollment);const d=document.querySelector('[data-tool=ssh]');if(d)d.open=true;return}

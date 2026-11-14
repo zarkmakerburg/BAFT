@@ -216,7 +216,11 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       assert.equal(await page.evaluate(()=>window.BAFTActionWizard.isOpen()),false);
     });
     await check('empty Quick Tunnel inventory gives a direct path to add servers',async()=>{
-      await page.route(f.base+'api/nodes',r=>r.fulfill({json:[]}));
+      const nodesURL=f.base+'api/nodes',overviewURL=f.base+'api/overview?window=24h';
+      // Always drop the empty-inventory mocks, even when an assertion fails,
+      // so later checks observe the fixture's real nodes.
+      try{
+      await page.route(nodesURL,r=>r.fulfill({json:[]}));
       await nav('tunnels');
       const before=apiRequests.filter(x=>x.method!=='GET').length;
       await page.locator('#main [data-baw-open]').click();
@@ -228,7 +232,6 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       await page.waitForFunction(()=>document.querySelector('#main')?.dataset.route==='servers');
       assert.equal(await page.locator('.baw-dialog').count(),0,'the wizard closes before navigation');
       assert.equal(await page.locator('#addServer').count(),1,'the destination exposes the add-server action');
-      const overviewURL=f.base+'api/overview?window=24h';
       // Reuse the already-loaded observation and refresh the real app in-place.
       // A full reload repeats every bootstrap API call in all eight profiles
       // and can exhaust the fixture's intentionally unchanged rate limit.
@@ -240,10 +243,16 @@ async function runProfile(browser,[name,viewport,lang,theme]){
       await emptyAction.waitFor({state:'visible'});
       assert.equal(await emptyAction.getAttribute('type'),'button');
       await emptyAction.click();
-      await page.waitForFunction(()=>document.activeElement?.id==='bsAlias','', {timeout:10000});
+      // bcc-operations-v3.js prefixes every operational card id with ops_.
+      await page.waitForFunction(()=>document.activeElement?.id==='ops_bsAlias');
       assert.equal(await page.locator('[data-tool=ssh]').evaluate(d=>d.open),true,'empty-state action opens SSH enrollment');
       assert.equal(apiRequests.filter(x=>x.method!=='GET').length,before,'opening and leaving the empty wizard performs no writes');
-      await page.unroute(overviewURL);await page.unroute(f.base+'api/nodes');
+      }finally{
+        // Restore the real inventory in the app too; the next checks must not
+        // depend on this check's outcome.
+        await page.unroute(overviewURL);await page.unroute(nodesURL);
+        await page.evaluate(()=>window.dispatchEvent(new Event('baft:tunnels-changed')));
+      }
     });
     await check('shared listener Join is explicit and plans only the new tenant',async()=>{
       const tunnels=f.base+'api/tunnels',planEndpoint=f.base+'api/tunnels/plan';

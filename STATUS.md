@@ -15,7 +15,7 @@
 
 ### شواهد میزبانی‌شده روی همین SHA
 
-نه اجرای زیر از GitHub Actions با وضعیت `success` و روی همین HEAD دقیق تکمیل شده‌اند:
+۹ اجرای زیر از GitHub Actions با وضعیت `success` و روی همین HEAD دقیق تکمیل شده‌اند:
 
 - [ci](https://github.com/zarkmakerburg/BAFT/actions/runs/43472903251): SUCCESS
 - [operational recovery](https://github.com/zarkmakerburg/BAFT/actions/runs/43472903271): SUCCESS

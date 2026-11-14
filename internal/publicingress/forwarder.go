@@ -287,13 +287,20 @@ func (f *Forwarder) Serve(parent context.Context, ln net.Listener) error {
 	defer func() { f.mu.Lock(); f.running = false; f.mu.Unlock() }()
 	ctx, cancel := context.WithCancel(parent)
 	var clients sync.WaitGroup
-	stopListener := context.AfterFunc(ctx, func() { _ = ln.Close() })
+	// Every Serve-side close goes through one Once. A second net.Listener
+	// Close returns ErrClosed at once, before a concurrent first Close has
+	// released the kernel socket; Once.Do instead blocks until the first
+	// close completes. Without it Serve (and Runtime.Retire) could return
+	// while the retired socket was still LISTEN (flaky
+	// TestRuntimeIPv4WildcardForwardsAndRetires).
+	closeListener := onceCloser(ln)
+	stopListener := context.AfterFunc(ctx, closeListener)
 	// Periodically recheck for foreign listeners on the same numeric port.
 	// A successful bind or initial inventory snapshot alone is insufficient:
 	// another process may later bind a different IP/family.
 	liveFailures := make(chan error, 1)
 	watchDone := watchLiveTCPListener(ctx, f, ln, liveFailures)
-	defer func() { cancel(); _ = ln.Close(); clients.Wait(); stopListener(); <-watchDone }()
+	defer func() { cancel(); closeListener(); clients.Wait(); stopListener(); <-watchDone }()
 	slots := make(chan struct{}, f.cfg.MaxClients)
 	for {
 		client, err := ln.Accept()
@@ -328,6 +335,14 @@ func (f *Forwarder) Serve(parent context.Context, ln net.Listener) error {
 			_ = client.Close()
 		}
 	}
+}
+
+// onceCloser returns a function that closes ln exactly once. Concurrent and
+// later callers return only after that single Close has returned, which for
+// a net.Listener means its file descriptor has been released.
+func onceCloser(ln io.Closer) func() {
+	var once sync.Once
+	return func() { once.Do(func() { _ = ln.Close() }) }
 }
 
 // activityReader records successful stream reads, regardless of direction.

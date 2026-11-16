@@ -1,6 +1,6 @@
 # BAFT Adversarial Resilience & Intrusion Report
 
-**Verdict: ✅ PASS** · generated 2026-11-15 11:30 UTC · commit `5c71a94e802b` · profile `bounded`
+**Verdict: ✅ PASS** · generated 2026-11-16 12:03 UTC · commit `5c71a94e802b` · profile `bounded`
 
 This report is produced automatically by the periodic resilience tester (`tests/adversary/`). It launches a real BAFT EX/IR pair on loopback and, acting as a censor / DoS attacker and as an on-path intruder, tries to break or penetrate it with real traffic. All scenarios are loopback only and never target any third-party host.
 
@@ -10,9 +10,9 @@ This report is produced automatically by the periodic resilience tester (`tests/
 |---|---|---|---|---|---|---|---|
 | connflood | ✅ | ok | 20 | 19 | 14 | 14 | — |
 | garbage | ✅ | ok | 20 | 20 | 14 | 14 | — |
-| slowloris | ✅ | ok | 21 | 20 | 14 | 14 | — |
-| probe | ✅ | ok | 21 | 20 | 14 | 14 | — |
-| manyflows | ✅ | ok | 24 | 22 | 210 | 210 | — |
+| slowloris | ✅ | ok | 20 | 20 | 14 | 14 | — |
+| probe | ✅ | ok | 19 | 20 | 14 | 14 | — |
+| manyflows | ✅ | ok | 24 | 21 | 189 | 189 | — |
 
 ## 2. Intrusion / penetration attempts
 
@@ -34,8 +34,8 @@ sha=5c71a94e802b87623e7ce5684a402bfeceecd786
 go version go1.27.3 linux/amd64
 Linux runnervmccnms 7.0.0-1019-azure #20-Ubuntu SMP PREEMPT Mon Oct 19 22:41:16 UTC 2026 x86_64 GNU/Linux
 baseline rss: ex=19MB ir=19MB limit=512MB fd_limit=1024
-probe fingerprints (evidence): {'http_get': (352, False), 'random_256': (103, True), 'empty': (0, False), 'baft_hello_prefix': (103, True)}
-probe deterministic: identical input gave the same response (0, False)
+probe fingerprints (evidence): {'http_get': (352, False), 'random_256': (0, False), 'empty': (0, False), 'baft_hello_prefix': (0, False)}
+probe deterministic: identical input gave the same response (103, True)
 ```
 
 ---

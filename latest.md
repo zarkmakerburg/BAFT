@@ -1,6 +1,6 @@
 # BAFT Adversarial Resilience & Intrusion Report
 
-**Verdict: ✅ PASS** · generated 2026-11-20 12:11 UTC · commit `5c71a94e802b` · profile `bounded`
+**Verdict: ✅ PASS** · generated 2026-11-21 11:46 UTC · commit `5c71a94e802b` · profile `bounded`
 
 This report is produced automatically by the periodic resilience tester (`tests/adversary/`). It launches a real BAFT EX/IR pair on loopback and, acting as a censor / DoS attacker and as an on-path intruder, tries to break or penetrate it with real traffic. All scenarios are loopback only and never target any third-party host.
 
@@ -8,11 +8,11 @@ This report is produced automatically by the periodic resilience tester (`tests/
 
 | scenario | result | heal | EX rss MB | IR rss MB | EX fd | IR fd | note |
 |---|---|---|---|---|---|---|---|
-| connflood | ✅ | ok | 20 | 20 | 14 | 14 | — |
-| garbage | ✅ | ok | 20 | 20 | 14 | 14 | — |
-| slowloris | ✅ | ok | 22 | 20 | 14 | 14 | — |
-| probe | ✅ | ok | 20 | 20 | 14 | 14 | — |
-| manyflows | ✅ | ok | 24 | 22 | 158 | 158 | — |
+| connflood | ✅ | ok | 20 | 19 | 14 | 14 | — |
+| garbage | ✅ | ok | 20 | 19 | 14 | 14 | — |
+| slowloris | ✅ | ok | 22 | 21 | 14 | 14 | — |
+| probe | ✅ | ok | 23 | 21 | 14 | 14 | — |
+| manyflows | ✅ | ok | 24 | 23 | 213 | 213 | — |
 
 ## 2. Intrusion / penetration attempts
 
@@ -33,7 +33,7 @@ profile=bounded seconds_per=6 workers=16 conns=300 slowloris=200 noise=1
 sha=5c71a94e802b87623e7ce5684a402bfeceecd786
 go version go1.27.3 linux/amd64
 Linux runnervm0hi8g 7.0.0-1020-azure #21-Ubuntu SMP PREEMPT Tue Oct 27 22:34:38 UTC 2026 x86_64 GNU/Linux
-baseline rss: ex=21MB ir=20MB limit=512MB fd_limit=1024
+baseline rss: ex=19MB ir=20MB limit=512MB fd_limit=1024
 probe fingerprints (evidence): {'http_get': (352, False), 'random_256': (103, True), 'empty': (0, False), 'baft_hello_prefix': (0, False)}
 probe deterministic: identical input gave the same response (103, True)
 ```
